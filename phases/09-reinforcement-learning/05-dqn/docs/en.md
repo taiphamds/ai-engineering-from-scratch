@@ -1,6 +1,6 @@
 # Deep Q-Networks (DQN)
 
-> 2013: Mnih trained one Q-learning network on raw pixels, beat every classical RL agent on seven Atari games. 2015: extended to 49 games, published in Nature, sparked the deep-RL era. DQN is Q-learning plus three tricks that make function approximation stable.
+> 2013: Mnih huấn luyện một mạng Q-learning trên pixel thô, đánh bại mọi agent RL cổ điển trên bảy trò chơi Atari. 2015: mở rộng lên 49 trò chơi, công bố trên Nature, khơi mào kỷ nguyên deep-RL. DQN là Q-learning cộng ba thủ thuật làm xấp xỉ hàm ổn định.
 
 **Type:** Build
 **Languages:** Python
@@ -9,41 +9,41 @@
 
 ## The Problem
 
-Tabular Q-learning needs a separate Q-value for every (state, action) pair. A chess board has ~10⁴³ states. An Atari frame is 210×160×3 = 100,800 features. Tabular RL dies at thousands of states, let alone billions.
+Q-learning dạng bảng cần một giá trị Q riêng cho mỗi cặp (trạng thái, hành động). Một bàn cờ vua có ~10⁴³ trạng thái. Một khung hình Atari là 210×160×3 = 100,800 đặc trưng. RL dạng bảng chết ở hàng nghìn trạng thái, chứ chưa nói hàng tỷ.
 
-The fix is obvious in hindsight: replace the Q-table with a neural network, `Q(s, a; θ)`. But obvious-in-hindsight took decades. Naive function approximation with Q-learning diverges under the "deadly triad" — function approximation + bootstrapping + off-policy learning. Mnih et al. (2013, 2015) identified three engineering tricks that stabilize learning:
+Cách khắc phục hiển nhiên khi nhìn lại: thay bảng Q bằng một mạng nơ-ron, `Q(s, a; θ)`. Nhưng điều hiển nhiên khi nhìn lại đã mất hàng thập kỷ. Xấp xỉ hàm đơn giản với Q-learning phân kỳ dưới "bộ ba chết chóc" — xấp xỉ hàm + bootstrapping + học off-policy. Mnih và cộng sự (2013, 2015) xác định ba thủ thuật kỹ thuật ổn định việc học:
 
-1. **Experience replay** decorrelates transitions.
-2. **Target network** freezes the bootstrap target.
-3. **Reward clipping** normalizes gradient magnitudes.
+1. **Phát lại trải nghiệm** khử tương quan các chuyển tiếp.
+2. **Mạng mục tiêu** đóng băng mục tiêu bootstrap.
+3. **Cắt phần thưởng** chuẩn hóa độ lớn gradient.
 
-DQN on Atari was the first time a single architecture with a single hyperparameter set solved dozens of control problems from raw pixels. Everything "deep-RL" built since — DDQN, Rainbow, Dueling, Distributional, R2D2, Agent57 — is stacked on top of this three-trick base.
+DQN trên Atari là lần đầu tiên một kiến trúc duy nhất với một bộ siêu tham số duy nhất giải hàng chục bài toán điều khiển từ pixel thô. Mọi thứ "deep-RL" được xây dựng từ đó — DDQN, Rainbow, Dueling, Distributional, R2D2, Agent57 — đều được xếp lên nền tảng ba thủ thuật này.
 
 ## The Concept
 
 ![DQN training loop: env, replay buffer, online net, target net, Bellman TD loss](../assets/dqn.svg)
 
-**The objective.** DQN minimizes the one-step TD loss on a neural Q-function:
+**Mục tiêu.** DQN tối thiểu hóa hàm mất mát TD một bước trên một hàm Q nơ-ron:
 
 `L(θ) = E_{(s,a,r,s')~D} [ (r + γ max_{a'} Q(s', a'; θ^-) - Q(s, a; θ))² ]`
 
-`θ` = online network, updated every step by gradient descent. `θ^-` = target network, periodically copied from `θ` (every ~10,000 steps). `D` = replay buffer of past transitions.
+`θ` = mạng trực tuyến, được cập nhật mỗi bước bằng gradient descent. `θ^-` = mạng mục tiêu, được sao chép định kỳ từ `θ` (mỗi ~10,000 bước). `D` = bộ đệm phát lại các chuyển tiếp quá khứ.
 
-**The three tricks, in order of importance:**
+**Ba thủ thuật, theo thứ tự quan trọng:**
 
-**Experience replay.** A ring buffer of `~10⁶` transitions. Each training step samples a minibatch uniformly at random. This breaks temporal correlation (successive frames are nearly identical), lets the network learn from rare rewarding transitions many times, and decorrelates consecutive gradient updates. Without it, on-policy TD with a neural net diverges on Atari.
+**Phát lại trải nghiệm.** Một bộ đệm vòng chứa `~10⁶` chuyển tiếp. Mỗi bước huấn luyện lấy mẫu một minibatch ngẫu nhiên đều. Điều này phá vỡ tương quan thời gian (các khung hình liên tiếp gần như giống hệt), cho phép mạng học nhiều lần từ các chuyển tiếp hiếm có phần thưởng, và khử tương quan các cập nhật gradient liên tiếp. Không có nó, TD on-policy với một mạng nơ-ron phân kỳ trên Atari.
 
-**Target network.** Using the same network `Q(·; θ)` on both sides of the Bellman equation makes the target move every update — "chasing your own tail." The fix: keep a second network `Q(·; θ^-)` with frozen weights. Every `C` steps, copy `θ → θ^-`. This stabilizes the regression target for thousands of gradient steps at a time. Soft updates `θ^- ← τ θ + (1-τ) θ^-` (used in DDPG, SAC) are a smoother variant.
+**Mạng mục tiêu.** Dùng cùng mạng `Q(·; θ)` ở cả hai vế phương trình Bellman khiến mục tiêu di chuyển mỗi lần cập nhật — "đuổi theo đuôi của chính mình." Cách khắc phục: giữ một mạng thứ hai `Q(·; θ^-)` với trọng số đóng băng. Mỗi `C` bước, sao chép `θ → θ^-`. Điều này ổn định mục tiêu hồi quy cho hàng nghìn bước gradient mỗi lần. Cập nhật mềm `θ^- ← τ θ + (1-τ) θ^-` (được dùng trong DDPG, SAC) là một biến thể trơn hơn.
 
-**Reward clipping.** Atari reward magnitudes vary from 1 to 1000+. Clipping to `{-1, 0, +1}` stops any single game from dominating the gradient. Wrong when reward magnitude matters; fine for Atari where only sign matters.
+**Cắt phần thưởng.** Độ lớn phần thưởng Atari thay đổi từ 1 đến 1000+. Cắt về `{-1, 0, +1}` ngăn bất kỳ trò chơi đơn lẻ nào chi phối gradient. Sai khi độ lớn phần thưởng quan trọng; phù hợp cho Atari nơi chỉ dấu là quan trọng.
 
-**Double DQN.** Hasselt (2016) fixes maximization bias: use the online net to *select* the action, the target net to *evaluate* it.
+**Double DQN.** Hasselt (2016) khắc phục độ chệch cực đại hóa: dùng mạng trực tuyến để *chọn* hành động, mạng mục tiêu để *đánh giá* nó.
 
 `target = r + γ Q(s', argmax_{a'} Q(s', a'; θ); θ^-)`
 
-Drop-in replacement, consistently better. Use it by default.
+Thay thế trực tiếp, luôn tốt hơn. Dùng nó theo mặc định.
 
-**Other improvements (Rainbow, 2017):** prioritized replay (sample high-TD-error transitions more), dueling architecture (separate `V(s)` and advantage heads), noisy networks (learned exploration), n-step returns, distributional Q (C51/QR-DQN), multi-step bootstrapping. Each adds a few percent; the gains are roughly additive.
+**Các cải thiện khác (Rainbow, 2017):** phát lại ưu tiên (lấy mẫu nhiều hơn các chuyển tiếp có sai số TD cao), kiến trúc dueling (các head `V(s)` và lợi thế riêng), mạng có nhiễu (khám phá được học), lợi tức n bước, Q phân phối (C51/QR-DQN), bootstrapping nhiều bước. Mỗi thứ thêm vài phần trăm; các mức tăng gần như cộng được.
 
 ```figure
 f3-dqn-stability
@@ -51,7 +51,7 @@ f3-dqn-stability
 
 ## Build It
 
-The code here is stdlib-only numpy-free — we use a hand-rolled single-hidden-layer MLP on a tiny continuous GridWorld, so every training step runs in microseconds. The algorithm is identical to Atari DQN at scale.
+Mã ở đây chỉ dùng stdlib, không numpy — chúng ta dùng một MLP một lớp ẩn tự viết trên một GridWorld liên tục nhỏ, nên mỗi bước huấn luyện chạy trong micro giây. Thuật toán giống hệt DQN Atari ở quy mô lớn.
 
 ### Step 1: replay buffer
 
@@ -68,7 +68,7 @@ class ReplayBuffer:
         return rng.sample(self.buf, batch)
 ```
 
-~50,000 capacity for Atari; 5,000 suffices for our toy env.
+Dung lượng ~50,000 cho Atari; 5,000 đủ cho môi trường đồ chơi của chúng ta.
 
 ### Step 2: a tiny Q-network (manual MLP)
 
@@ -85,7 +85,7 @@ class QNet:
         return q, h
 ```
 
-Forward pass: linear → ReLU → linear. That is the entire net.
+Lượt truyền xuôi: tuyến tính → ReLU → tuyến tính. Đó là toàn bộ mạng.
 
 ### Step 3: the DQN update
 
@@ -104,11 +104,11 @@ def train_step(online, target, batch, gamma, lr):
     apply_sgd(online, grads, lr / len(batch))
 ```
 
-The shape is Q-learning from Lesson 04 with two differences: (a) we backprop through a differentiable `Q(·; θ)` instead of indexing a table, (b) the target uses `Q(·; θ^-)`.
+Cấu trúc là Q-learning từ Bài 04 với hai khác biệt: (a) chúng ta lan truyền ngược qua một `Q(·; θ)` khả vi thay vì truy cập bảng theo chỉ số, (b) mục tiêu dùng `Q(·; θ^-)`.
 
 ### Step 4: the outer loop
 
-For each episode, act ε-greedy on `Q(·; θ)`, push transitions into the buffer, sample a minibatch, take a gradient step, periodically sync `θ^- ← θ`. The pattern:
+Với mỗi episode, hành động ε-greedy trên `Q(·; θ)`, đẩy các chuyển tiếp vào bộ đệm, lấy mẫu một minibatch, thực hiện một bước gradient, đồng bộ định kỳ `θ^- ← θ`. Mô thức:
 
 ```python
 for episode in range(N):
@@ -124,36 +124,36 @@ for episode in range(N):
         s = s_next
 ```
 
-On our tiny GridWorld with a 16-dim one-hot state, the agent learns a near-optimal policy in ~500 episodes. On Atari, scale this to 200M frames and add a CNN feature extractor.
+Trên GridWorld nhỏ của chúng ta với một trạng thái one-hot 16 chiều, agent học một chính sách gần tối ưu trong ~500 episode. Trên Atari, mở rộng điều này lên 200M khung hình và thêm một bộ trích xuất đặc trưng CNN.
 
 ## Pitfalls
 
-- **Deadly triad.** Function approximation + off-policy + bootstrapping can diverge. DQN mitigates with target net + replay; do not remove either.
-- **Exploration.** ε must decay, typically from 1.0 to 0.01 over the first ~10% of training. Without enough early exploration the Q-net converges to a local basin.
-- **Overestimation.** `max` over noisy Q is upward-biased. Always use Double DQN in production.
-- **Reward scale.** Clip or normalize rewards; the gradient magnitude is proportional to reward magnitude.
-- **Replay buffer coldstart.** Don't train until the buffer has a few thousand transitions. Early gradients on ~20 samples overfit.
-- **Target sync frequency.** Too frequent ≈ no target net; too infrequent ≈ stale targets. Atari DQN uses 10,000 env steps. Rule of thumb: sync every ~1/100 of training horizon.
-- **Observation preprocessing.** Atari DQN stacks 4 frames to make state Markov. Any env with velocity info needs frame-stacking or recurrent state.
+- **Bộ ba chết chóc.** Xấp xỉ hàm + off-policy + bootstrapping có thể phân kỳ. DQN giảm nhẹ bằng mạng mục tiêu + replay; đừng bỏ bên nào.
+- **Khám phá.** ε phải giảm dần, thường từ 1.0 xuống 0.01 trong ~10% đầu của huấn luyện. Không có đủ khám phá sớm, mạng Q hội tụ vào một miền hút cục bộ.
+- **Ước lượng quá cao.** `max` trên Q có nhiễu bị chệch lên. Luôn dùng Double DQN trong production.
+- **Thang phần thưởng.** Cắt hoặc chuẩn hóa phần thưởng; độ lớn gradient tỷ lệ với độ lớn phần thưởng.
+- **Khởi động lạnh bộ đệm phát lại.** Đừng huấn luyện cho đến khi bộ đệm có vài nghìn chuyển tiếp. Các gradient sớm trên ~20 mẫu bị overfit.
+- **Tần suất đồng bộ mục tiêu.** Quá thường xuyên ≈ không có mạng mục tiêu; quá thưa ≈ mục tiêu cũ. DQN Atari dùng 10,000 bước môi trường. Quy tắc kinh nghiệm: đồng bộ mỗi ~1/100 chân trời huấn luyện.
+- **Tiền xử lý quan sát.** DQN Atari xếp chồng 4 khung hình để làm trạng thái Markov. Bất kỳ môi trường nào có thông tin vận tốc đều cần xếp chồng khung hình hoặc trạng thái hồi tiếp.
 
 ## Use It
 
-In 2026, DQN is rarely state-of-the-art but remains the reference off-policy algorithm:
+Vào năm 2026, DQN hiếm khi tiên tiến nhất nhưng vẫn là thuật toán off-policy tham chiếu:
 
-| Task | Method of choice | Why not DQN? |
+| Tác vụ | Phương pháp được chọn | Vì sao không DQN? |
 |------|------------------|--------------|
-| Discrete-action Atari-like | Rainbow DQN or Muesli | Same framework, more tricks. |
-| Continuous control | SAC / TD3 (Phase 9 · 07) | DQN has no policy network. |
-| On-policy / high-throughput | PPO (Phase 9 · 08) | No replay buffer; easier to scale. |
-| Offline RL | CQL / IQL / Decision Transformer | Conservative Q targets, no bootstrapping blowups. |
-| Large discrete action spaces (recommender) | DQN with action embedding, or IMPALA | Fine; decoration matters. |
-| LLM RL | PPO / GRPO | Sequence-level, not step-level; different loss. |
+| Hành động rời rạc kiểu Atari | Rainbow DQN hoặc Muesli | Cùng khung, nhiều thủ thuật hơn. |
+| Điều khiển liên tục | SAC / TD3 (Giai đoạn 9 · 07) | DQN không có mạng chính sách. |
+| On-policy / thông lượng cao | PPO (Giai đoạn 9 · 08) | Không bộ đệm phát lại; dễ mở rộng quy mô hơn. |
+| RL ngoại tuyến | CQL / IQL / Decision Transformer | Mục tiêu Q bảo thủ, không bùng nổ bootstrapping. |
+| Không gian hành động rời rạc lớn (bộ đề xuất) | DQN với embedding hành động, hoặc IMPALA | Phù hợp; phần bổ sung quan trọng. |
+| RL cho LLM | PPO / GRPO | Cấp chuỗi, không phải cấp bước; hàm mất mát khác. |
 
-The lessons still travel. Replay and target networks appear in SAC, TD3, DDPG, SAC-X, AlphaZero's self-play buffer, and every offline RL method. Reward clipping lives on as advantage normalization in PPO. The architecture is the blueprint.
+Các bài học vẫn lan tỏa. Replay và mạng mục tiêu xuất hiện trong SAC, TD3, DDPG, SAC-X, bộ đệm tự chơi của AlphaZero, và mọi phương pháp RL ngoại tuyến. Cắt phần thưởng tiếp tục tồn tại như chuẩn hóa lợi thế trong PPO. Kiến trúc là bản thiết kế.
 
 ## Ship It
 
-Save as `outputs/skill-dqn-trainer.md`:
+Lưu thành `outputs/skill-dqn-trainer.md`:
 
 ```markdown
 ---
@@ -179,29 +179,29 @@ Refuse to ship a DQN with no target network, no replay buffer, or ε held at 1. 
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. Plot the per-episode return curve. How many episodes until the running mean exceeds -10?
-2. **Medium.** Disable the target network (use the online net for both sides of the Bellman target). Measure training instability — does return oscillate or diverge?
-3. **Hard.** Add Double DQN: use the online net to pick `argmax a'`, target net to evaluate. Compare bias of `Q(s_0, best_a)` vs true `V*(s_0)` after 1,000 episodes with vs without Double DQN on a noisy-reward GridWorld.
+1. **Dễ.** Chạy `code/main.py`. Vẽ đường cong lợi tức theo episode. Bao nhiêu episode cho đến khi trung bình tích lũy vượt -10?
+2. **Trung bình.** Tắt mạng mục tiêu (dùng mạng trực tuyến cho cả hai vế của mục tiêu Bellman). Đo tính không ổn định huấn luyện — lợi tức dao động hay phân kỳ?
+3. **Khó.** Thêm Double DQN: dùng mạng trực tuyến để chọn `argmax a'`, mạng mục tiêu để đánh giá. So sánh độ chệch của `Q(s_0, best_a)` với `V*(s_0)` thật sau 1,000 episode khi có so với không có Double DQN trên một GridWorld phần thưởng có nhiễu.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| DQN | "Deep Q-learning" | Q-learning with a neural Q-function, replay buffer, and target network. |
-| Experience replay | "Shuffled transitions" | Ring buffer sampled uniformly each gradient step; decorrelates data. |
-| Target network | "Frozen bootstrap" | Periodic copy of Q used in the Bellman target; stabilizes training. |
-| Deadly triad | "Why RL diverges" | Function approximation + bootstrapping + off-policy = no convergence guarantee. |
-| Double DQN | "Fix for maximization bias" | Online net selects action, target net evaluates it. |
-| Dueling DQN | "V and A heads" | Decompose Q = V + A - mean(A); same output, better gradient flow. |
-| Rainbow | "All the tricks" | DDQN + PER + dueling + n-step + noisy + distributional in one. |
-| PER | "Prioritized Replay" | Sample transitions proportional to TD-error magnitude. |
+| DQN | "Q-learning sâu" | Q-learning với một hàm Q nơ-ron, bộ đệm phát lại và mạng mục tiêu. |
+| Experience replay (Phát lại trải nghiệm) | "Các chuyển tiếp được xáo trộn" | Bộ đệm vòng được lấy mẫu đều mỗi bước gradient; khử tương quan dữ liệu. |
+| Target network (Mạng mục tiêu) | "Bootstrap đóng băng" | Bản sao định kỳ của Q dùng trong mục tiêu Bellman; ổn định huấn luyện. |
+| Deadly triad (Bộ ba chết chóc) | "Vì sao RL phân kỳ" | Xấp xỉ hàm + bootstrapping + off-policy = không bảo đảm hội tụ. |
+| Double DQN | "Cách khắc phục độ chệch cực đại hóa" | Mạng trực tuyến chọn hành động, mạng mục tiêu đánh giá nó. |
+| Dueling DQN | "Các head V và A" | Phân rã Q = V + A - mean(A); cùng đầu ra, luồng gradient tốt hơn. |
+| Rainbow | "Tất cả thủ thuật" | DDQN + PER + dueling + n-step + noisy + distributional trong một. |
+| PER | "Phát lại ưu tiên" | Lấy mẫu các chuyển tiếp tỷ lệ với độ lớn sai số TD. |
 
 ## Further Reading
 
-- [Mnih et al. (2013). Playing Atari with Deep Reinforcement Learning](https://arxiv.org/abs/1312.5602) — the 2013 NeurIPS workshop paper that kicked off deep RL.
-- [Mnih et al. (2015). Human-level control through deep reinforcement learning](https://www.nature.com/articles/nature14236) — the Nature paper, 49-game DQN.
+- [Mnih et al. (2013). Playing Atari with Deep Reinforcement Learning](https://arxiv.org/abs/1312.5602) — bài báo workshop NeurIPS năm 2013 khởi đầu RL sâu.
+- [Mnih et al. (2015). Human-level control through deep reinforcement learning](https://www.nature.com/articles/nature14236) — bài báo Nature, DQN 49 trò chơi.
 - [Hasselt, Guez, Silver (2016). Deep Reinforcement Learning with Double Q-learning](https://arxiv.org/abs/1509.06461) — DDQN.
-- [Wang et al. (2016). Dueling Network Architectures](https://arxiv.org/abs/1511.06581) — dueling DQN.
-- [Hessel et al. (2018). Rainbow: Combining Improvements in Deep RL](https://arxiv.org/abs/1710.02298) — the stacked-tricks paper.
-- [Sutton & Barto (2018). Ch. 9 — On-policy Prediction with Approximation](http://incompleteideas.net/book/RLbook2020.pdf) — the textbook treatment of the "deadly triad" (function approximation + bootstrapping + off-policy) that DQN's target network and replay buffer are designed to tame.
-- [CleanRL DQN implementation](https://docs.cleanrl.dev/rl-algorithms/dqn/) — reference single-file DQN used in ablation studies; good to read alongside this lesson's from-scratch version.
+- [Wang et al. (2016). Dueling Network Architectures](https://arxiv.org/abs/1511.06581) — DQN dueling.
+- [Hessel et al. (2018). Rainbow: Combining Improvements in Deep RL](https://arxiv.org/abs/1710.02298) — bài báo xếp chồng thủ thuật.
+- [Sutton & Barto (2018). Ch. 9 — On-policy Prediction with Approximation](http://incompleteideas.net/book/RLbook2020.pdf) — cách trình bày trong giáo trình về "bộ ba chết chóc" (xấp xỉ hàm + bootstrapping + off-policy) mà mạng mục tiêu và bộ đệm phát lại của DQN được thiết kế để chế ngự.
+- [CleanRL DQN implementation](https://docs.cleanrl.dev/rl-algorithms/dqn/) — DQN tham chiếu một file được dùng trong các nghiên cứu loại bỏ thành phần; tốt để đọc cùng phiên bản từ đầu của bài học này.
