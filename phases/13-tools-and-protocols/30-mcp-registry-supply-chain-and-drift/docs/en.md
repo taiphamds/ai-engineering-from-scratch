@@ -1,6 +1,6 @@
 # MCP Registry Supply Chain: Admission, Drift, and Rollback
 
-> A registry entry tells you what a publisher declared. Production admission proves what you fetched, what you observed, what you approved, and what you can safely restore.
+> Mục registry cho biết nhà phát hành khai báo gì. Tiếp nhận sản xuất chứng minh bạn lấy gì, quan sát gì, phê duyệt gì và khôi phục an toàn được gì.
 
 **Type:** Build
 **Languages:** Python
@@ -9,44 +9,44 @@
 
 ## Learning Objectives
 
-- Separate Registry publication, package provenance, runtime discovery, and local approval.
-- Verify an MCP server namespace without trusting the name inside its own record.
-- Pin immutable publication, execution-source, provenance, and live descriptor evidence.
-- Detect registry status changes and runtime drift after admission.
-- Roll back routing to a previously admitted version without rewriting history.
-- Maintain a tamper-evident admission ledger that explains every decision.
+- Tách công bố Registry, xuất xứ gói, khám phá runtime và phê duyệt cục bộ.
+- Xác minh không gian tên máy chủ MCP không tin tên trong bản ghi riêng.
+- Ghim bằng chứng công bố, nguồn thực thi, xuất xứ và bộ mô tả trực tiếp bất biến.
+- Phát hiện đổi trạng thái registry và sai lệch runtime sau tiếp nhận.
+- Hoàn tác định tuyến về phiên bản đã tiếp nhận trước không viết lại lịch sử.
+- Duy trì sổ tiếp nhận phát hiện sửa đổi giải thích mọi quyết định.
 
 ## The Problem
 
-You find `com.example/inventory` in a registry. Its description looks right. Its package exists. The server answers `server/discover`.
+Bạn tìm `com.example/inventory` trong registry. Mô tả trông đúng. Gói tồn tại. Máy chủ trả lời `server/discover`.
 
-That is not one fact. It is a chain of facts from different authorities:
+Không phải một sự thật. Là chuỗi sự thật từ thẩm quyền khác nhau:
 
-1. A publisher authenticated for a namespace submitted a record.
-2. A package registry served an artifact with a specific identity and digest.
-3. A running endpoint reported a protocol version, capabilities, tools, and diagnostic server information.
-4. Your organization decided that this exact combination was allowed.
+1. Nhà phát hành xác thực cho không gian tên đã nộp bản ghi.
+2. Registry gói phục vụ sản phẩm có danh tính và bản băm cụ thể.
+3. Endpoint đang chạy báo phiên bản giao thức, khả năng, công cụ và thông tin máy chủ chẩn đoán.
+4. Tổ chức bạn quyết định đúng kết hợp này được phép.
 
-Collapsing those facts into “it is in the registry, so trust it” creates a supply chain blind spot. A valid publication can still be deprecated. A package tag can point at an unexpected artifact if you do not pin its digest. A server can add a destructive tool after review. A rollback can silently choose a version that was never admitted.
+Gộp thành “ở trong registry nên tin” tạo điểm mù chuỗi cung ứng. Công bố hợp lệ vẫn có thể ngừng được khuyến nghị. Tag gói có thể trỏ sản phẩm ngoài dự kiến nếu không ghim bản băm. Máy chủ có thể thêm công cụ phá hủy sau xem xét. Hoàn tác có thể âm thầm chọn phiên bản chưa từng tiếp nhận.
 
-The fix is an admission controller with evidence at every boundary.
+Cách sửa là bộ kiểm soát tiếp nhận có bằng chứng tại mọi ranh giới.
 
 ## The Registry Is an Index, Not Your Approval System
 
-The official MCP Registry stores server metadata. Its `server.json` record names a server version and declares one or more packages or remote endpoints. Publication rules add namespace authentication, package ownership checks, restricted registry rules, and a narrow publisher metadata location.
+MCP Registry chính thức lưu siêu dữ liệu máy chủ. Bản ghi `server.json` nêu phiên bản máy chủ và khai báo một hoặc nhiều gói hoặc endpoint từ xa. Quy tắc công bố thêm xác thực không gian tên, kiểm tra sở hữu gói, quy tắc registry hạn chế và vị trí siêu dữ liệu nhà phát hành hẹp.
 
-Those controls answer publication questions. Your production policy still answers deployment questions:
+Kiểm soát đó trả câu hỏi công bố. Chính sách sản xuất vẫn trả câu hỏi triển khai:
 
-| Boundary | Question | Evidence owner |
+| Ranh giới | Câu hỏi | Bên sở hữu bằng chứng |
 |---|---|---|
-| Namespace | Was the publisher allowed to use this name? | Registry authentication plus your verified namespace input |
-| Record | What did the publisher declare for this version? | Immutable `server.json` digest |
-| Execution source | Which package or remote endpoint will execute? | Declared source fields, verified ownership result, transport, and trusted digest |
-| Runtime | What does the endpoint expose now? | `server/discover` and tool descriptors |
-| Admission | Did your policy approve this exact set? | Local pin and ledger entry |
-| Operations | Is it still safe, and what can replace it? | Drift checks, status sync, health, and rollback route |
+| Không gian tên | Nhà phát hành được dùng tên này không? | Xác thực Registry cộng đầu vào không gian tên đã xác minh của bạn |
+| Bản ghi | Nhà phát hành khai báo gì cho phiên bản này? | Bản băm `server.json` bất biến |
+| Nguồn thực thi | Gói hoặc endpoint từ xa nào sẽ thực thi? | Trường nguồn khai báo, kết quả sở hữu xác minh, vận chuyển và bản băm đáng tin |
+| Runtime | Endpoint hiện đưa gì ra? | `server/discover` và bộ mô tả công cụ |
+| Tiếp nhận | Chính sách phê duyệt đúng tập này chưa? | Ghim cục bộ và mục sổ |
+| Vận hành | Còn an toàn không và thứ gì thay được? | Kiểm tra sai lệch, đồng bộ trạng thái, sức khỏe và tuyến hoàn tác |
 
-The Registry schema version and the MCP protocol version are independent. A record may use the published `2025-12-11` server schema while the live server supports MCP `2026-07-28`. Never infer one from the other.
+Phiên bản lược đồ Registry và phiên bản giao thức MCP độc lập. Bản ghi có thể dùng lược đồ máy chủ `2025-12-11` công bố trong khi máy chủ trực tiếp hỗ trợ MCP `2026-07-28`. Không bao giờ suy bên này từ bên kia.
 
 ```figure
 mcp-registry-admission
@@ -56,39 +56,39 @@ mcp-registry-admission
 
 ### 1. Namespace verification
 
-Official Registry names use authenticated namespaces. A verified domain can map to a reversed domain prefix. For example, control of `example.com` can establish `com.example/*`.
+Tên Registry chính thức dùng không gian tên xác thực. Miền xác minh có thể ánh xạ tiền tố miền đảo. Ví dụ kiểm soát `example.com` có thể thiết lập `com.example/*`.
 
-Do not accept a string prefix check:
+Không nhận kiểm tra tiền tố chuỗi:
 
 ```python
 server_name.startswith("com.example")
 ```
 
-That also accepts `com.exampleevil/tool`. Split the name at `/`, require a non-empty slug, and compare the namespace segment exactly. More importantly, pass the verified namespace into admission from the authentication result. Do not derive trust from the untrusted record.
+Cũng nhận `com.exampleevil/tool`. Tách tên ở `/`, yêu cầu slug không rỗng và so đoạn không gian tên chính xác. Quan trọng hơn, truyền không gian tên xác minh vào tiếp nhận từ kết quả xác thực. Không suy tin cậy từ bản ghi không đáng tin.
 
-GitHub-backed namespaces and domain-backed namespaces use different authentication paths. Normalize either path into one admission input: the exact verified namespace string.
+Không gian tên dựa GitHub và dựa miền dùng nhánh xác thực khác. Chuẩn hóa mỗi nhánh thành một đầu vào tiếp nhận: đúng chuỗi không gian tên xác minh.
 
 ### 2. Provenance join
 
-For a package record, the declaration and fetched artifact must join on explicit fields:
+Với bản ghi gói, khai báo và sản phẩm lấy phải nối trên trường tường minh:
 
-- package registry type
-- package identifier
-- package version
-- verified ownership result
-- downloaded artifact digest
+- loại registry gói
+- định danh gói
+- phiên bản gói
+- kết quả sở hữu xác minh
+- bản băm sản phẩm tải
 
-Also validate the declared package transport. A record with only a remote endpoint is valid and must not be rejected for lacking a package. For a remote source, join the declared URL and transport type to independently verified endpoint ownership and a digest of the trusted connection or deployment evidence.
+Cũng xác thực vận chuyển gói khai báo. Bản ghi chỉ endpoint từ xa hợp lệ và không được từ chối vì thiếu gói. Với nguồn từ xa, nối URL khai báo và loại vận chuyển với sở hữu endpoint xác minh độc lập và bản băm bằng chứng kết nối hoặc triển khai đáng tin.
 
-The lesson code supports both source kinds and hashes the selected source together with the Registry source, server name, Registry version, record digest, and evidence digest. The resulting provenance digest is a compact pointer to the full evidence set. It is not a substitute for retaining the evidence.
+Mã bài hỗ trợ cả hai loại nguồn và hash nguồn chọn cùng nguồn Registry, tên máy chủ, phiên bản Registry, bản băm bản ghi và bản băm bằng chứng. Bản băm xuất xứ kết quả là con trỏ gọn đến toàn tập bằng chứng. Không thay giữ bằng chứng.
 
-Never accept a digest supplied only by the artifact you are trying to verify. Calculate it at a trusted fetch boundary, or receive it from a package service whose verification result you validate.
+Không bao giờ nhận bản băm chỉ do sản phẩm đang cố xác minh cung cấp. Tính tại ranh giới lấy đáng tin hoặc nhận từ dịch vụ gói có kết quả xác minh bạn xác thực.
 
 ### 3. Pin the decision, not only the version
 
-Registry versions are unique publication identifiers. Published metadata is immutable. A changed record requires a new version. Semantic versioning is recommended, but the Registry does not require it and does not accept version ranges.
+Phiên bản Registry là định danh công bố duy nhất. Siêu dữ liệu đã công bố bất biến. Bản ghi đổi cần phiên bản mới. Semantic versioning được khuyến nghị, nhưng Registry không bắt buộc và không nhận dải phiên bản.
 
-This means `^1.4` is not an admission pin. Neither is “latest.” A useful pin contains:
+Nghĩa là `^1.4` không ghim tiếp nhận. “latest” cũng không. Ghim hữu ích chứa:
 
 ```json
 {
@@ -103,77 +103,77 @@ This means `^1.4` is not an admission pin. Neither is “latest.” A useful pin
 }
 ```
 
-Pinning several layers lets you identify which boundary changed. A record digest change under the same Registry version is a Registry integrity failure. A source digest change under the same package coordinate or remote deployment is an execution-source integrity failure. A toolset digest change is runtime drift.
+Ghim nhiều tầng cho xác định ranh giới nào đổi. Bản băm bản ghi đổi dưới cùng phiên bản Registry là thất bại toàn vẹn Registry. Bản băm nguồn đổi dưới cùng tọa độ gói hoặc triển khai từ xa là thất bại toàn vẹn nguồn thực thi. Bản băm tập công cụ đổi là sai lệch runtime.
 
 ### 4. Live drift detection
 
-Admission should observe the server that will actually receive traffic. Call `server/discover`, list or otherwise obtain the exposed tool descriptors through your trusted path, and verify:
+Tiếp nhận nên quan sát máy chủ thực sự nhận lưu lượng. Gọi `server/discover`, liệt kê hoặc lấy bộ mô tả công cụ đưa ra qua nhánh đáng tin và xác minh:
 
-- `2026-07-28` is in `supportedVersions`
-- all locally required capabilities are present
-- every tool descriptor has the required identity and schema surface
-- the normalized descriptor digest matches the admitted pin on later checks
+- `2026-07-28` trong `supportedVersions`
+- mọi khả năng yêu cầu cục bộ có
+- mọi bộ mô tả công cụ có bề mặt danh tính và lược đồ bắt buộc
+- bản băm bộ mô tả chuẩn hóa khớp ghim tiếp nhận trên kiểm tra sau
 
-The optional result `_meta["io.modelcontextprotocol/serverInfo"]` value is self-reported display, log, and debugging context. Record it as diagnostic evidence, but never use it to establish namespace, package ownership, endpoint ownership, admission, or any other security decision. A direct `serverInfo` alias outside `_meta` is not the contract field and should not be promoted into diagnostic evidence.
+Giá trị kết quả tùy chọn `_meta["io.modelcontextprotocol/serverInfo"]` là ngữ cảnh hiển thị, nhật ký và gỡ lỗi tự khai. Ghi làm bằng chứng chẩn đoán, nhưng không bao giờ dùng thiết lập không gian tên, sở hữu gói, sở hữu endpoint, tiếp nhận hoặc mọi quyết định bảo mật khác. Bí danh `serverInfo` trực tiếp ngoài `_meta` không phải trường hợp đồng và không nên nâng thành bằng chứng chẩn đoán.
 
-Normalize only fields whose order has no meaning. The sample sorts the tool list by stable name before hashing, so a harmless list-order change does not cause drift. It does not discard descriptor fields. A new tool, changed schema, changed description, or new annotations changes the pin.
+Chỉ chuẩn hóa trường có thứ tự không mang nghĩa. Mẫu sắp danh sách công cụ theo tên ổn định trước hash, nên đổi thứ tự danh sách vô hại không gây sai lệch. Không bỏ trường bộ mô tả. Công cụ mới, lược đồ đổi, mô tả đổi hoặc chú giải mới đổi ghim.
 
-The sample treats malformed descriptors and any descriptor digest change as drift, quarantines the pin, removes its active route, and blocks that version as a rollback target. A production policy may allow an editorial change only through a new review, because descriptions influence model tool selection. “Cosmetic” metadata can alter agent behavior.
+Mẫu coi bộ mô tả sai dạng và mọi đổi bản băm bộ mô tả là sai lệch, cách ly ghim, bỏ tuyến hoạt động và chặn phiên bản đó làm đích hoàn tác. Chính sách sản xuất chỉ có thể cho đổi biên tập qua đánh giá mới vì mô tả ảnh hưởng mô hình chọn công cụ. Siêu dữ liệu “thẩm mỹ” có thể đổi hành vi agent.
 
 ### 5. Registry status is live state
 
-The Registry API attaches a response-level `_meta` object beside each server record. Registry-managed fields live under `_meta["io.modelcontextprotocol.registry/official"]`. Pass the response `_meta` object to admission and read `_meta["io.modelcontextprotocol.registry/official"].status`. A direct `_meta.status` value is not the official wire shape. Do not confuse response metadata with the publication record's own `_meta`. Status can be:
+API Registry gắn đối tượng `_meta` cấp phản hồi cạnh mỗi bản ghi máy chủ. Trường do Registry quản lý nằm dưới `_meta["io.modelcontextprotocol.registry/official"]`. Truyền đối tượng `_meta` phản hồi vào tiếp nhận và đọc `_meta["io.modelcontextprotocol.registry/official"].status`. Giá trị `_meta.status` trực tiếp không phải hình dạng đường truyền chính thức. Không nhầm siêu dữ liệu phản hồi với `_meta` riêng bản ghi công bố. Trạng thái có thể:
 
-- `active`: returned by default and eligible for local admission
-- `deprecated`: still discoverable with a warning, but no longer a safe automatic choice
-- `deleted`: hidden by default while its historical record remains available through deleted or incremental views
+- `active`: trả mặc định và đủ điều kiện tiếp nhận cục bộ
+- `deprecated`: vẫn khám phá được với cảnh báo nhưng không còn lựa chọn tự động an toàn
+- `deleted`: ẩn mặc định trong khi bản ghi lịch sử còn sẵn qua view xóa hoặc tăng dần
 
-Sync status after admission. If an active version becomes deprecated or deleted, quarantine its pin and stop routing new work to it. Keep the evidence. Deletion from the default listing is not permission to erase your audit trail.
+Đồng bộ trạng thái sau tiếp nhận. Nếu phiên bản hoạt động thành ngừng khuyến nghị hoặc xóa, cách ly ghim và dừng định tuyến công việc mới. Giữ bằng chứng. Xóa khỏi danh sách mặc định không là quyền xóa dấu kiểm toán.
 
-Publisher-provided custom metadata belongs only under `_meta.io.modelcontextprotocol.registry/publisher-provided` in a publication record. Registry-managed response metadata is separate. Do not let a publisher set its own official status.
+Siêu dữ liệu tùy chỉnh nhà phát hành cung cấp chỉ thuộc `_meta.io.modelcontextprotocol.registry/publisher-provided` trong bản ghi công bố. Siêu dữ liệu phản hồi do Registry quản lý riêng. Không cho nhà phát hành tự đặt trạng thái chính thức.
 
 ### 6. Rollback means route restoration
 
-An immutable publication is not edited during rollback. Rollback selects a previously admitted, currently eligible pin and changes the active route.
+Công bố bất biến không sửa trong hoàn tác. Hoàn tác chọn ghim đã tiếp nhận trước, hiện đủ điều kiện và đổi tuyến hoạt động.
 
-A safe target must:
+Đích an toàn phải:
 
-1. Have a completed admission record.
-2. Still have an active Registry status under your policy.
-3. Not be quarantined by runtime or security evidence.
-4. Still resolve to the pinned package and live descriptor set.
-5. Pass current health checks.
+1. Có bản ghi tiếp nhận hoàn tất.
+2. Vẫn có trạng thái Registry hoạt động dưới chính sách.
+3. Không bị cách ly bởi bằng chứng runtime hoặc bảo mật.
+4. Vẫn phân giải đến gói ghim và tập bộ mô tả trực tiếp.
+5. Qua kiểm tra sức khỏe hiện tại.
 
-The sample focuses on the first three conditions. A real reconciler should re-fetch the package and re-check the live endpoint before activation.
+Mẫu tập trung ba điều kiện đầu. Bộ đối soát thật nên lấy lại gói và kiểm tra lại endpoint trực tiếp trước kích hoạt.
 
 ### 7. Append an admission ledger
 
-An admission database says what is active. A ledger explains why.
+Cơ sở dữ liệu tiếp nhận nói gì đang hoạt động. Sổ giải thích tại sao.
 
-Each sample entry contains a sequence, time, event, server, version, outcome, reasons, evidence, the previous entry hash, and its own hash. Changing an older outcome breaks verification of that entry and every later link.
+Mỗi mục mẫu chứa thứ tự, thời gian, sự kiện, máy chủ, phiên bản, kết quả, lý do, bằng chứng, hash mục trước và hash riêng. Đổi kết quả cũ phá xác minh mục đó và mọi liên kết sau.
 
-This is tamper-evident, not magically tamper-proof. Anchor periodic ledger heads in a separate trust domain, such as signed release metadata or write-once storage. Restrict who can append. Keep authorization tokens, package credentials, tool arguments, and private endpoint data out of evidence.
+Đây là phát hiện sửa đổi, không chống sửa đổi thần kỳ. Neo đầu sổ định kỳ trong miền tin cậy riêng như siêu dữ liệu phát hành có chữ ký hoặc lưu trữ ghi một lần. Hạn chế ai thêm được. Giữ token cấp quyền, thông tin xác thực gói, đối số công cụ và dữ liệu endpoint riêng ngoài bằng chứng.
 
 ## Build It
 
-The runnable controller is in `code/main.py`. It uses only the Python standard library.
+Bộ kiểm soát chạy được trong `code/main.py`. Chỉ dùng thư viện chuẩn Python.
 
-Start with the finite demonstration:
+Bắt đầu bằng minh họa hữu hạn:
 
 ```bash
 cd phases/13-tools-and-protocols/30-mcp-registry-supply-chain-and-drift
 python3 code/main.py
 ```
 
-The demonstration performs five operations:
+Minh họa thực hiện năm thao tác:
 
-1. Admit `1.0.0` with matching namespace, package provenance, protocol, capabilities, and tools.
-2. Admit `1.1.0` and make it active.
-3. Observe an unexpected delete tool at runtime.
-4. Observe the Registry status for `1.1.0` become `deprecated`.
-5. Restore routing to the still-admitted `1.0.0` pin.
+1. Tiếp nhận `1.0.0` với không gian tên, xuất xứ gói, giao thức, khả năng và công cụ khớp.
+2. Tiếp nhận `1.1.0` và làm hoạt động.
+3. Quan sát công cụ xóa ngoài dự kiến lúc runtime.
+4. Quan sát trạng thái Registry của `1.1.0` thành `deprecated`.
+5. Khôi phục định tuyến về ghim `1.0.0` vẫn tiếp nhận.
 
-Expected shape:
+Hình dạng kỳ vọng:
 
 ```json
 {
@@ -185,19 +185,19 @@ Expected shape:
 }
 ```
 
-Read the implementation in this order:
+Đọc triển khai theo thứ tự:
 
-1. `namespace_for_domain()` and `namespace_matches()` establish exact naming authority.
-2. `digest()` and `normalized_tools()` produce deterministic evidence.
-3. `RegistryAdmissionController.admit()` joins publication, provenance, runtime, and policy.
-4. `check_live()` compares a new observation with the pin.
-5. `observe_registry_status()` quarantines versions whose Registry state changes.
-6. `rollback()` activates only a previously admitted eligible target.
-7. `AdmissionLedger.verify()` detects changes to recorded history.
+1. `namespace_for_domain()` và `namespace_matches()` thiết lập thẩm quyền đặt tên chính xác.
+2. `digest()` và `normalized_tools()` tạo bằng chứng tất định.
+3. `RegistryAdmissionController.admit()` nối công bố, xuất xứ, runtime và chính sách.
+4. `check_live()` so quan sát mới với ghim.
+5. `observe_registry_status()` cách ly phiên bản có trạng thái Registry đổi.
+6. `rollback()` chỉ kích hoạt đích đủ điều kiện đã tiếp nhận trước.
+7. `AdmissionLedger.verify()` phát hiện đổi lịch sử ghi.
 
 ## Use It
 
-Put the controller between discovery and routing:
+Đặt bộ kiểm soát giữa khám phá và định tuyến:
 
 ```text
 Registry sync -> artifact verifier -> live discovery -> admission controller -> route table
@@ -206,26 +206,26 @@ Registry sync -> artifact verifier -> live discovery -> admission controller -> 
                                           evidence store    admission ledger
 ```
 
-Use separate identities for these jobs. A Registry sync worker needs read access to metadata. An artifact verifier needs package fetch access. A route reconciler needs permission to activate an approved pin. None of them needs every credential.
+Dùng danh tính riêng cho công việc này. Worker đồng bộ Registry cần quyền đọc siêu dữ liệu. Bộ xác minh sản phẩm cần quyền lấy gói. Bộ đối soát tuyến cần quyền kích hoạt ghim phê duyệt. Không bên nào cần mọi thông tin xác thực.
 
-Make rollout state explicit. “Approved” means the evidence passed policy. “Active” means the route currently selects it. “Quarantined” means it cannot receive new work. “Superseded” means another admitted version is active. Do not encode all four meanings in one Boolean.
+Làm trạng thái triển khai tường minh. “Phê duyệt” nghĩa bằng chứng qua chính sách. “Hoạt động” nghĩa tuyến hiện chọn nó. “Cách ly” nghĩa không nhận công việc mới. “Bị thay thế” nghĩa phiên bản tiếp nhận khác đang hoạt động. Không mã hóa cả bốn trong một Boolean.
 
-Run admission before exposing a server in `tools/list`. Otherwise a client can discover a tool during the gap between publication and policy evaluation.
+Chạy tiếp nhận trước đưa máy chủ trong `tools/list`. Nếu không client có thể khám phá công cụ trong khoảng giữa công bố và đánh giá chính sách.
 
 ## Interactive Lab
 
-You will watch one boundary fail at a time.
+Bạn sẽ quan sát một ranh giới thất bại mỗi lần.
 
 ### Lab A: namespace collision
 
-Open a Python shell from the code directory:
+Mở shell Python từ thư mục mã:
 
 ```bash
 cd phases/13-tools-and-protocols/30-mcp-registry-supply-chain-and-drift/code
 python3 -q
 ```
 
-Then run:
+Rồi chạy:
 
 ```python
 from main import namespace_matches
@@ -233,7 +233,7 @@ namespace_matches("com.example/inventory", "com.example")
 namespace_matches("com.exampleevil/inventory", "com.example")
 ```
 
-The first result is `True`; the second is `False`. Replace the exact comparison with `startswith` locally and observe why the second name crosses the boundary. Restore the exact comparison before continuing.
+Kết quả đầu `True`; thứ hai `False`. Thay so chính xác bằng `startswith` cục bộ và quan sát tại sao tên thứ hai vượt ranh giới. Khôi phục so chính xác trước tiếp tục.
 
 ### Lab B: descriptor drift
 
@@ -246,11 +246,11 @@ c.admit(sample_record("1.0.0"), meta, "com.example", evidence_for("1.0.0"), samp
 c.check_live("com.example/inventory", "1.0.0", sample_live("1.0.0", True))
 ```
 
-Inspect the reasons and route state. The package and Registry record did not change. The runtime tool surface did, so the controller quarantined and deactivated the pin. This is why supply chain control must continue after installation.
+Kiểm tra lý do và trạng thái tuyến. Gói và bản ghi Registry không đổi. Bề mặt công cụ runtime đổi, nên bộ kiểm soát cách ly và ngừng kích hoạt ghim. Vì vậy kiểm soát chuỗi cung ứng phải tiếp tục sau cài.
 
 ### Lab C: status and rollback
 
-Admit `1.1.0`, mark it deprecated, and try both rollback targets:
+Tiếp nhận `1.1.0`, đánh dấu ngừng khuyến nghị và thử cả hai đích hoàn tác:
 
 ```python
 c.admit(sample_record("1.1.0"), meta, "com.example", evidence_for("1.1.0"), sample_live("1.1.0"))
@@ -260,30 +260,30 @@ c.rollback("com.example/inventory", "1.0.0", "restore known release")
 c.ledger.verify()
 ```
 
-The quarantined target is rejected. The earlier active pin is accepted. The ledger remains valid.
+Đích cách ly bị từ chối. Ghim hoạt động trước được chấp nhận. Sổ còn hợp lệ.
 
 ## Practice Lab
 
-Extend the controller with a two-person approval gate.
+Mở rộng bộ kiểm soát với cổng phê duyệt hai người.
 
-Requirements:
+Yêu cầu:
 
-- Store approvals as signed evidence references, not mutable names in the pin.
-- Require two different reviewer identities for a toolset that contains a tool with `destructiveHint: true`.
-- Reject duplicate reviewer identities.
-- Preserve the original admission attempt in the ledger when approval is incomplete.
-- Add tests for zero, one, duplicate, and two distinct approvals.
-- Do not log signatures, credentials, or full private tool arguments.
+- Lưu phê duyệt dưới tham chiếu bằng chứng có chữ ký, không tên thay đổi được trong ghim.
+- Yêu cầu hai danh tính người đánh giá khác nhau cho tập công cụ có công cụ `destructiveHint: true`.
+- Từ chối danh tính người đánh giá trùng.
+- Giữ lần tiếp nhận gốc trong sổ khi phê duyệt chưa đủ.
+- Thêm kiểm thử không, một, trùng và hai phê duyệt riêng.
+- Không ghi chữ ký, thông tin xác thực hoặc toàn đối số công cụ riêng.
 
-Success means a destructive tool cannot become active until both identities approved the exact record, package, and toolset digests.
+Thành công nghĩa công cụ phá hủy không hoạt động được đến khi cả hai danh tính phê duyệt đúng bản băm bản ghi, gói và tập công cụ.
 
 ## Shipped Artifact
 
-This lesson ships `outputs/skill-mcp-registry-admission.md`. Use it as a flat, reusable runbook when reviewing a new Registry version or investigating drift. It defines the inputs, refusal rules, evidence bundle, status reconciliation, and rollback proof without depending on the sample class names.
+Bài này cung cấp `outputs/skill-mcp-registry-admission.md`. Dùng như sổ tay phẳng tái sử dụng khi xem phiên bản Registry mới hoặc điều tra sai lệch. Định nghĩa đầu vào, quy tắc từ chối, bundle bằng chứng, đối soát trạng thái và bằng chứng hoàn tác không phụ thuộc tên lớp mẫu.
 
 ## Verify It
 
-Run the demonstration and the deterministic suite:
+Chạy minh họa và bộ tất định:
 
 ```bash
 cd phases/13-tools-and-protocols/30-mcp-registry-supply-chain-and-drift
@@ -291,37 +291,37 @@ python3 code/main.py
 python3 -m unittest discover -s code/tests -v
 ```
 
-Verification should prove:
+Xác minh nên chứng minh:
 
-- exact namespace boundaries reject lookalike prefixes
-- only the official namespaced Registry status can make a version eligible
-- unverified or mismatched package and remote evidence is rejected
-- publisher metadata cannot impersonate Registry-managed metadata
-- tool ordering is normalized without hiding descriptor changes
-- malformed package and tool structures refuse safely
-- `serverInfo` remains diagnostic and never supplies admission authority
-- descriptor drift quarantines, deactivates, and blocks rollback to the pin
-- status changes quarantine active pins
-- rollback cannot select a quarantined or unknown version
-- ledger tampering is detected
+- ranh giới không gian tên chính xác từ chối tiền tố giống
+- chỉ trạng thái Registry không gian tên chính thức làm phiên bản đủ điều kiện
+- bằng chứng gói và từ xa chưa xác minh hoặc không khớp bị từ chối
+- siêu dữ liệu nhà phát hành không mạo danh được siêu dữ liệu Registry quản lý
+- thứ tự công cụ chuẩn hóa không giấu đổi bộ mô tả
+- cấu trúc gói và công cụ sai dạng từ chối an toàn
+- `serverInfo` giữ chẩn đoán và không bao giờ cung cấp thẩm quyền tiếp nhận
+- sai lệch bộ mô tả cách ly, ngừng kích hoạt và chặn hoàn tác về ghim
+- đổi trạng thái cách ly ghim hoạt động
+- hoàn tác không chọn phiên bản cách ly hoặc không biết được
+- sửa sổ bị phát hiện
 
 ## Production Failure Modes
 
-| Failure | Why it happens | Required response |
+| Thất bại | Tại sao xảy ra | Phản ứng bắt buộc |
 |---|---|---|
-| Name looks valid but namespace was never authenticated | Policy trusted record text | Reject until a trusted namespace verifier supplies the exact prefix |
-| Same package coordinate returns new bytes | Mutable upstream or compromised distribution | Stop activation, retain both digests, investigate the fetch boundary |
-| “Latest” changes without review | Floating selection escaped the pin | Resolve only exact admitted versions and digests |
-| New tool appears after approval | Runtime drift or a different deployment | Quarantine the route and capture a fresh descriptor observation |
-| Deprecated version remains active | Status sync is missing or delayed | Reconcile status on a schedule and before activation |
-| Deleted record disappears from default sync | Client requested only active records | Use incremental or deleted-aware reconciliation and preserve local history |
-| Rollback target was never admitted | Route control and approval state are disconnected | Refuse rollback and run a new admission for the target |
-| Ledger verifies locally after an attacker rewrites all entries | Hash chain has no external anchor | Publish signed ledger heads to a separate trust domain |
-| Evidence contains bearer tokens or tool arguments | Logging copied whole requests | Redact at collection time and store only the minimum proof |
+| Tên có vẻ hợp lệ nhưng không gian tên chưa xác thực | Chính sách tin văn bản bản ghi | Từ chối đến khi bộ xác minh không gian tên đáng tin cung cấp đúng tiền tố |
+| Cùng tọa độ gói trả byte mới | Phía trước thay đổi được hoặc phân phối bị xâm phạm | Dừng kích hoạt, giữ cả hai bản băm, điều tra ranh giới lấy |
+| “Latest” đổi không xem xét | Chọn thả nổi thoát ghim | Chỉ phân giải đúng phiên bản tiếp nhận và bản băm |
+| Công cụ mới xuất hiện sau phê duyệt | Sai lệch runtime hoặc triển khai khác | Cách ly tuyến và thu quan sát bộ mô tả mới |
+| Phiên bản ngừng khuyến nghị còn hoạt động | Đồng bộ trạng thái thiếu hoặc trễ | Đối soát trạng thái theo lịch và trước kích hoạt |
+| Bản ghi xóa biến khỏi đồng bộ mặc định | Client chỉ yêu cầu bản ghi hoạt động | Dùng đối soát tăng dần hoặc nhận biết xóa và giữ lịch sử cục bộ |
+| Đích hoàn tác chưa từng tiếp nhận | Kiểm soát tuyến và trạng thái phê duyệt ngắt rời | Từ chối hoàn tác và chạy tiếp nhận mới cho đích |
+| Sổ xác minh cục bộ sau kẻ tấn công viết lại mọi mục | Chuỗi hash không neo ngoài | Công bố đầu sổ có chữ ký vào miền tin cậy riêng |
+| Bằng chứng chứa bearer token hoặc đối số công cụ | Ghi nhật ký sao chép toàn yêu cầu | Che lúc thu và chỉ lưu bằng chứng tối thiểu |
 
 ## Operational Rule
 
-Publication answers “can this identity publish this name?” Admission answers “will we execute this exact artifact and expose this exact behavior?” Keep those decisions separate, pin every join, and make rollback choose evidence rather than memory.
+Công bố trả “danh tính này công bố tên này được không?” Tiếp nhận trả “ta sẽ thực thi đúng sản phẩm này và đưa đúng hành vi này ra không?” Giữ quyết định riêng, ghim mọi mối nối và làm hoàn tác chọn bằng chứng thay bộ nhớ.
 
 ## Further Reading
 
