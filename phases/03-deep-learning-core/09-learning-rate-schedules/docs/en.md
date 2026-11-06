@@ -1,6 +1,6 @@
 # Learning Rate Schedules and Warmup
 
-> The learning rate is the single most important hyperparameter. Not the architecture. Not the dataset size. Not the activation function. The learning rate. If you tune nothing else, tune this.
+> Tốc độ học là siêu tham số quan trọng nhất. Không phải kiến trúc. Không phải kích thước tập dữ liệu. Không phải hàm kích hoạt. Tốc độ học. Nếu bạn không điều chỉnh gì khác, hãy điều chỉnh nó.
 
 **Type:** Build
 **Languages:** Python
@@ -9,74 +9,74 @@
 
 ## Learning Objectives
 
-- Implement constant, step decay, cosine annealing, warmup + cosine, and 1cycle learning rate schedules from scratch
-- Demonstrate the three failure modes of learning rate selection: divergence (too high), stalling (too low), and oscillation (no decay)
-- Explain why warmup is necessary for Adam-based optimizers and how it stabilizes early training
-- Compare convergence speed across all five schedules on the same task and select the appropriate one for a given training budget
+- Triển khai các lịch tốc độ học hằng, suy giảm bậc thang, ủ cosine, warmup + cosine và 1cycle từ đầu
+- Minh họa ba kiểu thất bại của lựa chọn tốc độ học: phân kỳ (quá cao), đình trệ (quá thấp) và dao động (không suy giảm)
+- Giải thích tại sao warmup cần thiết cho các bộ tối ưu hóa dựa trên Adam và cách nó ổn định huấn luyện ban đầu
+- So sánh tốc độ hội tụ giữa cả năm lịch trên cùng tác vụ và chọn lịch phù hợp cho một ngân sách huấn luyện nhất định
 
 ## The Problem
 
-Set the learning rate to 0.1. Training diverges -- loss jumps to infinity in 3 steps. Set it to 0.0001. Training crawls -- after 100 epochs, the model has barely moved from random. Set it to 0.01. Training works for 50 epochs, then the loss oscillates around a minimum it can never reach because the steps are too large.
+Đặt tốc độ học thành 0.1. Huấn luyện phân kỳ -- mất mát nhảy tới vô cực trong 3 bước. Đặt thành 0.0001. Huấn luyện bò chậm -- sau 100 epoch, mô hình hầu như chưa dịch chuyển khỏi ngẫu nhiên. Đặt thành 0.01. Huấn luyện hoạt động trong 50 epoch, rồi mất mát dao động quanh một cực tiểu nó không bao giờ đạt tới vì các bước quá lớn.
 
-The optimal learning rate is not a constant. It changes during training. Early on, you want large steps to cover ground quickly. Late in training, you want tiny steps to settle into a sharp minimum. The difference between a 90% accurate model and a 95% accurate model is often just the schedule.
+Tốc độ học tối ưu không phải một hằng số. Nó thay đổi trong huấn luyện. Ban đầu, bạn muốn các bước lớn để nhanh chóng bao phủ không gian. Cuối huấn luyện, bạn muốn các bước rất nhỏ để ổn định vào một cực tiểu sắc nhọn. Khác biệt giữa một mô hình chính xác 90% và một mô hình chính xác 95% thường chỉ là lịch.
 
-Every major model published in the last three years uses a learning rate schedule. Llama 3 used peak lr=3e-4 with 2000 warmup steps and cosine decay to 3e-5. GPT-3 used lr=6e-4 with warmup over 375 million tokens. These are not arbitrary choices. They are the result of extensive hyperparameter sweeps that cost millions of dollars.
+Mọi mô hình lớn được công bố trong ba năm qua đều sử dụng một lịch tốc độ học. Llama 3 sử dụng lr đỉnh=3e-4 với 2000 bước warmup và suy giảm cosine tới 3e-5. GPT-3 sử dụng lr=6e-4 với warmup trên 375 triệu token. Đây không phải các lựa chọn tùy ý. Chúng là kết quả của những đợt quét siêu tham số sâu rộng tốn hàng triệu đô la.
 
-You need to understand schedules because the defaults will not work for your problem. When you fine-tune a pretrained model, the right schedule is different than training from scratch. When you increase batch size, the warmup period needs to change. When training breaks at step 10,000, you need to know whether it's a schedule problem or something else.
+Bạn cần hiểu các lịch vì các mặc định sẽ không hoạt động cho bài toán của bạn. Khi bạn tinh chỉnh một mô hình được tiền huấn luyện, lịch đúng khác với huấn luyện từ đầu. Khi bạn tăng kích thước batch, giai đoạn warmup cần thay đổi. Khi huấn luyện hỏng ở bước 10,000, bạn cần biết đó là vấn đề lịch hay điều gì khác.
 
 ## The Concept
 
 ### Constant Learning Rate
 
-The simplest approach. Pick a number, use it for every step.
+Cách tiếp cận đơn giản nhất. Chọn một con số, sử dụng nó cho mọi bước.
 
 ```
 lr(t) = lr_0
 ```
 
-Rarely optimal. It's either too high for the end of training (oscillation around the minimum) or too low for the beginning (wasted compute on tiny steps). Works fine for small models and debugging. A terrible choice for anything that trains for more than an hour.
+Hiếm khi tối ưu. Nó hoặc quá cao cho cuối huấn luyện (dao động quanh cực tiểu) hoặc quá thấp cho ban đầu (lãng phí tính toán vào các bước rất nhỏ). Hoạt động ổn cho các mô hình nhỏ và gỡ lỗi. Một lựa chọn tệ cho bất cứ thứ gì huấn luyện hơn một giờ.
 
 ### Step Decay
 
-The old-school approach from the ResNet era. Cut the learning rate by a factor (usually 10x) at fixed epochs.
+Cách tiếp cận kiểu cũ từ thời ResNet. Giảm tốc độ học theo một hệ số (thường 10 lần) tại các epoch cố định.
 
 ```
 lr(t) = lr_0 * gamma^(floor(epoch / step_size))
 ```
 
-Where gamma = 0.1 and step_size = 30 means: lr drops by 10x every 30 epochs. ResNet-50 used this -- lr=0.1, drop by 10x at epochs 30, 60, and 90.
+Trong đó gamma = 0.1 và step_size = 30 nghĩa là: lr giảm 10 lần mỗi 30 epoch. ResNet-50 sử dụng cách này -- lr=0.1, giảm 10 lần tại các epoch 30, 60 và 90.
 
-The problem: the optimal decay points depend on the dataset and architecture. Move to a different problem and you need to re-tune when to drop. The transitions are abrupt -- loss can spike when the rate suddenly changes.
+Vấn đề: các điểm suy giảm tối ưu phụ thuộc tập dữ liệu và kiến trúc. Chuyển sang một bài toán khác và bạn cần điều chỉnh lại khi nào giảm. Các chuyển tiếp đột ngột -- mất mát có thể tăng vọt khi tốc độ đột ngột thay đổi.
 
 ### Cosine Annealing
 
-Smooth decay from the maximum learning rate to a minimum, following a cosine curve:
+Suy giảm trơn từ tốc độ học tối đa tới tối thiểu, theo một đường cong cosine:
 
 ```
 lr(t) = lr_min + 0.5 * (lr_max - lr_min) * (1 + cos(pi * t / T))
 ```
 
-Where t is the current step and T is the total number of steps.
+Trong đó t là bước hiện tại và T là tổng số bước.
 
-At t=0, the cosine term is 1, so lr = lr_max. At t=T, the cosine term is -1, so lr = lr_min. The decay is gentle at first, accelerates in the middle, and becomes gentle again near the end.
+Tại t=0, số hạng cosine là 1, nên lr = lr_max. Tại t=T, số hạng cosine là -1, nên lr = lr_min. Suy giảm nhẹ lúc đầu, tăng tốc ở giữa và nhẹ trở lại gần cuối.
 
-This is the default for most modern training runs. No hyperparameters to tune beyond lr_max and lr_min. The cosine shape matches the empirical observation that most learning happens in the middle of training -- you want reasonable step sizes during that critical period.
+Đây là mặc định cho hầu hết các lần huấn luyện hiện đại. Không có siêu tham số cần điều chỉnh ngoài lr_max và lr_min. Hình dạng cosine khớp quan sát thực nghiệm rằng hầu hết việc học xảy ra ở giữa huấn luyện -- bạn muốn kích thước bước hợp lý trong giai đoạn then chốt đó.
 
 ### Warmup: Why You Start Small
 
-Adam and other adaptive optimizers maintain running estimates of gradient mean and variance. At step 0, these estimates are initialized to zero. The first few gradient updates are based on garbage statistics. If your learning rate is large during this period, the model takes huge, poorly-directed steps.
+Adam và các bộ tối ưu hóa thích nghi khác duy trì các ước lượng tích lũy của trung bình và phương sai gradient. Ở bước 0, các ước lượng này được khởi tạo bằng không. Vài cập nhật gradient đầu tiên dựa trên các thống kê vô giá trị. Nếu tốc độ học của bạn lớn trong giai đoạn này, mô hình thực hiện các bước khổng lồ, định hướng kém.
 
-Warmup fixes this. Start with a tiny learning rate (often lr_max / warmup_steps or even zero) and linearly ramp up to lr_max over the first N steps. By the time you reach the full learning rate, Adam's statistics have stabilized.
+Warmup khắc phục điều này. Bắt đầu với một tốc độ học rất nhỏ (thường lr_max / warmup_steps hoặc thậm chí không) và tăng tuyến tính tới lr_max trong N bước đầu. Khi bạn đạt tốc độ học đầy đủ, các thống kê của Adam đã ổn định.
 
 ```
 lr(t) = lr_max * (t / warmup_steps)     for t < warmup_steps
 ```
 
-Typical warmup: 1-5% of total training steps. Llama 3 trained for ~1.8 trillion tokens and warmed up for 2000 steps. GPT-3 warmed up over 375 million tokens.
+Warmup điển hình: 1-5% tổng số bước huấn luyện. Llama 3 huấn luyện trên ~1.8 nghìn tỷ token và warmup trong 2000 bước. GPT-3 warmup trên 375 triệu token.
 
 ### Linear Warmup + Cosine Decay
 
-The modern default. Ramp up linearly, then decay with cosine:
+Mặc định hiện đại. Tăng tuyến tính, rồi suy giảm theo cosine:
 
 ```
 if t < warmup_steps:
@@ -86,20 +86,20 @@ else:
     lr(t) = lr_min + 0.5 * (lr_max - lr_min) * (1 + cos(pi * progress))
 ```
 
-This is what Llama, GPT, PaLM, and most modern transformers use. The warmup prevents early instability. The cosine decay settles the model into a good minimum.
+Đây là điều Llama, GPT, PaLM và hầu hết các transformer hiện đại sử dụng. Warmup ngăn mất ổn định ban đầu. Suy giảm cosine đưa mô hình ổn định vào một cực tiểu tốt.
 
 ### 1cycle Policy
 
-Leslie Smith's discovery (2018): ramp the learning rate up from a low value to a high value in the first half of training, then ramp it back down in the second half. Counterintuitive -- why would you *increase* the learning rate midway through?
+Khám phá của Leslie Smith (2018): tăng tốc độ học từ một giá trị thấp tới một giá trị cao trong nửa đầu huấn luyện, rồi giảm trở lại trong nửa sau. Trái trực giác -- tại sao bạn lại *tăng* tốc độ học giữa chừng?
 
-The theory: a high learning rate acts as regularization by adding noise to the optimization trajectory. The model explores more of the loss landscape during the ramp-up phase, finding better basins. The ramp-down phase then refines within the best basin found.
+Lý thuyết: một tốc độ học cao đóng vai trò chính quy hóa bằng cách thêm nhiễu vào quỹ đạo tối ưu hóa. Mô hình khám phá nhiều bề mặt mất mát hơn trong giai đoạn tăng, tìm các lòng chảo tốt hơn. Giai đoạn giảm sau đó tinh chỉnh trong lòng chảo tốt nhất đã tìm thấy.
 
 ```
 Phase 1 (0 to T/2):    lr ramps from lr_max/25 to lr_max
 Phase 2 (T/2 to T):    lr ramps from lr_max to lr_max/10000
 ```
 
-1cycle often trains faster than cosine annealing for a fixed compute budget. The tradeoff: you must know the total number of steps in advance.
+1cycle thường huấn luyện nhanh hơn ủ cosine với một ngân sách tính toán cố định. Đánh đổi: bạn phải biết trước tổng số bước.
 
 ### Schedule Shapes
 
@@ -160,7 +160,7 @@ lr-schedule
 
 ### Step 1: Schedule Functions
 
-Each function takes the current step and returns the learning rate at that step.
+Mỗi hàm nhận bước hiện tại và trả về tốc độ học tại bước đó.
 
 ```python
 import math
@@ -200,7 +200,7 @@ def one_cycle_schedule(step, lr=0.01, total_steps=1000, **kwargs):
 
 ### Step 2: Visualize All Schedules
 
-Print a text-based plot showing how each schedule evolves over training.
+In một đồ thị dựa trên văn bản thể hiện mỗi lịch tiến triển như thế nào trong huấn luyện.
 
 ```python
 def visualize_schedule(name, schedule_fn, total_steps=500, **kwargs):
@@ -220,7 +220,7 @@ def visualize_schedule(name, schedule_fn, total_steps=500, **kwargs):
 
 ### Step 3: Training Network
 
-A simple two-layer network on the circle dataset, same as previous lessons, but now we vary the schedule.
+Một mạng hai lớp đơn giản trên tập dữ liệu đường tròn, giống các bài trước, nhưng giờ chúng ta thay đổi lịch.
 
 ```python
 import random
@@ -306,7 +306,7 @@ def train_with_schedule(schedule_fn, schedule_name, data, epochs=300, base_lr=0.
 
 ### Step 4: Compare All Schedules
 
-Train the same network with each schedule and compare final loss and convergence behavior.
+Huấn luyện cùng mạng với mỗi lịch và so sánh mất mát cuối cùng cùng hành vi hội tụ.
 
 ```python
 def compare_schedules(data):
@@ -330,7 +330,7 @@ def compare_schedules(data):
 
 ### Step 5: LR Too High vs Too Low
 
-Demonstrate the three failure modes: too high (divergence), too low (crawling), and just right.
+Minh họa ba kiểu thất bại: quá cao (phân kỳ), quá thấp (bò chậm) và vừa đúng.
 
 ```python
 def lr_sensitivity(data):
@@ -360,7 +360,7 @@ def lr_sensitivity(data):
 
 ## Use It
 
-PyTorch provides schedulers in `torch.optim.lr_scheduler`:
+PyTorch cung cấp các bộ lập lịch trong `torch.optim.lr_scheduler`:
 
 ```python
 import torch
@@ -377,7 +377,7 @@ for step in range(1000):
     scheduler.step()
 ```
 
-For warmup + cosine, use a lambda scheduler or the `get_cosine_schedule_with_warmup` from HuggingFace:
+Với warmup + cosine, sử dụng một bộ lập lịch lambda hoặc `get_cosine_schedule_with_warmup` từ HuggingFace:
 
 ```python
 from transformers import get_cosine_schedule_with_warmup
@@ -389,43 +389,43 @@ scheduler = get_cosine_schedule_with_warmup(
 )
 ```
 
-The HuggingFace function is what most Llama and GPT fine-tuning scripts use. When in doubt, use warmup + cosine with warmup = 3-5% of total steps. It works for almost everything.
+Hàm HuggingFace là thứ hầu hết các script tinh chỉnh Llama và GPT sử dụng. Khi không chắc, sử dụng warmup + cosine với warmup = 3-5% tổng số bước. Nó hoạt động cho gần như mọi thứ.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-lr-schedule-advisor.md` -- a prompt that recommends the right learning rate schedule and hyperparameters for your training setup
+Bài học này tạo ra:
+- `outputs/prompt-lr-schedule-advisor.md` -- một prompt khuyến nghị lịch tốc độ học và các siêu tham số phù hợp cho thiết lập huấn luyện của bạn
 
 ## Exercises
 
-1. Implement exponential decay: lr(t) = lr_0 * gamma^t where gamma = 0.999. Compare to cosine annealing on the circle dataset.
+1. Triển khai suy giảm hàm mũ: lr(t) = lr_0 * gamma^t trong đó gamma = 0.999. So sánh với ủ cosine trên tập dữ liệu đường tròn.
 
-2. Implement the learning rate range test (Leslie Smith): train for a few hundred steps while exponentially increasing the LR from 1e-7 to 1. Plot loss vs LR. The optimal max LR is just before the loss starts increasing.
+2. Triển khai phép kiểm tra phạm vi tốc độ học (Leslie Smith): huấn luyện vài trăm bước trong khi tăng LR theo hàm mũ từ 1e-7 tới 1. Vẽ mất mát theo LR. LR tối đa tối ưu nằm ngay trước khi mất mát bắt đầu tăng.
 
-3. Train with warmup + cosine but vary the warmup length: 0%, 1%, 5%, 10%, 20% of total steps. Find the sweet spot where training is most stable.
+3. Huấn luyện với warmup + cosine nhưng thay đổi độ dài warmup: 0%, 1%, 5%, 10%, 20% tổng số bước. Tìm điểm phù hợp nơi huấn luyện ổn định nhất.
 
-4. Implement cosine annealing with warm restarts (SGDR): reset the learning rate to lr_max every T steps and decay again. Compare to standard cosine on a longer training run.
+4. Triển khai ủ cosine với khởi động lại ấm (SGDR): đặt lại tốc độ học thành lr_max mỗi T bước và suy giảm lại. So sánh với cosine tiêu chuẩn trên một lần huấn luyện dài hơn.
 
-5. Build a "schedule surgeon" that monitors training loss and automatically switches from warmup to cosine when the loss stabilizes, and reduces lr if the loss plateaus for too long.
+5. Xây dựng một "bác sĩ phẫu thuật lịch" giám sát mất mát huấn luyện và tự động chuyển từ warmup sang cosine khi mất mát ổn định, và giảm lr nếu mất mát chững lại quá lâu.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Learning rate | "How fast the model learns" | The scalar that multiplies the gradient to determine the parameter update size |
-| Schedule | "Change the LR over time" | A function that maps training step to learning rate, designed to optimize convergence |
-| Warmup | "Start with a small LR" | Linearly ramping the LR from near-zero to the target value over the first N steps to stabilize optimizer statistics |
-| Cosine annealing | "Smooth LR decay" | Decreasing the LR following a cosine curve from lr_max to lr_min over training |
-| Step decay | "Drop LR at milestones" | Multiplying the LR by a factor (usually 0.1) at fixed epoch intervals |
-| 1cycle policy | "Up then down" | Leslie Smith's method of ramping LR up then down in a single cycle for faster convergence |
-| LR range test | "Find the best learning rate" | Training briefly while increasing LR to find the value where loss starts diverging |
-| Cosine with warm restarts | "Reset and repeat" | Periodically resetting the LR to lr_max and decaying again (SGDR) |
-| Eta min | "The floor for the LR" | The minimum learning rate that the schedule decays to |
-| Peak learning rate | "The maximum LR" | The highest LR reached during training, typically after warmup |
+| Learning rate (Tốc độ học) | "Mô hình học nhanh đến mức nào" | Số vô hướng nhân với gradient để xác định kích thước cập nhật tham số |
+| Schedule (Lịch) | "Thay đổi LR theo thời gian" | Một hàm ánh xạ bước huấn luyện thành tốc độ học, được thiết kế để tối ưu hóa hội tụ |
+| Warmup | "Bắt đầu với LR nhỏ" | Tăng LR tuyến tính từ gần không tới giá trị mục tiêu trong N bước đầu để ổn định các thống kê bộ tối ưu hóa |
+| Cosine annealing (Ủ cosine) | "Suy giảm LR trơn" | Giảm LR theo một đường cong cosine từ lr_max tới lr_min trong huấn luyện |
+| Step decay (Suy giảm bậc thang) | "Giảm LR tại các cột mốc" | Nhân LR với một hệ số (thường 0.1) tại các khoảng epoch cố định |
+| 1cycle policy (Chính sách 1cycle) | "Lên rồi xuống" | Phương pháp của Leslie Smith tăng LR rồi giảm trong một chu kỳ duy nhất để hội tụ nhanh hơn |
+| LR range test (Kiểm tra phạm vi LR) | "Tìm tốc độ học tốt nhất" | Huấn luyện ngắn trong khi tăng LR để tìm giá trị mà mất mát bắt đầu phân kỳ |
+| Cosine with warm restarts (Cosine với khởi động lại ấm) | "Đặt lại và lặp lại" | Định kỳ đặt lại LR thành lr_max và suy giảm lại (SGDR) |
+| Eta min | "Mức sàn của LR" | Tốc độ học tối thiểu mà lịch suy giảm tới |
+| Peak learning rate (Tốc độ học đỉnh) | "LR tối đa" | LR cao nhất đạt được trong huấn luyện, thường sau warmup |
 
 ## Further Reading
 
-- Loshchilov & Hutter, "SGDR: Stochastic Gradient Descent with Warm Restarts" (2017) -- introduced cosine annealing and warm restarts
-- Smith, "Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates" (2018) -- the 1cycle policy paper
-- Touvron et al., "Llama 2: Open Foundation and Fine-Tuned Chat Models" (2023) -- documents the warmup + cosine schedule used at scale
-- Goyal et al., "Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour" (2017) -- linear scaling rule and warmup for large batch training
+- Loshchilov & Hutter, "SGDR: Stochastic Gradient Descent with Warm Restarts" (2017) -- giới thiệu ủ cosine và khởi động lại ấm
+- Smith, "Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates" (2018) -- bài báo chính sách 1cycle
+- Touvron et al., "Llama 2: Open Foundation and Fine-Tuned Chat Models" (2023) -- ghi lại lịch warmup + cosine được sử dụng ở quy mô lớn
+- Goyal et al., "Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour" (2017) -- quy tắc co giãn tuyến tính và warmup cho huấn luyện batch lớn
