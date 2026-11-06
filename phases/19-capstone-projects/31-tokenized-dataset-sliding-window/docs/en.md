@@ -1,6 +1,6 @@
 # Tokenized Dataset with Sliding Window
 
-> A pretraining run is a function from token ids to gradients. This lesson builds the conveyor that feeds the ids in.
+> Một lần chạy tiền huấn luyện là một hàm từ id token sang gradient. Bài này xây dựng băng chuyền đưa các id vào.
 
 **Type:** Build
 **Languages:** Python
@@ -8,11 +8,11 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Convert a raw corpus into a stream of token ids by calling the tokenizer once.
-- Slice the id stream into fixed-length windows with a configurable overlap stride.
-- Build a PyTorch Dataset that returns input and target tensors for next-token prediction.
-- Wrap the dataset in a DataLoader with a deterministic shuffle seeded per epoch.
-- Reason about the trade-off between stride, redundancy, and effective dataset size.
+- Chuyển một corpus thô thành một luồng id token bằng cách gọi tokenizer một lần.
+- Cắt luồng id thành các cửa sổ độ dài cố định với bước trượt chồng lấn có thể cấu hình.
+- Xây dựng một Dataset PyTorch trả về các tensor đầu vào và đích cho dự đoán token tiếp theo.
+- Bọc tập dữ liệu trong một DataLoader với xáo trộn tất định được đặt seed theo epoch.
+- Suy luận về đánh đổi giữa bước trượt, dư thừa, và kích thước tập dữ liệu hiệu dụng.
 
 ```figure
 cap-sliding-window
@@ -20,13 +20,13 @@ cap-sliding-window
 
 ## The frame
 
-A pretraining run reads one batch of token ids at a time and updates the model. The shape of each batch is fixed by the training contract. For a causal language model, the batch holds `(B, T)` input ids and `(B, T)` target ids where the target is the input shifted left by one. The job of the data pipeline is to produce that contract on demand, in a deterministic and reproducible way, from a corpus that may be several gigabytes of raw text.
+Một lần chạy tiền huấn luyện đọc một lô id token mỗi lần và cập nhật mô hình. Hình thức mỗi lô được cố định bởi hợp đồng huấn luyện. Với một mô hình ngôn ngữ nhân quả, lô giữ các id đầu vào `(B, T)` và các id đích `(B, T)` trong đó đích là đầu vào dịch trái một vị trí. Công việc của pipeline dữ liệu là tạo ra hợp đồng đó theo yêu cầu, theo cách tất định và có thể tái lập, từ một corpus có thể gồm vài gigabyte văn bản thô.
 
-This lesson builds the pipeline. The tokenizer from the previous lesson turns text into a long flat list of ids. A sliding window slices that list into training examples. A custom Dataset exposes the examples as tensors. A DataLoader batches them and shuffles them with a known seed.
+Bài này xây dựng pipeline. Tokenizer từ bài trước biến văn bản thành một danh sách id phẳng dài. Một cửa sổ trượt cắt danh sách đó thành các ví dụ huấn luyện. Một Dataset tùy chỉnh cung cấp các ví dụ dưới dạng tensor. Một DataLoader chia chúng thành lô và xáo trộn chúng với một seed đã biết.
 
 ## The shape contract
 
-A causal LM consumes ids of shape `(B, T)` where `B` is the batch size and `T` is the context length. The target at position `t` is the input at position `t+1`. That means every training example covers `T+1` raw ids. The window stride controls how much overlap exists between consecutive examples.
+Một LM nhân quả tiêu thụ các id có hình dạng `(B, T)` với `B` là kích thước lô và `T` là độ dài ngữ cảnh. Đích tại vị trí `t` là đầu vào tại vị trí `t+1`. Điều đó nghĩa là mỗi ví dụ huấn luyện bao phủ `T+1` id thô. Bước trượt cửa sổ kiểm soát mức chồng lấn tồn tại giữa các ví dụ liên tiếp.
 
 ```mermaid
 flowchart LR
@@ -44,17 +44,17 @@ flowchart LR
     J --> K[split into input and target]
 ```
 
-The slicer never overlaps with the boundary of the corpus. If the last window does not have enough ids to fill `T+1` positions, the slicer drops it. Padding the tail with `<|pad|>` is also a valid choice but it complicates the loss mask. For this lesson we drop.
+Bộ cắt không bao giờ chồng qua ranh giới corpus. Nếu cửa sổ cuối không có đủ id để lấp `T+1` vị trí, bộ cắt bỏ nó. Đệm đuôi bằng `<|pad|>` cũng là một lựa chọn hợp lệ nhưng làm phức tạp mặt nạ mất mát. Với bài này chúng ta bỏ.
 
 ## Why a sliding window
 
-A pretraining corpus is one long stream of ids. If the model only saw non-overlapping windows, every training example would teach it the same `T` boundaries. Adjusting the stride moves those boundaries around so the model sees more diverse predict-next-token tasks.
+Một corpus tiền huấn luyện là một luồng id dài. Nếu mô hình chỉ thấy các cửa sổ không chồng lấn, mọi ví dụ huấn luyện sẽ dạy nó cùng các ranh giới `T`. Điều chỉnh bước trượt di chuyển những ranh giới đó để mô hình thấy các tác vụ dự đoán token tiếp theo đa dạng hơn.
 
-A stride of `T` produces non-overlapping windows. A stride of `T // 2` produces fifty-percent overlap and doubles the effective dataset. A stride of `1` produces maximum overlap and increases the dataset by a factor of `T`. The cost is more compute per epoch. The benefit is more boundary diversity. Most pretraining runs use a stride equal to the context length because the corpus is already much larger than the model can finish in one epoch, so the boundary diversity argument is weaker.
+Một bước trượt `T` tạo các cửa sổ không chồng lấn. Một bước trượt `T // 2` tạo chồng lấn năm mươi phần trăm và tăng gấp đôi tập dữ liệu hiệu dụng. Một bước trượt `1` tạo chồng lấn tối đa và tăng tập dữ liệu theo hệ số `T`. Chi phí là nhiều tính toán hơn mỗi epoch. Lợi ích là nhiều đa dạng ranh giới hơn. Hầu hết các lần chạy tiền huấn luyện sử dụng bước trượt bằng độ dài ngữ cảnh vì corpus đã lớn hơn nhiều so với lượng mô hình có thể hoàn tất trong một epoch, nên lập luận đa dạng ranh giới yếu hơn.
 
 ## The Dataset class
 
-A PyTorch Dataset has two required methods. `__len__` returns the number of examples. `__getitem__` returns one example as a pair of tensors. Our Dataset stores the encoded id stream and the stride. Indexing into it computes the start of the window on the fly so the memory cost is one copy of the id stream regardless of how many examples the stride produces.
+Một Dataset PyTorch có hai phương thức bắt buộc. `__len__` trả về số ví dụ. `__getitem__` trả về một ví dụ dưới dạng một cặp tensor. Dataset của chúng ta lưu luồng id đã mã hóa và bước trượt. Đánh chỉ mục vào nó tính điểm bắt đầu cửa sổ ngay khi chạy nên chi phí bộ nhớ là một bản sao luồng id bất kể bước trượt tạo ra bao nhiêu ví dụ.
 
 ```mermaid
 sequenceDiagram
@@ -71,32 +71,32 @@ sequenceDiagram
     Note over Tokenizer,Dataset: tokenizer.encode runs once at build time
 ```
 
-The shift-by-one happens inside `__getitem__`. The Dataset returns `(input, target)` where `input = window[:-1]` and `target = window[1:]`. Both are PyTorch long tensors. The training loop treats them as ground truth.
+Việc dịch một vị trí xảy ra bên trong `__getitem__`. Dataset trả về `(input, target)` trong đó `input = window[:-1]` và `target = window[1:]`. Cả hai là tensor long PyTorch. Vòng lặp huấn luyện coi chúng là đáp án chuẩn.
 
 ## Deterministic shuffle
 
-A DataLoader with `shuffle=True` reads from a PyTorch random generator. By passing an explicit `torch.Generator` seeded per epoch, we get the same shuffle every time the run is restarted. That property matters when you want to compare two runs that differ only in a single hyperparameter. Without a seed, two runs see the data in different orders and the loss curves diverge for reasons unrelated to the change.
+Một DataLoader với `shuffle=True` đọc từ một bộ sinh ngẫu nhiên PyTorch. Bằng cách truyền một `torch.Generator` rõ ràng được đặt seed theo epoch, chúng ta nhận cùng phép xáo trộn mỗi khi lần chạy được khởi động lại. Thuộc tính đó quan trọng khi bạn muốn so sánh hai lần chạy chỉ khác một siêu tham số. Không có seed, hai lần chạy thấy dữ liệu theo các thứ tự khác nhau và các đường cong mất mát phân kỳ vì những lý do không liên quan đến thay đổi.
 
-The seed contract in this lesson is simple. `epoch_seed = base_seed + epoch_index`. The base seed is passed at construction. The epoch index is incremented by the trainer at the top of each epoch. A re-run with the same base seed always sees the same order in every epoch.
+Hợp đồng seed trong bài này đơn giản. `epoch_seed = base_seed + epoch_index`. Seed cơ sở được truyền khi khởi tạo. Chỉ số epoch được bộ huấn luyện tăng ở đầu mỗi epoch. Một lần chạy lại với cùng seed cơ sở luôn thấy cùng thứ tự trong mọi epoch.
 
 ## Batch sampler
 
-The default sampler in PyTorch picks indices uniformly at random with replacement disabled. That is what we want for pretraining. For finetuning on a small dataset the contract is the same. The DataLoader assembles a batch by calling `__getitem__` `B` times and stacking the results. Because every example is the same length by construction, no padding logic is needed.
+Bộ lấy mẫu mặc định trong PyTorch chọn các chỉ số ngẫu nhiên đều với lấy mẫu có hoàn lại bị tắt. Đó là điều chúng ta muốn cho tiền huấn luyện. Với tinh chỉnh trên một tập dữ liệu nhỏ hợp đồng cũng vậy. DataLoader lắp ráp một lô bằng cách gọi `__getitem__` `B` lần và xếp chồng các kết quả. Vì mọi ví dụ có cùng độ dài do cách xây dựng, không cần logic đệm.
 
-The lesson keeps `num_workers=0` for simplicity. In a production run the workers parallelize the `__getitem__` calls. With our pipeline that is mostly a no-op because the work is just a slice of an in-memory tensor, but the same Dataset API supports workers cleanly.
+Bài học giữ `num_workers=0` cho đơn giản. Trong một lần chạy sản xuất các worker song song hóa các lệnh gọi `__getitem__`. Với pipeline của chúng ta điều đó chủ yếu không làm gì vì công việc chỉ là một phần cắt của một tensor trong bộ nhớ, nhưng cùng API Dataset hỗ trợ worker một cách gọn gàng.
 
 ## Counting examples
 
-For an id stream of length `N`, a context length `T`, and a stride `S`, the number of examples is `max(0, 1 + (N - (T + 1)) // S)`. The lesson exposes that calculation as a static method on the Dataset so the trainer can compute total steps per epoch without iterating.
+Với một luồng id độ dài `N`, một độ dài ngữ cảnh `T`, và một bước trượt `S`, số ví dụ là `max(0, 1 + (N - (T + 1)) // S)`. Bài học cung cấp phép tính đó như một phương thức tĩnh trên Dataset để bộ huấn luyện có thể tính tổng số bước mỗi epoch mà không lặp.
 
 ## What this lesson does not do
 
-It does not stream from disk. The corpus is encoded fully in memory and held as a single tensor. For a corpus of a few million ids that is well under a hundred megabytes and is the right shape for the lesson. Disk streaming is a separate concern that plugs in by replacing the storage but keeps the Dataset contract.
+Nó không truyền luồng từ đĩa. Corpus được mã hóa hoàn toàn trong bộ nhớ và giữ dưới dạng một tensor duy nhất. Với một corpus vài triệu id điều đó thấp hơn nhiều so với một trăm megabyte và là hình thức đúng cho bài học. Truyền luồng từ đĩa là một mối quan tâm riêng cắm vào bằng cách thay phần lưu trữ nhưng giữ hợp đồng Dataset.
 
-It does not handle multiple documents. The corpus is treated as one continuous id stream. The next-document boundary is encoded by inserting `<|endoftext|>` ids when the corpus is built from multiple documents. The model learns to predict around the boundary.
+Nó không xử lý nhiều tài liệu. Corpus được coi là một luồng id liên tục. Ranh giới tài liệu tiếp theo được mã hóa bằng cách chèn các id `<|endoftext|>` khi corpus được xây dựng từ nhiều tài liệu. Mô hình học dự đoán quanh ranh giới.
 
 ## How to read the code
 
-`main.py` defines two classes and one helper. `SlidingWindowDataset` is the PyTorch Dataset. `make_dataloader` returns a configured DataLoader with a seeded generator. `_encode_corpus_to_ids` is the one-shot tokenizer call. The demo at the bottom builds a small tokenizer in-process, encodes a built-in corpus, constructs the dataset and dataloader, prints one batch, and asserts the shape contract. The tests in `code/tests/test_dataset.py` pin the window count formula, the shift-by-one property, the deterministic shuffle, and the stride trade-off.
+`main.py` định nghĩa hai lớp và một hàm hỗ trợ. `SlidingWindowDataset` là Dataset PyTorch. `make_dataloader` trả về một DataLoader được cấu hình với một bộ sinh được đặt seed. `_encode_corpus_to_ids` là lệnh gọi tokenizer một lần. Demo ở cuối xây dựng một tokenizer nhỏ trong tiến trình, mã hóa một corpus tích hợp, tạo tập dữ liệu và dataloader, in một lô, và khẳng định hợp đồng hình dạng. Các kiểm thử trong `code/tests/test_dataset.py` ghim công thức đếm cửa sổ, thuộc tính dịch một vị trí, xáo trộn tất định, và đánh đổi bước trượt.
 
-Run the demo. Then change the context length from 16 to 32 and watch how the number of examples per epoch falls. That number is your steps-per-epoch budget.
+Chạy demo. Sau đó thay độ dài ngữ cảnh từ 16 thành 32 và xem số ví dụ mỗi epoch giảm thế nào. Con số đó là ngân sách số bước mỗi epoch của bạn.
