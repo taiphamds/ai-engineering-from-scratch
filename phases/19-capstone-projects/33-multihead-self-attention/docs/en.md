@@ -1,6 +1,6 @@
 # Multi-Head Self-Attention
 
-> One linear projection, three views, H parallel heads, one mask. The attention block as the model actually uses it.
+> Một phép chiếu tuyến tính, ba view, H đầu song song, một mặt nạ. Khối attention như mô hình thực sự sử dụng nó.
 
 **Type:** Build
 **Languages:** Python
@@ -8,11 +8,11 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Implement a batched Query/Key/Value projection as a single linear layer split into H heads.
-- Compute scaled dot-product attention with the correct normalization and dtype handling.
-- Apply a causal mask that prevents a position from attending to future positions.
-- Inspect per-head attention weights for a fixed input and reason about what each head looks at.
-- Train a small attention block on a toy task and watch the loss fall as the heads specialize.
+- Triển khai một phép chiếu Query/Key/Value theo lô dưới dạng một lớp tuyến tính duy nhất được chia thành H đầu.
+- Tính attention tích vô hướng có chia tỷ lệ với chuẩn hóa và xử lý dtype chính xác.
+- Áp dụng một mặt nạ nhân quả ngăn một vị trí chú ý đến các vị trí tương lai.
+- Kiểm tra các trọng số attention theo đầu cho một đầu vào cố định và suy luận về điều mỗi đầu nhìn vào.
+- Huấn luyện một khối attention nhỏ trên một tác vụ đồ chơi và xem hàm mất mát giảm khi các đầu chuyên biệt hóa.
 
 ```figure
 cap-multihead-attention
@@ -20,15 +20,15 @@ cap-multihead-attention
 
 ## The frame
 
-Attention is the function that lets a token's representation pull information from other tokens in the same sequence. Self-attention means queries, keys, and values are all derived from the same input. Multi-head means the projection is split into H parallel attention problems whose outputs are concatenated and projected back.
+Attention là hàm cho phép biểu diễn của một token kéo thông tin từ các token khác trong cùng chuỗi. Self-attention nghĩa là query, key, và value đều được suy ra từ cùng đầu vào. Đa đầu nghĩa là phép chiếu được chia thành H bài toán attention song song có các đầu ra được nối và chiếu trở lại.
 
-The efficient implementation pattern is one linear layer that projects from `D` to `3 * D` and gets sliced into three views, then reshaped into H heads of size `D // H` each. The matmul, softmax, and weighted sum happen as batched tensor operations so the heads run in parallel on the accelerator.
+Mẫu triển khai hiệu quả là một lớp tuyến tính chiếu từ `D` sang `3 * D` và được cắt thành ba view, rồi đổi hình dạng thành H đầu có kích thước `D // H` mỗi đầu. Matmul, softmax, và tổng có trọng số xảy ra dưới dạng các thao tác tensor theo lô để các đầu chạy song song trên bộ tăng tốc.
 
-This lesson builds that block. It also adds the causal mask so the same code works as the attention layer in a decoder-only language model. The next lesson stacks the block into a full transformer and the lesson after trains it.
+Bài này xây dựng khối đó. Nó cũng thêm mặt nạ nhân quả để cùng mã hoạt động như lớp attention trong một mô hình ngôn ngữ chỉ decoder. Bài tiếp theo xếp khối thành một transformer đầy đủ và bài sau nữa huấn luyện nó.
 
 ## The shape contract
 
-The input is `(B, T, D)`. The output is `(B, T, D)`. The mask is `(T, T)` or broadcastable to it. Inside the block the intermediate tensors have shape `(B, H, T, d_head)` where `d_head = D // H`. The constraint is `D % H == 0`.
+Đầu vào là `(B, T, D)`. Đầu ra là `(B, T, D)`. Mặt nạ là `(T, T)` hoặc có thể broadcast tới nó. Bên trong khối các tensor trung gian có hình dạng `(B, H, T, d_head)` trong đó `d_head = D // H`. Ràng buộc là `D % H == 0`.
 
 ```mermaid
 flowchart LR
@@ -44,27 +44,27 @@ flowchart LR
     J --> K["(B, T, D) output"]
 ```
 
-The two linear layers (the QKV projection and the output projection) are the only parameters in the block. The mask, the softmax, the matmuls, and the reshapes are all parameter-free.
+Hai lớp tuyến tính (phép chiếu QKV và phép chiếu đầu ra) là các tham số duy nhất trong khối. Mặt nạ, softmax, các matmul, và các phép đổi hình dạng đều không có tham số.
 
 ## The QKV split
 
-The naive implementation has three separate linear layers, one each for Q, K, and V. The efficient one has a single layer that outputs `3 * D` features and splits the result. The two are mathematically equivalent because three separate matrix multiplications by `(D, D)` weights are exactly one matrix multiplication by a `(3D, D)` weight stacked from them.
+Triển khai ngây thơ có ba lớp tuyến tính riêng, mỗi lớp cho Q, K, và V. Triển khai hiệu quả có một lớp duy nhất xuất ra `3 * D` đặc trưng và chia kết quả. Hai cách tương đương toán học vì ba phép nhân ma trận riêng với trọng số `(D, D)` chính xác là một phép nhân ma trận với một trọng số `(3D, D)` được xếp chồng từ chúng.
 
-The efficient version is faster because the accelerator launches one matmul instead of three. It is also easier to initialize because the three sub-matrices live in the same parameter tensor and can be initialized together.
+Phiên bản hiệu quả nhanh hơn vì bộ tăng tốc khởi chạy một matmul thay vì ba. Nó cũng dễ khởi tạo hơn vì ba ma trận con nằm trong cùng tensor tham số và có thể được khởi tạo cùng nhau.
 
 ## The head reshape
 
-After the split, each of Q, K, V is `(B, T, D)`. To turn that into H parallel attention problems, we reshape to `(B, T, H, d_head)` and transpose to `(B, H, T, d_head)`. The head dimension now sits next to the batch dimension so PyTorch treats the per-head attention as a batched operation across `B * H` independent instances.
+Sau khi chia, mỗi Q, K, V là `(B, T, D)`. Để biến nó thành H bài toán attention song song, chúng ta đổi hình dạng thành `(B, T, H, d_head)` và chuyển vị thành `(B, H, T, d_head)`. Chiều đầu giờ nằm cạnh chiều lô để PyTorch coi attention theo đầu là một thao tác theo lô trên `B * H` thực thể độc lập.
 
-The d_head dimension stays last so the score matmul `Q @ K.transpose(-2, -1)` contracts it. The result is `(B, H, T, T)` per-head attention scores.
+Chiều d_head ở cuối để matmul điểm `Q @ K.transpose(-2, -1)` co nó lại. Kết quả là các điểm attention theo đầu `(B, H, T, T)`.
 
 ## Scaling
 
-The scores get divided by `sqrt(d_head)` before softmax. Without that scaling, dot products grow as `d_head` grows and push the softmax into a regime where one entry has almost all the mass and the others are vanishingly small. The gradients in that regime are tiny and learning stalls. Dividing by `sqrt(d_head)` keeps the variance of the scores roughly constant across head sizes.
+Các điểm được chia cho `sqrt(d_head)` trước softmax. Không có sự chia tỷ lệ đó, các tích vô hướng tăng khi `d_head` tăng và đẩy softmax vào một chế độ mà một phần tử có gần như toàn bộ khối lượng và các phần tử còn lại nhỏ đến mức biến mất. Gradient trong chế độ đó rất nhỏ và việc học đình trệ. Chia cho `sqrt(d_head)` giữ phương sai của các điểm gần như không đổi trên các kích thước đầu.
 
 ## The causal mask
 
-A decoder-only language model can only condition on the past when predicting the next token. The mask enforces that. Concretely, before the softmax, every entry above the diagonal of the `(T, T)` score matrix gets replaced by negative infinity. After softmax those positions get weight zero.
+Một mô hình ngôn ngữ chỉ decoder chỉ có thể điều kiện hóa trên quá khứ khi dự đoán token tiếp theo. Mặt nạ thực thi điều đó. Cụ thể, trước softmax, mọi phần tử trên đường chéo của ma trận điểm `(T, T)` được thay bằng âm vô cực. Sau softmax những vị trí đó nhận trọng số không.
 
 ```mermaid
 sequenceDiagram
@@ -81,34 +81,34 @@ sequenceDiagram
     Softmax->>V: weights @ V -> (B, H, T, d_head)
 ```
 
-We register the mask as a buffer at construction so it lives on the same device as the model and is not part of the gradient graph. The mask covers the maximum context length the block will ever see. At forward time we slice the top-left `(T, T)` corner.
+Chúng ta đăng ký mặt nạ như một buffer khi khởi tạo để nó nằm trên cùng thiết bị với mô hình và không là một phần của đồ thị gradient. Mặt nạ bao phủ độ dài ngữ cảnh tối đa mà khối sẽ từng thấy. Tại thời điểm lượt tiến chúng ta cắt góc trên trái `(T, T)`.
 
 ## The output projection
 
-After per-head context vectors `(B, H, T, d_head)`, we transpose back to `(B, T, H, d_head)`, reshape to `(B, T, D)`, and apply a final `(D, D)` linear projection. The output projection lets the model mix the heads. Without it, the H heads would only ever recombine through later layers and the block would be artificially constrained.
+Sau các vector ngữ cảnh theo đầu `(B, H, T, d_head)`, chúng ta chuyển vị trở lại `(B, T, H, d_head)`, đổi hình dạng thành `(B, T, D)`, và áp dụng một phép chiếu tuyến tính `(D, D)` cuối. Phép chiếu đầu ra cho phép mô hình trộn các đầu. Không có nó, H đầu sẽ chỉ tái kết hợp qua các lớp sau và khối sẽ bị ràng buộc một cách nhân tạo.
 
 ## Attention weight inspection
 
-The lesson exposes a `return_weights=True` flag on the forward pass. When set, the block returns the per-head attention weights of shape `(B, H, T, T)` alongside the output. The demo prints a heatmap of one head's weights on a short input so you can see the causal-triangle structure and the per-position focus.
+Bài học cung cấp một cờ `return_weights=True` trên lượt tiến. Khi được đặt, khối trả về các trọng số attention theo đầu có hình dạng `(B, H, T, T)` bên cạnh đầu ra. Demo in một bản đồ nhiệt trọng số của một đầu trên một đầu vào ngắn để bạn có thể thấy cấu trúc tam giác nhân quả và sự tập trung theo vị trí.
 
-In a trained model, different heads learn different patterns. Some heads attend to the immediately previous token. Some heads attend to the start of the sequence. Some heads spread attention almost uniformly. The inspection hook is the entry point for that interpretability work.
+Trong một mô hình đã huấn luyện, các đầu khác nhau học các mẫu khác nhau. Một số đầu chú ý đến token ngay trước đó. Một số đầu chú ý đến đầu chuỗi. Một số đầu trải attention gần như đều. Hook kiểm tra là điểm vào cho công việc diễn giải đó.
 
 ## The training demo
 
-The demo at the bottom of `main.py` wires the attention block to a tiny LM head and trains the whole thing on a repeat task. Each row of the input is a single random id replicated across the context. The target is the input shifted by one, so the model must learn that the next token is the same as the previous token. The loss is cross-entropy. With H=4, D=32, T=12, and a vocabulary of 64, the loss falls from random (around `log(64) ~ 4.16`) down to well under `1.0` over three epochs on CPU.
+Demo ở cuối `main.py` nối khối attention với một đầu LM tí hon và huấn luyện toàn bộ trên một tác vụ lặp lại. Mỗi hàng đầu vào là một id ngẫu nhiên duy nhất được lặp dọc ngữ cảnh. Đích là đầu vào dịch một vị trí, nên mô hình phải học rằng token tiếp theo giống token trước. Hàm mất mát là entropy chéo. Với H=4, D=32, T=12, và một từ vựng 64, hàm mất mát giảm từ ngẫu nhiên (quanh `log(64) ~ 4.16`) xuống thấp hơn nhiều so với `1.0` trong ba epoch trên CPU.
 
-The point of the demo is not to train a useful model. The point is to confirm the gradients flow through every piece of the block and the heads learn something on a problem where the answer is obvious.
+Điểm chính của demo không phải huấn luyện một mô hình hữu ích. Điểm chính là xác nhận gradient chảy qua mọi phần của khối và các đầu học được điều gì đó trên một bài toán mà đáp án rõ ràng.
 
 ## What this lesson does not do
 
-It does not add a feed-forward block. The transformer layer in a real model is attention followed by a two-layer MLP with a residual connection and layer norm around each. The next lesson adds those.
+Nó không thêm một khối truyền thẳng. Lớp transformer trong một mô hình thực là attention theo sau bởi một MLP hai lớp với một kết nối phần dư và chuẩn hóa lớp quanh mỗi phần. Bài tiếp theo thêm những thứ đó.
 
-It does not implement rotary or AliBi positional encoding. Both apply at the QKV projection step in the same block, but they are a separate teaching unit. The block as built here is compatible with either by transforming Q and K before the matmul.
+Nó không triển khai mã hóa vị trí xoay hoặc AliBi. Cả hai áp dụng tại bước chiếu QKV trong cùng khối, nhưng chúng là một đơn vị giảng dạy riêng. Khối được xây dựng ở đây tương thích với cả hai bằng cách biến đổi Q và K trước matmul.
 
-It does not implement KV cache for inference. Caching keys and values across forward passes is the optimization that makes autoregressive decoding fast. It changes the shape contract on the K and V tensors but not on Q. It belongs in the inference lesson.
+Nó không triển khai bộ nhớ đệm KV cho suy luận. Lưu đệm key và value qua các lượt tiến là tối ưu khiến giải mã tự hồi quy nhanh. Nó thay đổi hợp đồng hình dạng trên các tensor K và V nhưng không trên Q. Nó thuộc về bài suy luận.
 
 ## How to read the code
 
-`main.py` defines `MultiHeadSelfAttention`. The class holds two linear layers and a registered mask buffer. The forward pass projects, reshapes, scores, masks, softmaxes, weights, reshapes, and projects again. The demo at the bottom builds a small model that wraps the attention with token and positional embeddings and an LM head, trains it on a copy task for three epochs, and prints the loss curve and a per-head attention heatmap. The tests in `code/tests/test_attention.py` pin the shape contract, the causality property, the softmax property, the head-split property, and the gradient flow.
+`main.py` định nghĩa `MultiHeadSelfAttention`. Lớp giữ hai lớp tuyến tính và một buffer mặt nạ được đăng ký. Lượt tiến chiếu, đổi hình dạng, chấm điểm, áp mặt nạ, softmax, đặt trọng số, đổi hình dạng, và chiếu lại. Demo ở cuối xây dựng một mô hình nhỏ bọc attention với các embedding token và vị trí cùng một đầu LM, huấn luyện nó trên một tác vụ sao chép trong ba epoch, và in đường cong mất mát cùng một bản đồ nhiệt attention theo đầu. Các kiểm thử trong `code/tests/test_attention.py` ghim hợp đồng hình dạng, thuộc tính nhân quả, thuộc tính softmax, thuộc tính chia đầu, và dòng gradient.
 
-Run the demo. Then increase `n_heads` from 4 to 8 (keeping `d_model=32`, so `d_head=4`) and watch the heatmap change.
+Chạy demo. Sau đó tăng `n_heads` từ 4 lên 8 (giữ `d_model=32`, nên `d_head=4`) và xem bản đồ nhiệt thay đổi.
