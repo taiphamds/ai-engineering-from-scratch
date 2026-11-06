@@ -1,6 +1,6 @@
 # Vectors, Matrices & Operations
 
-> Every neural network is just matrix multiplication with extra steps.
+> Mọi mạng nơ-ron chỉ là phép nhân ma trận với các bước bổ sung.
 
 **Type:** Build
 **Languages:** Python, Julia
@@ -9,52 +9,52 @@
 
 ## Learning Objectives
 
-- Build a Matrix class with element-wise operations, matrix multiplication, transpose, determinant, and inverse
-- Distinguish element-wise multiplication from matrix multiplication and explain when each applies
-- Implement a single dense neural network layer (`relu(W @ x + b)`) using only the from-scratch Matrix class
-- Explain broadcasting rules and how bias addition works in neural network frameworks
+- Xây dựng một lớp Matrix với các phép toán theo từng phần tử, nhân ma trận, chuyển vị, định thức và nghịch đảo
+- Phân biệt phép nhân theo từng phần tử với phép nhân ma trận và giải thích khi nào áp dụng mỗi phép
+- Triển khai một lớp mạng nơ-ron kết nối đầy đủ (`relu(W @ x + b)`) chỉ sử dụng lớp Matrix xây dựng từ đầu
+- Giải thích các quy tắc broadcasting và cách phép cộng bias hoạt động trong các framework mạng nơ-ron
 
 ## The Problem
 
-You want to build a neural network. You read the code and see this:
+Bạn muốn xây dựng một mạng nơ-ron. Bạn đọc mã và thấy điều này:
 
 ```
 output = activation(weights @ input + bias)
 ```
 
-That `@` is matrix multiplication. The `weights` are a matrix. The `input` is a vector. If you do not know what those operations do, this line is magic. If you do know, it is the entire forward pass of a layer in three operations.
+Dấu `@` đó là phép nhân ma trận. `weights` là một ma trận. `input` là một vector. Nếu bạn không biết những phép toán đó làm gì, dòng này là phép thuật. Nếu biết, đó là toàn bộ lượt truyền xuôi của một lớp trong ba phép toán.
 
-Every image your model processes is a matrix of pixel values. Every word embedding is a vector. Every layer of every neural network is a matrix transformation. You cannot build AI systems without being fluent in matrix operations the same way you cannot write code without understanding variables.
+Mọi hình ảnh mà mô hình của bạn xử lý là một ma trận các giá trị pixel. Mọi embedding từ là một vector. Mỗi lớp của mọi mạng nơ-ron là một phép biến đổi ma trận. Bạn không thể xây dựng các hệ thống AI mà không thông thạo các phép toán ma trận, cũng như bạn không thể viết mã mà không hiểu biến.
 
-This lesson builds that fluency from scratch.
+Bài học này xây dựng sự thông thạo đó từ đầu.
 
 ## The Concept
 
 ### Vectors: ordered lists of numbers
 
-A vector is a list of numbers with a direction and magnitude. In AI, vectors represent data points, features, or parameters.
+Một vector là một danh sách các số có hướng và độ lớn. Trong AI, vector biểu diễn các điểm dữ liệu, đặc trưng hoặc tham số.
 
 ```
 v = [3, 4]        -- a 2D vector
 w = [1, 0, -2]    -- a 3D vector
 ```
 
-A 2D vector `[3, 4]` points to coordinates (3, 4) on a plane. Its length (magnitude) is 5 (the 3-4-5 triangle).
+Một vector 2D `[3, 4]` hướng đến tọa độ (3, 4) trên một mặt phẳng. Độ dài (độ lớn) của nó là 5 (tam giác 3-4-5).
 
 ### Matrices: grids of numbers
 
-A matrix is a 2D grid. Rows and columns. An m x n matrix has m rows and n columns.
+Một ma trận là một lưới 2D. Hàng và cột. Một ma trận m x n có m hàng và n cột.
 
 ```
 A = | 1  2  3 |     -- 2x3 matrix (2 rows, 3 columns)
     | 4  5  6 |
 ```
 
-In neural networks, weight matrices transform input vectors into output vectors. A layer with 784 inputs and 128 outputs uses a 128x784 weight matrix.
+Trong mạng nơ-ron, các ma trận trọng số biến đổi các vector đầu vào thành các vector đầu ra. Một lớp có 784 đầu vào và 128 đầu ra sử dụng một ma trận trọng số 128x784.
 
 ### Why shapes matter
 
-Matrix multiplication has a strict rule: `(m x n) @ (n x p) = (m x p)`. The inner dimensions must match.
+Phép nhân ma trận có một quy tắc nghiêm ngặt: `(m x n) @ (n x p) = (m x p)`. Các chiều bên trong phải khớp.
 
 ```
 (128 x 784) @ (784 x 1) = (128 x 1)
@@ -63,43 +63,43 @@ Matrix multiplication has a strict rule: `(m x n) @ (n x p) = (m x p)`. The inne
 Inner dimensions: 784 = 784  -- valid
 ```
 
-If you get a shape mismatch error in PyTorch, this is why.
+Nếu bạn gặp lỗi hình dạng không khớp trong PyTorch, đây là lý do.
 
 ### The operations map
 
-| Operation | What it does | Neural network use |
+| Phép toán | Tác dụng | Cách dùng trong mạng nơ-ron |
 |-----------|-------------|-------------------|
-| Addition | Element-wise combine | Adding bias to output |
-| Scalar multiply | Scale every element | Learning rate * gradients |
-| Matrix multiply | Transform vectors | Layer forward pass |
-| Transpose | Flip rows and columns | Backpropagation |
-| Determinant | Single number summary | Checking invertibility |
-| Inverse | Undo a transformation | Solving linear systems |
-| Identity | Do-nothing matrix | Initialization, residual connections |
+| Cộng | Kết hợp theo từng phần tử | Cộng bias vào đầu ra |
+| Nhân vô hướng | Co giãn mọi phần tử | Tốc độ học * gradient |
+| Nhân ma trận | Biến đổi các vector | Lượt truyền xuôi của lớp |
+| Chuyển vị | Đổi hàng và cột | Lan truyền ngược |
+| Định thức | Tóm tắt bằng một số | Kiểm tra tính khả nghịch |
+| Nghịch đảo | Hoàn tác một phép biến đổi | Giải các hệ tuyến tính |
+| Đơn vị | Ma trận không làm gì | Khởi tạo, kết nối phần dư |
 
 ### Element-wise vs matrix multiplication
 
-This distinction trips up beginners constantly.
+Sự phân biệt này liên tục gây khó cho người mới.
 
-Element-wise: multiply matching positions. Both matrices must be the same shape.
+Theo từng phần tử: nhân các vị trí tương ứng. Cả hai ma trận phải có cùng hình dạng.
 
 ```
 | 1  2 |   | 5  6 |   | 5  12 |
 | 3  4 | * | 7  8 | = | 21 32 |
 ```
 
-Matrix multiplication: dot products of rows and columns. Inner dimensions must match.
+Nhân ma trận: các tích vô hướng của hàng và cột. Các chiều bên trong phải khớp.
 
 ```
 | 1  2 |   | 5  6 |   | 1*5+2*7  1*6+2*8 |   | 19  22 |
 | 3  4 | @ | 7  8 | = | 3*5+4*7  3*6+4*8 | = | 43  50 |
 ```
 
-Different operations, different results, different rules.
+Các phép toán khác nhau, kết quả khác nhau, quy tắc khác nhau.
 
 ### Broadcasting
 
-When you add a bias vector to a matrix of outputs, the shapes do not match. Broadcasting stretches the smaller array to fit.
+Khi bạn cộng một vector bias vào một ma trận đầu ra, các hình dạng không khớp. Broadcasting kéo giãn mảng nhỏ hơn cho vừa.
 
 ```
 | 1  2  3 |   +   [10, 20, 30]
@@ -111,7 +111,7 @@ Broadcasting stretches the vector across rows:
 | 4  5  6 | + | 10  20  30 | = | 14  25  36 |
 ```
 
-Every modern framework does this automatically. Understanding it prevents confusion when shapes seem wrong but the code runs.
+Mọi framework hiện đại đều tự động làm điều này. Hiểu nó giúp tránh bối rối khi hình dạng có vẻ sai nhưng mã vẫn chạy.
 
 ```figure
 vector-projection
@@ -270,11 +270,11 @@ print(f"Output shape: {output.shape}")
 print(f"Output: {output.data}")
 ```
 
-This is a single dense layer: `output = relu(W @ x + b)`. Every dense layer in every neural network does exactly this.
+Đây là một lớp kết nối đầy đủ: `output = relu(W @ x + b)`. Mọi lớp kết nối đầy đủ trong mọi mạng nơ-ron đều thực hiện chính xác điều này.
 
 ## Use It
 
-NumPy does everything above in fewer lines and orders of magnitude faster.
+NumPy thực hiện mọi thứ ở trên bằng ít dòng hơn và nhanh hơn nhiều bậc độ lớn.
 
 ```python
 import numpy as np
@@ -299,9 +299,9 @@ print(f"\nNeural network layer: {weights.shape} @ {inputs.shape} = {output.shape
 print(f"Output:\n{output}")
 ```
 
-The `@` operator in Python calls `__matmul__`. NumPy implements it with optimized BLAS routines written in C and Fortran. Same math, 100x faster.
+Toán tử `@` trong Python gọi `__matmul__`. NumPy triển khai nó bằng các thủ tục BLAS được tối ưu hóa viết bằng C và Fortran. Cùng phép toán, nhanh hơn 100 lần.
 
-Broadcasting in NumPy:
+Broadcasting trong NumPy:
 
 ```python
 matrix = np.array([[1, 2, 3], [4, 5, 6]])
@@ -309,38 +309,38 @@ bias = np.array([10, 20, 30])
 print(matrix + bias)
 ```
 
-NumPy automatically broadcasts the 1D bias across both rows. This is how bias addition works in every neural network framework.
+NumPy tự động broadcast bias 1D qua cả hai hàng. Đây là cách phép cộng bias hoạt động trong mọi framework mạng nơ-ron.
 
 ## Ship It
 
-This lesson produces a prompt for teaching matrix operations through geometric intuition. See `outputs/prompt-matrix-operations.md`.
+Bài học này tạo ra một prompt để dạy các phép toán ma trận thông qua trực giác hình học. Xem `outputs/prompt-matrix-operations.md`.
 
-The Matrix class built here is the foundation for the mini neural network framework we build in Phase 3, Lesson 10.
+Lớp Matrix được xây dựng ở đây là nền tảng cho framework mạng nơ-ron nhỏ mà chúng ta xây dựng trong Giai đoạn 3, Bài học 10.
 
 ## Exercises
 
-1. **Verify the inverse.** Multiply `A @ A.inverse_2x2()` and confirm you get the identity matrix. Try it with three different 2x2 matrices. What happens when the determinant is zero?
+1. **Xác minh nghịch đảo.** Nhân `A @ A.inverse_2x2()` và xác nhận bạn nhận được ma trận đơn vị. Thử với ba ma trận 2x2 khác nhau. Điều gì xảy ra khi định thức bằng không?
 
-2. **Implement 3x3 inverse.** Extend the Matrix class to compute inverses for 3x3 matrices using the adjugate method. Test it against NumPy's `np.linalg.inv`.
+2. **Triển khai nghịch đảo 3x3.** Mở rộng lớp Matrix để tính nghịch đảo cho các ma trận 3x3 bằng phương pháp ma trận phụ hợp. Kiểm tra nó với `np.linalg.inv` của NumPy.
 
-3. **Build a two-layer network.** Using only your Matrix class (no NumPy), create a two-layer neural network: input (3) -> hidden (4) -> output (2). Initialize random weights, run a forward pass, and verify all shapes are correct.
+3. **Xây dựng một mạng hai lớp.** Chỉ sử dụng lớp Matrix của bạn (không NumPy), tạo một mạng nơ-ron hai lớp: đầu vào (3) -> ẩn (4) -> đầu ra (2). Khởi tạo các trọng số ngẫu nhiên, chạy một lượt truyền xuôi và xác minh tất cả hình dạng đều đúng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Vector | "An arrow" | An ordered list of numbers. In AI: a point in high-dimensional space. |
-| Matrix | "A table of numbers" | A linear transformation. It maps vectors from one space to another. |
-| Matrix multiply | "Just multiply the numbers" | Dot products between every row of the first matrix and every column of the second. Order matters. |
-| Transpose | "Flip it" | Swap rows and columns. Turns an m x n matrix into n x m. Critical in backpropagation. |
-| Determinant | "Some number from the matrix" | Measures how much the matrix scales area (2D) or volume (3D). Zero means the transformation crushes a dimension. |
-| Inverse | "Undo the matrix" | The matrix that reverses the transformation. Only exists when the determinant is not zero. |
-| Identity matrix | "The boring matrix" | The matrix equivalent of multiplying by 1. Used in residual connections (ResNets). |
-| Broadcasting | "Magic shape fixing" | Stretching a smaller array to match a larger one by repeating along missing dimensions. |
-| Element-wise | "Regular multiplication" | Multiply matching positions. Both arrays must have the same shape (or be broadcastable). |
+| Vector | "Một mũi tên" | Một danh sách các số có thứ tự. Trong AI: một điểm trong không gian nhiều chiều. |
+| Matrix (Ma trận) | "Một bảng các số" | Một phép biến đổi tuyến tính. Nó ánh xạ các vector từ không gian này sang không gian khác. |
+| Matrix multiply (Nhân ma trận) | "Chỉ nhân các số" | Các tích vô hướng giữa mọi hàng của ma trận thứ nhất và mọi cột của ma trận thứ hai. Thứ tự có ý nghĩa. |
+| Transpose (Chuyển vị) | "Lật nó" | Hoán đổi hàng và cột. Biến một ma trận m x n thành n x m. Thiết yếu trong lan truyền ngược. |
+| Determinant (Định thức) | "Một số nào đó từ ma trận" | Đo mức độ ma trận co giãn diện tích (2D) hoặc thể tích (3D). Bằng không có nghĩa là phép biến đổi ép dẹp một chiều. |
+| Inverse (Nghịch đảo) | "Hoàn tác ma trận" | Ma trận đảo ngược phép biến đổi. Chỉ tồn tại khi định thức khác không. |
+| Identity matrix (Ma trận đơn vị) | "Ma trận nhàm chán" | Ma trận tương đương với việc nhân với 1. Được sử dụng trong các kết nối phần dư (ResNets). |
+| Broadcasting | "Sửa hình dạng bằng phép thuật" | Kéo giãn một mảng nhỏ hơn để khớp với một mảng lớn hơn bằng cách lặp lại theo các chiều còn thiếu. |
+| Element-wise (Theo từng phần tử) | "Phép nhân thông thường" | Nhân các vị trí tương ứng. Cả hai mảng phải có cùng hình dạng (hoặc có thể broadcast). |
 
 ## Further Reading
 
-- [3Blue1Brown: Essence of Linear Algebra](https://www.3blue1brown.com/topics/linear-algebra) - visual intuition for every operation covered here
-- [NumPy documentation on broadcasting](https://numpy.org/doc/stable/user/basics.broadcasting.html) - the exact rules NumPy follows
-- [Stanford CS229 Linear Algebra Review](http://cs229.stanford.edu/section/cs229-linalg.pdf) - concise reference for ML-specific linear algebra
+- [3Blue1Brown: Essence of Linear Algebra](https://www.3blue1brown.com/topics/linear-algebra) - trực giác trực quan cho mọi phép toán được đề cập ở đây
+- [Tài liệu NumPy về broadcasting](https://numpy.org/doc/stable/user/basics.broadcasting.html) - các quy tắc chính xác mà NumPy tuân theo
+- [Stanford CS229 Linear Algebra Review](http://cs229.stanford.edu/section/cs229-linalg.pdf) - tài liệu tham khảo ngắn gọn về đại số tuyến tính dành riêng cho ML
