@@ -1,6 +1,6 @@
 # Dynamic Programming — Policy Iteration & Value Iteration
 
-> Dynamic programming is RL with cheating. You already know the transition and reward functions; you just iterate the Bellman equation until `V` or `π` stops moving. It is the benchmark every sampling-based method tries to approach.
+> Quy hoạch động là RL có gian lận. Bạn đã biết các hàm chuyển tiếp và phần thưởng; bạn chỉ lặp phương trình Bellman cho đến khi `V` hoặc `π` ngừng thay đổi. Nó là benchmark mà mọi phương pháp dựa trên lấy mẫu cố tiếp cận.
 
 **Type:** Build
 **Languages:** Python
@@ -9,34 +9,34 @@
 
 ## The Problem
 
-You have an MDP with a known model: you can query `P(s' | s, a)` and `R(s, a, s')` for any state-action pair. An inventory manager knows the demand distribution. A board game has deterministic transitions. A gridworld is four lines of Python. You have a *model*.
+Bạn có một MDP với một mô hình đã biết: bạn có thể truy vấn `P(s' | s, a)` và `R(s, a, s')` cho bất kỳ cặp trạng thái-hành động nào. Một nhà quản lý tồn kho biết phân phối nhu cầu. Một trò chơi bàn cờ có các chuyển tiếp tất định. Một gridworld là bốn dòng Python. Bạn có một *mô hình*.
 
-Model-free RL (Q-learning, PPO, REINFORCE) was invented for the case where you don't have a model — you can only sample from the environment. But when you do have one, there are faster, better methods: dynamic programming. Bellman designed them in 1957. They still define correctness: when people say "optimal policy for this MDP," they mean the policy DP would return.
+RL không mô hình (Q-learning, PPO, REINFORCE) được phát minh cho trường hợp bạn không có mô hình — bạn chỉ có thể lấy mẫu từ môi trường. Nhưng khi có một mô hình, có các phương pháp nhanh hơn, tốt hơn: quy hoạch động. Bellman thiết kế chúng năm 1957. Chúng vẫn định nghĩa tính đúng đắn: khi mọi người nói "chính sách tối ưu cho MDP này," họ muốn nói chính sách mà DP sẽ trả về.
 
-You need them in 2026 for three reasons. First, every tabular environment in RL research (GridWorld, FrozenLake, CliffWalking) is solved with DP to produce the gold-standard policy. Second, exact values let you *debug* sampling methods: if Q-learning's estimate for `V*(s_0)` disagrees with the DP answer by 30%, your Q-learning has a bug. Third, modern offline RL and planning methods (MCTS, AlphaZero's search, model-based RL in Phase 9 · 10) all iterate a Bellman backup over a learned or given model.
+Bạn cần chúng vào năm 2026 vì ba lý do. Thứ nhất, mọi môi trường dạng bảng trong nghiên cứu RL (GridWorld, FrozenLake, CliffWalking) đều được giải bằng DP để tạo ra chính sách tiêu chuẩn vàng. Thứ hai, các giá trị chính xác cho phép bạn *gỡ lỗi* các phương pháp lấy mẫu: nếu ước lượng `V*(s_0)` của Q-learning khác câu trả lời DP 30%, Q-learning của bạn có lỗi. Thứ ba, các phương pháp RL ngoại tuyến và lập kế hoạch hiện đại (MCTS, tìm kiếm của AlphaZero, RL dựa trên mô hình ở Giai đoạn 9 · 10) đều lặp một phép cập nhật Bellman trên một mô hình được học hoặc cho trước.
 
 ## The Concept
 
 ![Policy iteration and value iteration, side by side](../assets/dp.svg)
 
-**Two algorithms, both fixed-point iteration on Bellman.**
+**Hai thuật toán, cả hai đều lặp điểm bất động trên Bellman.**
 
-**Policy iteration.** Alternates two steps until the policy stops changing.
+**Lặp chính sách.** Luân phiên hai bước cho đến khi chính sách ngừng thay đổi.
 
-1. *Evaluation:* given policy `π`, compute `V^π` by repeatedly applying `V(s) ← Σ_a π(a|s) Σ_{s',r} P(s',r|s,a) [r + γ V(s')]` until it converges.
-2. *Improvement:* given `V^π`, make `π` greedy w.r.t. `V^π`: `π(s) ← argmax_a Σ_{s',r} P(s',r|s,a) [r + γ V(s')]`.
+1. *Đánh giá:* với chính sách `π`, tính `V^π` bằng cách áp dụng lặp lại `V(s) ← Σ_a π(a|s) Σ_{s',r} P(s',r|s,a) [r + γ V(s')]` cho đến khi hội tụ.
+2. *Cải thiện:* với `V^π`, làm `π` tham lam theo `V^π`: `π(s) ← argmax_a Σ_{s',r} P(s',r|s,a) [r + γ V(s')]`.
 
-Convergence is guaranteed because (a) each improvement step either keeps `π` the same or strictly increases `V^π` for some state, (b) the space of deterministic policies is finite. Usually converges in ~5–20 outer iterations even for large state spaces.
+Hội tụ được bảo đảm vì (a) mỗi bước cải thiện hoặc giữ `π` như cũ hoặc tăng nghiêm ngặt `V^π` cho một trạng thái nào đó, (b) không gian các chính sách tất định là hữu hạn. Thường hội tụ trong ~5–20 lần lặp ngoài ngay cả với các không gian trạng thái lớn.
 
-**Value iteration.** Collapses evaluation and improvement into one sweep. Apply the Bellman *optimality* equation:
+**Lặp giá trị.** Gộp đánh giá và cải thiện thành một lượt quét. Áp dụng phương trình *tối ưu* Bellman:
 
 `V(s) ← max_a Σ_{s',r} P(s',r|s,a) [r + γ V(s')]`
 
-Repeat until `max_s |V_{new}(s) - V(s)| < ε`. Extract the policy at the end by taking the greedy action. Strictly faster per iteration — no inner evaluation loop — but typically needs more iterations to converge.
+Lặp lại cho đến khi `max_s |V_{new}(s) - V(s)| < ε`. Trích xuất chính sách ở cuối bằng cách lấy hành động tham lam. Nhanh hơn hẳn mỗi lần lặp — không có vòng lặp đánh giá bên trong — nhưng thường cần nhiều lần lặp hơn để hội tụ.
 
-**Generalized policy iteration (GPI).** The unifying framing. Value function and policy are locked in a two-way improvement loop; any method that drives both toward mutual consistency (async value iteration, modified policy iteration, Q-learning, actor-critic, PPO) is an instance of GPI.
+**Lặp chính sách tổng quát (GPI).** Cách nhìn thống nhất. Hàm giá trị và chính sách bị khóa trong một vòng lặp cải thiện hai chiều; bất kỳ phương pháp nào đẩy cả hai về tính nhất quán lẫn nhau (lặp giá trị bất đồng bộ, lặp chính sách sửa đổi, Q-learning, actor-critic, PPO) đều là một trường hợp của GPI.
 
-**Why `γ < 1` matters.** The Bellman operator is a `γ`-contraction in the sup-norm: `||T V - T V'||_∞ ≤ γ ||V - V'||_∞`. Contraction implies unique fixed point and geometric convergence. Drop `γ < 1` and you lose the guarantee — you need a finite horizon or an absorbing terminal state.
+**Vì sao `γ < 1` quan trọng.** Toán tử Bellman là một phép co `γ` trong chuẩn sup: `||T V - T V'||_∞ ≤ γ ||V - V'||_∞`. Phép co ngụ ý điểm bất động duy nhất và hội tụ theo cấp số nhân. Bỏ `γ < 1` và bạn mất bảo đảm — bạn cần một chân trời hữu hạn hoặc một trạng thái kết thúc hấp thụ.
 
 ```figure
 value-iteration-gamma
@@ -46,7 +46,7 @@ value-iteration-gamma
 
 ### Step 1: build the GridWorld MDP model
 
-Use the same 4×4 GridWorld from Lesson 01. We add a stochastic variant: with probability `0.1` the agent slips to a random perpendicular direction.
+Dùng cùng GridWorld 4×4 từ Bài 01. Chúng ta thêm một biến thể ngẫu nhiên: với xác suất `0.1` agent trượt sang một hướng vuông góc ngẫu nhiên.
 
 ```python
 SLIP = 0.1
@@ -60,11 +60,11 @@ def transitions(state, action):
     return outcomes
 ```
 
-`transitions(s, a)` returns a list of `(s', r, p)`. This is the entire model.
+`transitions(s, a)` trả về một danh sách `(s', r, p)`. Đây là toàn bộ mô hình.
 
 ### Step 2: policy evaluation
 
-Given a policy `π(s) = {action: prob}`, iterate the Bellman equation until `V` stops moving:
+Với một chính sách `π(s) = {action: prob}`, lặp phương trình Bellman cho đến khi `V` ngừng thay đổi:
 
 ```python
 def policy_evaluation(policy, gamma=0.99, tol=1e-6):
@@ -83,7 +83,7 @@ def policy_evaluation(policy, gamma=0.99, tol=1e-6):
 
 ### Step 3: policy improvement
 
-Replace `π` with the greedy policy w.r.t. `V`. If `π` did not change, return — we are at the optimum.
+Thay `π` bằng chính sách tham lam theo `V`. Nếu `π` không thay đổi, trả về — chúng ta ở điểm tối ưu.
 
 ```python
 def policy_improvement(V, gamma=0.99):
@@ -111,7 +111,7 @@ def policy_iteration(gamma=0.99):
         policy = new_policy
 ```
 
-Typical convergence on 4×4: 4–6 outer iterations. Outputs `V*(0,0) ≈ -6` and a policy that strictly decreases the step count.
+Hội tụ điển hình trên 4×4: 4–6 lần lặp ngoài. Xuất ra `V*(0,0) ≈ -6` và một chính sách giảm nghiêm ngặt số bước.
 
 ### Step 5: value iteration (the one-loop version)
 
@@ -132,33 +132,33 @@ def value_iteration(gamma=0.99, tol=1e-6):
     return V, policy
 ```
 
-Same fixed point, fewer lines of code.
+Cùng điểm bất động, ít dòng mã hơn.
 
 ## Pitfalls
 
-- **Forgetting to handle terminals.** If you apply Bellman to an absorbing state, it still picks up a "best action" that changes nothing. Guard with `if s == terminal: V[s] = 0`.
-- **Sup-norm vs L2 convergence.** Use `max |V_new - V|`, not average. The theoretical guarantee is on the sup-norm.
-- **In-place vs synchronous updates.** Updating `V[s]` in-place (Gauss-Seidel) converges faster than a separate `V_new` dict (Jacobi). Production code uses in-place.
-- **Policy ties.** If two actions have equal Q-value, `argmax` may break ties differently each iteration, causing the "policy stable" check to oscillate. Use a stable tie-break (first action in fixed order).
-- **State-space explosion.** DP is `O(|S| · |A|)` per sweep. Works up to ~10⁷ states. Beyond that, you need function approximation (Phase 9 · 05 onwards).
+- **Quên xử lý trạng thái kết thúc.** Nếu bạn áp dụng Bellman cho một trạng thái hấp thụ, nó vẫn chọn ra một "hành động tốt nhất" không thay đổi gì. Chặn bằng `if s == terminal: V[s] = 0`.
+- **Hội tụ chuẩn sup so với L2.** Dùng `max |V_new - V|`, không phải trung bình. Bảo đảm lý thuyết nằm trên chuẩn sup.
+- **Cập nhật tại chỗ so với đồng bộ.** Cập nhật `V[s]` tại chỗ (Gauss-Seidel) hội tụ nhanh hơn một dict `V_new` riêng (Jacobi). Mã production dùng tại chỗ.
+- **Hòa chính sách.** Nếu hai hành động có giá trị Q bằng nhau, `argmax` có thể phá hòa khác nhau mỗi lần lặp, khiến kiểm tra "chính sách ổn định" dao động. Dùng một cách phá hòa ổn định (hành động đầu tiên theo thứ tự cố định).
+- **Bùng nổ không gian trạng thái.** DP là `O(|S| · |A|)` mỗi lượt quét. Hoạt động đến ~10⁷ trạng thái. Vượt quá đó, bạn cần xấp xỉ hàm (Giai đoạn 9 · 05 trở đi).
 
 ## Use It
 
-In 2026, DP is the correctness baseline and the inner loop of planners:
+Vào năm 2026, DP là baseline tính đúng đắn và vòng lặp bên trong của các bộ lập kế hoạch:
 
-| Use case | Method |
+| Trường hợp sử dụng | Phương pháp |
 |----------|--------|
-| Solve a small tabular MDP exactly | Value iteration (simpler) or policy iteration (fewer outer steps) |
-| Verify a Q-learning / PPO implementation | Compare to DP-optimal V* on a toy environment |
-| Model-based RL (Phase 9 · 10) | Bellman backup on a learned transition model |
-| Planning in AlphaZero / MuZero | Monte Carlo Tree Search = async Bellman backup |
-| Offline RL (CQL, IQL) | Conservative Q-iteration — DP with a penalty on OOD actions |
+| Giải chính xác một MDP dạng bảng nhỏ | Lặp giá trị (đơn giản hơn) hoặc lặp chính sách (ít bước ngoài hơn) |
+| Xác minh một triển khai Q-learning / PPO | So sánh với V* tối ưu theo DP trên một môi trường đồ chơi |
+| RL dựa trên mô hình (Giai đoạn 9 · 10) | Phép cập nhật Bellman trên một mô hình chuyển tiếp được học |
+| Lập kế hoạch trong AlphaZero / MuZero | Tìm kiếm cây Monte Carlo = phép cập nhật Bellman bất đồng bộ |
+| RL ngoại tuyến (CQL, IQL) | Lặp Q bảo thủ — DP với một khoản phạt trên các hành động OOD |
 
-Every time someone says "the optimal value function," they mean "the DP fixed point." When you see `V*` or `Q*` in a paper, picture this loop.
+Mỗi khi ai đó nói "hàm giá trị tối ưu," họ muốn nói "điểm bất động DP." Khi bạn thấy `V*` hoặc `Q*` trong một bài báo, hãy hình dung vòng lặp này.
 
 ## Ship It
 
-Save as `outputs/skill-dp-solver.md`:
+Lưu thành `outputs/skill-dp-solver.md`:
 
 ```markdown
 ---
@@ -183,26 +183,26 @@ Refuse to run DP on state spaces > 10⁷. Refuse to claim convergence without a 
 
 ## Exercises
 
-1. **Easy.** Run value iteration on the 4×4 GridWorld with `γ ∈ {0.9, 0.99}`. How many sweeps until `max |ΔV| < 1e-6`? Print `V*` as a 4×4 grid.
-2. **Medium.** Compare policy iteration vs value iteration on the *stochastic* GridWorld (slip probability `0.1`). Count: sweeps, wall-clock time, final `V*(0,0)`. Which converges faster in iterations? In wall-clock?
-3. **Hard.** Build modified policy iteration: in the evaluation step, run only `k` sweeps instead of to convergence. Plot `V*(0,0)` error vs `k` for `k ∈ {1, 2, 5, 10, 50}`. What does the curve tell you about the evaluation/improvement tradeoff?
+1. **Dễ.** Chạy lặp giá trị trên GridWorld 4×4 với `γ ∈ {0.9, 0.99}`. Bao nhiêu lượt quét cho đến khi `max |ΔV| < 1e-6`? In `V*` thành một lưới 4×4.
+2. **Trung bình.** So sánh lặp chính sách với lặp giá trị trên GridWorld *ngẫu nhiên* (xác suất trượt `0.1`). Đếm: lượt quét, thời gian thực, `V*(0,0)` cuối cùng. Cái nào hội tụ nhanh hơn theo số lần lặp? Theo thời gian thực?
+3. **Khó.** Xây dựng lặp chính sách sửa đổi: ở bước đánh giá, chỉ chạy `k` lượt quét thay vì đến hội tụ. Vẽ sai số `V*(0,0)` theo `k` cho `k ∈ {1, 2, 5, 10, 50}`. Đường cong cho bạn biết gì về đánh đổi đánh giá/cải thiện?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Policy iteration | "DP algorithm" | Alternating evaluation (`V^π`) and improvement (greedy `π` w.r.t. `V^π`) until the policy stops changing. |
-| Value iteration | "Faster DP" | Bellman optimality backup applied in one sweep; converges to `V*` geometrically. |
-| Bellman operator | "The recursion" | `(T V)(s) = max_a Σ P (r + γ V(s'))`; a `γ`-contraction in sup-norm. |
-| Contraction | "Why DP converges" | Any operator `T` with `\|\|T x - T y\|\| ≤ γ \|\|x - y\|\|` has a unique fixed point. |
-| GPI | "Everything is DP" | Generalized Policy Iteration: any method driving `V` and `π` to mutual consistency. |
-| Synchronous update | "Jacobi-style" | Use old `V` throughout a sweep; cleanly analyzable but slower. |
-| In-place update | "Gauss-Seidel-style" | Use `V` as it's being updated; converges faster in practice. |
+| Policy iteration (Lặp chính sách) | "Thuật toán DP" | Luân phiên đánh giá (`V^π`) và cải thiện (`π` tham lam theo `V^π`) cho đến khi chính sách ngừng thay đổi. |
+| Value iteration (Lặp giá trị) | "DP nhanh hơn" | Phép cập nhật tối ưu Bellman được áp dụng trong một lượt quét; hội tụ đến `V*` theo cấp số nhân. |
+| Bellman operator (Toán tử Bellman) | "Đệ quy" | `(T V)(s) = max_a Σ P (r + γ V(s'))`; một phép co `γ` trong chuẩn sup. |
+| Contraction (Phép co) | "Vì sao DP hội tụ" | Bất kỳ toán tử `T` nào với `\|\|T x - T y\|\| ≤ γ \|\|x - y\|\|` đều có một điểm bất động duy nhất. |
+| GPI | "Mọi thứ đều là DP" | Lặp chính sách tổng quát: bất kỳ phương pháp nào đẩy `V` và `π` đến tính nhất quán lẫn nhau. |
+| Synchronous update (Cập nhật đồng bộ) | "Kiểu Jacobi" | Dùng `V` cũ xuyên suốt một lượt quét; dễ phân tích nhưng chậm hơn. |
+| In-place update (Cập nhật tại chỗ) | "Kiểu Gauss-Seidel" | Dùng `V` trong khi nó đang được cập nhật; hội tụ nhanh hơn trong thực tế. |
 
 ## Further Reading
 
-- [Sutton & Barto (2018). Ch. 4 — Dynamic Programming](http://incompleteideas.net/book/RLbook2020.pdf) — the canonical presentation of policy iteration and value iteration.
-- [Bertsekas (2019). Reinforcement Learning and Optimal Control](http://www.athenasc.com/rlbook_athena.html) — rigorous treatment of contraction-mapping arguments.
-- [Puterman (2005). Markov Decision Processes](https://onlinelibrary.wiley.com/doi/book/10.1002/9780470316887) — modified policy iteration and its convergence analysis.
-- [Howard (1960). Dynamic Programming and Markov Processes](https://mitpress.mit.edu/9780262582300/dynamic-programming-and-markov-processes/) — the original policy iteration paper.
-- [Bertsekas & Tsitsiklis (1996). Neuro-Dynamic Programming](http://www.athenasc.com/ndpbook.html) — the bridge from DP to approximate-DP / deep RL used by every subsequent lesson.
+- [Sutton & Barto (2018). Ch. 4 — Dynamic Programming](http://incompleteideas.net/book/RLbook2020.pdf) — cách trình bày chuẩn về lặp chính sách và lặp giá trị.
+- [Bertsekas (2019). Reinforcement Learning and Optimal Control](http://www.athenasc.com/rlbook_athena.html) — xử lý chặt chẽ các lập luận ánh xạ co.
+- [Puterman (2005). Markov Decision Processes](https://onlinelibrary.wiley.com/doi/book/10.1002/9780470316887) — lặp chính sách sửa đổi và phân tích hội tụ của nó.
+- [Howard (1960). Dynamic Programming and Markov Processes](https://mitpress.mit.edu/9780262582300/dynamic-programming-and-markov-processes/) — bài báo lặp chính sách gốc.
+- [Bertsekas & Tsitsiklis (1996). Neuro-Dynamic Programming](http://www.athenasc.com/ndpbook.html) — cầu nối từ DP sang DP xấp xỉ / RL sâu được mọi bài học tiếp theo dùng.
