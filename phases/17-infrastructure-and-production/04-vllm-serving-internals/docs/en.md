@@ -1,6 +1,6 @@
 # Serving Engine Internals — PagedAttention, Continuous Batching, Chunked Prefill
 
-> Modern serving-engine throughput rests on three compounding defaults, not a single trick. PagedAttention is always on. Continuous batching injects new requests into the active batch between decode iterations. Chunked prefill slices long prompts so decode tokens never starve. Turn all three on and a Llama 3.3 70B FP8 on one H100 SXM5 pushes 2,200-2,400 tok/s at 128 concurrent — roughly 25% above vLLM's own default and 3-4x a naive PyTorch loop. This lesson reads the scheduler and attention kernel of vLLM — the reference engine for all three techniques — at a level you can diagram, and ends with a toy continuous batcher in `code/main.py` that schedules prefill and decode the way vLLM does.
+> Thông lượng engine phục vụ hiện đại dựa trên ba mặc định cộng dồn, không phải một mẹo đơn lẻ. PagedAttention luôn bật. Gom lô liên tục đưa các yêu cầu mới vào lô hoạt động giữa các lần lặp decode. Prefill chia khối cắt các prompt dài để các token decode không bao giờ bị đói. Bật cả ba và một Llama 3.3 70B FP8 trên một H100 SXM5 đẩy 2,200-2,400 tok/s ở 128 đồng thời — cao hơn khoảng 25% so với mặc định riêng của vLLM và 3-4x một vòng lặp PyTorch ngây thơ. Bài này đọc bộ lập lịch và kernel attention của vLLM — engine tham chiếu cho cả ba kỹ thuật — ở mức bạn có thể vẽ sơ đồ, và kết thúc bằng một bộ gom lô liên tục đồ chơi trong `code/main.py` lập lịch prefill và decode theo cách vLLM làm.
 
 **Type:** Learn
 **Languages:** Python (stdlib, toy continuous batching scheduler)
@@ -9,64 +9,64 @@
 
 ## Learning Objectives
 
-- Explain PagedAttention as a KV cache allocator: blocks, block tables, and why fragmentation stays under 4% at production load.
-- Diagram continuous batching at the iteration level: how finished sequences leave the batch and new ones join without draining.
-- Describe chunked prefill in one sentence and name which latency metric it protects (hint: it is TTFT tail, not mean throughput).
-- Check a vLLM feature combination against the compatibility matrix for your version before enabling every optimization at once.
+- Giải thích PagedAttention như một bộ cấp phát bộ nhớ đệm KV: các block, các bảng block, và vì sao phân mảnh ở dưới 4% tại tải sản xuất.
+- Vẽ sơ đồ gom lô liên tục ở cấp lần lặp: cách các chuỗi đã xong rời lô và các chuỗi mới tham gia mà không làm cạn lô.
+- Mô tả prefill chia khối trong một câu và nêu chỉ số độ trễ nào nó bảo vệ (gợi ý: đó là đuôi TTFT, không phải thông lượng trung bình).
+- Kiểm tra một tổ hợp tính năng vLLM theo ma trận tương thích cho phiên bản của bạn trước khi bật mọi tối ưu hóa cùng lúc.
 
 ## The Problem
 
-A naive PyTorch serve loop runs one request at a time: tokenize, prefill, decode until EOS, return. At one user this works. At one hundred, it is a queue of patient people. The obvious fix — static batching — pads every request to the longest prompt in the window, pads every decode to the longest expected output, and stalls the whole batch on the slowest sequence. You pay for padding you never use, and fast requests wait for slow ones.
+Một vòng lặp phục vụ PyTorch ngây thơ chạy từng yêu cầu một: token hóa, prefill, decode cho tới EOS, trả về. Ở một người dùng điều này hoạt động. Ở một trăm, nó là một hàng đợi những người kiên nhẫn. Cách sửa hiển nhiên — gom lô tĩnh — đệm mọi yêu cầu tới prompt dài nhất trong cửa sổ, đệm mọi decode tới đầu ra dự kiến dài nhất, và làm đình trệ cả lô trên chuỗi chậm nhất. Bạn trả cho phần đệm không bao giờ dùng, và các yêu cầu nhanh chờ các yêu cầu chậm.
 
-vLLM solves three problems at once. PagedAttention stops KV cache fragmentation from eating 60-80% of GPU memory the way classic contiguous allocation does. Continuous batching lets requests join and leave the batch between each decode iteration, so the batch is always full of real work. Chunked prefill breaks a 32k-token prompt into ~512-token slices that interleave with decode, so a long prompt does not freeze every decode token on the GPU.
+vLLM giải quyết ba vấn đề cùng lúc. PagedAttention ngăn phân mảnh bộ nhớ đệm KV ăn 60-80% bộ nhớ GPU như cấp phát liên tục cổ điển. Gom lô liên tục cho các yêu cầu tham gia và rời lô giữa mỗi lần lặp decode, nên lô luôn đầy công việc thực. Prefill chia khối tách một prompt 32k token thành các lát ~512 token xen kẽ với decode, nên một prompt dài không đóng băng mọi token decode trên GPU.
 
-The 2026 production default is all three on. You need to understand what each one does because the failure modes are all on the scheduler, not the model.
+Mặc định sản xuất năm 2026 là bật cả ba. Bạn cần hiểu mỗi kỹ thuật làm gì vì các chế độ lỗi đều nằm ở bộ lập lịch, không phải mô hình.
 
 ## The Concept
 
 ### PagedAttention as a virtual memory system
 
-A KV cache is `num_layers × 2 × num_heads × head_dim × seq_len × bytes_per_element` per sequence. For Llama 3.3 70B at 8192 tokens, that is roughly 1.25 GB per sequence in BF16. If you pre-reserve 8192 slots for every request but the average request only uses 1500 tokens, you waste roughly 82% of the HBM you reserved. Classic batching pays this waste.
+Một bộ nhớ đệm KV là `num_layers × 2 × num_heads × head_dim × seq_len × bytes_per_element` theo từng chuỗi. Với Llama 3.3 70B ở 8192 token, đó là khoảng 1.25 GB mỗi chuỗi trong BF16. Nếu bạn đặt trước 8192 vị trí cho mọi yêu cầu nhưng yêu cầu trung bình chỉ dùng 1500 token, bạn lãng phí khoảng 82% HBM đã đặt trước. Gom lô cổ điển trả sự lãng phí này.
 
-PagedAttention borrows the idea from OS virtual memory. KV cache is not contiguous per sequence. It is allocated in fixed-size blocks (default 16 tokens). Each sequence has a block table that maps its logical token positions to physical block IDs. When a sequence grows past its allocated blocks, one more block is added. When it finishes, its blocks return to the pool.
+PagedAttention mượn ý tưởng từ bộ nhớ ảo hệ điều hành. Bộ nhớ đệm KV không liên tục theo từng chuỗi. Nó được cấp phát trong các block kích thước cố định (mặc định 16 token). Mỗi chuỗi có một bảng block ánh xạ các vị trí token logic tới các ID block vật lý. Khi một chuỗi tăng vượt các block đã cấp phát, thêm một block được thêm vào. Khi nó kết thúc, các block trở lại bể.
 
-Fragmentation drops from 60-80% (classic) to under 4% (PagedAttention). You do not enable PagedAttention with a flag — it is the only allocator vLLM ships. The knob is `--gpu-memory-utilization` (default 0.9), which tells vLLM how much HBM to reserve for KV blocks after loading weights and activations.
+Phân mảnh giảm từ 60-80% (cổ điển) xuống dưới 4% (PagedAttention). Bạn không bật PagedAttention bằng một cờ — nó là bộ cấp phát duy nhất vLLM cung cấp. Núm điều chỉnh là `--gpu-memory-utilization` (mặc định 0.9), cho vLLM biết cần dành bao nhiêu HBM cho các block KV sau khi tải trọng số và các kích hoạt.
 
 ### Continuous batching at the iteration level
 
-The old "dynamic batching" waited for a window (say 10 ms) to fill a batch, then ran prefill + decode + decode + decode until every sequence finished. Fast sequences left early and sat idle while the GPU finished the slow ones.
+“Gom lô động” cũ chờ một cửa sổ (chẳng hạn 10 ms) để lấp đầy một lô, rồi chạy prefill + decode + decode + decode cho tới khi mọi chuỗi kết thúc. Các chuỗi nhanh rời sớm và nằm nhàn rỗi trong khi GPU hoàn thành các chuỗi chậm.
 
-Continuous batching operates between each decode step. Call the set of running sequences the `RUNNING` list. At each iteration:
+Gom lô liên tục hoạt động giữa mỗi bước decode. Gọi tập các chuỗi đang chạy là danh sách `RUNNING`. Ở mỗi lần lặp:
 
-1. Any sequence in `RUNNING` that just hit EOS or max_tokens is removed.
-2. The scheduler looks at the waiting queue. If there are free KV blocks, it admits new sequences (prefill or resumed).
-3. The forward pass runs on whatever is now in `RUNNING`, emitting one new token per sequence.
+1. Bất kỳ chuỗi nào trong `RUNNING` vừa chạm EOS hoặc max_tokens được bỏ ra.
+2. Bộ lập lịch nhìn hàng đợi đang chờ. Nếu có các block KV trống, nó nhận các chuỗi mới (prefill hoặc được tiếp tục).
+3. Lượt truyền xuôi chạy trên bất cứ thứ gì hiện trong `RUNNING`, phát một token mới mỗi chuỗi.
 
-The batch size is never padded to a fixed number. Sequences at different positions in their output share one fused forward. In 2026 vLLM this is called the `V1 scheduler`. The key invariant: the scheduler runs once per decode iteration, not once per request.
+Kích thước lô không bao giờ được đệm tới một con số cố định. Các chuỗi ở các vị trí khác nhau trong đầu ra chia sẻ một lượt truyền xuôi hợp nhất. Trong vLLM năm 2026 điều này được gọi là `V1 scheduler`. Bất biến then chốt: bộ lập lịch chạy một lần mỗi lần lặp decode, không phải một lần mỗi yêu cầu.
 
 ### Chunked prefill protects TTFT tail
 
-Prefill is compute-bound. A 32k-token prompt on Llama 3.3 70B takes ~800 ms of pure prefill on one H100. While prefill runs, decode tokens for every other sequence in the batch wait. In a serving loop, the first-token latency (TTFT) of one long prompt becomes the inter-token latency (ITL) blip for dozens of other users.
+Prefill bị giới hạn bởi tính toán. Một prompt 32k token trên Llama 3.3 70B mất ~800 ms prefill thuần trên một H100. Trong khi prefill chạy, các token decode cho mọi chuỗi khác trong lô chờ. Trong một vòng lặp phục vụ, độ trễ token đầu tiên (TTFT) của một prompt dài trở thành cú nhô độ trễ giữa token (ITL) cho hàng chục người dùng khác.
 
-Chunked prefill splits prefill into fixed-size chunks (default 512 tokens) and schedules each chunk as a unit. Between chunks the scheduler can advance decode sequences by one token. You trade a small absolute prefill latency hit (a few ms per chunk) for much lower decode-time jitter. P99 ITL under mixed load drops from ~50 ms to ~15 ms in published benchmarks.
+Prefill chia khối chia prefill thành các khối kích thước cố định (mặc định 512 token) và lập lịch mỗi khối như một đơn vị. Giữa các khối, bộ lập lịch có thể đẩy các chuỗi decode tiến một token. Bạn đổi một tác động độ trễ prefill tuyệt đối nhỏ (vài ms mỗi khối) lấy dao động thời gian decode thấp hơn nhiều. P99 ITL dưới tải hỗn hợp giảm từ ~50 ms xuống ~15 ms trong các benchmark được công bố.
 
 ### The three defaults interact
 
-All three features assume each other. PagedAttention gives the scheduler a fine-grained KV resource to trade against. Continuous batching needs that fine-grained resource so admitting a new sequence does not force a global reshuffle. Chunked prefill is a decision the scheduler makes on the same `RUNNING` list — it is one more scheduler policy, not a separate system.
+Cả ba tính năng giả định lẫn nhau. PagedAttention cho bộ lập lịch một tài nguyên KV độ hạt mịn để đánh đổi. Gom lô liên tục cần tài nguyên độ hạt mịn đó để nhận một chuỗi mới không buộc xáo trộn toàn cục. Prefill chia khối là một quyết định bộ lập lịch đưa ra trên cùng danh sách `RUNNING` — nó là thêm một chính sách bộ lập lịch, không phải một hệ thống riêng.
 
-You do not need to know every flag. You need to know what the scheduler optimizes: goodput under KV-block budget, subject to chunked prefill slicing.
+Bạn không cần biết mọi cờ. Bạn cần biết bộ lập lịch tối ưu gì: goodput dưới ngân sách block KV, chịu ràng buộc cắt prefill chia khối.
 
 ### Check the compatibility matrix
 
-Check every feature combination against the compatibility matrix for your exact vLLM version before enabling all of them at once, because what composes changes between releases. In v0.18.0 the feature matrix marks speculative decoding as compatible with chunked prefill and prefix caching, and the speculative-decoding page lists two known incompatibilities: pipeline parallelism through v0.15.0, and draft-model speculation through v0.10.0. For the draft method itself, the 2026 default is often EAGLE-3 (`"method": "eagle3"`), covered in Phase 17 · 05.
+Kiểm tra mọi tổ hợp tính năng theo ma trận tương thích cho đúng phiên bản vLLM trước khi bật tất cả cùng lúc, vì những gì kết hợp được thay đổi giữa các bản phát hành. Trong v0.18.0 ma trận tính năng đánh dấu giải mã suy đoán tương thích với prefill chia khối và lưu đệm tiền tố, và trang giải mã suy đoán liệt kê hai không tương thích đã biết: song song pipeline tới hết v0.15.0, và suy đoán mô hình nháp tới hết v0.10.0. Với chính phương pháp nháp, mặc định năm 2026 thường là EAGLE-3 (`"method": "eagle3"`), được trình bày trong Giai đoạn 17 · 05.
 
 ### Numbers you should remember
 
-- Llama 3.3 70B FP8, H100 SXM5, 128 concurrent, all three on: 2,200-2,400 tok/s.
-- Same model, default vLLM (no chunked prefill): ~1,800 tok/s.
-- Same model, naive PyTorch forward loop: ~600 tok/s.
-- KV fragmentation waste under PagedAttention at production load: <4%.
-- P99 ITL under mixed load: ~15 ms with chunked prefill, ~50 ms without.
+- Llama 3.3 70B FP8, H100 SXM5, 128 đồng thời, bật cả ba: 2,200-2,400 tok/s.
+- Cùng mô hình, vLLM mặc định (không prefill chia khối): ~1,800 tok/s.
+- Cùng mô hình, vòng lặp truyền xuôi PyTorch ngây thơ: ~600 tok/s.
+- Lãng phí phân mảnh KV dưới PagedAttention ở tải sản xuất: <4%.
+- P99 ITL dưới tải hỗn hợp: ~15 ms với prefill chia khối, ~50 ms nếu không có.
 
 ### What the scheduler looks like
 
@@ -91,7 +91,7 @@ while True:
     run_forward(batch)                            # one fused GPU call
 ```
 
-`code/main.py` is exactly this loop in stdlib Python with fake token counts and fake forward latency. Running it shows how chunked prefill keeps decode sequences alive during a long prefill.
+`code/main.py` chính xác là vòng lặp này bằng thư viện chuẩn Python với các số đếm token giả và độ trễ truyền xuôi giả. Chạy nó cho thấy cách prefill chia khối giữ các chuỗi decode sống trong một prefill dài.
 
 ```figure
 tensor-parallel
@@ -99,45 +99,45 @@ tensor-parallel
 
 ## Use It
 
-`code/main.py` simulates a vLLM-style scheduler with toggleable features. Run it to see:
+`code/main.py` mô phỏng một bộ lập lịch kiểu vLLM với các tính năng có thể bật tắt. Chạy nó để thấy:
 
-- `NAIVE` mode: one request at a time, no batching.
-- `STATIC` mode: pad and wait, classic batching.
-- `CONTINUOUS` mode: iteration-level admission and release.
-- `CONTINUOUS + CHUNKED` mode: prefill slices interleaved with decode.
+- Chế độ `NAIVE`: từng yêu cầu một, không gom lô.
+- Chế độ `STATIC`: đệm và chờ, gom lô cổ điển.
+- Chế độ `CONTINUOUS`: nhận và giải phóng ở cấp lần lặp.
+- Chế độ `CONTINUOUS + CHUNKED`: các lát prefill xen kẽ với decode.
 
-The output shows total throughput (tokens per virtual second), TTFT mean, and P99 ITL. The `CONTINUOUS + CHUNKED` row should dominate on mixed traffic.
+Đầu ra cho thấy tổng thông lượng (token mỗi giây ảo), TTFT trung bình, và P99 ITL. Hàng `CONTINUOUS + CHUNKED` nên chiếm ưu thế trên lưu lượng hỗn hợp.
 
 ## Ship It
 
-This lesson produces `outputs/skill-vllm-scheduler-reader.md`. Given a serving config (batch size, KV memory utilization, chunked prefill size, speculative config), it produces a scheduler diagnosis that names which of the three defaults is bottlenecking and what to tune.
+Bài này tạo ra `outputs/skill-vllm-scheduler-reader.md`. Với một cấu hình phục vụ (kích thước lô, mức sử dụng bộ nhớ KV, kích thước prefill chia khối, cấu hình suy đoán), nó tạo một chẩn đoán bộ lập lịch nêu mặc định nào trong ba mặc định đang gây nút thắt và cần điều chỉnh gì.
 
 ## Exercises
 
-1. Run `code/main.py`. Compare `STATIC` to `CONTINUOUS` on a workload with mixed short and long requests. Where does the throughput gap come from — prefill efficiency, decode efficiency, or tail latency?
-2. Modify the toy scheduler to add `--max-num-batched-tokens`. What is the right value for an H100 running Llama 3.3 70B FP8? (Hint: it is a function of KV block size and number of free blocks, not raw HBM.)
-3. Re-read the vLLM v0.18.0 release notes. Which combinations of flags are mutually exclusive? List them.
-4. Compute the KV cache fragmentation waste for a trace of 1,000 requests with mean 1,500 output tokens, std 600 tokens, under (a) contiguous per-request allocation at 8192 max, (b) PagedAttention with 16-token blocks.
-5. Explain in one paragraph why chunked prefill helps P99 ITL but not throughput in isolation. Where does the throughput win come from in practice?
+1. Chạy `code/main.py`. So sánh `STATIC` với `CONTINUOUS` trên một khối lượng công việc trộn các yêu cầu ngắn và dài. Khoảng cách thông lượng đến từ đâu — hiệu quả prefill, hiệu quả decode, hay độ trễ đuôi?
+2. Sửa bộ lập lịch đồ chơi để thêm `--max-num-batched-tokens`. Giá trị phù hợp cho một H100 chạy Llama 3.3 70B FP8 là gì? (Gợi ý: nó là một hàm của kích thước block KV và số block trống, không phải HBM thô.)
+3. Đọc lại ghi chú phát hành vLLM v0.18.0. Những tổ hợp cờ nào loại trừ lẫn nhau? Liệt kê chúng.
+4. Tính lãng phí phân mảnh bộ nhớ đệm KV cho một dấu vết 1,000 yêu cầu với trung bình 1,500 token đầu ra, độ lệch chuẩn 600 token, dưới (a) cấp phát liên tục theo từng yêu cầu ở tối đa 8192, (b) PagedAttention với các block 16 token.
+5. Giải thích trong một đoạn vì sao prefill chia khối giúp P99 ITL nhưng không giúp thông lượng khi xét riêng. Lợi ích thông lượng đến từ đâu trong thực tế?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| PagedAttention | "the KV trick" | Fixed-size block allocator for KV cache; fragmentation <4% |
-| Block table | "the page table" | Per-sequence map from logical token position to physical KV block |
-| Continuous batching | "dynamic batching, but right" | Admit/release decisions made every decode iteration |
-| Chunked prefill | "prefill splitting" | Break long prefill into 512-token slices interleaved with decode |
-| TTFT | "first token time" | Prefill + queue + network; dominated by prefill at long prompts |
-| ITL | "inter-token latency" | Time between consecutive decode tokens; dominated by batch size |
-| Goodput | "throughput that meets SLO" | Tokens/sec where every request still hit TTFT and ITL targets |
-| V1 scheduler | "the new scheduler" | vLLM's 2026 scheduler; runs continuous batching with chunked prefill |
-| `--gpu-memory-utilization` | "the memory knob" | Fraction of HBM reserved for KV blocks after weights and activations |
+| PagedAttention | “mẹo KV” | Bộ cấp phát block kích thước cố định cho bộ nhớ đệm KV; phân mảnh <4% |
+| Block table (Bảng block) | “bảng trang” | Ánh xạ theo từng chuỗi từ vị trí token logic tới block KV vật lý |
+| Continuous batching (Gom lô liên tục) | “gom lô động, nhưng đúng” | Các quyết định nhận/giải phóng được đưa ra mỗi lần lặp decode |
+| Chunked prefill (Prefill chia khối) | “chia prefill” | Tách prefill dài thành các lát 512 token xen kẽ với decode |
+| TTFT | “thời gian token đầu tiên” | Prefill + hàng đợi + mạng; bị prefill chi phối ở các prompt dài |
+| ITL | “độ trễ giữa token” | Thời gian giữa các token decode liên tiếp; bị kích thước lô chi phối |
+| Goodput | “thông lượng đáp ứng SLO” | Token/giây nơi mọi yêu cầu vẫn đạt các mục tiêu TTFT và ITL |
+| V1 scheduler (Bộ lập lịch V1) | “bộ lập lịch mới” | Bộ lập lịch năm 2026 của vLLM; chạy gom lô liên tục với prefill chia khối |
+| `--gpu-memory-utilization` | “núm bộ nhớ” | Tỷ lệ HBM dành cho các block KV sau trọng số và các kích hoạt |
 
 ## Further Reading
 
-- [vLLM documentation — Speculative Decoding](https://docs.vllm.ai/en/latest/features/spec_decode/) — official source on chunked-prefill and speculative-decoding compatibility.
-- [vLLM Release Notes (NVIDIA)](https://docs.nvidia.com/deeplearning/frameworks/vllm-release-notes/index.html) — 2026 release cadence and version-specific behavior.
-- [vLLM Blog — PagedAttention](https://blog.vllm.ai/2023/06/20/vllm.html) — the original write-up that still defines how to think about the allocator.
-- [PagedAttention paper (arXiv:2309.06180)](https://arxiv.org/abs/2309.06180) — fragmentation analysis and scheduler design.
-- [Aleksa Gordic — Inside vLLM](https://www.aleksagordic.com/blog/vllm) — detailed V1 scheduler walkthrough with flame graphs.
+- [vLLM documentation — Speculative Decoding](https://docs.vllm.ai/en/latest/features/spec_decode/) — nguồn chính thức về tương thích prefill chia khối và giải mã suy đoán.
+- [vLLM Release Notes (NVIDIA)](https://docs.nvidia.com/deeplearning/frameworks/vllm-release-notes/index.html) — nhịp phát hành năm 2026 và hành vi riêng theo phiên bản.
+- [vLLM Blog — PagedAttention](https://blog.vllm.ai/2023/06/20/vllm.html) — bài viết gốc vẫn định nghĩa cách suy nghĩ về bộ cấp phát.
+- [PagedAttention paper (arXiv:2309.06180)](https://arxiv.org/abs/2309.06180) — phân tích phân mảnh và thiết kế bộ lập lịch.
+- [Aleksa Gordic — Inside vLLM](https://www.aleksagordic.com/blog/vllm) — hướng dẫn chi tiết bộ lập lịch V1 với các flame graph.

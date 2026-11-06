@@ -7,24 +7,24 @@ lesson: 04
 tags: [vllm, paged-attention, continuous-batching, chunked-prefill, serving, scheduler]
 ---
 
-Given a vLLM serving config (model, dtype, hardware, `--gpu-memory-utilization`, `--max-num-batched-tokens`, `--enable-chunked-prefill`, `--speculative-config`, max concurrency, and an observed metric set of TTFT mean/P99, ITL mean/P99, throughput tok/s), produce a scheduler-level diagnosis.
+Với một cấu hình phục vụ vLLM (mô hình, dtype, phần cứng, `--gpu-memory-utilization`, `--max-num-batched-tokens`, `--enable-chunked-prefill`, `--speculative-config`, mức đồng thời tối đa, và một tập chỉ số quan sát gồm TTFT trung bình/P99, ITL trung bình/P99, thông lượng tok/s), tạo một chẩn đoán cấp bộ lập lịch.
 
-Produce:
+Tạo ra:
 
-1. Config read. For each flag, name the scheduler behavior it controls and the 2026 default. Flag any flag set to a non-default value and call out why.
-2. Bottleneck identification. Classify the bottleneck as one of: PagedAttention under-provisioned (KV block starvation), continuous-batching stall (WAITING queue growth), chunked-prefill mis-sized (TTFT tail spike), decode compute-bound (ITL floor), or HBM-bound (cannot fit batch). Justify with the reported metrics.
-3. Knob recommendations. Specific, ordered actions — which flag to flip, which value to try, and which metric to watch. Do not suggest "try more GPUs" without first exhausting scheduler-level tuning.
-4. Compatibility check. Check every enabled feature pair against the compatibility matrix for the exact vLLM version in the config. For v0.18.0 the matrix marks speculative decoding compatible with chunked prefill and prefix caching.
-5. What to read next. Point to one of the vLLM v0.18.0 release notes, the PagedAttention paper, or the Aleksa Gordic V1 scheduler walkthrough depending on what the diagnosis surfaced.
+1. Đọc cấu hình. Với mỗi cờ, nêu hành vi bộ lập lịch nó kiểm soát và mặc định năm 2026. Gắn cờ bất kỳ cờ nào được đặt ở giá trị không mặc định và chỉ ra vì sao.
+2. Nhận diện nút thắt. Phân loại nút thắt là một trong: PagedAttention cấp phát thiếu (đói block KV), đình trệ gom lô liên tục (hàng đợi WAITING tăng), prefill chia khối sai kích thước (đuôi TTFT tăng vọt), decode bị giới hạn bởi tính toán (sàn ITL), hoặc bị giới hạn bởi HBM (không chứa được lô). Giải thích bằng các chỉ số được báo cáo.
+3. Các khuyến nghị núm điều chỉnh. Các hành động cụ thể, có thứ tự — đảo cờ nào, thử giá trị nào, và theo dõi chỉ số nào. Đừng gợi ý “thử nhiều GPU hơn” trước khi khai thác hết điều chỉnh cấp bộ lập lịch.
+4. Kiểm tra tương thích. Kiểm tra mọi cặp tính năng đã bật theo ma trận tương thích cho đúng phiên bản vLLM trong cấu hình. Với v0.18.0 ma trận đánh dấu giải mã suy đoán tương thích với prefill chia khối và lưu đệm tiền tố.
+5. Đọc gì tiếp theo. Chỉ tới một trong các ghi chú phát hành vLLM v0.18.0, bài báo PagedAttention, hoặc hướng dẫn bộ lập lịch V1 của Aleksa Gordic tùy những gì chẩn đoán bộc lộ.
 
-Hard rejects:
-- Diagnosing without the four core metrics (TTFT, ITL, throughput, concurrency). Refuse and ask for the metric set.
-- Recommending `--enable-chunked-prefill` without checking the speculative-decoding config.
-- Treating `DCGM_FI_DEV_GPU_UTIL` as a scaling signal. vLLM pre-allocates KV; duty-cycle numbers are misleading.
+Các trường hợp loại bỏ dứt khoát:
+- Chẩn đoán không có bốn chỉ số cốt lõi (TTFT, ITL, thông lượng, mức đồng thời). Từ chối và yêu cầu tập chỉ số.
+- Khuyến nghị `--enable-chunked-prefill` mà không kiểm tra cấu hình giải mã suy đoán.
+- Coi `DCGM_FI_DEV_GPU_UTIL` là tín hiệu mở rộng. vLLM cấp phát trước KV; các con số chu kỳ hoạt động gây hiểu lầm.
 
-Refusal rules:
-- If the reported throughput is under 100 tok/s on an H100, the bottleneck is likely not vLLM — check for tokenizer on client side, Python GIL, or request-level serialization.
-- If `--gpu-memory-utilization` is set below 0.7, refuse to tune further — the operator chose to leave HBM on the table and the fix is to raise the ceiling before flipping scheduler flags.
-- If the operator asks for a speculative-decoding + chunked-prefill recipe, check the combination against the compatibility matrix for their vLLM version before answering, and point to EAGLE-3 in Phase 17 · 05 for the draft method.
+Các quy tắc từ chối:
+- Nếu thông lượng được báo cáo dưới 100 tok/s trên một H100, nút thắt có khả năng không phải vLLM — kiểm tra tokenizer phía máy khách, Python GIL, hoặc tuần tự hóa cấp yêu cầu.
+- Nếu `--gpu-memory-utilization` được đặt dưới 0.7, từ chối điều chỉnh thêm — người vận hành chọn để HBM chưa tận dụng và cách sửa là nâng trần trước khi đảo các cờ bộ lập lịch.
+- Nếu người vận hành yêu cầu một công thức giải mã suy đoán + prefill chia khối, kiểm tra tổ hợp theo ma trận tương thích cho phiên bản vLLM của họ trước khi trả lời, và chỉ tới EAGLE-3 trong Giai đoạn 17 · 05 cho phương pháp nháp.
 
-Output: a one-page scheduler diagnosis listing flags, bottleneck, ordered recommendations, compatibility notes, and a next-read pointer. End with a "what to measure next" paragraph naming one of P99 ITL, block allocation rate, or WAITING queue depth, depending on the bottleneck identified.
+Đầu ra: một chẩn đoán bộ lập lịch một trang liệt kê các cờ, nút thắt, các khuyến nghị có thứ tự, ghi chú tương thích, và một chỉ dẫn đọc tiếp. Kết thúc bằng một đoạn “đo gì tiếp theo” nêu một trong P99 ITL, tốc độ cấp phát block, hoặc độ sâu hàng đợi WAITING, tùy nút thắt được nhận diện.
