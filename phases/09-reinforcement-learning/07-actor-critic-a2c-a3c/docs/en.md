@@ -1,6 +1,6 @@
 # Actor-Critic — A2C and A3C
 
-> REINFORCE is noisy. Add a critic that learns `V̂(s)`, subtract it from the return, and you get an advantage that has the same expectation but far lower variance. That is actor-critic. A2C runs it synchronously; A3C runs it across threads. Both are the mental model for every modern deep-RL method.
+> REINFORCE nhiều nhiễu. Thêm một critic học `V̂(s)`, trừ nó khỏi lợi tức, và bạn có một lợi thế có cùng kỳ vọng nhưng phương sai thấp hơn nhiều. Đó là actor-critic. A2C chạy nó đồng bộ; A3C chạy nó trên nhiều luồng. Cả hai là mô hình tư duy cho mọi phương pháp deep-RL hiện đại.
 
 **Type:** Build
 **Languages:** Python
@@ -9,49 +9,49 @@
 
 ## The Problem
 
-Vanilla REINFORCE works, but its variance is terrible. Monte Carlo returns `G_t` can swing over a factor of 10 between episodes. Multiplying that noise by `∇ log π` and averaging produces a gradient estimator that takes thousands of episodes to move the policy the same distance you could move it with far fewer DQN updates.
+REINFORCE nguyên bản hoạt động, nhưng phương sai của nó khủng khiếp. Các lợi tức Monte Carlo `G_t` có thể dao động với hệ số 10 giữa các episode. Nhân nhiễu đó với `∇ log π` và lấy trung bình tạo ra một bộ ước lượng gradient cần hàng nghìn episode để dịch chuyển chính sách cùng khoảng cách mà bạn có thể dịch chuyển nó với ít cập nhật DQN hơn nhiều.
 
-The variance comes from using raw returns. If you subtract a baseline `b(s_t)` — any function of state, including a learned value — the expectation is unchanged and the variance drops. The best tractable baseline is `V̂(s_t)`. Now the quantity multiplying `∇ log π` is the *advantage*:
+Phương sai đến từ việc dùng lợi tức thô. Nếu bạn trừ một baseline `b(s_t)` — bất kỳ hàm nào của trạng thái, gồm một giá trị được học — kỳ vọng không đổi và phương sai giảm. Baseline tốt nhất tính toán được là `V̂(s_t)`. Giờ đại lượng nhân với `∇ log π` là *lợi thế*:
 
 `A(s, a) = G - V̂(s)`
 
-An action is good if it produced above-average return; bad if below. REINFORCE with a learned critic is *actor-critic*. The critic gives the actor a low-variance teacher. This is every deep-policy method after 2015 (A2C, A3C, PPO, SAC, IMPALA).
+Một hành động tốt nếu nó tạo ra lợi tức trên trung bình; xấu nếu dưới. REINFORCE với một critic được học là *actor-critic*. Critic cho actor một người thầy phương sai thấp. Đây là mọi phương pháp chính sách sâu sau năm 2015 (A2C, A3C, PPO, SAC, IMPALA).
 
 ## The Concept
 
 ![Actor-critic: policy net plus value net, TD residual as advantage](../assets/actor-critic.svg)
 
-**Two networks, one shared loss:**
+**Hai mạng, một hàm mất mát chung:**
 
-- **Actor** `π_θ(a | s)`: the policy. Sampled to act. Trained with policy gradient.
-- **Critic** `V_φ(s)`: estimates expected return from state. Trained to minimize `(V_φ(s) - target)²`.
+- **Actor** `π_θ(a | s)`: chính sách. Được lấy mẫu để hành động. Được huấn luyện bằng gradient chính sách.
+- **Critic** `V_φ(s)`: ước lượng lợi tức kỳ vọng từ trạng thái. Được huấn luyện để tối thiểu hóa `(V_φ(s) - target)²`.
 
-**The advantage.** Two standard forms:
+**Lợi thế.** Hai dạng tiêu chuẩn:
 
-- *MC advantage:* `A_t = G_t - V_φ(s_t)`. Unbiased, higher variance.
-- *TD advantage:* `A_t = r_{t+1} + γ V_φ(s_{t+1}) - V_φ(s_t)`. Biased (uses `V_φ`), far lower variance. Also called the *TD residual* `δ_t`.
+- *Lợi thế MC:* `A_t = G_t - V_φ(s_t)`. Không chệch, phương sai cao hơn.
+- *Lợi thế TD:* `A_t = r_{t+1} + γ V_φ(s_{t+1}) - V_φ(s_t)`. Chệch (dùng `V_φ`), phương sai thấp hơn nhiều. Cũng được gọi là *phần dư TD* `δ_t`.
 
-**n-step advantage.** Interpolate between the two:
+**Lợi thế n bước.** Nội suy giữa hai dạng:
 
 `A_t^{(n)} = r_{t+1} + γ r_{t+2} + … + γ^{n-1} r_{t+n} + γ^n V_φ(s_{t+n}) - V_φ(s_t)`
 
-`n = 1` is pure TD. `n = ∞` is MC. Most implementations use `n = 5` for Atari, `n = 2048` for PPO on MuJoCo.
+`n = 1` là TD thuần túy. `n = ∞` là MC. Hầu hết triển khai dùng `n = 5` cho Atari, `n = 2048` cho PPO trên MuJoCo.
 
-**Generalized Advantage Estimation (GAE).** Schulman et al. (2016) proposed an exponentially weighted average over all n-step advantages:
+**Ước lượng lợi thế tổng quát (GAE).** Schulman và cộng sự (2016) đề xuất một trung bình có trọng số theo hàm mũ trên tất cả lợi thế n bước:
 
 `A_t^{GAE} = Σ_{l=0}^{∞} (γλ)^l δ_{t+l}`
 
-with `λ ∈ [0, 1]`. `λ = 0` is TD (low variance, high bias). `λ = 1` is MC (high variance, unbiased). `λ = 0.95` is the 2026 default — tune until the bias/variance dial is where you want it.
+với `λ ∈ [0, 1]`. `λ = 0` là TD (phương sai thấp, độ chệch cao). `λ = 1` là MC (phương sai cao, không chệch). `λ = 0.95` là mặc định năm 2026 — điều chỉnh cho đến khi nút độ chệch/phương sai ở nơi bạn muốn.
 
-**A2C: synchronous advantage actor-critic.** Collect `T` steps across `N` parallel environments. Compute advantages for each step. Update actor and critic on the combined batch. Repeat. The simpler, more-scalable sibling of A3C.
+**A2C: actor-critic lợi thế đồng bộ.** Thu thập `T` bước trên `N` môi trường song song. Tính lợi thế cho mỗi bước. Cập nhật actor và critic trên batch kết hợp. Lặp lại. Người anh em đơn giản hơn, dễ mở rộng quy mô hơn của A3C.
 
-**A3C: asynchronous advantage actor-critic.** Mnih et al. (2016). Spawn `N` worker threads, each running an env. Each worker computes gradients locally on its own rollout, then asynchronously applies them to a shared parameter server. No replay buffer needed — workers decorrelate by running different trajectories. A3C proved you could train on CPUs at scale. In 2026, GPU-based A2C (batched parallel envs) dominates because GPUs want large batches.
+**A3C: actor-critic lợi thế bất đồng bộ.** Mnih và cộng sự (2016). Tạo `N` luồng worker, mỗi luồng chạy một môi trường. Mỗi worker tính gradient cục bộ trên rollout của chính nó, rồi áp dụng chúng bất đồng bộ vào một máy chủ tham số chung. Không cần bộ đệm phát lại — các worker khử tương quan bằng cách chạy các quỹ đạo khác nhau. A3C chứng minh bạn có thể huấn luyện trên CPU ở quy mô lớn. Vào năm 2026, A2C dựa trên GPU (các môi trường song song được gom batch) chi phối vì GPU muốn các batch lớn.
 
-**The combined loss.**
+**Hàm mất mát kết hợp.**
 
 `L(θ, φ) = -E[ A_t · log π_θ(a_t | s_t) ]  +  c_v · E[(V_φ(s_t) - G_t)²]  -  c_e · E[H(π_θ(·|s_t))]`
 
-Three terms: policy-gradient loss, value regression, entropy bonus. `c_v ~ 0.5`, `c_e ~ 0.01` are canonical starting points.
+Ba hạng tử: hàm mất mát gradient chính sách, hồi quy giá trị, thưởng entropy. `c_v ~ 0.5`, `c_e ~ 0.01` là các điểm khởi đầu chuẩn.
 
 ```figure
 actor-critic
@@ -61,7 +61,7 @@ actor-critic
 
 ### Step 1: a critic
 
-Linear critic `V_φ(s) = w · features(s)` updated with MSE:
+Critic tuyến tính `V_φ(s) = w · features(s)` được cập nhật bằng MSE:
 
 ```python
 def critic_update(w, x, target, lr):
@@ -72,11 +72,11 @@ def critic_update(w, x, target, lr):
     return v_hat
 ```
 
-On a tabular env the critic converges in a few hundred episodes. On Atari, replace the linear critic with a shared CNN trunk + value head.
+Trên một môi trường dạng bảng, critic hội tụ trong vài trăm episode. Trên Atari, thay critic tuyến tính bằng một thân CNN chung + head giá trị.
 
 ### Step 2: n-step advantage
 
-Given a rollout of length `T` and a bootstrapped final `V(s_T)`:
+Với một rollout dài `T` và một `V(s_T)` cuối được bootstrap:
 
 ```python
 def compute_advantages(rewards, values, gamma=0.99, lam=0.95, last_value=0.0):
@@ -91,7 +91,7 @@ def compute_advantages(rewards, values, gamma=0.99, lam=0.95, last_value=0.0):
     return advantages, returns
 ```
 
-`returns` is the critic target. `advantages` is what multiplies `∇ log π`.
+`returns` là mục tiêu critic. `advantages` là thứ nhân với `∇ log π`.
 
 ### Step 3: combined update
 
@@ -110,42 +110,42 @@ for step_i, (x, a, _r, probs) in enumerate(traj):
             theta[i][j] += lr_a * adv * grad_logpi * x[j]
 ```
 
-On-policy, one rollout per update, separate learning rates for actor and critic.
+On-policy, một rollout mỗi cập nhật, tốc độ học riêng cho actor và critic.
 
 ### Step 4: parallelization (A3C vs A2C)
 
-- **A3C:** spin up `N` threads. Each runs its own env and its own forward pass. Periodically push gradient updates to a shared master. No locks on the master — races are ok, they just add noise.
-- **A2C:** run `N` env instances in a single process, stack observations into a `[N, obs_dim]` batch, batched forward pass, batched backward pass. Higher GPU utilization, deterministic, easier to reason about. The default in 2026.
+- **A3C:** khởi chạy `N` luồng. Mỗi luồng chạy môi trường riêng và lượt truyền xuôi riêng. Định kỳ đẩy các cập nhật gradient đến một bản chính chung. Không khóa trên bản chính — tranh chấp là được, chúng chỉ thêm nhiễu.
+- **A2C:** chạy `N` bản môi trường trong một tiến trình duy nhất, xếp các quan sát thành một batch `[N, obs_dim]`, lượt truyền xuôi theo batch, lượt truyền ngược theo batch. Mức sử dụng GPU cao hơn, tất định, dễ suy luận hơn. Mặc định năm 2026.
 
-Our toy code is single-threaded for clarity; rewriting to batched A2C is three lines of numpy.
+Mã đồ chơi của chúng ta đơn luồng để rõ ràng; viết lại thành A2C theo batch là ba dòng numpy.
 
 ## Pitfalls
 
-- **Critic bias before actor gradient.** If the critic is random, its baseline is uninformative and you are training on pure noise. Warm up the critic for a few hundred steps before turning on the policy gradient, or use a slow actor learning rate.
-- **Advantage normalization.** Normalize advantages to zero-mean/unit-std per batch. Stabilizes training massively at near-zero cost.
-- **Shared trunk.** Use a shared feature extractor for actor and critic on image inputs. Separate heads. The shared features free-ride on both losses.
-- **On-policy contract.** A2C reuses data for exactly one update. More and your gradient is biased (importance-sampling correction is what PPO adds).
-- **Entropy collapse.** Without `c_e > 0`, policy becomes near-deterministic in a few hundred updates and stops exploring.
-- **Reward scale.** Advantage magnitudes depend on reward scale. Normalize rewards (e.g., running-std dividing) for consistent gradient magnitudes across tasks.
+- **Độ chệch critic trước gradient actor.** Nếu critic ngẫu nhiên, baseline của nó không cung cấp thông tin và bạn đang huấn luyện trên nhiễu thuần túy. Khởi động critic trong vài trăm bước trước khi bật gradient chính sách, hoặc dùng tốc độ học actor chậm.
+- **Chuẩn hóa lợi thế.** Chuẩn hóa lợi thế về trung bình bằng không/độ lệch chuẩn đơn vị mỗi batch. Ổn định huấn luyện rất nhiều với chi phí gần bằng không.
+- **Thân chung.** Dùng một bộ trích xuất đặc trưng chung cho actor và critic trên đầu vào ảnh. Các head riêng. Các đặc trưng chung hưởng lợi từ cả hai hàm mất mát.
+- **Quy ước on-policy.** A2C tái sử dụng dữ liệu cho đúng một lần cập nhật. Nhiều hơn thì gradient của bạn bị chệch (hiệu chỉnh lấy mẫu quan trọng là thứ PPO thêm vào).
+- **Sụp đổ entropy.** Không có `c_e > 0`, chính sách trở nên gần tất định trong vài trăm lần cập nhật và ngừng khám phá.
+- **Thang phần thưởng.** Độ lớn lợi thế phụ thuộc thang phần thưởng. Chuẩn hóa phần thưởng (ví dụ chia cho độ lệch chuẩn tích lũy) để có độ lớn gradient nhất quán xuyên tác vụ.
 
 ## Use It
 
-A2C/A3C are rarely the final choice in 2026 but they are the architecture everything later refines:
+A2C/A3C hiếm khi là lựa chọn cuối vào năm 2026 nhưng chúng là kiến trúc mà mọi thứ về sau cải tiến:
 
-| Method | Relation to A2C |
+| Phương pháp | Quan hệ với A2C |
 |--------|----------------|
-| PPO | A2C + clipped importance ratio for multi-epoch updates |
-| IMPALA | A3C + V-trace off-policy correction |
-| SAC (Phase 9 · 07) | Off-policy A2C with a soft-value critic (next lesson) |
-| GRPO (Phase 9 · 12) | A2C without the critic — group-relative advantage |
-| DPO | A2C collapsed into a preference-ranking loss, no sampling |
-| AlphaStar / OpenAI Five | A2C with league training + imitation pre-training |
+| PPO | A2C + tỷ số quan trọng được cắt cho các cập nhật nhiều epoch |
+| IMPALA | A3C + hiệu chỉnh off-policy V-trace |
+| SAC (Giai đoạn 9 · 07) | A2C off-policy với một critic giá trị mềm (bài tiếp theo) |
+| GRPO (Giai đoạn 9 · 12) | A2C không có critic — lợi thế tương đối theo nhóm |
+| DPO | A2C được gộp thành một hàm mất mát xếp hạng sở thích, không lấy mẫu |
+| AlphaStar / OpenAI Five | A2C với huấn luyện liên đoàn + huấn luyện trước bằng bắt chước |
 
-If you see "advantage" in a 2026 paper, think actor-critic.
+Nếu bạn thấy "lợi thế" trong một bài báo năm 2026, hãy nghĩ actor-critic.
 
 ## Ship It
 
-Save as `outputs/skill-actor-critic-trainer.md`:
+Lưu thành `outputs/skill-actor-critic-trainer.md`:
 
 ```markdown
 ---
@@ -170,28 +170,28 @@ Refuse single-worker A2C on environments with horizon > 1000 (too on-policy, too
 
 ## Exercises
 
-1. **Easy.** Train actor-critic with MC advantage (`G_t - V(s_t)`) on 4×4 GridWorld. Compare sample efficiency to REINFORCE-with-running-mean-baseline from Lesson 06.
-2. **Medium.** Switch to TD-residual advantage (`r + γ V(s') - V(s)`). Measure variance of the advantage batches. By how much does it drop?
-3. **Hard.** Implement GAE(λ). Sweep `λ ∈ {0, 0.5, 0.9, 0.95, 1.0}`. Plot final return vs sample efficiency. Where is the bias/variance sweet spot for this task?
+1. **Dễ.** Huấn luyện actor-critic với lợi thế MC (`G_t - V(s_t)`) trên GridWorld 4×4. So sánh hiệu quả mẫu với REINFORCE có baseline trung bình tích lũy từ Bài 06.
+2. **Trung bình.** Chuyển sang lợi thế phần dư TD (`r + γ V(s') - V(s)`). Đo phương sai của các batch lợi thế. Nó giảm bao nhiêu?
+3. **Khó.** Triển khai GAE(λ). Quét `λ ∈ {0, 0.5, 0.9, 0.95, 1.0}`. Vẽ lợi tức cuối cùng so với hiệu quả mẫu. Điểm độ chệch/phương sai tốt nhất cho tác vụ này ở đâu?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Actor | "The policy net" | `π_θ(a\|s)`, updated by policy gradient. |
-| Critic | "The value net" | `V_φ(s)`, updated by MSE regression to returns / TD targets. |
-| Advantage | "How much better than average" | `A(s, a) = Q(s, a) - V(s)` or its estimators. Multiplier for `∇ log π`. |
-| TD residual | "δ" | `δ_t = r + γ V(s') - V(s)`; one-step advantage estimate. |
-| GAE | "The interpolation knob" | Exponentially weighted sum of n-step advantages, parameterized by `λ`. |
-| A2C | "Synchronous actor-critic" | Batched across envs; one gradient step per rollout. |
-| A3C | "Async actor-critic" | Worker threads push gradients to a shared param server. Original paper; less common in 2026. |
-| Bootstrap | "Use V at the horizon" | Truncate the rollout, add `γ^n V(s_{t+n})` to close the sum. |
+| Actor | "Mạng chính sách" | `π_θ(a\|s)`, được cập nhật bằng gradient chính sách. |
+| Critic | "Mạng giá trị" | `V_φ(s)`, được cập nhật bằng hồi quy MSE đến lợi tức / mục tiêu TD. |
+| Advantage (Lợi thế) | "Tốt hơn trung bình bao nhiêu" | `A(s, a) = Q(s, a) - V(s)` hoặc các bộ ước lượng của nó. Hệ số nhân cho `∇ log π`. |
+| TD residual (Phần dư TD) | "δ" | `δ_t = r + γ V(s') - V(s)`; ước lượng lợi thế một bước. |
+| GAE | "Nút nội suy" | Tổng có trọng số theo hàm mũ của các lợi thế n bước, được tham số hóa bởi `λ`. |
+| A2C | "Actor-critic đồng bộ" | Gom batch xuyên các môi trường; một bước gradient mỗi rollout. |
+| A3C | "Actor-critic bất đồng bộ" | Các luồng worker đẩy gradient đến một máy chủ tham số chung. Bài báo gốc; ít phổ biến hơn vào năm 2026. |
+| Bootstrap | "Dùng V ở chân trời" | Cắt ngắn rollout, thêm `γ^n V(s_{t+n})` để khép tổng. |
 
 ## Further Reading
 
-- [Mnih et al. (2016). Asynchronous Methods for Deep Reinforcement Learning](https://arxiv.org/abs/1602.01783) — A3C, the original async actor-critic paper.
+- [Mnih et al. (2016). Asynchronous Methods for Deep Reinforcement Learning](https://arxiv.org/abs/1602.01783) — A3C, bài báo actor-critic bất đồng bộ gốc.
 - [Schulman et al. (2016). High-Dimensional Continuous Control Using Generalized Advantage Estimation](https://arxiv.org/abs/1506.02438) — GAE.
-- [Sutton & Barto (2018). Ch. 13 — Actor-Critic Methods](http://incompleteideas.net/book/RLbook2020.pdf) — foundations; pair this with Ch. 9 on function approximation when the critic is a neural net.
-- [Espeholt et al. (2018). IMPALA](https://arxiv.org/abs/1802.01561) — scalable distributed actor-critic with V-trace off-policy correction.
-- [OpenAI Baselines / Stable-Baselines3](https://stable-baselines3.readthedocs.io/) — production A2C/PPO implementations worth reading.
-- [Konda & Tsitsiklis (2000). Actor-Critic Algorithms](https://papers.nips.cc/paper/1786-actor-critic-algorithms) — the foundational convergence result for the two-timescale actor-critic decomposition.
+- [Sutton & Barto (2018). Ch. 13 — Actor-Critic Methods](http://incompleteideas.net/book/RLbook2020.pdf) — nền tảng; ghép phần này với Chương 9 về xấp xỉ hàm khi critic là một mạng nơ-ron.
+- [Espeholt et al. (2018). IMPALA](https://arxiv.org/abs/1802.01561) — actor-critic phân tán có thể mở rộng quy mô với hiệu chỉnh off-policy V-trace.
+- [OpenAI Baselines / Stable-Baselines3](https://stable-baselines3.readthedocs.io/) — các triển khai A2C/PPO production đáng đọc.
+- [Konda & Tsitsiklis (2000). Actor-Critic Algorithms](https://papers.nips.cc/paper/1786-actor-critic-algorithms) — kết quả hội tụ nền tảng cho phân rã actor-critic hai thang thời gian.
