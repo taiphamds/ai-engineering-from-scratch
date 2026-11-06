@@ -5,48 +5,48 @@ phase: 11
 lesson: 03
 ---
 
-You are a structured data extraction engine. I will provide a JSON Schema and unstructured text. You will extract data that conforms exactly to the schema.
+Bạn là một bộ máy trích xuất dữ liệu có cấu trúc. Tôi sẽ cung cấp một JSON Schema và văn bản không có cấu trúc. Bạn sẽ trích xuất dữ liệu tuân theo chính xác schema.
 
 ## Extraction Protocol
 
 ### 1. Schema Analysis
 
-Before extracting, analyze the schema:
+Trước khi trích xuất, phân tích schema:
 
-- Identify all required fields and their types
-- Note enum constraints, minimum/maximum values, and format requirements
-- Identify nested objects and array structures
-- Flag fields that may be ambiguous or hard to extract from natural text
+- Xác định mọi trường bắt buộc và kiểu của chúng
+- Ghi nhận các ràng buộc enum, giá trị tối thiểu/tối đa và yêu cầu định dạng
+- Xác định các đối tượng lồng nhau và cấu trúc mảng
+- Đánh dấu các trường có thể mơ hồ hoặc khó trích xuất từ văn bản tự nhiên
 
 ### 2. Extraction Rules
 
-**Required fields**: must always be present in the output. If the information is not in the text, use the most reasonable default:
-- Strings: use "unknown" or "not specified"
-- Numbers: use 0 or null (if the schema allows nullable)
-- Booleans: use false as the conservative default
-- Arrays: use an empty array []
+**Trường bắt buộc**: phải luôn có mặt trong đầu ra. Nếu thông tin không có trong văn bản, dùng giá trị mặc định hợp lý nhất:
+- Chuỗi: dùng "unknown" hoặc "not specified"
+- Số: dùng 0 hoặc null (nếu schema cho phép nullable)
+- Boolean: dùng false làm mặc định thận trọng
+- Mảng: dùng một mảng rỗng []
 
-**Type enforcement**: every value must match the schema type exactly:
-- "price" with type "number": extract 348.00, not "$348" or "three hundred"
-- "in_stock" with type "boolean": extract true/false, not "yes"/"available"
-- "categories" with type "array": extract ["audio", "headphones"], not "audio, headphones"
+**Cưỡng chế kiểu**: mọi giá trị phải khớp chính xác kiểu schema:
+- "price" với kiểu "number": trích xuất 348.00, không phải "$348" hay "ba trăm"
+- "in_stock" với kiểu "boolean": trích xuất true/false, không phải "có"/"có sẵn"
+- "categories" với kiểu "array": trích xuất ["audio", "headphones"], không phải "audio, headphones"
 
-**Enum fields**: the value must be one of the allowed values. If the text uses a synonym, map it to the closest allowed value.
+**Trường enum**: giá trị phải là một trong các giá trị được phép. Nếu văn bản dùng từ đồng nghĩa, ánh xạ nó sang giá trị được phép gần nhất.
 
-**Nested objects**: extract each level of nesting separately. Validate inner objects against their sub-schemas.
+**Đối tượng lồng nhau**: trích xuất riêng từng mức lồng. Xác thực các đối tượng bên trong theo schema con của chúng.
 
 ### 3. Confidence Annotation
 
-For each extracted field, internally assess confidence:
-- **High**: the information is explicitly stated in the text
-- **Medium**: the information is implied or requires minor inference
-- **Low**: the information is guessed based on context or defaults
+Với mỗi trường được trích xuất, đánh giá độ tin cậy nội bộ:
+- **Cao**: thông tin được nêu rõ trong văn bản
+- **Trung bình**: thông tin được ngụ ý hoặc cần suy luận nhỏ
+- **Thấp**: thông tin được đoán dựa trên ngữ cảnh hoặc giá trị mặc định
 
-If more than 2 fields are low confidence, note this in a separate `_extraction_notes` field (only if the schema does not prohibit additional properties).
+Nếu có hơn 2 trường có độ tin cậy thấp, ghi nhận điều này trong một trường `_extraction_notes` riêng (chỉ khi schema không cấm thuộc tính bổ sung).
 
 ### 4. Output Format
 
-Return ONLY the JSON object. No markdown fences. No preamble. No explanation. The output must be directly parseable by `JSON.parse()` or `json.loads()`.
+CHỈ trả về đối tượng JSON. Không có hàng rào markdown. Không có lời mở đầu. Không giải thích. Đầu ra phải được `JSON.parse()` hoặc `json.loads()` phân tích trực tiếp.
 
 ## Input Format
 
@@ -55,11 +55,11 @@ Return ONLY the JSON object. No markdown fences. No preamble. No explanation. Th
 {schema}
 ```
 
-**Text to extract from:**
+**Văn bản cần trích xuất:**
 ```
 {text}
 ```
 
 ## Output
 
-A single JSON object matching the schema exactly.
+Một đối tượng JSON duy nhất khớp chính xác schema.

@@ -1,39 +1,39 @@
 # Structured Outputs: JSON, Schema Validation, Constrained Decoding
 
-> Your LLM returns a string. Your application needs JSON. That gap has crashed more production systems than any model hallucination. Structured output is the bridge between natural language and typed data. Get it right and your LLM becomes a reliable API. Get it wrong and you're parsing free-text with regex at 3am.
+> LLM của bạn trả về một chuỗi. Ứng dụng của bạn cần JSON. Khoảng cách đó đã làm sập nhiều hệ thống sản xuất hơn bất kỳ ảo giác mô hình nào. Đầu ra có cấu trúc là cầu nối giữa ngôn ngữ tự nhiên và dữ liệu có kiểu. Làm đúng và LLM của bạn trở thành một API đáng tin cậy. Làm sai và bạn đang phân tích văn bản tự do bằng regex lúc 3 giờ sáng.
 
 **Type:** Build
 **Languages:** Python
 **Prerequisites:** Phase 10, Lessons 01-05 (LLMs from Scratch)
 **Time:** ~90 minutes
-**Related:** Phase 5 · 20 (Structured Outputs & Constrained Decoding) covers the decoder-level theory (FSM/CFG logit processors, Outlines, XGrammar). This lesson focuses on the production SDK surface (OpenAI `response_format`, Anthropic tool use, Instructor) — read Phase 5 · 20 first if you want to understand what is happening below the API.
+**Liên quan:** Giai đoạn 5 · 20 (Structured Outputs & Constrained Decoding) trình bày lý thuyết cấp decoder (bộ xử lý logit FSM/CFG, Outlines, XGrammar). Bài học này tập trung vào giao diện SDK sản xuất (OpenAI `response_format`, tool use của Anthropic, Instructor) — đọc Giai đoạn 5 · 20 trước nếu bạn muốn hiểu những gì đang xảy ra bên dưới API.
 
 ## Learning Objectives
 
-- Implement JSON-mode and schema-constrained outputs using OpenAI and Anthropic API parameters
-- Build a Pydantic validation layer that rejects malformed LLM outputs and retries with error feedback
-- Explain how constrained decoding forces valid JSON at the token level without post-processing
-- Design robust extraction prompts that reliably convert unstructured text into typed data structures
+- Triển khai đầu ra JSON-mode và bị ràng buộc bởi schema bằng các tham số API OpenAI và Anthropic
+- Xây dựng một lớp xác thực Pydantic từ chối đầu ra LLM sai định dạng và thử lại với phản hồi lỗi
+- Giải thích cách constrained decoding buộc JSON hợp lệ ở cấp token mà không cần hậu xử lý
+- Thiết kế các prompt trích xuất vững chắc chuyển đổi đáng tin cậy văn bản không có cấu trúc thành cấu trúc dữ liệu có kiểu
 
 ## The Problem
 
-You ask an LLM: "Extract the product name, price, and availability from this text." It responds:
+Bạn hỏi một LLM: "Trích xuất tên sản phẩm, giá và tình trạng sẵn có từ văn bản này." Nó phản hồi:
 
 ```
 The product is the Sony WH-1000XM5 headphones, which cost $348.00 and are currently in stock.
 ```
 
-That is a perfectly correct answer. It is also completely useless to your application. Your inventory system needs `{"product": "Sony WH-1000XM5", "price": 348.00, "in_stock": true}`. You need a JSON object with specific keys, specific types, and specific value constraints. You do not need a sentence.
+Đó là một câu trả lời hoàn toàn đúng. Nó cũng hoàn toàn vô dụng đối với ứng dụng của bạn. Hệ thống tồn kho của bạn cần `{"product": "Sony WH-1000XM5", "price": 348.00, "in_stock": true}`. Bạn cần một đối tượng JSON với các khóa cụ thể, kiểu cụ thể và ràng buộc giá trị cụ thể. Bạn không cần một câu.
 
-The naive solution: add "Respond in JSON" to your prompt. This works 90% of the time. The other 10% the model wraps the JSON in markdown code fences, or adds a preamble like "Here's the JSON:", or produces syntactically invalid JSON because it closed a bracket early. Your JSON parser crashes. Your pipeline breaks. You add try/except and a retry loop. The retry sometimes produces different data. Now you have a consistency problem on top of a parsing problem.
+Giải pháp đơn giản: thêm "Phản hồi bằng JSON" vào prompt của bạn. Điều này hoạt động 90% số lần. Trong 10% còn lại, mô hình bọc JSON trong hàng rào mã markdown, hoặc thêm lời mở đầu như "Đây là JSON:", hoặc tạo JSON không hợp lệ về cú pháp vì đóng ngoặc sớm. Bộ phân tích JSON của bạn gặp lỗi. Pipeline của bạn hỏng. Bạn thêm try/except và vòng lặp thử lại. Lần thử lại đôi khi tạo dữ liệu khác. Giờ bạn có vấn đề nhất quán bên cạnh vấn đề phân tích cú pháp.
 
-This is not a prompt engineering problem. It is a decoding problem. The model generates tokens left to right. At each position, it picks the most likely next token from a vocabulary of 100K+ options. Most of those options would produce invalid JSON at any given position. If the model just emitted `{"price":`, the next token must be a digit, a quote (for string), `null`, `true`, `false`, or a negative sign. Anything else produces invalid JSON. Without constraints, the model might pick a perfectly reasonable English word that is catastrophically wrong syntactically.
+Đây không phải vấn đề prompt engineering. Đây là vấn đề giải mã. Mô hình sinh token từ trái sang phải. Ở mỗi vị trí, nó chọn token tiếp theo có khả năng cao nhất từ từ vựng 100K+ lựa chọn. Phần lớn lựa chọn đó sẽ tạo JSON không hợp lệ tại bất kỳ vị trí nhất định nào. Nếu mô hình vừa phát `{"price":`, token tiếp theo phải là một chữ số, dấu ngoặc kép (cho chuỗi), `null`, `true`, `false` hoặc dấu âm. Bất kỳ thứ gì khác tạo JSON không hợp lệ. Không có ràng buộc, mô hình có thể chọn một từ tiếng Anh hoàn toàn hợp lý nhưng sai thảm hại về cú pháp.
 
 ## The Concept
 
 ### The Structured Output Spectrum
 
-There are four levels of structured output control, each more reliable than the last.
+Có bốn mức kiểm soát đầu ra có cấu trúc, mỗi mức đáng tin cậy hơn mức trước.
 
 ```mermaid
 graph LR
@@ -50,17 +50,17 @@ graph LR
     style D fill:#1a1a2e,stroke:#0f3460,color:#fff
 ```
 
-**Prompt-based** ("Respond in valid JSON"): no enforcement. The model usually complies but sometimes does not. Reliability: ~90%. Failure mode: markdown fences, preamble text, truncated output, wrong structure.
+**Dựa trên prompt** ("Phản hồi bằng JSON hợp lệ"): không cưỡng chế. Mô hình thường tuân thủ nhưng đôi khi không. Độ tin cậy: ~90%. Dạng thất bại: hàng rào markdown, văn bản mở đầu, đầu ra bị cắt, cấu trúc sai.
 
-**JSON mode**: the API guarantees the output is valid JSON. OpenAI's `response_format: { type: "json_object" }` enables this. The output will parse without errors. But it may not match your expected schema -- extra keys, wrong types, missing fields.
+**Chế độ JSON**: API bảo đảm đầu ra là JSON hợp lệ. `response_format: { type: "json_object" }` của OpenAI bật điều này. Đầu ra sẽ được phân tích cú pháp không lỗi. Nhưng có thể không khớp schema kỳ vọng của bạn -- khóa thừa, kiểu sai, trường thiếu.
 
-**Schema mode**: the API takes a JSON Schema and guarantees the output matches it. In 2026 every major provider supports this natively: OpenAI's `response_format: { type: "json_schema", json_schema: {...} }` (also as `tool_choice="required"`), Anthropic's tool use with `input_schema`, and Gemini's `response_schema` + `response_mime_type: "application/json"`. The output has the exact keys, types, and constraints you specified.
+**Chế độ schema**: API nhận một JSON Schema và bảo đảm đầu ra khớp nó. Năm 2026 mọi nhà cung cấp lớn hỗ trợ điều này nguyên bản: `response_format: { type: "json_schema", json_schema: {...} }` của OpenAI (cũng dưới dạng `tool_choice="required"`), tool use của Anthropic với `input_schema`, và `response_schema` + `response_mime_type: "application/json"` của Gemini. Đầu ra có đúng các khóa, kiểu và ràng buộc mà bạn chỉ định.
 
-**Constrained decoding**: at each token position during generation, the decoder masks out all tokens that would produce invalid output. If the schema requires a number and the model is about to emit a letter, that token is set to probability zero. The model can only produce tokens that lead to valid output. This is what OpenAI's structured output mode and libraries like Outlines and Guidance implement under the hood.
+**Constrained decoding**: tại mỗi vị trí token trong lúc sinh, decoder che mọi token sẽ tạo đầu ra không hợp lệ. Nếu schema yêu cầu một số và mô hình sắp phát một chữ cái, token đó được đặt xác suất bằng không. Mô hình chỉ có thể tạo token dẫn đến đầu ra hợp lệ. Đây là điều mà chế độ structured output của OpenAI và các thư viện như Outlines và Guidance triển khai bên trong.
 
 ### JSON Schema: The Contract Language
 
-JSON Schema is how you tell the model (or validation layer) what shape the output must have. Every major structured output system uses it.
+JSON Schema là cách bạn cho mô hình (hoặc lớp xác thực) biết đầu ra phải có hình dạng nào. Mọi hệ thống đầu ra có cấu trúc lớn đều dùng nó.
 
 ```json
 {
@@ -78,13 +78,13 @@ JSON Schema is how you tell the model (or validation layer) what shape the outpu
 }
 ```
 
-This schema says: the output must be an object with a string `product`, a non-negative number `price`, a boolean `in_stock`, and an optional array of string `categories`. Any output that does not match gets rejected.
+Schema này nói: đầu ra phải là một đối tượng với chuỗi `product`, số không âm `price`, boolean `in_stock` và một mảng chuỗi `categories` tùy chọn. Bất kỳ đầu ra nào không khớp đều bị từ chối.
 
-Schemas handle the hard cases: nested objects, arrays with typed items, enums (constrain a string to specific values), pattern matching (regex on strings), and combinators (oneOf, anyOf, allOf for polymorphic outputs).
+Schema xử lý các trường hợp khó: đối tượng lồng nhau, mảng với phần tử có kiểu, enum (ràng buộc một chuỗi vào các giá trị cụ thể), khớp mẫu (regex trên chuỗi) và bộ kết hợp (oneOf, anyOf, allOf cho đầu ra đa hình).
 
 ### The Pydantic Pattern
 
-In Python, you do not write JSON Schema by hand. You define a Pydantic model and it generates the schema for you.
+Trong Python, bạn không viết JSON Schema bằng tay. Bạn định nghĩa một mô hình Pydantic và nó tạo schema cho bạn.
 
 ```python
 from pydantic import BaseModel
@@ -96,11 +96,11 @@ class Product(BaseModel):
     categories: list[str] = []
 ```
 
-This produces the same JSON Schema as above. The Instructor library (and OpenAI's SDK) accept Pydantic models directly: pass the model class, get back a validated instance. If the LLM output does not match, Instructor retries automatically.
+Điều này tạo cùng JSON Schema như trên. Thư viện Instructor (và SDK của OpenAI) nhận trực tiếp các mô hình Pydantic: truyền lớp mô hình, nhận lại một instance đã xác thực. Nếu đầu ra LLM không khớp, Instructor tự động thử lại.
 
 ### Function Calling / Tool Use
 
-An alternative interface for the same problem. Instead of asking the model to produce JSON directly, you define "tools" (functions) with typed parameters. The model outputs a function call with structured arguments. OpenAI calls this "function calling." Anthropic calls it "tool use." The result is the same: structured data.
+Một giao diện thay thế cho cùng vấn đề. Thay vì yêu cầu mô hình tạo JSON trực tiếp, bạn định nghĩa "công cụ" (hàm) với các tham số có kiểu. Mô hình xuất một lệnh gọi hàm với đối số có cấu trúc. OpenAI gọi đây là "function calling." Anthropic gọi là "tool use." Kết quả giống nhau: dữ liệu có cấu trúc.
 
 ```mermaid
 graph TD
@@ -117,21 +117,21 @@ graph TD
     style R fill:#1a1a2e,stroke:#51cf66,color:#fff
 ```
 
-Tool use is preferred when the model needs to choose which function to call, not just fill in parameters. If you have 10 different extraction schemas and the model must pick the right one based on the input, tool use gives you both the schema selection and the structured output.
+Tool use được ưu tiên khi mô hình cần chọn hàm nào để gọi, không chỉ điền tham số. Nếu bạn có 10 schema trích xuất khác nhau và mô hình phải chọn schema đúng dựa trên đầu vào, tool use cho bạn cả lựa chọn schema và đầu ra có cấu trúc.
 
 ### Common Failure Modes
 
-Even with schema enforcement, structured outputs can fail in subtle ways.
+Ngay cả khi cưỡng chế schema, đầu ra có cấu trúc có thể thất bại theo những cách tinh vi.
 
-**Hallucinated values**: the output matches the schema but contains invented data. The model produces `{"price": 299.99}` when the text says $348. Schema validation cannot catch this -- the type is correct, the value is wrong.
+**Giá trị ảo giác**: đầu ra khớp schema nhưng chứa dữ liệu bịa ra. Mô hình tạo `{"price": 299.99}` khi văn bản nói $348. Xác thực schema không thể bắt điều này -- kiểu đúng, giá trị sai.
 
-**Enum confusion**: you constrain a field to `["in_stock", "out_of_stock", "preorder"]`. The model outputs `"available"` -- semantically correct, but not in the allowed set. Good constrained decoding prevents this. Prompt-based approaches do not.
+**Nhầm lẫn enum**: bạn ràng buộc một trường vào `["in_stock", "out_of_stock", "preorder"]`. Mô hình xuất `"available"` -- đúng về ngữ nghĩa, nhưng không nằm trong tập cho phép. Constrained decoding tốt ngăn điều này. Các cách tiếp cận dựa trên prompt thì không.
 
-**Nested object depth**: deeply nested schemas (4+ levels) produce more errors. Each level of nesting is another place where the model can lose track of structure.
+**Độ sâu đối tượng lồng nhau**: các schema lồng sâu (4+ mức) tạo nhiều lỗi hơn. Mỗi mức lồng là một chỗ nữa mà mô hình có thể mất dấu cấu trúc.
 
-**Array length**: the model may produce too many or too few items in an array. Schemas support `minItems` and `maxItems` but not all providers enforce them at the decoding level.
+**Độ dài mảng**: mô hình có thể tạo quá nhiều hoặc quá ít phần tử trong một mảng. Schema hỗ trợ `minItems` và `maxItems` nhưng không phải mọi nhà cung cấp đều cưỡng chế chúng ở cấp giải mã.
 
-**Optional field omission**: the model omits fields that are technically optional but semantically important for your use case. Set them as required in the schema even if the data is sometimes missing -- force the model to produce `null` explicitly.
+**Bỏ sót trường tùy chọn**: mô hình bỏ các trường tùy chọn về mặt kỹ thuật nhưng quan trọng về ngữ nghĩa cho trường hợp sử dụng của bạn. Đặt chúng là bắt buộc trong schema ngay cả khi dữ liệu đôi khi thiếu -- buộc mô hình tạo `null` rõ ràng.
 
 ```figure
 mx-schema-funnel
@@ -141,7 +141,7 @@ mx-schema-funnel
 
 ### Step 1: JSON Schema Validator
 
-Build a validator from scratch that checks whether a Python object matches a JSON Schema. This is what runs on the output side to verify compliance.
+Xây dựng một bộ xác thực từ đầu kiểm tra liệu một đối tượng Python có khớp một JSON Schema không. Đây là thứ chạy ở phía đầu ra để xác minh sự tuân thủ.
 
 ```python
 import json
@@ -210,7 +210,7 @@ def _validate(data, schema, path, errors):
 
 ### Step 2: Pydantic-Style Model to Schema
 
-Build a minimal class-to-schema converter. Define a Python class and generate its JSON Schema automatically.
+Xây dựng một bộ chuyển đổi lớp thành schema tối thiểu. Định nghĩa một lớp Python và tự động tạo JSON Schema của nó.
 
 ```python
 class SchemaField:
@@ -267,7 +267,7 @@ def model_to_schema(name, fields):
 
 ### Step 3: Constrained Token Filter
 
-Simulate constrained decoding. Given a partial JSON string and a schema, determine which token categories are valid at the current position.
+Mô phỏng constrained decoding. Với một chuỗi JSON chưa hoàn chỉnh và một schema, xác định các loại token nào hợp lệ tại vị trí hiện tại.
 
 ```python
 def next_valid_tokens(partial_json, schema):
@@ -328,7 +328,7 @@ def demonstrate_constrained_decoding():
 
 ### Step 4: Extraction Pipeline
 
-Combine everything into an extraction pipeline: define a schema, simulate an LLM producing structured output, validate the output, and handle retries.
+Kết hợp mọi thứ thành một pipeline trích xuất: định nghĩa một schema, mô phỏng một LLM tạo đầu ra có cấu trúc, xác thực đầu ra và xử lý thử lại.
 
 ```python
 def simulate_llm_extraction(text, schema, attempt=0):
@@ -451,7 +451,7 @@ def run_demo():
 # print(product.product, product.price, product.in_stock)
 ```
 
-OpenAI's structured output mode uses constrained decoding internally. Every token the model generates is guaranteed to produce output matching the Pydantic schema. No retries needed. No validation needed. The constraint is baked into the decoding process.
+Chế độ structured output của OpenAI dùng constrained decoding bên trong. Mỗi token mô hình sinh được bảo đảm tạo đầu ra khớp schema Pydantic. Không cần thử lại. Không cần xác thực. Ràng buộc được tích hợp vào quá trình giải mã.
 
 ### Anthropic Tool Use
 
@@ -480,7 +480,7 @@ OpenAI's structured output mode uses constrained decoding internally. Every toke
 # )
 ```
 
-Anthropic achieves structured output through tool use. The model emits a tool call with structured arguments that match the input_schema. Same result, different API surface.
+Anthropic đạt đầu ra có cấu trúc thông qua tool use. Mô hình phát một lệnh gọi công cụ với đối số có cấu trúc khớp input_schema. Cùng kết quả, giao diện API khác.
 
 ### Instructor Library
 
@@ -504,49 +504,49 @@ Anthropic achieves structured output through tool use. The model emits a tool ca
 # )
 ```
 
-Instructor wraps any LLM client and adds automatic retries with validation. If the first attempt fails validation, it sends the errors back to the model as context and asks it to fix the output. This works with any provider, not just OpenAI.
+Instructor bọc bất kỳ LLM client nào và thêm thử lại tự động với xác thực. Nếu lần thử đầu tiên không vượt xác thực, nó gửi lỗi trở lại mô hình làm ngữ cảnh và yêu cầu mô hình sửa đầu ra. Điều này hoạt động với mọi nhà cung cấp, không chỉ OpenAI.
 
 ## Ship It
 
-This lesson produces `outputs/prompt-structured-extractor.md` -- a reusable prompt template that extracts structured data from any text given a schema definition. Feed it a JSON Schema and unstructured text, and it returns validated JSON.
+Bài học này tạo ra `outputs/prompt-structured-extractor.md` -- một khuôn mẫu prompt tái sử dụng trích xuất dữ liệu có cấu trúc từ bất kỳ văn bản nào với định nghĩa schema cho trước. Đưa vào một JSON Schema và văn bản không có cấu trúc, và nó trả về JSON đã xác thực.
 
-It also produces `outputs/skill-structured-outputs.md` -- a decision framework for choosing the right structured output strategy based on your provider, reliability requirements, and schema complexity.
+Nó cũng tạo ra `outputs/skill-structured-outputs.md` -- một khung quyết định để chọn chiến lược đầu ra có cấu trúc phù hợp dựa trên nhà cung cấp, yêu cầu độ tin cậy và độ phức tạp schema của bạn.
 
 ## Exercises
 
-1. Extend the schema validator to support `oneOf` (the data must match exactly one of several schemas). This handles polymorphic outputs -- for example, a field that can be either a `Product` or a `Service` object with different shapes.
+1. Mở rộng bộ xác thực schema để hỗ trợ `oneOf` (dữ liệu phải khớp đúng một trong nhiều schema). Điều này xử lý đầu ra đa hình -- ví dụ, một trường có thể là đối tượng `Product` hoặc `Service` với các hình dạng khác nhau.
 
-2. Build a "schema diff" tool that compares two schemas and identifies breaking changes (removed required fields, changed types) versus non-breaking changes (added optional fields, relaxed constraints). This is essential for versioning your extraction schemas in production.
+2. Xây dựng một công cụ "diff schema" so sánh hai schema và xác định các thay đổi phá vỡ tương thích (bỏ trường bắt buộc, đổi kiểu) so với thay đổi không phá vỡ tương thích (thêm trường tùy chọn, nới ràng buộc). Điều này thiết yếu để quản lý phiên bản các schema trích xuất của bạn trong sản xuất.
 
-3. Implement a more realistic constrained decoding simulator. Given a JSON Schema and a vocabulary of 100 tokens (letters, digits, punctuation, keywords), walk through generation step by step, masking invalid tokens at each position. Measure what percentage of the vocabulary is valid at each step.
+3. Triển khai một bộ mô phỏng constrained decoding thực tế hơn. Với một JSON Schema và một từ vựng 100 token (chữ cái, chữ số, dấu câu, từ khóa), đi qua quá trình sinh từng bước, che token không hợp lệ tại mỗi vị trí. Đo bao nhiêu phần trăm từ vựng hợp lệ ở mỗi bước.
 
-4. Build an extraction eval suite. Create 50 product descriptions with hand-labeled JSON outputs. Run your extraction pipeline on all 50 and measure exact match, field-level accuracy, and type compliance. Identify which fields are hardest to extract correctly.
+4. Xây dựng một bộ đánh giá trích xuất. Tạo 50 mô tả sản phẩm với đầu ra JSON được gán nhãn bằng tay. Chạy pipeline trích xuất của bạn trên cả 50 và đo khớp chính xác, độ chính xác cấp trường và tuân thủ kiểu. Xác định những trường khó trích xuất đúng nhất.
 
-5. Add "confidence scores" to your extraction pipeline. For each extracted field, estimate how confident the model is (based on token probabilities, or by running extraction 3 times and measuring consistency). Flag low-confidence fields for human review.
+5. Thêm "điểm độ tin cậy" vào pipeline trích xuất của bạn. Với mỗi trường được trích xuất, ước lượng mức tự tin của mô hình (dựa trên xác suất token, hoặc bằng cách chạy trích xuất 3 lần và đo tính nhất quán). Đánh dấu các trường độ tin cậy thấp để con người xem xét.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| JSON mode | "Returns JSON" | API flag that guarantees syntactically valid JSON output, but does not enforce any particular schema |
-| Structured output | "Typed JSON" | Output that matches a specific JSON Schema with correct keys, types, and constraints |
-| Constrained decoding | "Guided generation" | At each token position, mask out tokens that would produce invalid output -- guarantees 100% schema compliance |
-| JSON Schema | "A JSON template" | A declarative language for describing the structure, types, and constraints of JSON data (used by OpenAPI, JSON Forms, etc.) |
-| Pydantic | "Python dataclasses+" | Python library that defines data models with type validation, used by FastAPI and Instructor to generate JSON Schemas |
-| Function calling | "Tool use" | LLM outputs a structured function invocation (name + typed arguments) instead of free text -- OpenAI and Anthropic both support this |
-| Instructor | "Pydantic for LLMs" | Python library that wraps LLM clients to return validated Pydantic instances, with automatic retry on validation failure |
-| Token masking | "Filtering the vocabulary" | Setting specific token probabilities to zero during generation so the model cannot produce them |
-| Schema compliance | "Matches the shape" | The output has every required field, correct types, values within constraints, and no extra disallowed fields |
-| Retry loop | "Try again until it works" | Send validation errors back to the model and ask it to fix the output -- Instructor does this automatically, up to a configurable max |
+| JSON mode (Chế độ JSON) | "Trả về JSON" | Cờ API bảo đảm đầu ra JSON hợp lệ về cú pháp, nhưng không cưỡng chế bất kỳ schema cụ thể nào |
+| Structured output (Đầu ra có cấu trúc) | "JSON có kiểu" | Đầu ra khớp một JSON Schema cụ thể với đúng khóa, kiểu và ràng buộc |
+| Constrained decoding (Giải mã có ràng buộc) | "Sinh có hướng dẫn" | Tại mỗi vị trí token, che các token sẽ tạo đầu ra không hợp lệ -- bảo đảm tuân thủ schema 100% |
+| JSON Schema | "Một khuôn mẫu JSON" | Một ngôn ngữ khai báo để mô tả cấu trúc, kiểu và ràng buộc của dữ liệu JSON (được OpenAPI, JSON Forms, v.v. sử dụng) |
+| Pydantic | "Python dataclasses+" | Thư viện Python định nghĩa các mô hình dữ liệu với xác thực kiểu, được FastAPI và Instructor dùng để tạo JSON Schema |
+| Function calling (Gọi hàm) | "Sử dụng công cụ" | LLM xuất một lời gọi hàm có cấu trúc (tên + đối số có kiểu) thay vì văn bản tự do -- cả OpenAI và Anthropic đều hỗ trợ |
+| Instructor | "Pydantic cho LLM" | Thư viện Python bọc LLM client để trả về các instance Pydantic đã xác thực, với tự động thử lại khi xác thực thất bại |
+| Token masking (Che token) | "Lọc từ vựng" | Đặt xác suất token cụ thể thành không trong khi sinh để mô hình không thể tạo chúng |
+| Schema compliance (Tuân thủ schema) | "Khớp hình dạng" | Đầu ra có mọi trường bắt buộc, đúng kiểu, giá trị trong ràng buộc và không có trường thừa không được phép |
+| Retry loop (Vòng lặp thử lại) | "Thử lại đến khi hoạt động" | Gửi lỗi xác thực trở lại mô hình và yêu cầu nó sửa đầu ra -- Instructor tự động làm điều này, đến mức tối đa có thể cấu hình |
 
 ## Further Reading
 
-- [OpenAI Structured Outputs Guide](https://platform.openai.com/docs/guides/structured-outputs) -- official documentation for JSON Schema-based constrained decoding in the OpenAI API
-- [Willard & Louf, 2023 -- "Efficient Guided Generation for Large Language Models"](https://arxiv.org/abs/2307.09702) -- the Outlines paper, describing how to compile JSON Schemas into finite state machines for token-level constraints
-- [Instructor documentation](https://python.useinstructor.com/) -- the standard library for getting structured outputs from any LLM with Pydantic validation and retries
-- [Anthropic Tool Use Guide](https://docs.anthropic.com/en/docs/tool-use) -- how Claude implements structured output via tool use with JSON Schema input_schema
-- [JSON Schema specification](https://json-schema.org/) -- the full spec for the schema language used by every major structured output system
-- [Outlines library](https://github.com/outlines-dev/outlines) -- open-source constrained generation using regex and JSON Schema compiled to finite state machines
-- [Dong et al., "XGrammar: Flexible and Efficient Structured Generation Engine for Large Language Models" (MLSys 2025)](https://arxiv.org/abs/2411.15100) -- the current state-of-the-art grammar engine; pushdown-automaton compilation that masks tokens at ~100 ns / token.
-- [Beurer-Kellner et al., "Prompting Is Programming: A Query Language for Large Language Models" (LMQL)](https://arxiv.org/abs/2212.06094) -- the LMQL paper framing constrained decoding as a query language with type and value constraints.
-- [Microsoft Guidance (framework docs)](https://github.com/guidance-ai/guidance) -- template-driven constrained generation; vendor-agnostic complement to Outlines and XGrammar.
+- [OpenAI Structured Outputs Guide](https://platform.openai.com/docs/guides/structured-outputs) -- tài liệu chính thức về constrained decoding dựa trên JSON Schema trong API OpenAI
+- [Willard & Louf, 2023 -- "Efficient Guided Generation for Large Language Models"](https://arxiv.org/abs/2307.09702) -- bài báo Outlines, mô tả cách biên dịch JSON Schema thành máy trạng thái hữu hạn cho các ràng buộc cấp token
+- [Instructor documentation](https://python.useinstructor.com/) -- thư viện tiêu chuẩn để lấy đầu ra có cấu trúc từ bất kỳ LLM nào với xác thực Pydantic và thử lại
+- [Anthropic Tool Use Guide](https://docs.anthropic.com/en/docs/tool-use) -- cách Claude triển khai đầu ra có cấu trúc qua tool use với input_schema JSON Schema
+- [JSON Schema specification](https://json-schema.org/) -- đặc tả đầy đủ cho ngôn ngữ schema được mọi hệ thống đầu ra có cấu trúc lớn dùng
+- [Outlines library](https://github.com/outlines-dev/outlines) -- sinh có ràng buộc mã nguồn mở dùng regex và JSON Schema được biên dịch thành máy trạng thái hữu hạn
+- [Dong et al., "XGrammar: Flexible and Efficient Structured Generation Engine for Large Language Models" (MLSys 2025)](https://arxiv.org/abs/2411.15100) -- bộ máy ngữ pháp tiên tiến nhất hiện tại; biên dịch máy tự động ngăn xếp che token ở ~100 ns / token.
+- [Beurer-Kellner et al., "Prompting Is Programming: A Query Language for Large Language Models" (LMQL)](https://arxiv.org/abs/2212.06094) -- bài báo LMQL đặt constrained decoding thành một ngôn ngữ truy vấn với ràng buộc kiểu và giá trị.
+- [Microsoft Guidance (framework docs)](https://github.com/guidance-ai/guidance) -- sinh có ràng buộc theo khuôn mẫu; phần bổ sung không phụ thuộc nhà cung cấp cho Outlines và XGrammar.

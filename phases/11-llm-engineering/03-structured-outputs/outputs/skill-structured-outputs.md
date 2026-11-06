@@ -9,53 +9,53 @@ tags: [structured-output, json, schema, constrained-decoding, pydantic, function
 
 # Structured Output Strategy
 
-When building an LLM application that requires structured data, apply this decision framework.
+Khi xây dựng một ứng dụng LLM cần dữ liệu có cấu trúc, áp dụng khung quyết định này.
 
 ## When to use each approach
 
-**Prompt-based ("Return JSON"):** Prototyping only. Acceptable for internal tools where occasional parse failures are tolerable. Add a try/except with retry. Never use in production pipelines.
+**Dựa trên prompt ("Trả về JSON"):** Chỉ tạo mẫu. Chấp nhận được cho công cụ nội bộ nơi thỉnh thoảng phân tích cú pháp thất bại có thể chịu được. Thêm try/except với thử lại. Không bao giờ dùng trong pipeline sản xuất.
 
-**JSON mode (API flag):** You need guaranteed valid JSON but the schema is simple or flexible. Works when you validate the shape on the application side. Available: OpenAI, Anthropic (via tool use), Google.
+**Chế độ JSON (cờ API):** Bạn cần JSON hợp lệ được bảo đảm nhưng schema đơn giản hoặc linh hoạt. Hoạt động khi bạn xác thực hình dạng ở phía ứng dụng. Có sẵn: OpenAI, Anthropic (qua tool use), Google.
 
-**Schema mode (constrained decoding):** Production systems where every output must match a specific schema. Zero parse failures. Zero schema violations. Use this by default for any production extraction or classification task. Available: OpenAI structured outputs, Outlines, Guidance.
+**Chế độ schema (constrained decoding):** Hệ thống sản xuất mà mọi đầu ra phải khớp một schema cụ thể. Không thất bại phân tích cú pháp. Không vi phạm schema. Dùng mặc định cho bất kỳ tác vụ trích xuất hay phân loại sản xuất nào. Có sẵn: structured outputs của OpenAI, Outlines, Guidance.
 
-**Function calling / tool use:** The model needs to choose which function to call, not just fill parameters. You have multiple schemas and the model selects the appropriate one. Also use when integrating with existing tool/function infrastructure.
+**Function calling / tool use:** Mô hình cần chọn hàm nào để gọi, không chỉ điền tham số. Bạn có nhiều schema và mô hình chọn schema phù hợp. Cũng dùng khi tích hợp với hạ tầng công cụ/hàm hiện có.
 
-**Instructor library:** You want Pydantic validation with automatic retry across any provider. Best DX for Python projects. Wraps OpenAI, Anthropic, Google, and open-source models.
+**Thư viện Instructor:** Bạn muốn xác thực Pydantic với tự động thử lại trên mọi nhà cung cấp. DX tốt nhất cho dự án Python. Bọc OpenAI, Anthropic, Google và các mô hình mã nguồn mở.
 
 ## Provider-specific guidance
 
-**OpenAI:** Use `response_format` with `json_schema` type. Constrained decoding is built in. Pydantic models work directly. Most reliable structured output implementation.
+**OpenAI:** Dùng `response_format` với kiểu `json_schema`. Constrained decoding được tích hợp. Các mô hình Pydantic hoạt động trực tiếp. Triển khai đầu ra có cấu trúc đáng tin cậy nhất.
 
-**Anthropic:** Use tool use for structured output. Define a single tool with the desired schema. The model returns tool call arguments matching the schema. Reliable but requires the tool use API pattern.
+**Anthropic:** Dùng tool use cho đầu ra có cấu trúc. Định nghĩa một công cụ duy nhất với schema mong muốn. Mô hình trả về đối số lệnh gọi công cụ khớp schema. Đáng tin cậy nhưng cần mẫu API tool use.
 
-**Open-source models (vLLM, Ollama):** Use Outlines or Guidance for constrained decoding. These libraries compile JSON Schemas into finite state machines that mask invalid tokens during generation. Requires running inference locally.
+**Các mô hình mã nguồn mở (vLLM, Ollama):** Dùng Outlines hoặc Guidance cho constrained decoding. Các thư viện này biên dịch JSON Schema thành máy trạng thái hữu hạn che token không hợp lệ trong lúc sinh. Cần chạy suy luận cục bộ.
 
 ## Schema design guidelines
 
-1. Keep schemas flat when possible. Nested objects beyond 2 levels increase extraction errors.
-2. Use enums for categorical fields. Do not rely on the model inventing the right string.
-3. Make ambiguous fields required with explicit null support rather than optional. Forces the model to make a decision.
-4. Add descriptions to schema properties. The model reads these as instructions.
-5. Avoid union types (oneOf/anyOf) unless necessary. They increase decoding complexity.
-6. Set minimum/maximum on numbers. Catches hallucinated extreme values.
-7. Use minItems/maxItems on arrays to prevent empty or unbounded outputs.
+1. Giữ schema phẳng khi có thể. Đối tượng lồng hơn 2 mức tăng lỗi trích xuất.
+2. Dùng enum cho trường phân loại. Không dựa vào việc mô hình tự tạo chuỗi đúng.
+3. Đặt trường mơ hồ là bắt buộc với hỗ trợ null rõ ràng thay vì tùy chọn. Buộc mô hình đưa ra quyết định.
+4. Thêm mô tả vào thuộc tính schema. Mô hình đọc chúng như chỉ dẫn.
+5. Tránh kiểu hợp (oneOf/anyOf) trừ khi cần thiết. Chúng tăng độ phức tạp giải mã.
+6. Đặt minimum/maximum trên số. Bắt các giá trị cực đoan bị ảo giác.
+7. Dùng minItems/maxItems trên mảng để ngăn đầu ra rỗng hoặc không giới hạn.
 
 ## Common failure patterns and fixes
 
-- **Model wraps JSON in markdown fences**: switch from prompt-based to JSON mode or schema mode
-- **Schema-valid but factually wrong**: add an LLM-as-judge validation step after extraction
-- **Inconsistent enum values**: switch to constrained decoding or add post-processing normalization
-- **Missing optional fields**: make them required or add default values in application code
-- **Very slow extraction**: constrained decoding adds 5-15% latency, reduce schema complexity if latency-sensitive
-- **Large arrays with varied items**: chunk the input and extract per-chunk, then merge results
+- **Mô hình bọc JSON trong hàng rào markdown**: chuyển từ dựa trên prompt sang chế độ JSON hoặc chế độ schema
+- **Hợp lệ schema nhưng sai sự kiện**: thêm bước xác thực LLM-as-judge sau trích xuất
+- **Giá trị enum không nhất quán**: chuyển sang constrained decoding hoặc thêm chuẩn hóa hậu xử lý
+- **Thiếu trường tùy chọn**: đặt chúng là bắt buộc hoặc thêm giá trị mặc định trong mã ứng dụng
+- **Trích xuất rất chậm**: constrained decoding thêm 5-15% độ trễ, giảm độ phức tạp schema nếu nhạy độ trễ
+- **Mảng lớn với phần tử đa dạng**: chia đầu vào thành chunk và trích xuất theo từng chunk, rồi gộp kết quả
 
 ## Reliability ladder
 
-| Approach | Parse Success | Schema Match | Setup Effort |
+| Cách tiếp cận | Thành công phân tích cú pháp | Khớp schema | Công sức thiết lập |
 |----------|-------------|-------------|-------------|
-| Prompt-based | ~90% | ~80% | 1 minute |
-| JSON mode | 100% | ~90% | 5 minutes |
-| Schema mode | 100% | ~99% | 15 minutes |
-| Constrained decoding | 100% | 100% | 30 minutes |
-| Instructor + retry | 100% | ~99.5% | 10 minutes |
+| Dựa trên prompt | ~90% | ~80% | 1 phút |
+| Chế độ JSON | 100% | ~90% | 5 phút |
+| Chế độ schema | 100% | ~99% | 15 phút |
+| Constrained decoding | 100% | 100% | 30 phút |
+| Instructor + thử lại | 100% | ~99.5% | 10 phút |
