@@ -1,6 +1,6 @@
 # Decision Trees and Random Forests
 
-> A decision tree is just a flowchart. But a forest of them is one of the most powerful tools in ML.
+> Một cây quyết định chỉ là một lưu đồ. Nhưng một rừng gồm chúng là một trong những công cụ mạnh nhất trong ML.
 
 **Type:** Build
 **Language:** Python
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Implement Gini impurity, entropy, and information gain calculations to find optimal decision tree splits
-- Build a decision tree classifier from scratch with pre-pruning controls (max depth, min samples)
-- Construct a random forest using bootstrap sampling and feature randomization, and explain why it reduces variance
-- Compare MDI feature importance with permutation importance and identify when MDI is biased
+- Triển khai các phép tính độ hỗn tạp Gini, entropy và độ lợi thông tin để tìm các phép chia cây quyết định tối ưu
+- Xây dựng một bộ phân loại cây quyết định từ đầu với các điều khiển cắt tỉa trước (độ sâu tối đa, số mẫu tối thiểu)
+- Xây dựng một rừng ngẫu nhiên bằng lấy mẫu bootstrap và ngẫu nhiên hóa đặc trưng, và giải thích tại sao nó giảm phương sai
+- So sánh độ quan trọng đặc trưng MDI với độ quan trọng hoán vị và xác định khi nào MDI bị chệch
 
 ## The Problem
 
-You have tabular data. Rows are samples, columns are features, and there is a target column you want to predict. You could throw a neural network at it. But for tabular data, tree-based models (decision trees, random forests, gradient boosted trees) consistently outperform deep learning. Kaggle competitions on structured data are dominated by XGBoost and LightGBM, not transformers.
+Bạn có dữ liệu dạng bảng. Hàng là mẫu, cột là đặc trưng và có một cột mục tiêu bạn muốn dự đoán. Bạn có thể đưa nó cho một mạng nơ-ron. Nhưng với dữ liệu dạng bảng, các mô hình dựa trên cây (cây quyết định, rừng ngẫu nhiên, cây gradient boosting) liên tục vượt học sâu. Các cuộc thi Kaggle về dữ liệu có cấu trúc bị chi phối bởi XGBoost và LightGBM, không phải transformer.
 
-Why? Trees handle mixed feature types (numeric and categorical) without preprocessing. They handle nonlinear relationships without feature engineering. They are interpretable: you can look at the tree and see exactly why a prediction was made. And random forests, which average many trees, are highly resistant to overfitting on moderate-sized datasets.
+Tại sao? Cây xử lý các kiểu đặc trưng hỗn hợp (số và phân loại) mà không cần tiền xử lý. Chúng xử lý các quan hệ phi tuyến mà không cần kỹ thuật đặc trưng. Chúng có thể diễn giải: bạn có thể nhìn cây và thấy chính xác tại sao một dự đoán được đưa ra. Và rừng ngẫu nhiên, lấy trung bình nhiều cây, có khả năng chống khớp quá mức cao trên các tập dữ liệu kích thước vừa.
 
-This lesson builds decision trees from scratch using recursive splitting, then builds a random forest on top. You will implement the math behind split criteria (Gini impurity, entropy, information gain) and understand why an ensemble of weak learners becomes a strong one.
+Bài học này xây dựng cây quyết định từ đầu bằng chia đệ quy, rồi xây dựng một rừng ngẫu nhiên trên đó. Bạn sẽ triển khai toán học đằng sau các tiêu chí chia (độ hỗn tạp Gini, entropy, độ lợi thông tin) và hiểu tại sao một tập hợp các bộ học yếu trở thành một bộ học mạnh.
 
 ## The Concept
 
 ### What a decision tree does
 
-A decision tree partitions the feature space into rectangular regions by asking a sequence of yes/no questions.
+Một cây quyết định phân hoạch không gian đặc trưng thành các miền chữ nhật bằng cách hỏi một chuỗi câu hỏi có/không.
 
 ```mermaid
 graph TD
@@ -38,15 +38,15 @@ graph TD
     C -->|No| G["Deny"]
 ```
 
-Each internal node tests a feature against a threshold. Each leaf node makes a prediction. To classify a new data point, you start at the root and follow the branches until you reach a leaf.
+Mỗi nút trong kiểm tra một đặc trưng so với một ngưỡng. Mỗi nút lá đưa ra một dự đoán. Để phân loại một điểm dữ liệu mới, bạn bắt đầu tại gốc và đi theo các nhánh cho đến khi đến một lá.
 
-The tree is built top-down by choosing, at each node, the feature and threshold that best separate the data. "Best" is defined by a split criterion.
+Cây được xây dựng từ trên xuống bằng cách chọn, tại mỗi nút, đặc trưng và ngưỡng phân tách dữ liệu tốt nhất. "Tốt nhất" được xác định bởi một tiêu chí chia.
 
 ### Split criteria: measuring impurity
 
-At each node, we have a set of samples. We want to split them so that the resulting child nodes are as "pure" as possible, meaning each child contains mostly one class.
+Tại mỗi nút, chúng ta có một tập mẫu. Chúng ta muốn chia chúng sao cho các nút con kết quả "thuần" nhất có thể, nghĩa là mỗi nút con chứa phần lớn một lớp.
 
-**Gini impurity** measures the probability that a randomly chosen sample would be misclassified if it were labeled according to the class distribution at that node.
+**Độ hỗn tạp Gini** đo xác suất một mẫu được chọn ngẫu nhiên sẽ bị phân loại sai nếu nó được gắn nhãn theo phân phối lớp tại nút đó.
 
 ```
 Gini(S) = 1 - sum(p_k^2)
@@ -54,7 +54,7 @@ Gini(S) = 1 - sum(p_k^2)
 where p_k is the proportion of class k in set S.
 ```
 
-For a pure node (all one class), Gini = 0. For a binary split with 50/50 classes, Gini = 0.5. Lower is better.
+Với một nút thuần (tất cả một lớp), Gini = 0. Với một phép chia nhị phân có các lớp 50/50, Gini = 0.5. Thấp hơn là tốt hơn.
 
 ```
 Example: 6 cats, 4 dogs
@@ -62,13 +62,13 @@ Example: 6 cats, 4 dogs
 Gini = 1 - (0.6^2 + 0.4^2) = 1 - (0.36 + 0.16) = 0.48
 ```
 
-**Entropy** measures the information content (disorder) in a node. Covered in Phase 1 Lesson 09.
+**Entropy** đo lượng thông tin (độ hỗn loạn) trong một nút. Đã được đề cập trong Giai đoạn 1 Bài học 09.
 
 ```
 Entropy(S) = -sum(p_k * log2(p_k))
 ```
 
-For a pure node, entropy = 0. For a 50/50 binary split, entropy = 1.0. Lower is better.
+Với một nút thuần, entropy = 0. Với một phép chia nhị phân 50/50, entropy = 1.0. Thấp hơn là tốt hơn.
 
 ```
 Example: 6 cats, 4 dogs
@@ -79,7 +79,7 @@ Entropy = -(0.6 * log2(0.6) + 0.4 * log2(0.4))
         = 0.971 bits
 ```
 
-**Information gain** is the reduction in impurity (entropy or Gini) after a split.
+**Độ lợi thông tin** là mức giảm độ hỗn tạp (entropy hoặc Gini) sau một phép chia.
 
 ```
 IG(S, feature, threshold) = Impurity(S) - weighted_avg(Impurity(S_left), Impurity(S_right))
@@ -87,53 +87,53 @@ IG(S, feature, threshold) = Impurity(S) - weighted_avg(Impurity(S_left), Impurit
 where the weights are the proportions of samples in each child.
 ```
 
-The greedy algorithm at each node: try every feature and every possible threshold. Pick the (feature, threshold) pair that maximizes information gain.
+Thuật toán tham lam tại mỗi nút: thử mọi đặc trưng và mọi ngưỡng có thể. Chọn cặp (đặc trưng, ngưỡng) cực đại hóa độ lợi thông tin.
 
 ### How splitting works
 
-For a dataset with n features and m samples at the current node:
+Với một tập dữ liệu có n đặc trưng và m mẫu tại nút hiện tại:
 
-1. For each feature j (j = 1 to n):
-   - Sort the samples by feature j
-   - Try every midpoint between consecutive distinct values as a threshold
-   - Compute the information gain for each threshold
-2. Select the feature and threshold with the highest information gain
-3. Split the data into left (feature <= threshold) and right (feature > threshold)
-4. Recurse on each child
+1. Với mỗi đặc trưng j (j = 1 đến n):
+   - Sắp xếp các mẫu theo đặc trưng j
+   - Thử mỗi trung điểm giữa các giá trị phân biệt liên tiếp làm ngưỡng
+   - Tính độ lợi thông tin cho mỗi ngưỡng
+2. Chọn đặc trưng và ngưỡng có độ lợi thông tin cao nhất
+3. Chia dữ liệu thành trái (feature <= threshold) và phải (feature > threshold)
+4. Đệ quy trên mỗi nút con
 
-This greedy approach does not guarantee the globally optimal tree. Finding the optimal tree is NP-hard. But greedy splitting works well in practice.
+Cách tiếp cận tham lam này không bảo đảm cây tối ưu toàn cục. Tìm cây tối ưu là NP-hard. Nhưng chia tham lam hoạt động tốt trong thực tế.
 
 ### Stopping conditions
 
-Without stopping conditions, the tree grows until every leaf is pure (one sample per leaf). This perfectly memorizes the training data and generalizes terribly.
+Không có các điều kiện dừng, cây phát triển cho đến khi mọi lá thuần (một mẫu mỗi lá). Điều này ghi nhớ hoàn hảo dữ liệu huấn luyện và tổng quát hóa rất tệ.
 
-**Pre-pruning** stops the tree before it fully grows:
-- Maximum depth: stop splitting when the tree reaches a set depth
-- Minimum samples per leaf: stop if a node has fewer than k samples
-- Minimum information gain: stop if the best split improves impurity by less than a threshold
-- Maximum leaf nodes: limit the total number of leaves
+**Cắt tỉa trước** dừng cây trước khi nó phát triển đầy đủ:
+- Độ sâu tối đa: dừng chia khi cây đạt độ sâu đã đặt
+- Số mẫu tối thiểu mỗi lá: dừng nếu một nút có ít hơn k mẫu
+- Độ lợi thông tin tối thiểu: dừng nếu phép chia tốt nhất cải thiện độ hỗn tạp ít hơn một ngưỡng
+- Số nút lá tối đa: giới hạn tổng số lá
 
-**Post-pruning** grows the full tree, then trims it back:
-- Cost-complexity pruning (used by scikit-learn): adds a penalty proportional to the number of leaves. Increase the penalty to get smaller trees
-- Reduced error pruning: remove a subtree if the validation error does not increase
+**Cắt tỉa sau** phát triển cây đầy đủ, rồi cắt bớt:
+- Cắt tỉa chi phí-độ phức tạp (được scikit-learn sử dụng): thêm một hình phạt tỉ lệ với số lá. Tăng hình phạt để có các cây nhỏ hơn
+- Cắt tỉa giảm sai số: loại một cây con nếu sai số xác thực không tăng
 
-Pre-pruning is simpler and faster. Post-pruning often produces better trees because it does not prematurely stop splits that might lead to useful further splits.
+Cắt tỉa trước đơn giản và nhanh hơn. Cắt tỉa sau thường tạo các cây tốt hơn vì nó không dừng quá sớm các phép chia có thể dẫn đến các phép chia tiếp theo hữu ích.
 
 ### Decision trees for regression
 
-For regression, the leaf prediction is the mean of the target values in that leaf. The split criterion changes too:
+Với hồi quy, dự đoán tại lá là trung bình các giá trị mục tiêu trong lá đó. Tiêu chí chia cũng thay đổi:
 
-**Variance reduction** replaces information gain:
+**Giảm phương sai** thay thế độ lợi thông tin:
 
 ```
 VR(S, feature, threshold) = Var(S) - weighted_avg(Var(S_left), Var(S_right))
 ```
 
-Pick the split that reduces variance the most. The tree partitions the input space into regions, and predicts a constant (the mean) in each region.
+Chọn phép chia giảm phương sai nhiều nhất. Cây phân hoạch không gian đầu vào thành các miền và dự đoán một hằng số (trung bình) trong mỗi miền.
 
 ### Random forests: the power of ensembles
 
-A single decision tree is high variance. Small changes in the data can produce completely different trees. Random forests fix this by averaging many trees.
+Một cây quyết định đơn lẻ có phương sai cao. Những thay đổi nhỏ trong dữ liệu có thể tạo ra các cây hoàn toàn khác nhau. Rừng ngẫu nhiên khắc phục bằng cách lấy trung bình nhiều cây.
 
 ```mermaid
 graph TD
@@ -151,43 +151,43 @@ graph TD
     TN --> V
 ```
 
-Two sources of randomness make the trees diverse:
+Hai nguồn ngẫu nhiên làm các cây đa dạng:
 
-**Bagging (bootstrap aggregating):** Each tree is trained on a bootstrap sample, a random sample with replacement from the training data. About 63% of the original samples appear in each bootstrap (the rest are out-of-bag samples that can be used for validation).
+**Bagging (tổng hợp bootstrap):** Mỗi cây được huấn luyện trên một mẫu bootstrap, một mẫu ngẫu nhiên có hoàn lại từ dữ liệu huấn luyện. Khoảng 63% các mẫu gốc xuất hiện trong mỗi bootstrap (phần còn lại là các mẫu ngoài túi có thể được dùng để xác thực).
 
-**Feature randomization:** At each split, only a random subset of features is considered. For classification, the default is sqrt(n_features). For regression, n_features/3. This prevents all trees from splitting on the same dominant feature.
+**Ngẫu nhiên hóa đặc trưng:** Tại mỗi phép chia, chỉ một tập con ngẫu nhiên các đặc trưng được xét. Với phân loại, mặc định là sqrt(n_features). Với hồi quy, n_features/3. Điều này ngăn mọi cây chia trên cùng đặc trưng chi phối.
 
-The key insight: averaging many decorrelated trees reduces variance without increasing bias. Each individual tree may be mediocre. The ensemble is strong.
+Điểm cốt yếu: lấy trung bình nhiều cây đã khử tương quan giảm phương sai mà không tăng độ chệch. Mỗi cây riêng lẻ có thể tầm thường. Tập hợp mạnh.
 
 ### Feature importance
 
-Random forests naturally provide feature importance scores. The most common method:
+Rừng ngẫu nhiên cung cấp các điểm độ quan trọng đặc trưng một cách tự nhiên. Phương pháp phổ biến nhất:
 
-**Mean Decrease in Impurity (MDI):** For each feature, sum the total reduction in impurity across all trees and all nodes where that feature is used. Features that produce bigger impurity reductions at earlier splits are more important.
+**Mức Giảm Độ Hỗn tạp Trung bình (MDI):** Với mỗi đặc trưng, cộng tổng mức giảm độ hỗn tạp trên tất cả các cây và mọi nút nơi đặc trưng đó được sử dụng. Các đặc trưng tạo ra mức giảm độ hỗn tạp lớn hơn ở các phép chia sớm quan trọng hơn.
 
 ```
 importance(feature_j) = sum over all nodes where feature_j is used:
     (n_samples_at_node / n_total_samples) * impurity_decrease
 ```
 
-This is fast (computed during training) but biased toward high-cardinality features and features with many possible split points.
+Cách này nhanh (được tính trong huấn luyện) nhưng thiên về các đặc trưng có nhiều giá trị phân biệt và các đặc trưng có nhiều điểm chia có thể.
 
-**Permutation importance** is the alternative: shuffle one feature's values and measure how much the model's accuracy drops. More reliable but slower.
+**Độ quan trọng hoán vị** là lựa chọn thay thế: xáo trộn các giá trị của một đặc trưng và đo độ chính xác mô hình giảm bao nhiêu. Đáng tin cậy hơn nhưng chậm hơn.
 
 ### When trees beat neural networks
 
-Trees and forests dominate neural networks on tabular data. Several reasons:
+Cây và rừng vượt trội mạng nơ-ron trên dữ liệu dạng bảng. Một số lý do:
 
-| Factor | Trees | Neural networks |
+| Yếu tố | Cây | Mạng nơ-ron |
 |--------|-------|----------------|
-| Mixed types (numeric + categorical) | Native support | Need encoding |
-| Small datasets (< 10k rows) | Work well | Overfit |
-| Feature interactions | Found by splitting | Need architecture design |
-| Interpretability | Full transparency | Black box |
-| Training time | Minutes | Hours |
-| Hyperparameter sensitivity | Low | High |
+| Các kiểu hỗn hợp (số + phân loại) | Hỗ trợ trực tiếp | Cần mã hóa |
+| Các tập dữ liệu nhỏ (< 10k hàng) | Hoạt động tốt | Khớp quá mức |
+| Các tương tác đặc trưng | Được tìm bằng phép chia | Cần thiết kế kiến trúc |
+| Khả năng diễn giải | Minh bạch hoàn toàn | Hộp đen |
+| Thời gian huấn luyện | Phút | Giờ |
+| Độ nhạy siêu tham số | Thấp | Cao |
 
-Neural networks win when the data has spatial or sequential structure (images, text, audio). For flat tables of features, trees are the default.
+Mạng nơ-ron thắng khi dữ liệu có cấu trúc không gian hoặc tuần tự (hình ảnh, văn bản, âm thanh). Với các bảng đặc trưng phẳng, cây là mặc định.
 
 ```figure
 decision-tree-depth
@@ -197,7 +197,7 @@ decision-tree-depth
 
 ### Step 1: Gini impurity and entropy
 
-Build both split criteria from scratch and verify they agree on which splits are good.
+Xây dựng cả hai tiêu chí chia từ đầu và xác minh chúng đồng ý về các phép chia tốt.
 
 ```python
 import math
@@ -225,7 +225,7 @@ def entropy(labels):
 
 ### Step 2: Find the best split
 
-Try every feature and every threshold. Return the one with the highest information gain.
+Thử mọi đặc trưng và mọi ngưỡng. Trả về cặp có độ lợi thông tin cao nhất.
 
 ```python
 def information_gain(parent_labels, left_labels, right_labels, criterion="gini"):
@@ -245,7 +245,7 @@ def information_gain(parent_labels, left_labels, right_labels, criterion="gini")
 
 ### Step 3: Build the DecisionTree class
 
-Recursive splitting, prediction, and feature importance tracking. `_build` is the heart of the tree: it stops when a node is pure or hits a pre-pruning limit, otherwise it takes the best split and recurses into both children.
+Chia đệ quy, dự đoán và theo dõi độ quan trọng đặc trưng. `_build` là trung tâm của cây: nó dừng khi một nút thuần hoặc đạt giới hạn cắt tỉa trước, nếu không nó lấy phép chia tốt nhất và đệ quy vào cả hai nút con.
 
 ```python
 import random
@@ -373,7 +373,7 @@ class DecisionTree:
 
 ### Step 4: Build the RandomForest class
 
-Bootstrap sampling, feature randomization, and majority voting.
+Lấy mẫu bootstrap, ngẫu nhiên hóa đặc trưng và bỏ phiếu đa số.
 
 ```python
 class RandomForest:
@@ -414,11 +414,11 @@ class RandomForest:
         return predictions
 ```
 
-See `code/trees.py` for the complete implementation with all helper methods.
+Xem `code/trees.py` để có triển khai đầy đủ với tất cả phương thức hỗ trợ.
 
 ## Use It
 
-With scikit-learn, training a random forest is three lines:
+Với scikit-learn, huấn luyện một rừng ngẫu nhiên là ba dòng:
 
 ```python
 from sklearn.ensemble import RandomForestClassifier
@@ -434,44 +434,44 @@ print(f"Accuracy: {rf.score(X_test, y_test):.4f}")
 print(f"Feature importances: {rf.feature_importances_}")
 ```
 
-In practice, gradient boosted trees (XGBoost, LightGBM, CatBoost) are often stronger than random forests because they build trees sequentially, with each tree correcting the errors of the previous ones. But random forests are harder to misconfigure and require almost no hyperparameter tuning.
+Trong thực tế, các cây gradient boosting (XGBoost, LightGBM, CatBoost) thường mạnh hơn rừng ngẫu nhiên vì chúng xây dựng các cây tuần tự, với mỗi cây sửa sai số của các cây trước. Nhưng rừng ngẫu nhiên khó bị cấu hình sai hơn và hầu như không cần điều chỉnh siêu tham số.
 
 ## Ship It
 
-This lesson produces `outputs/prompt-tree-interpreter.md` -- a prompt that interprets decision tree splits for business stakeholders. Feed it a trained tree's structure (depth, features, split thresholds, accuracy) and it translates the model into plain-language rules, ranks feature importance, flags overfitting or leakage, and recommends next steps. Use it any time you need to explain a tree-based model to someone who does not read code.
+Bài học này tạo ra `outputs/prompt-tree-interpreter.md` -- một prompt diễn giải các phép chia cây quyết định cho các bên liên quan kinh doanh. Đưa vào cấu trúc của một cây đã huấn luyện (độ sâu, đặc trưng, ngưỡng chia, độ chính xác) và nó chuyển mô hình thành các quy tắc bằng ngôn ngữ đơn giản, xếp hạng độ quan trọng đặc trưng, nêu khớp quá mức hoặc rò rỉ và đề xuất các bước tiếp theo. Sử dụng nó bất cứ khi nào bạn cần giải thích một mô hình dựa trên cây cho người không đọc mã.
 
 ## Exercises
 
-1. Train a single decision tree on a 2D dataset with 3 classes. Manually trace the splits and draw the rectangular decision boundaries. Compare the boundaries at max_depth=2 vs max_depth=10.
+1. Huấn luyện một cây quyết định đơn lẻ trên một tập dữ liệu 2D có 3 lớp. Theo dõi thủ công các phép chia và vẽ các biên quyết định chữ nhật. So sánh các biên tại max_depth=2 so với max_depth=10.
 
-2. Implement variance reduction splitting for regression trees. Generate y = sin(x) + noise for 200 points and fit your regression tree. Plot the tree's piecewise-constant predictions against the true curve.
+2. Triển khai chia giảm phương sai cho cây hồi quy. Tạo y = sin(x) + noise cho 200 điểm và khớp cây hồi quy của bạn. Vẽ các dự đoán hằng từng khúc của cây so với đường cong thực.
 
-3. Build a random forest with 1, 5, 10, 50, and 200 trees. Plot training accuracy and test accuracy vs number of trees. Observe that test accuracy plateaus but does not decrease (forests resist overfitting).
+3. Xây dựng một rừng ngẫu nhiên có 1, 5, 10, 50 và 200 cây. Vẽ độ chính xác huấn luyện và kiểm tra theo số cây. Quan sát độ chính xác kiểm tra chững lại nhưng không giảm (rừng chống khớp quá mức).
 
-4. Compare Gini impurity vs entropy as split criteria on 5 different datasets. Measure accuracy and tree depth. In most cases, they produce nearly identical results. Explain why.
+4. So sánh độ hỗn tạp Gini và entropy làm tiêu chí chia trên 5 tập dữ liệu khác nhau. Đo độ chính xác và độ sâu cây. Trong hầu hết trường hợp, chúng tạo ra các kết quả gần như giống hệt. Giải thích tại sao.
 
-5. Implement permutation importance. Compare it with MDI importance on a dataset where one feature is random noise but has high cardinality. MDI will rank the noise feature highly. Permutation importance will not.
+5. Triển khai độ quan trọng hoán vị. So sánh nó với độ quan trọng MDI trên một tập dữ liệu nơi một đặc trưng là nhiễu ngẫu nhiên nhưng có nhiều giá trị phân biệt. MDI sẽ xếp hạng đặc trưng nhiễu cao. Độ quan trọng hoán vị thì không.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Decision tree | "A flowchart for predictions" | A model that partitions feature space into rectangular regions by learning a sequence of if/else splits |
-| Gini impurity | "How mixed the node is" | Probability of misclassifying a random sample at a node. 0 = pure, 0.5 = maximum impurity for binary |
-| Entropy | "The disorder in a node" | Information content at a node. 0 = pure, 1.0 = maximum uncertainty for binary. From information theory |
-| Information gain | "How good a split is" | Reduction in impurity after a split. The greedy criterion for choosing splits |
-| Pre-pruning | "Stop the tree early" | Stopping tree growth early by setting max depth, min samples, or min gain thresholds |
-| Post-pruning | "Trim the tree after" | Growing the full tree, then removing subtrees that do not improve validation performance |
-| Bagging | "Train on random subsets" | Bootstrap aggregating. Train each model on a different random sample with replacement |
-| Random forest | "A bunch of trees" | Ensemble of decision trees, each trained on a bootstrap sample with random feature subsets at each split |
-| Feature importance (MDI) | "Which features matter" | Total impurity decrease contributed by each feature, summed across all trees and nodes |
-| Permutation importance | "Shuffle and check" | Accuracy drop when a feature's values are randomly shuffled. More reliable than MDI for noisy features |
-| Variance reduction | "The regression version of info gain" | The regression tree analogue of information gain. Picks the split that reduces target variance the most |
-| Bootstrap sample | "Random sample with repeats" | A random sample drawn with replacement from the original dataset. Same size, but with duplicates |
+| Decision tree (Cây quyết định) | "Một lưu đồ để dự đoán" | Một mô hình phân hoạch không gian đặc trưng thành các miền chữ nhật bằng cách học một chuỗi phép chia if/else |
+| Gini impurity (Độ hỗn tạp Gini) | "Nút pha trộn đến mức nào" | Xác suất phân loại sai một mẫu ngẫu nhiên tại một nút. 0 = thuần, 0.5 = độ hỗn tạp tối đa cho nhị phân |
+| Entropy | "Độ hỗn loạn trong một nút" | Lượng thông tin tại một nút. 0 = thuần, 1.0 = sự không chắc chắn tối đa cho nhị phân. Từ lý thuyết thông tin |
+| Information gain (Độ lợi thông tin) | "Một phép chia tốt đến mức nào" | Mức giảm độ hỗn tạp sau một phép chia. Tiêu chí tham lam để chọn các phép chia |
+| Pre-pruning (Cắt tỉa trước) | "Dừng cây sớm" | Dừng cây phát triển sớm bằng cách đặt độ sâu tối đa, số mẫu tối thiểu hoặc ngưỡng độ lợi tối thiểu |
+| Post-pruning (Cắt tỉa sau) | "Cắt cây sau đó" | Phát triển cây đầy đủ, rồi loại các cây con không cải thiện hiệu năng xác thực |
+| Bagging | "Huấn luyện trên các tập con ngẫu nhiên" | Tổng hợp bootstrap. Huấn luyện mỗi mô hình trên một mẫu ngẫu nhiên có hoàn lại khác nhau |
+| Random forest (Rừng ngẫu nhiên) | "Một nhóm cây" | Tập hợp các cây quyết định, mỗi cây được huấn luyện trên một mẫu bootstrap với các tập con đặc trưng ngẫu nhiên tại mỗi phép chia |
+| Feature importance (MDI) (Độ quan trọng đặc trưng) | "Các đặc trưng nào quan trọng" | Tổng mức giảm độ hỗn tạp do mỗi đặc trưng đóng góp, được cộng trên tất cả cây và nút |
+| Permutation importance (Độ quan trọng hoán vị) | "Xáo trộn và kiểm tra" | Mức giảm độ chính xác khi các giá trị của một đặc trưng được xáo trộn ngẫu nhiên. Đáng tin cậy hơn MDI cho các đặc trưng nhiễu |
+| Variance reduction (Giảm phương sai) | "Phiên bản hồi quy của độ lợi thông tin" | Tương tự độ lợi thông tin cho cây hồi quy. Chọn phép chia giảm phương sai mục tiêu nhiều nhất |
+| Bootstrap sample (Mẫu bootstrap) | "Mẫu ngẫu nhiên có lặp" | Một mẫu ngẫu nhiên được rút có hoàn lại từ tập dữ liệu gốc. Cùng kích thước, nhưng có trùng lặp |
 
 ## Further Reading
 
-- [Breiman: Random Forests (2001)](https://link.springer.com/article/10.1023/A:1010933404324) - the original random forest paper
-- [Grinsztajn et al.: Why do tree-based models still outperform deep learning on tabular data? (2022)](https://arxiv.org/abs/2207.08815) - rigorous comparison of trees vs neural networks on tabular tasks
-- [scikit-learn Decision Trees documentation](https://scikit-learn.org/stable/modules/tree.html) - practical guide with visualization tools
-- [XGBoost: A Scalable Tree Boosting System (Chen & Guestrin, 2016)](https://arxiv.org/abs/1603.02754) - the gradient boosting paper that dominates Kaggle
+- [Breiman: Random Forests (2001)](https://link.springer.com/article/10.1023/A:1010933404324) - bài báo rừng ngẫu nhiên gốc
+- [Grinsztajn et al.: Why do tree-based models still outperform deep learning on tabular data? (2022)](https://arxiv.org/abs/2207.08815) - so sánh chặt chẽ cây với mạng nơ-ron trên các tác vụ dạng bảng
+- [Tài liệu scikit-learn Decision Trees](https://scikit-learn.org/stable/modules/tree.html) - hướng dẫn thực hành với các công cụ trực quan hóa
+- [XGBoost: A Scalable Tree Boosting System (Chen & Guestrin, 2016)](https://arxiv.org/abs/1603.02754) - bài báo gradient boosting thống trị Kaggle
