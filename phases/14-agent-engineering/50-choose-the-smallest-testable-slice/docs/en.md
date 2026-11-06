@@ -1,6 +1,6 @@
 # Choose the Smallest Slice That Can Change the Decision
 
-> Small is useful only when it proves something important. A tiny build that cannot change the next decision is merely incomplete.
+> Nhỏ chỉ hữu ích khi nó chứng minh điều gì đó quan trọng. Một bản xây dựng nhỏ không thể thay đổi quyết định tiếp theo chỉ đơn thuần là chưa hoàn chỉnh.
 
 **Type:** Learn + Build
 **Languages:** Python (stdlib)
@@ -9,36 +9,36 @@
 
 ## Learning Objectives
 
-- Define a slice by the assumptions it proves.
-- Balance outcome value, uncertainty reduction, effort, and consequence.
-- Prefer reversible evidence over premature production commitment.
-- Reject slices that omit the risky part of the workflow.
+- Định nghĩa một phần theo các giả định nó chứng minh.
+- Cân bằng giá trị kết quả, giảm bất định, nỗ lực và hệ quả.
+- Ưu tiên bằng chứng có thể đảo ngược hơn cam kết sản xuất quá sớm.
+- Từ chối các phần bỏ qua phần rủi ro của workflow.
 
 ## Vertical Means Evidence End to End
 
-A useful slice crosses the minimum real workflow needed to observe an outcome. It can be narrow in users, data, duration, and capability. It should not be narrow by removing the exact uncertainty you need to test.
+Một phần hữu ích đi qua workflow thực tối thiểu cần để quan sát một kết quả. Nó có thể hẹp về người dùng, dữ liệu, thời lượng và khả năng. Nó không nên hẹp bằng cách loại bỏ đúng sự bất định mà bạn cần kiểm tra.
 
-Examples:
+Các ví dụ:
 
-- A read-only replay across ten real incidents tests service identification and operator trust.
-- A polished dashboard on synthetic data may test comprehension but not data feasibility.
-- A production auto-remediator tests everything at once with unacceptable consequence.
+- Một lần phát lại chỉ đọc xuyên mười sự cố thực kiểm tra nhận diện dịch vụ và niềm tin của người vận hành.
+- Một dashboard được trau chuốt trên dữ liệu tổng hợp có thể kiểm tra sự hiểu nhưng không kiểm tra tính khả thi dữ liệu.
+- Một bộ tự khắc phục sản xuất kiểm tra mọi thứ cùng lúc với hệ quả không chấp nhận được.
 
 ## Define Required Proof First
 
-Take the highest-risk open assumptions and turn them into a required proof set. A candidate slice is eligible only if it covers that set.
+Lấy các giả định mở rủi ro cao nhất và biến chúng thành một tập chứng minh bắt buộc. Một phần ứng viên chỉ đủ điều kiện nếu nó bao phủ tập đó.
 
-Then compare eligible slices on:
+Rồi so sánh các phần đủ điều kiện về:
 
-| Dimension | Direction |
+| Chiều | Hướng |
 |---|---|
-| Outcome value | More is better |
-| Uncertainty reduced | More is better |
-| Effort | Less is better |
-| Consequence | Less is better |
-| Reversibility | More is better |
+| Giá trị kết quả | Nhiều hơn tốt hơn |
+| Bất định được giảm | Nhiều hơn tốt hơn |
+| Nỗ lực | Ít hơn tốt hơn |
+| Hệ quả | Ít hơn tốt hơn |
+| Tính có thể đảo ngược | Nhiều hơn tốt hơn |
 
-The lab’s score is intentionally simple. The eligibility gate matters more than the arithmetic.
+Điểm của bài thực hành đơn giản có chủ ý. Cổng đủ điều kiện quan trọng hơn phép tính.
 
 ```mermaid
 flowchart TD
@@ -55,48 +55,48 @@ flowchart TD
 
 ## Common False Minimums
 
-- **The UI-only minimum:** removes the data and operational uncertainty.
-- **The infrastructure-only minimum:** proves technical possibility without user value.
-- **The happy-path minimum:** omits the exception that creates most risk.
-- **The demo minimum:** produces a persuasive artifact but no repeatable measurement.
-- **The platform minimum:** builds reusable machinery before one workflow earns it.
+- **Mức tối thiểu chỉ UI:** loại bỏ bất định dữ liệu và vận hành.
+- **Mức tối thiểu chỉ hạ tầng:** chứng minh khả năng kỹ thuật mà không có giá trị người dùng.
+- **Mức tối thiểu luồng thành công:** bỏ qua ngoại lệ tạo phần lớn rủi ro.
+- **Mức tối thiểu demo:** tạo một sản phẩm thuyết phục nhưng không có phép đo lặp lại được.
+- **Mức tối thiểu nền tảng:** xây máy móc tái sử dụng trước khi một workflow xứng đáng với nó.
 
 ## Add a Stop Rule
 
-Before implementation, write what happens if the slice fails:
+Trước triển khai, viết điều gì xảy ra nếu phần thất bại:
 
-- abandon the outcome;
-- change the target user or situation;
-- test a different mechanism;
-- collect better evidence;
-- narrow authority further.
+- từ bỏ kết quả;
+- thay đổi người dùng hoặc tình huống đích;
+- kiểm tra một cơ chế khác;
+- thu thập bằng chứng tốt hơn;
+- thu hẹp thẩm quyền thêm.
 
-If every result leads to “keep building,” the slice is not an experiment.
+Nếu mọi kết quả dẫn đến “tiếp tục xây dựng,” phần đó không phải một thí nghiệm.
 
 ## Build It
 
-The lab filters candidates by required proof, scores eligible slices, and writes `outputs/slice-decision.json`.
+Bài thực hành lọc các ứng viên theo chứng minh bắt buộc, chấm điểm các phần đủ điều kiện và ghi `outputs/slice-decision.json`.
 
 ```bash
 python3 code/main.py
 python3 -m unittest discover code/tests -v
 ```
 
-Add a cheaper candidate that proves only one required assumption. It should remain ineligible even if its numerical score is high.
+Thêm một ứng viên rẻ hơn chỉ chứng minh một giả định bắt buộc. Nó nên vẫn không đủ điều kiện ngay cả khi điểm số của nó cao.
 
 ## Exercises
 
-1. Design three slices for the same outcome at different consequence levels.
-2. State the required proof set before scoring them.
-3. Remove one capability while preserving the decisive evidence.
-4. Add a stop rule for a failed pilot.
-5. Identify a reusable platform component that should wait until after the slice.
+1. Thiết kế ba phần cho cùng kết quả ở các mức hệ quả khác nhau.
+2. Nêu tập chứng minh bắt buộc trước khi chấm điểm chúng.
+3. Loại bỏ một khả năng trong khi giữ bằng chứng mang tính quyết định.
+4. Thêm một quy tắc dừng cho một thí điểm thất bại.
+5. Nhận diện một thành phần nền tảng tái sử dụng nên chờ đến sau phần này.
 
 ## Further Reading
 
-- [Barry Boehm, A Spiral Model of Software Development and Enhancement](https://dl.acm.org/doi/10.1145/12944.12948), for matching each development cycle to the risks it must resolve.
-- [Lenarduzzi and Taibi, MVP Explained: A Systematic Mapping Study on the Definitions of Minimal Viable Product](https://arxiv.org/abs/1609.07592), for the ambiguity around “minimum” and “viable” in software product practice.
+- [Barry Boehm, A Spiral Model of Software Development and Enhancement](https://dl.acm.org/doi/10.1145/12944.12948), để khớp mỗi chu kỳ phát triển với các rủi ro nó phải giải quyết.
+- [Lenarduzzi and Taibi, MVP Explained: A Systematic Mapping Study on the Definitions of Minimal Viable Product](https://arxiv.org/abs/1609.07592), cho sự mơ hồ quanh “tối thiểu” và “khả dụng” trong thực hành sản phẩm phần mềm.
 
 ## What You Keep
 
-Keep `outputs/slice-decision.json`. It records why this slice is the smallest one that can change the decision.
+Giữ `outputs/slice-decision.json`. Nó ghi lại vì sao phần này là phần nhỏ nhất có thể thay đổi quyết định.
