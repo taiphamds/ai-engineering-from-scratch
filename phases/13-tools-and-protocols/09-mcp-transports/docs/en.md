@@ -1,6 +1,6 @@
 # MCP Transports: stdio and Stateless Streamable HTTP
 
-> Transport carries MCP messages. It does not supply missing protocol state. In `2026-07-28`, local stdio and remote Streamable HTTP both carry self-describing requests.
+> Vận chuyển mang thông điệp MCP. Nó không cung cấp trạng thái giao thức thiếu. Trong `2026-07-28`, cả stdio cục bộ lẫn Streamable HTTP từ xa đều mang yêu cầu tự mô tả.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,48 +9,48 @@
 
 ## Learning Objectives
 
-- Choose stdio for local child processes and Streamable HTTP for network services.
-- Implement the modern single-endpoint, POST-only Streamable HTTP contract.
-- Mirror and validate MCP version, method, and name headers against the JSON-RPC body.
-- Deliver request-scoped SSE and long-lived `subscriptions/listen` streams correctly.
-- Migrate session-based and legacy HTTP+SSE deployments without presenting legacy behavior as modern.
+- Chọn stdio cho tiến trình con cục bộ và Streamable HTTP cho dịch vụ mạng.
+- Triển khai hợp đồng Streamable HTTP hiện đại một endpoint, chỉ POST.
+- Phản chiếu và xác thực header phiên bản, phương thức và tên MCP theo phần thân JSON-RPC.
+- Phân phối đúng SSE phạm vi yêu cầu và luồng `subscriptions/listen` sống lâu.
+- Chuyển triển khai dựa trên phiên và HTTP+SSE cũ mà không trình bày hành vi cũ là hiện đại.
 
 ## The Problem
 
-Earlier Streamable HTTP revisions combined protocol negotiation with connection and session behavior. A server could mint `Mcp-Session-Id`, expose a standalone GET stream, accept DELETE for session termination, and resume SSE with `Last-Event-ID`.
+Các bản sửa đổi Streamable HTTP trước kết hợp thương lượng giao thức với hành vi kết nối và phiên. Máy chủ có thể tạo `Mcp-Session-Id`, cung cấp luồng GET độc lập, nhận DELETE để kết thúc phiên và tiếp tục SSE bằng `Last-Event-ID`.
 
-MCP `2026-07-28` removes those mechanisms from the modern wire. Every request can land on any healthy worker because its protocol version and client capabilities travel in the request body. HTTP headers mirror selected fields for routing and policy, but the server validates those headers against the body before execution.
+MCP `2026-07-28` bỏ các cơ chế đó khỏi đường truyền hiện đại. Mọi yêu cầu có thể đến bất kỳ worker khỏe nào vì phiên bản giao thức và khả năng client đi trong phần thân yêu cầu. Header HTTP phản chiếu trường được chọn để định tuyến và chính sách, nhưng máy chủ xác thực header đó theo phần thân trước thực thi.
 
-The result is easier to scale and easier to reason about. It also means that a server teaching the 2025 transport as current is teaching the wrong failure and security model.
+Kết quả dễ mở rộng và dễ suy luận hơn. Điều này cũng nghĩa máy chủ dạy vận chuyển năm 2025 như hiện hành đang dạy sai mô hình thất bại và bảo mật.
 
 ## The Concept
 
 ### stdio
 
-The stdio binding is for a client-launched subprocess:
+Liên kết stdio dành cho tiến trình con do client khởi chạy:
 
-- Client writes one UTF-8 JSON-RPC message per line to stdin.
-- Server writes one UTF-8 JSON-RPC message per line to stdout.
-- Server writes diagnostics to stderr.
-- Server exits promptly on stdin EOF.
-- Every modern request carries version and client capabilities in `params._meta`.
+- Client ghi một thông điệp JSON-RPC UTF-8 mỗi dòng vào stdin.
+- Máy chủ ghi một thông điệp JSON-RPC UTF-8 mỗi dòng vào stdout.
+- Máy chủ ghi chẩn đoán vào stderr.
+- Máy chủ thoát nhanh khi stdin EOF.
+- Mọi yêu cầu hiện đại mang phiên bản và khả năng client trong `params._meta`.
 
-The process may live for many calls, but it is not a modern protocol session. If it exits unexpectedly, in-flight requests are lost. Restart the process, rediscover, relist, reopen subscriptions, and retry safe operations with new request ids.
+Tiến trình có thể tồn tại nhiều lời gọi, nhưng không phải phiên giao thức hiện đại. Nếu thoát bất ngờ, yêu cầu đang xử lý bị mất. Khởi động lại tiến trình, khám phá lại, liệt kê lại, mở lại đăng ký và thử lại thao tác an toàn với id yêu cầu mới.
 
 ### Streamable HTTP in 2026-07-28
 
-A modern server exposes one MCP endpoint, such as `/mcp`, that accepts POST.
+Máy chủ hiện đại cung cấp một endpoint MCP, như `/mcp`, nhận POST.
 
-Every JSON-RPC request or notification is a new HTTP POST. The body contains one JSON-RPC message. Clients do not send JSON-RPC responses to the server.
+Mọi yêu cầu hoặc thông báo JSON-RPC là HTTP POST mới. Phần thân chứa một thông điệp JSON-RPC. Client không gửi phản hồi JSON-RPC đến máy chủ.
 
-For a request, the server returns either:
+Với yêu cầu, máy chủ trả một trong hai:
 
-- `Content-Type: application/json` with one JSON-RPC response; or
-- `Content-Type: text/event-stream` with notifications related to that request, followed by the final JSON-RPC response.
+- `Content-Type: application/json` với một phản hồi JSON-RPC; hoặc
+- `Content-Type: text/event-stream` với thông báo liên quan yêu cầu đó, theo sau là phản hồi JSON-RPC cuối.
 
-For an accepted notification, the server returns `202 Accepted` with no body.
+Với thông báo được chấp nhận, máy chủ trả `202 Accepted` không có phần thân.
 
-Clients advertise both response types:
+Client công bố cả hai kiểu phản hồi:
 
 ```http
 Accept: application/json, text/event-stream
@@ -58,26 +58,26 @@ Accept: application/json, text/event-stream
 
 ### POST-only means POST-only
 
-Modern Streamable HTTP has no standalone GET stream and no DELETE session endpoint.
+Streamable HTTP hiện đại không có luồng GET độc lập và không endpoint phiên DELETE.
 
-- `GET /mcp` returns `405 Method Not Allowed`.
-- `DELETE /mcp` returns `405 Method Not Allowed`.
-- `Mcp-Session-Id` is ignored and never minted or echoed.
-- `Last-Event-ID` is ignored because modern streams are not resumable.
+- `GET /mcp` trả `405 Method Not Allowed`.
+- `DELETE /mcp` trả `405 Method Not Allowed`.
+- `Mcp-Session-Id` bị bỏ qua và không bao giờ được tạo hoặc phản hồi lại.
+- `Last-Event-ID` bị bỏ qua vì luồng hiện đại không thể tiếp tục.
 
-If a request-scoped stream breaks before its final response, the client has lost that in-flight request. It may issue a new request with a new JSON-RPC id when retry is safe. It must not attempt stream resumption.
+Nếu luồng phạm vi yêu cầu hỏng trước phản hồi cuối, client mất yêu cầu đang xử lý đó. Nó có thể đưa yêu cầu mới với id JSON-RPC mới khi thử lại an toàn. Nó không được cố tiếp tục luồng.
 
 ### Origin validation
 
-Servers validate `Origin` on incoming connections to prevent DNS rebinding. If the header is present and not explicitly allowed, return `403 Forbidden`. A non-browser client may omit `Origin`, which the official transport rules permit.
+Máy chủ xác thực `Origin` trên kết nối đến để ngăn DNS rebinding. Nếu có header và không được cho phép rõ, trả `403 Forbidden`. Client không phải trình duyệt có thể bỏ `Origin`, điều quy tắc vận chuyển chính thức cho phép.
 
-Local servers should bind to `127.0.0.1`, not every interface. Network services still need authentication and authorization on every request. Origin validation is not authentication.
+Máy chủ cục bộ nên bind vào `127.0.0.1`, không phải mọi giao diện. Dịch vụ mạng vẫn cần xác thực danh tính và cấp quyền trên mọi yêu cầu. Xác thực Origin không phải xác thực danh tính.
 
-Use exact origin matching after canonical configuration. Prefix checks such as `origin.startswith("https://trusted.example")` are unsafe because they can accept attacker-controlled suffixes.
+Dùng khớp origin chính xác sau cấu hình chuẩn. Kiểm tra tiền tố như `origin.startswith("https://trusted.example")` không an toàn vì có thể nhận hậu tố do kẻ tấn công kiểm soát.
 
 ### Required HTTP metadata headers
 
-Every modern POST request includes:
+Mọi yêu cầu POST hiện đại gồm:
 
 ```http
 MCP-Protocol-Version: 2026-07-28
@@ -85,29 +85,29 @@ Mcp-Method: tools/call
 Mcp-Name: notes_search
 ```
 
-Header rules:
+Quy tắc header:
 
-- `MCP-Protocol-Version` is required and must equal `params._meta.io.modelcontextprotocol/protocolVersion`.
-- `Mcp-Method` is required and must equal the JSON-RPC `method`.
-- `Mcp-Name` is required for `tools/call`, `resources/read`, and `prompts/get`.
-- `Mcp-Name` equals `params.name`, or `params.uri` for `resources/read`.
-- Header values are case-sensitive even though header names are case-insensitive.
+- `MCP-Protocol-Version` bắt buộc và phải bằng `params._meta.io.modelcontextprotocol/protocolVersion`.
+- `Mcp-Method` bắt buộc và phải bằng `method` JSON-RPC.
+- `Mcp-Name` bắt buộc cho `tools/call`, `resources/read` và `prompts/get`.
+- `Mcp-Name` bằng `params.name`, hoặc `params.uri` cho `resources/read`.
+- Giá trị header phân biệt hoa thường dù tên header không phân biệt hoa thường.
 
-Unsafe or non-ASCII `Mcp-Name` values use the exact UTF-8 Base64 sentinel:
+Giá trị `Mcp-Name` không an toàn hoặc ngoài ASCII dùng dấu báo hiệu Base64 UTF-8 chính xác:
 
 ```text
 =?base64?{Base64EncodedValue}?=
 ```
 
-The server decodes that value before comparing it with the body.
+Máy chủ giải mã giá trị đó trước khi so với phần thân.
 
-Missing, malformed, or mismatched mirrored headers return HTTP `400` with JSON-RPC code `-32020`. If header and body agree on a version the server does not support, return HTTP `400` with `-32022` and exact error data such as `{"supported":["2026-07-28"],"requested":"2027-01-01"}`.
+Header phản chiếu thiếu, sai dạng hoặc không khớp trả HTTP `400` với mã JSON-RPC `-32020`. Nếu header và phần thân đồng ý về phiên bản máy chủ không hỗ trợ, trả HTTP `400` với `-32022` và dữ liệu lỗi chính xác như `{"supported":["2026-07-28"],"requested":"2027-01-01"}`.
 
-An unknown modern method returns HTTP `404` with JSON-RPC `-32601`. The JSON-RPC body is important because a dual-era client uses it to distinguish a modern error from a legacy endpoint miss.
+Phương thức hiện đại không biết trả HTTP `404` với JSON-RPC `-32601`. Phần thân JSON-RPC quan trọng vì client hai thời kỳ dùng nó để phân biệt lỗi hiện đại với không tìm thấy endpoint cũ.
 
 ### Request-scoped SSE
 
-A server may choose SSE for one long-running request:
+Máy chủ có thể chọn SSE cho một yêu cầu chạy lâu:
 
 ```text
 POST tools/call id=41
@@ -117,13 +117,13 @@ POST tools/call id=41
 stream closes
 ```
 
-The server must not send independent JSON-RPC requests on this stream. Sampling, elicitation, and roots interactions use Multi Round-Trip Request results. Closing the response stream cancels that request.
+Máy chủ không được gửi yêu cầu JSON-RPC độc lập trên luồng này. Tương tác sampling, elicitation và roots dùng kết quả Yêu cầu nhiều lượt khứ hồi. Đóng luồng phản hồi hủy yêu cầu đó.
 
-Do not add SSE event ids for replay. `Last-Event-ID` resumption is not part of the modern revision.
+Không thêm id sự kiện SSE để phát lại. Tiếp tục bằng `Last-Event-ID` không thuộc bản sửa đổi hiện đại.
 
 ### Long-lived changes use subscriptions/listen
 
-Change notifications use a client-opened request, not standalone GET:
+Thông báo thay đổi dùng yêu cầu do client mở, không GET độc lập:
 
 ```json
 {
@@ -147,36 +147,36 @@ Change notifications use a client-opened request, not standalone GET:
 }
 ```
 
-The POST response is a long-lived SSE stream. Its first protocol message is `notifications/subscriptions/acknowledged`. The acknowledgement, every change notification, and the final result carry `io.modelcontextprotocol/subscriptionId` in `_meta`, equal to the listen request id. The server may emit SSE comments as keepalives. When the stream drops, the client reissues `subscriptions/listen` with a new request id and refetches affected data.
+Phản hồi POST là luồng SSE sống lâu. Thông điệp giao thức đầu tiên là `notifications/subscriptions/acknowledged`. Xác nhận, mọi thông báo thay đổi và kết quả cuối mang `io.modelcontextprotocol/subscriptionId` trong `_meta`, bằng id yêu cầu listen. Máy chủ có thể phát bình luận SSE để duy trì kết nối. Khi luồng rớt, client gửi lại `subscriptions/listen` với id yêu cầu mới và lấy lại dữ liệu bị ảnh hưởng.
 
-`resources/subscribe` and `resources/unsubscribe` belong to the legacy era. Do not use them on a modern connection.
+`resources/subscribe` và `resources/unsubscribe` thuộc thời kỳ cũ. Không dùng trên kết nối hiện đại.
 
 ### Explicit application state
 
-Removing protocol sessions does not forbid workflows with state. The server may mint an opaque state handle and return it as a normal tool result. The client passes that handle as an explicit argument on later calls.
+Bỏ phiên giao thức không cấm quy trình có trạng thái. Máy chủ có thể tạo handle trạng thái mờ và trả như kết quả công cụ thường. Client truyền handle đó như đối số tường minh ở lời gọi sau.
 
-Bind handles to the authenticated principal, make them unguessable, expire them, and authorize every use. This makes state visible at the application layer instead of hiding it in transport affinity.
+Gắn handle với chủ thể đã xác thực, làm không thể đoán, đặt hết hạn và cấp quyền mọi lần dùng. Điều này làm trạng thái hiển thị ở tầng ứng dụng thay vì giấu trong tính gắn kết vận chuyển.
 
-The failure caused by hidden replica state is mechanical:
+Thất bại do trạng thái bản sao ẩn mang tính cơ học:
 
-1. Request A reaches replica 1 and creates a draft in that process's memory.
-2. The response does not return a draft handle because the implementation assumes the connection identifies the draft.
-3. Request B is a fresh POST and reaches replica 2.
-4. Replica 2 has valid protocol metadata but no way to name or load the draft, so the workflow fails or reads the wrong local object.
-5. Sticky routing appears to fix the symptom until a restart, rollout, reschedule, or failover moves the next request.
+1. Yêu cầu A đến bản sao 1 và tạo bản nháp trong bộ nhớ tiến trình đó.
+2. Phản hồi không trả handle bản nháp vì triển khai giả định kết nối định danh bản nháp.
+3. Yêu cầu B là POST mới và đến bản sao 2.
+4. Bản sao 2 có siêu dữ liệu giao thức hợp lệ nhưng không cách gọi tên hoặc tải bản nháp, nên quy trình thất bại hoặc đọc sai đối tượng cục bộ.
+5. Định tuyến bám dính có vẻ sửa triệu chứng cho đến khi khởi động lại, triển khai, lập lịch lại hoặc chuyển đổi dự phòng chuyển yêu cầu tiếp.
 
-The correct boundary has two parts. Protocol context stays in each request. Durable application state lives in a shared store under a server-minted handle returned to the client. The next call supplies that handle, any replica loads the same record, and authorization binds the record to the authenticated principal and tenant. Replica memory may cache a record, but it cannot be the only copy required for correctness.
+Ranh giới đúng có hai phần. Ngữ cảnh giao thức ở trong mỗi yêu cầu. Trạng thái ứng dụng bền vững nằm trong kho dùng chung dưới handle do máy chủ tạo trả về client. Lời gọi tiếp cung cấp handle đó, mọi bản sao tải cùng bản ghi và cấp quyền gắn bản ghi với chủ thể đã xác thực và tenant. Bộ nhớ bản sao có thể lưu đệm bản ghi, nhưng không thể là bản sao duy nhất cần để đúng.
 
-Choose the state mechanism by lifetime. Request-local variables can serve one call. A short MRTR continuation can use integrity-protected `requestState`. A draft or durable task needs an explicit handle plus shared persistence, expiry, concurrency control, and idempotency. None of those objects is an MCP protocol session.
+Chọn cơ chế trạng thái theo vòng đời. Biến cục bộ yêu cầu có thể phục vụ một lời gọi. Phần tiếp nối MRTR ngắn có thể dùng `requestState` được bảo vệ tính toàn vẹn. Bản nháp hoặc tác vụ bền vững cần handle tường minh cộng lưu trữ bền vững dùng chung, hết hạn, kiểm soát đồng thời và tính lũy đẳng. Không đối tượng nào trong số đó là phiên giao thức MCP.
 
 ### HTTP dual-era compatibility
 
-A client that supports modern and legacy servers attempts a modern POST first. If it receives HTTP `400`, `404`, or `405`, it inspects the body:
+Client hỗ trợ máy chủ hiện đại và cũ thử POST hiện đại trước. Nếu nhận HTTP `400`, `404` hoặc `405`, nó kiểm tra phần thân:
 
-- A recognized modern JSON-RPC error proves the server is modern. Correct the request or retry an advertised version. Do not downgrade.
-- An empty body or an unrecognized response may indicate a legacy HTTP+SSE server. Only then try the old GET endpoint and expect its legacy `endpoint` event.
+- Lỗi JSON-RPC hiện đại đã nhận biết chứng minh máy chủ hiện đại. Sửa yêu cầu hoặc thử lại phiên bản công bố. Không hạ cấp.
+- Phần thân rỗng hoặc phản hồi không nhận biết có thể chỉ máy chủ HTTP+SSE cũ. Chỉ khi đó thử endpoint GET cũ và chờ sự kiện `endpoint` cũ của nó.
 
-A server can support both eras during migration by routing modern metadata to the modern POST-only implementation and retaining separate legacy endpoints for old clients. Never describe the legacy GET, DELETE, session id, or replay behavior as part of `2026-07-28`.
+Máy chủ có thể hỗ trợ hai thời kỳ trong chuyển đổi bằng định tuyến siêu dữ liệu hiện đại đến triển khai chỉ POST hiện đại và giữ endpoint cũ riêng cho client cũ. Không bao giờ mô tả hành vi GET, DELETE, id phiên hoặc phát lại cũ là phần của `2026-07-28`.
 
 ```figure
 tp-transport-handshake
@@ -184,7 +184,7 @@ tp-transport-handshake
 
 ## Use It
 
-`code/main.py` implements a finite, modern Streamable HTTP server with the Python standard library. It validates Origin and mirrored headers, ignores removed session headers, returns JSON for normal calls, and demonstrates a finite `subscriptions/listen` SSE stream.
+`code/main.py` triển khai máy chủ Streamable HTTP hiện đại hữu hạn với thư viện chuẩn Python. Nó xác thực Origin và header phản chiếu, bỏ qua header phiên đã bỏ, trả JSON cho lời gọi thường và minh họa luồng SSE `subscriptions/listen` hữu hạn.
 
 ```bash
 cd code
@@ -192,41 +192,41 @@ python3 main.py --probe
 python3 -m unittest discover tests -v
 ```
 
-The probe checks:
+Thăm dò kiểm tra:
 
-- invalid Origin is rejected;
-- discovery succeeds without a session id;
-- `Mcp-Session-Id` and `Last-Event-ID` are ignored;
-- header mismatch returns `-32020`;
-- unsupported version returns `-32022` with exact `supported` and `requested` data;
-- an accepted id-less notification returns HTTP `202` with no body;
-- GET and DELETE return `405`;
-- `subscriptions/listen` is a POST response stream whose acknowledgement, notifications, and final result carry its subscription id.
+- Origin không hợp lệ bị từ chối;
+- khám phá thành công không có id phiên;
+- `Mcp-Session-Id` và `Last-Event-ID` bị bỏ qua;
+- header không khớp trả `-32020`;
+- phiên bản không hỗ trợ trả `-32022` với dữ liệu `supported` và `requested` chính xác;
+- thông báo không id được chấp nhận trả HTTP `202` không phần thân;
+- GET và DELETE trả `405`;
+- `subscriptions/listen` là luồng phản hồi POST có xác nhận, thông báo và kết quả cuối mang id đăng ký của nó.
 
 ## Ship It
 
-This lesson ships `outputs/skill-mcp-transport-migrator.md`. It removes modern protocol sessions, adds header-body validation, replaces standalone GET with `subscriptions/listen`, and keeps any legacy bridge visibly separate.
+Bài học này cung cấp `outputs/skill-mcp-transport-migrator.md`. Nó bỏ phiên giao thức hiện đại, thêm xác thực header-phần thân, thay GET độc lập bằng `subscriptions/listen` và giữ mọi cầu nối cũ riêng rõ ràng.
 
 ## Exercises
 
-1. Remove `Mcp-Method` from a POST. Confirm HTTP `400` and error `-32020`.
-2. Send matching header and body version `2027-01-01`. Confirm HTTP `400`, error `-32022`, and exact data `{"supported":["2026-07-28"],"requested":"2027-01-01"}`.
-3. Send a Base64 sentinel `Mcp-Name` for a non-ASCII resource URI. Confirm the decoded value is compared with `params.uri`.
-4. Break the finite listen stream before its final response. Reissue it with a new JSON-RPC id and refetch tools.
-5. Add an explicit workflow handle to the ping tool. Bind it to an authorization subject without using connection affinity.
+1. Bỏ `Mcp-Method` khỏi POST. Xác nhận HTTP `400` và lỗi `-32020`.
+2. Gửi phiên bản header và phần thân khớp `2027-01-01`. Xác nhận HTTP `400`, lỗi `-32022` và dữ liệu chính xác `{"supported":["2026-07-28"],"requested":"2027-01-01"}`.
+3. Gửi `Mcp-Name` dấu báo hiệu Base64 cho URI tài nguyên ngoài ASCII. Xác nhận giá trị giải mã được so với `params.uri`.
+4. Làm hỏng luồng listen hữu hạn trước phản hồi cuối. Gửi lại với id JSON-RPC mới và lấy lại công cụ.
+5. Thêm handle quy trình tường minh vào công cụ ping. Gắn với chủ thể cấp quyền không dùng tính gắn kết kết nối.
 
 ## Key Terms
 
-| Term | Meaning |
+| Thuật ngữ | Ý nghĩa |
 |------|---------|
-| stdio | Newline-delimited JSON-RPC over a client-launched subprocess |
-| Streamable HTTP | Single endpoint where each modern message is a new POST |
-| Request-scoped SSE | POST response stream containing related notifications and final response |
-| `subscriptions/listen` | Long-lived POST request for opted-in change notifications |
-| Header mismatch | HTTP `400` and JSON-RPC `-32020` when mirrored headers disagree with body |
-| Origin validation | DNS-rebinding defense for incoming connections, not authentication |
-| Explicit state handle | Application token passed as an ordinary argument instead of hidden session state |
-| Legacy bridge | Separate earlier-era behavior kept only for compatibility |
+| stdio | JSON-RPC phân cách dòng mới trên tiến trình con do client khởi chạy |
+| Streamable HTTP | Một endpoint nơi mỗi thông điệp hiện đại là POST mới |
+| Request-scoped SSE (SSE phạm vi yêu cầu) | Luồng phản hồi POST chứa thông báo liên quan và phản hồi cuối |
+| `subscriptions/listen` | Yêu cầu POST sống lâu cho thông báo thay đổi đã chọn nhận |
+| Header mismatch (Header không khớp) | HTTP `400` và JSON-RPC `-32020` khi header phản chiếu không đồng ý với phần thân |
+| Origin validation (Xác thực Origin) | Phòng vệ DNS rebinding cho kết nối đến, không phải xác thực danh tính |
+| Explicit state handle (Handle trạng thái tường minh) | Token ứng dụng truyền như đối số thường thay trạng thái phiên ẩn |
+| Legacy bridge (Cầu nối cũ) | Hành vi thời kỳ trước riêng chỉ giữ để tương thích |
 
 ## Further Reading
 
