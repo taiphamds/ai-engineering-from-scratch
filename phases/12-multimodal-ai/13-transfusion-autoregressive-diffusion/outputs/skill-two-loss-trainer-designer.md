@@ -7,25 +7,25 @@ lesson: 13
 tags: [transfusion, mmdit, two-loss, flow-matching, hybrid-attention]
 ---
 
-Given a multimodal training spec (two modalities, which gets NTP and which gets diffusion, target model scale, target sample length), design a working two-loss setup.
+Với một đặc tả huấn luyện đa phương thức (hai phương thức, phương thức nào nhận NTP và phương thức nào nhận khuếch tán, quy mô mô hình mục tiêu, độ dài mẫu mục tiêu), thiết kế một thiết lập hai hàm mất mát hoạt động được.
 
-Produce:
+Tạo ra:
 
-1. Modality split. Which tokens are discrete (NTP) and which are continuous (diffusion). Justify by content type (text always discrete; images, audio, video can go either way).
-2. Attention mask. Draw the block-triangular mask for an example sequence. Specify bidirectional regions and causal regions.
-3. Loss weights. Starting weights for (text_loss, image_loss). Recommend tuning by target gradient-norm ratio. Cite Transfusion's ~0.1 default.
-4. Flow-matching vs DDPM. Pick the diffusion variant; flow matching for simpler math, rectified flow for fewer inference steps.
-5. Inference plan. NTP path (autoregressive sampling over text) + diffusion path (conditional denoise over image patches). Specify denoise steps (10-30).
-6. MMDiT vs Transfusion split. When to add modality-specific block weights (MMDiT) vs share fully (Transfusion); rule of thumb by parameter count.
+1. Phân chia phương thức. Token nào rời rạc (NTP) và token nào liên tục (khuếch tán). Biện minh theo loại nội dung (văn bản luôn rời rạc; ảnh, âm thanh, video có thể theo cả hai hướng).
+2. Mặt nạ attention. Vẽ mặt nạ tam giác theo khối cho một chuỗi ví dụ. Chỉ rõ các vùng hai chiều và các vùng nhân quả.
+3. Trọng số hàm mất mát. Trọng số khởi đầu cho (text_loss, image_loss). Khuyến nghị điều chỉnh theo tỷ lệ chuẩn gradient mục tiêu. Dẫn giá trị mặc định ~0.1 của Transfusion.
+4. Flow matching so với DDPM. Chọn biến thể khuếch tán; flow matching cho phép toán đơn giản hơn, rectified flow cho ít bước suy luận hơn.
+5. Kế hoạch suy luận. Nhánh NTP (lấy mẫu tự hồi quy trên văn bản) + nhánh khuếch tán (khử nhiễu có điều kiện trên patch ảnh). Chỉ rõ số bước khử nhiễu (10-30).
+6. Phân chia MMDiT so với Transfusion. Khi nào thêm trọng số khối riêng cho từng phương thức (MMDiT) so với dùng chung hoàn toàn (Transfusion); quy tắc kinh nghiệm theo số tham số.
 
-Hard rejects:
-- Claiming one mask fits all sequences. Each sample has a different image span and needs its own block-triangular mask.
-- Using DDPM without rectified flow or flow matching. Both need fewer inference steps and are simpler to tune.
-- Balancing losses by fixed weight without measuring gradient-norm ratio.
+Các trường hợp bác bỏ tuyệt đối:
+- Khẳng định một mặt nạ phù hợp mọi chuỗi. Mỗi mẫu có một đoạn ảnh khác nhau và cần mặt nạ tam giác theo khối riêng.
+- Sử dụng DDPM mà không có rectified flow hoặc flow matching. Cả hai cần ít bước suy luận hơn và đơn giản hơn để điều chỉnh.
+- Cân bằng các hàm mất mát bằng trọng số cố định mà không đo tỷ lệ chuẩn gradient.
 
-Refusal rules:
-- If user wants only understanding (image in, text out), refuse and recommend LLaVA-style late fusion (Lesson 12.05). Two-loss is for generation.
-- If user wants <1B model, refuse two-loss and recommend discrete tokens (Chameleon) — at small scale the diffusion head underfits.
-- If user cannot afford dual inference (NTP + diffusion loops), refuse and recommend Show-o (discrete diffusion, single loop) or Emu3.
+Quy tắc từ chối:
+- Nếu người dùng chỉ muốn hiểu (ảnh vào, văn bản ra), từ chối và khuyến nghị hợp nhất muộn kiểu LLaVA (Bài học 12.05). Hai hàm mất mát là để tạo sinh.
+- Nếu người dùng muốn mô hình <1B, từ chối hai hàm mất mát và khuyến nghị token rời rạc (Chameleon) — ở quy mô nhỏ head khuếch tán bị thiếu khớp.
+- Nếu người dùng không đủ khả năng chạy suy luận kép (vòng lặp NTP + khuếch tán), từ chối và khuyến nghị Show-o (khuếch tán rời rạc, một vòng lặp) hoặc Emu3.
 
-Output: one-page design with modality split, mask diagram, loss weights, flow variant, inference plan, and MMDiT-vs-shared decision. End with arXiv 2408.11039 (Transfusion) and 2403.03206 (SD3) for canonical references.
+Đầu ra: thiết kế một trang với phân chia phương thức, sơ đồ mặt nạ, trọng số hàm mất mát, biến thể flow, kế hoạch suy luận và quyết định MMDiT so với dùng chung. Kết thúc bằng arXiv 2408.11039 (Transfusion) và 2403.03206 (SD3) làm tài liệu tham khảo chuẩn.

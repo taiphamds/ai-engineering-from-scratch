@@ -1,6 +1,6 @@
 # Transfusion: Autoregressive Text + Diffusion Image in One Transformer
 
-> Chameleon and Emu3 bet everything on discrete tokens. They work, but the quantization bottleneck is visible — the image quality plateaus below continuous-space diffusion models. Transfusion (Meta, Zhou et al., August 2024) takes the opposite bet: keep images continuous, drop the VQ-VAE entirely, and train one transformer with two losses. Text tokens get next-token-prediction. Image patches get a flow-matching / diffusion loss. Both objectives optimize the same weights. The architecture underlying Stable Diffusion 3 (MMDiT) is a close cousin. This lesson reads the Transfusion thesis, builds a toy two-loss trainer, and traces the attention mask that lets one transformer do both jobs.
+> Chameleon và Emu3 đặt cược mọi thứ vào token rời rạc. Chúng hoạt động, nhưng nút thắt lượng tử hóa hiện rõ — chất lượng ảnh chững lại dưới các mô hình khuếch tán trong không gian liên tục. Transfusion (Meta, Zhou và cộng sự, tháng 8 năm 2024) đặt cược theo hướng ngược lại: giữ ảnh liên tục, loại bỏ hoàn toàn VQ-VAE và huấn luyện một transformer với hai hàm mất mát. Token văn bản nhận dự đoán token tiếp theo. Patch ảnh nhận hàm mất mát flow matching / khuếch tán. Cả hai mục tiêu tối ưu cùng các trọng số. Kiến trúc bên dưới Stable Diffusion 3 (MMDiT) là một họ hàng gần. Bài học này đọc luận điểm của Transfusion, xây dựng một bộ huấn luyện hai hàm mất mát đơn giản và lần theo mặt nạ attention cho phép một transformer làm cả hai việc.
 
 **Type:** Build
 **Languages:** Python (stdlib, two-loss trainer on MNIST-scale toy)
@@ -9,43 +9,43 @@
 
 ## Learning Objectives
 
-- Wire a transformer that runs two losses (NTP on text tokens, diffusion MSE on image patches) on one backbone.
-- Explain why bidirectional attention across image patches plus causal attention over text tokens is the right mask choice.
-- Compare Transfusion-style (continuous images, diffusion loss) to Chameleon-style (discrete images, NTP) on compute, quality, and code complexity.
-- Name MMDiT's contribution: modality-specific weights at each block, joint attention at the residual stream.
+- Kết nối một transformer chạy hai hàm mất mát (NTP trên token văn bản, MSE khuếch tán trên patch ảnh) trên một backbone.
+- Giải thích tại sao attention hai chiều giữa các patch ảnh cộng với attention nhân quả trên token văn bản là lựa chọn mặt nạ phù hợp.
+- So sánh kiểu Transfusion (ảnh liên tục, hàm mất mát khuếch tán) với kiểu Chameleon (ảnh rời rạc, NTP) về tính toán, chất lượng và độ phức tạp mã.
+- Nêu đóng góp của MMDiT: trọng số riêng cho từng phương thức tại mỗi khối, attention chung tại luồng phần dư.
 
 ## The Problem
 
-The discrete vs continuous image tokens debate is older than LLMs. Continuous representations (raw pixels, VAE latents) preserve detail. Discrete tokens (VQ indices) fit the transformer's native vocabulary but lose detail at the quantization step.
+Cuộc tranh luận token ảnh rời rạc so với liên tục có trước LLM. Biểu diễn liên tục (pixel thô, biến tiềm ẩn VAE) giữ lại chi tiết. Token rời rạc (chỉ số VQ) phù hợp với bộ từ vựng gốc của transformer nhưng mất chi tiết ở bước lượng tử hóa.
 
-Chameleon / Emu3 went discrete: one loss, one architecture, but image fidelity capped by tokenizer quality.
+Chameleon / Emu3 chọn rời rạc: một hàm mất mát, một kiến trúc, nhưng độ trung thực ảnh bị giới hạn bởi chất lượng tokenizer.
 
-Diffusion models went continuous: exceptional image quality, but a separate model from the LLM, complex noise-schedule engineering, and no clean integration with text generation.
+Các mô hình khuếch tán chọn liên tục: chất lượng ảnh vượt trội, nhưng là mô hình tách biệt với LLM, kỹ thuật thiết kế lịch nhiễu phức tạp và không có sự tích hợp rõ ràng với tạo văn bản.
 
-Transfusion asks: can we have both? Keep images continuous, still train one model, use two losses stitched into one gradient step.
+Transfusion đặt câu hỏi: chúng ta có thể có cả hai không? Giữ ảnh liên tục, vẫn huấn luyện một mô hình, dùng hai hàm mất mát ghép vào một bước gradient.
 
 ## The Concept
 
 ### The two-loss architecture
 
-A single decoder-only transformer processes a sequence that contains:
+Một transformer chỉ có bộ giải mã duy nhất xử lý một chuỗi chứa:
 
-- Text tokens (discrete, from BPE vocab).
-- Image patches (continuous, 16x16 pixel blocks projected into hidden dim via linear embedding — same as a ViT encoder's input).
-- `<image>` and `</image>` tags marking where continuous patches live.
+- Token văn bản (rời rạc, từ bộ từ vựng BPE).
+- Patch ảnh (liên tục, các khối pixel 16x16 được chiếu vào chiều ẩn qua embedding tuyến tính — giống đầu vào của bộ mã hóa ViT).
+- Các thẻ `<image>` và `</image>` đánh dấu nơi các patch liên tục nằm.
 
-Forward pass runs once. The loss picks one of two heads per token:
+Lượt truyền xuôi chạy một lần. Hàm mất mát chọn một trong hai head cho mỗi token:
 
-- For text tokens: standard cross-entropy on the vocab-logits head.
-- For image patches: diffusion loss on continuous patches — predict the noise that was added to each patch.
+- Với token văn bản: cross-entropy tiêu chuẩn trên head logit từ vựng.
+- Với patch ảnh: hàm mất mát khuếch tán trên patch liên tục — dự đoán nhiễu đã được thêm vào mỗi patch.
 
-The gradient flows through the shared transformer body. Both losses improve the shared weights simultaneously.
+Gradient đi qua phần thân transformer dùng chung. Cả hai hàm mất mát đồng thời cải thiện các trọng số dùng chung.
 
 ### Attention mask: causal text + bidirectional image
 
-Text tokens must be causal — you cannot let a text token attend to future text, or teacher forcing breaks. Image patches, however, represent one snapshot; they should attend to each other bidirectionally within the same image block.
+Token văn bản phải có tính nhân quả — bạn không thể để một token văn bản chú ý đến văn bản tương lai, nếu không teacher forcing sẽ hỏng. Tuy nhiên, các patch ảnh biểu diễn một ảnh chụp; chúng nên chú ý lẫn nhau theo hai chiều trong cùng khối ảnh.
 
-The mask:
+Mặt nạ:
 
 ```
 M[i, j] = 1 if:
@@ -55,49 +55,49 @@ M[i, j] = 1 if:
   OR (i is image and j is text and j < i_image_start)   # image attends to preceding text
 ```
 
-Implemented as a block-triangular mask at training and inference.
+Được triển khai dưới dạng mặt nạ tam giác theo khối khi huấn luyện và suy luận.
 
 ### Diffusion loss inside the transformer
 
-The diffusion loss is standard: add noise to an image patch, ask the model to predict the noise (or the clean patch, equivalently). Transfusion's version uses flow matching — predict the velocity field from noisy to clean.
+Hàm mất mát khuếch tán là tiêu chuẩn: thêm nhiễu vào patch ảnh, yêu cầu mô hình dự đoán nhiễu (hoặc tương đương là patch sạch). Phiên bản của Transfusion sử dụng flow matching — dự đoán trường vận tốc từ nhiễu đến sạch.
 
-During training:
-1. For each image patch x0, sample a random timestep t.
-2. Sample noise ε, compute xt = (1-t) * x0 + t * ε (linear interpolation for flow matching).
-3. The transformer predicts v_theta(xt, t); loss = MSE(v_theta(xt, t), ε - x0).
-4. Backprop alongside text NTP losses from the same sequence.
+Trong quá trình huấn luyện:
+1. Với mỗi patch ảnh x0, lấy mẫu một bước thời gian ngẫu nhiên t.
+2. Lấy mẫu nhiễu ε, tính xt = (1-t) * x0 + t * ε (nội suy tuyến tính cho flow matching).
+3. Transformer dự đoán v_theta(xt, t); hàm mất mát = MSE(v_theta(xt, t), ε - x0).
+4. Lan truyền ngược cùng các hàm mất mát NTP văn bản từ cùng chuỗi.
 
-At inference, generation is:
-- Text tokens: standard autoregressive sampling.
-- Image patches: diffusion sampling loop (10-30 steps typical) conditioned on the prior text tokens.
+Khi suy luận, quá trình tạo sinh là:
+- Token văn bản: lấy mẫu tự hồi quy tiêu chuẩn.
+- Patch ảnh: vòng lặp lấy mẫu khuếch tán (thường 10-30 bước) được điều kiện hóa trên các token văn bản trước đó.
 
 ### MMDiT: Stable Diffusion 3's variant
 
-Stable Diffusion 3 (Esser et al., March 2024) shipped MMDiT (Multimodal Diffusion Transformer) around the same time as Transfusion. The architectures are siblings.
+Stable Diffusion 3 (Esser và cộng sự, tháng 3 năm 2024) phát hành MMDiT (Multimodal Diffusion Transformer) vào khoảng cùng thời điểm với Transfusion. Các kiến trúc là anh em.
 
-MMDiT's key differences:
+Các khác biệt then chốt của MMDiT:
 
-- Modality-specific weights per block. Each transformer block has separate Q, K, V, and MLP weights for text tokens vs image patches. Attention is joint (cross-modality); everything else is modality-specific.
-- Rectified flow training. A specific flow-matching variant with known sampling and simpler math than DDPM.
-- Scale. MMDiT is the backbone for SD3 (2B and 8B param variants). Transfusion's paper scales to 7B.
+- Trọng số riêng cho từng phương thức ở mỗi khối. Mỗi khối transformer có trọng số Q, K, V và MLP riêng cho token văn bản so với patch ảnh. Attention là chung (chéo phương thức); mọi thứ còn lại là riêng cho từng phương thức.
+- Huấn luyện rectified flow. Một biến thể flow matching cụ thể với cách lấy mẫu đã biết và phép toán đơn giản hơn DDPM.
+- Quy mô. MMDiT là backbone cho SD3 (các biến thể 2B và 8B tham số). Bài báo Transfusion mở rộng đến 7B.
 
-Both converge on the same core idea: one transformer runs NTP on text and diffusion on continuous image representations.
+Cả hai hội tụ về cùng ý tưởng cốt lõi: một transformer chạy NTP trên văn bản và khuếch tán trên biểu diễn ảnh liên tục.
 
 ### Why this beats Chameleon-style
 
-The quality gap between continuous-diffusion and discrete-NTP on image generation is measurable. Transfusion paper reports:
+Khoảng cách chất lượng giữa khuếch tán liên tục và NTP rời rạc trong tạo ảnh có thể đo được. Bài báo Transfusion báo cáo:
 
-- At 7B params, beats a same-size Chameleon-style model on FID by 3-5 points.
-- No tokenizer training required — the image encoder is simpler (Linear projection to hidden, same as a ViT's input layer).
-- Inference can parallelize image patch denoising, unlike autoregressive image tokens.
+- Ở 7B tham số, vượt mô hình kiểu Chameleon cùng kích thước về FID 3-5 điểm.
+- Không cần huấn luyện tokenizer — bộ mã hóa ảnh đơn giản hơn (phép chiếu tuyến tính vào chiều ẩn, giống lớp đầu vào của ViT).
+- Suy luận có thể song song hóa việc khử nhiễu patch ảnh, khác với token ảnh tự hồi quy.
 
-Downside: Transfusion is a dual-loss model, making training dynamics trickier. Loss weights need tuning. Schedule mismatch between NTP and diffusion can cause one head to dominate.
+Nhược điểm: Transfusion là mô hình hai hàm mất mát, khiến động lực huấn luyện khó xử lý hơn. Trọng số hàm mất mát cần được điều chỉnh. Sự không khớp lịch giữa NTP và khuếch tán có thể khiến một head chiếm ưu thế.
 
 ### What sits downstream
 
-Janus-Pro (Lesson 12.15) refines Transfusion's idea by decoupling the vision encoder for understanding and generation — SigLIP for one, VQ for the other — while sharing the transformer body. Show-o (Lesson 12.14) swaps diffusion for discrete-diffusion (masked prediction). The unified-generation family branches rapidly after Transfusion.
+Janus-Pro (Bài học 12.15) tinh chỉnh ý tưởng của Transfusion bằng cách tách bộ mã hóa thị giác cho hiểu và tạo sinh — SigLIP cho bên này, VQ cho bên kia — trong khi dùng chung phần thân transformer. Show-o (Bài học 12.14) thay khuếch tán bằng khuếch tán rời rạc (dự đoán có mặt nạ). Họ mô hình tạo sinh thống nhất phân nhánh nhanh chóng sau Transfusion.
 
-2026 production VLMs that emit images — Gemini 3 Pro, GPT-5, Claude Opus 4.7's image generation path — almost certainly use some descendant of this family. Details are proprietary.
+Các VLM sản xuất năm 2026 phát ra ảnh — Gemini 3 Pro, GPT-5, nhánh tạo ảnh của Claude Opus 4.7 — gần như chắc chắn sử dụng một hậu duệ nào đó của họ này. Các chi tiết là độc quyền.
 
 ```figure
 cfg-guidance-scale
@@ -105,42 +105,42 @@ cfg-guidance-scale
 
 ## Use It
 
-`code/main.py` builds a toy Transfusion on a tiny MNIST-like problem:
+`code/main.py` xây dựng một Transfusion đơn giản trên bài toán nhỏ giống MNIST:
 
-- Text captions are short integer sequences describing a digit (0-9).
-- Images are 4x4 grids of bytes.
-- A pair of shared-weight linear projections acts as the transformer stand-in; NTP loss on text, MSE loss on noisy patches.
-- Training loop alternates the two losses, attention mask is explicit.
-- Generation produces a text caption and a 4x4 image in one forward pass.
+- Chú thích văn bản là các chuỗi số nguyên ngắn mô tả một chữ số (0-9).
+- Ảnh là các lưới byte 4x4.
+- Một cặp phép chiếu tuyến tính dùng chung trọng số đóng vai trò thay thế transformer; hàm mất mát NTP trên văn bản, hàm mất mát MSE trên patch nhiễu.
+- Vòng lặp huấn luyện luân phiên hai hàm mất mát, mặt nạ attention được thể hiện tường minh.
+- Quá trình tạo sinh tạo ra một chú thích văn bản và một ảnh 4x4 trong một lượt truyền xuôi.
 
-The transformer is a toy. The two-loss plumbing, attention mask construction, and inference loop are the real artifacts.
+Transformer là mô hình đơn giản. Phần kết nối hai hàm mất mát, xây dựng mặt nạ attention và vòng lặp suy luận mới là các sản phẩm thực sự.
 
 ## Ship It
 
-This lesson produces `outputs/skill-two-loss-trainer-designer.md`. Given a new multimodal training task (text + image, text + audio, text + video), it designs the two-loss schedule (loss weights, mask shape, shared vs modality-specific blocks) and flags implementation risks.
+Bài học này tạo ra `outputs/skill-two-loss-trainer-designer.md`. Với một tác vụ huấn luyện đa phương thức mới (văn bản + ảnh, văn bản + âm thanh, văn bản + video), nó thiết kế lịch hai hàm mất mát (trọng số hàm mất mát, hình dạng mặt nạ, khối dùng chung so với riêng cho từng phương thức) và chỉ ra rủi ro triển khai.
 
 ## Exercises
 
-1. A Transfusion-style model trains 70% text tokens and 30% image patches. The image diffusion loss is ~10x the text NTP loss in magnitude. What loss weights balance them?
+1. Một mô hình kiểu Transfusion huấn luyện 70% token văn bản và 30% patch ảnh. Hàm mất mát khuếch tán ảnh có độ lớn ~10x hàm mất mát NTP văn bản. Trọng số hàm mất mát nào cân bằng chúng?
 
-2. Implement the block-triangular mask for a sequence: `[T, T, <image>, P, P, P, P, </image>, T]`. Mark each entry 0 or 1.
+2. Triển khai mặt nạ tam giác theo khối cho chuỗi: `[T, T, <image>, P, P, P, P, </image>, T]`. Đánh dấu mỗi phần tử là 0 hoặc 1.
 
-3. MMDiT has modality-specific QKV weights. What parameter count overhead does this add vs Transfusion's fully-shared transformer? At 7B params, is it worth it?
+3. MMDiT có trọng số QKV riêng cho từng phương thức. Điều này thêm bao nhiêu tham số so với transformer dùng chung hoàn toàn của Transfusion? Ở 7B tham số, có đáng không?
 
-4. Generation: given a text prompt, the model runs NTP for 50 tokens, then hits `<image>`, then runs diffusion on 256 patches over 20 denoise steps. How many forward passes total?
+4. Tạo sinh: với một prompt văn bản, mô hình chạy NTP cho 50 token, rồi gặp `<image>`, rồi chạy khuếch tán trên 256 patch qua 20 bước khử nhiễu. Tổng cộng bao nhiêu lượt truyền xuôi?
 
-5. Read SD3 paper Section 3. Describe rectified flow and why it converges in fewer inference steps than DDPM.
+5. Đọc Mục 3 của bài báo SD3. Mô tả rectified flow và tại sao nó hội tụ với ít bước suy luận hơn DDPM.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Two-loss training | "NTP + diffusion" | A single transformer optimizes both cross-entropy on text tokens and MSE on continuous image patches in the same gradient step |
-| Flow matching | "Rectified flow" | Diffusion variant that predicts a velocity field from noise to clean data; simpler math than DDPM |
-| MMDiT | "Multimodal DiT" | Stable Diffusion 3's architecture: joint attention, modality-specific MLPs and norms |
-| Block-triangular mask | "Causal text + bidirectional image" | Attention mask that is causal across text but bidirectional within image regions |
-| Continuous image representation | "No VQ" | Image patches as real-valued vectors, not integer codebook indices |
-| Velocity prediction | "v-parameterization" | Network output is the velocity field between noise and data, not the noise itself |
+| Two-loss training (Huấn luyện hai hàm mất mát) | "NTP + khuếch tán" | Một transformer duy nhất tối ưu cả cross-entropy trên token văn bản và MSE trên patch ảnh liên tục trong cùng bước gradient |
+| Flow matching | "Rectified flow" | Biến thể khuếch tán dự đoán trường vận tốc từ nhiễu đến dữ liệu sạch; phép toán đơn giản hơn DDPM |
+| MMDiT | "DiT đa phương thức" | Kiến trúc của Stable Diffusion 3: attention chung, MLP và norm riêng cho từng phương thức |
+| Block-triangular mask (Mặt nạ tam giác theo khối) | "Văn bản nhân quả + ảnh hai chiều" | Mặt nạ attention có tính nhân quả trên văn bản nhưng hai chiều trong các vùng ảnh |
+| Continuous image representation (Biểu diễn ảnh liên tục) | "Không VQ" | Patch ảnh dưới dạng vector giá trị thực, thay vì chỉ số codebook nguyên |
+| Velocity prediction (Dự đoán vận tốc) | "Tham số hóa v" | Đầu ra mạng là trường vận tốc giữa nhiễu và dữ liệu, thay vì bản thân nhiễu |
 
 ## Further Reading
 
