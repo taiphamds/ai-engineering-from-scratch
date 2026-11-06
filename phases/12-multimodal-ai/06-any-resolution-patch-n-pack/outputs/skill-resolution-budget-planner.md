@@ -7,24 +7,24 @@ lesson: 06
 tags: [vlm, patch-n-pack, naflex, anyres, m-rope, token-budget]
 ---
 
-Given a workload — a description of the images the VLM will see (OCR documents, charts, UI screenshots, natural photos, video frames) and a total per-request token budget — pick one resolution strategy per image class and produce a runnable configuration.
+Với khối lượng công việc — mô tả ảnh VLM sẽ thấy (tài liệu OCR, biểu đồ, ảnh chụp UI, ảnh tự nhiên, khung video) và ngân sách tổng token mỗi yêu cầu — chọn một chiến lược độ phân giải mỗi lớp ảnh và tạo cấu hình chạy được.
 
-Produce:
+Tạo:
 
-1. Per-image-class strategy. For each declared class (OCR, chart, UI, photo, video-frame), pick one of {square-resize, AnyRes, M-RoPE, NaFlex}. Justify in one sentence citing the task's resolution sensitivity.
-2. Token budget per image. Include min_pixels, max_pixels (Qwen2.5-VL style), and the expected sequence length at the chosen strategy. Flag if any single image exceeds 40% of the LLM context.
-3. Batch packing plan. If requests are batched, specify whether to use `cu_seqlens` (FlashAttn varlen), a dense block-diagonal mask, or unbatched single-image inference. Note the FLOP savings of varlen when batch aspect ratios vary by > 2x.
-4. Encoder recommendation. SigLIP 2 NaFlex for mixed workloads; Qwen2.5-VL native for agent UIs; CLIP-336 + AnyRes for frozen-encoder deployments; a raw ViT at 224 for photo-only paths.
-5. Failure-mode alarms. Tokens-per-image at the chosen config; latency cost at 30 tok/s prefill; context-fill percentage; expected accuracy delta vs square-resize on typical OCR benchmarks.
+1. Chiến lược từng lớp ảnh. Với mỗi lớp khai báo (OCR, biểu đồ, UI, ảnh chụp, khung video), chọn một trong {square-resize, AnyRes, M-RoPE, NaFlex}. Lý giải một câu viện dẫn độ nhạy độ phân giải tác vụ.
+2. Ngân sách token mỗi ảnh. Gồm min_pixels, max_pixels (kiểu Qwen2.5-VL) và độ dài chuỗi kỳ vọng với chiến lược chọn. Đánh dấu nếu bất kỳ ảnh đơn nào vượt 40% ngữ cảnh LLM.
+3. Kế hoạch đóng gói batch. Nếu yêu cầu được gom batch, chỉ rõ dùng `cu_seqlens` (FlashAttn varlen), mask chéo khối dày đặc hay suy luận một ảnh không batch. Lưu ý FLOP tiết kiệm của varlen khi tỷ lệ khung hình batch khác > 2x.
+4. Khuyến nghị encoder. SigLIP 2 NaFlex cho khối lượng hỗn hợp; Qwen2.5-VL nguyên bản cho UI tác tử; CLIP-336 + AnyRes cho triển khai encoder đóng băng; ViT thô ở 224 cho đường chỉ ảnh chụp.
+5. Cảnh báo dạng thất bại. Token mỗi ảnh ở cấu hình chọn; chi phí độ trễ ở prefill 30 tok/s; phần trăm lấp ngữ cảnh; chênh lệch độ chính xác kỳ vọng so với đổi kích thước vuông trên benchmark OCR điển hình.
 
-Hard rejects:
-- Recommending square-resize for OCR or chart tasks without citing which benchmark number the user will lose.
-- Proposing a strategy that produces more tokens than the LLM context allows. Always budget against the declared context window.
-- Treating AnyRes as the universal answer — its multiplicative tile overhead can exceed the LLM context before one image finishes encoding.
+Các trường hợp loại bỏ dứt khoát:
+- Khuyến nghị đổi kích thước vuông cho OCR hoặc biểu đồ mà không nêu con số benchmark người dùng sẽ mất.
+- Đề xuất chiến lược tạo nhiều token hơn ngữ cảnh LLM cho phép. Luôn lập ngân sách theo cửa sổ ngữ cảnh khai báo.
+- Xem AnyRes là câu trả lời phổ quát — chi phí ô nhân thêm có thể vượt ngữ cảnh LLM trước khi một ảnh mã hóa xong.
 
-Refusal rules:
-- If the user's declared token budget is below 256 tokens per image, refuse for anything other than a photo-only semantic task — no amount of pooling recovers OCR accuracy at that budget.
-- If the user wants dense-prediction outputs (segmentation, depth) without ViT register tokens in the encoder, refuse and point to DINOv2 / SigLIP 2 with registers enabled.
-- If the user's LLM context is < 8k and the workload includes documents or screenshots, refuse and recommend a larger context or an OCR-first pipeline.
+Quy tắc từ chối:
+- Nếu ngân sách token người dùng khai báo dưới 256 token mỗi ảnh, từ chối cho mọi thứ ngoài tác vụ ngữ nghĩa chỉ ảnh chụp — không lượng pooling nào phục hồi độ chính xác OCR ở ngân sách đó.
+- Nếu người dùng muốn đầu ra dự đoán dày đặc (phân đoạn, độ sâu) mà encoder không có token thanh ghi ViT, từ chối và chỉ đến DINOv2 / SigLIP 2 có bật thanh ghi.
+- Nếu ngữ cảnh LLM người dùng < 8k và khối lượng có tài liệu hoặc ảnh chụp màn hình, từ chối và khuyến nghị ngữ cảnh lớn hơn hoặc pipeline OCR trước.
 
-Output: a one-page budget plan with a per-class strategy table, a batch-packing plan, encoder recommendation, and an alarm list. End with the relevant arXiv paper for follow-up — 2307.06304 for NaViT, 2502.14786 for SigLIP 2 / NaFlex, 2502.13923 for Qwen2.5-VL.
+Đầu ra: kế hoạch ngân sách một trang với bảng chiến lược từng lớp, kế hoạch đóng gói batch, khuyến nghị encoder và danh sách cảnh báo. Kết thúc bằng bài báo arXiv liên quan để tiếp nối — 2307.06304 cho NaViT, 2502.14786 cho SigLIP 2 / NaFlex, 2502.13923 cho Qwen2.5-VL.

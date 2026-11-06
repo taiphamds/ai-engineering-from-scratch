@@ -1,6 +1,6 @@
 # Any-Resolution Vision: Patch-n'-Pack and NaFlex
 
-> Real images are not 224x224 squares. A receipt is 9:16, a chart is 16:9, a medical scan might be 4096x4096, a mobile screenshot is 9:19.5. The pre-2024 VLM answer — resize everything to a fixed square — threw away the signal that makes OCR, document understanding, and high-resolution scene parsing work. NaViT (Google, 2023) showed you could pack variable-resolution patches into a single transformer batch with block-diagonal masking. Qwen2-VL's M-RoPE (2024) dropped absolute positional tables entirely. LLaVA-NeXT's AnyRes tiled high-resolution images into a base + sub-images. SigLIP 2's NaFlex variant (2025) is now the default encoder for open VLMs that want a single checkpoint to serve every aspect ratio. This lesson implements patch-n'-pack end to end.
+> Ảnh thực không phải hình vuông 224x224. Hóa đơn là 9:16, biểu đồ là 16:9, ảnh quét y tế có thể 4096x4096, ảnh chụp màn hình di động là 9:19.5. Câu trả lời VLM trước năm 2024 — đổi mọi thứ về hình vuông cố định — bỏ đi tín hiệu khiến OCR, hiểu tài liệu và phân tích cảnh độ phân giải cao hoạt động. NaViT (Google, 2023) cho thấy có thể đóng gói patch khác độ phân giải thành một batch transformer với mask chéo khối. M-RoPE của Qwen2-VL (2024) bỏ hoàn toàn bảng vị trí tuyệt đối. AnyRes của LLaVA-NeXT chia ảnh độ phân giải cao thành ảnh cơ sở + ảnh con. Biến thể NaFlex của SigLIP 2 (2025) giờ là encoder mặc định cho VLM mở muốn một checkpoint phục vụ mọi tỷ lệ khung hình. Bài học này triển khai patch-n'-pack từ đầu đến cuối.
 
 **Type:** Build
 **Languages:** Python (stdlib, patch packer + block-diagonal mask)
@@ -9,89 +9,89 @@
 
 ## Learning Objectives
 
-- Pack patches from a batch of variable-resolution images into one sequence and build the block-diagonal attention mask.
-- Pick between AnyRes tiling (LLaVA-NeXT), NaFlex (SigLIP 2), and M-RoPE (Qwen2-VL) for a given task.
-- Compute token budgets for OCR, charts, and photography without resizing.
-- Name the three failure modes of square-resize: squished text, cropped content, wasted tokens on padding.
+- Đóng gói patch từ batch ảnh khác độ phân giải vào một chuỗi và xây attention mask chéo khối.
+- Chọn giữa chia ô AnyRes (LLaVA-NeXT), NaFlex (SigLIP 2) và M-RoPE (Qwen2-VL) cho tác vụ cho trước.
+- Tính ngân sách token cho OCR, biểu đồ và nhiếp ảnh mà không đổi kích thước.
+- Nêu tên ba dạng thất bại của đổi kích thước vuông: văn bản méo, nội dung bị cắt, token lãng phí trên padding.
 
 ## The Problem
 
-Transformers expect a sequence. A batch is a stack of sequences the same length. If your images are 224x224, you get 196 patch tokens every time, padding not required, job done. Train on 224, infer on 224, never think about resolution again.
+Transformer kỳ vọng chuỗi. Batch là chồng các chuỗi cùng độ dài. Nếu ảnh 224x224, bạn nhận 196 token patch mỗi lần, không cần padding, xong việc. Huấn luyện ở 224, suy luận ở 224, không nghĩ độ phân giải nữa.
 
-The world does not cooperate. Documents are portrait (8.5x11 inches, 2:3-ish). Chart screenshots are landscape (16:9). Receipts are tall and thin (1:3). Medical imaging ships at 2048x2048 or larger. Mobile device screenshots are 1170x2532 (0.46:1).
+Thế giới không hợp tác. Tài liệu dọc (8.5x11 inch, khoảng 2:3). Ảnh chụp biểu đồ ngang (16:9). Hóa đơn cao và mảnh (1:3). Ảnh y tế có ở 2048x2048 hoặc lớn hơn. Ảnh chụp thiết bị di động là 1170x2532 (0.46:1).
 
-Three pre-2024 options and why each fails:
+Ba lựa chọn trước năm 2024 và tại sao mỗi loại thất bại:
 
-1. Resize to a fixed square (224x224 or 336x336). The squish distorts text and faces. The downscale destroys chart labels and OCR content. Standard practice until LLaVA-1.5.
-2. Crop to a fixed aspect ratio. You throw away most of the image, and picking the crop location is its own vision problem.
-3. Pad to the longest side. Fixes distortion but wastes 50%+ of tokens on padding for portrait images. Quadratic attention cost on all those pad tokens.
+1. Đổi về hình vuông cố định (224x224 hoặc 336x336). Ép hình làm méo văn bản và mặt. Thu nhỏ phá nhãn biểu đồ và nội dung OCR. Thực hành tiêu chuẩn đến LLaVA-1.5.
+2. Crop theo tỷ lệ khung hình cố định. Bạn bỏ phần lớn ảnh, và chọn vị trí crop là bài toán thị giác riêng.
+3. Pad theo cạnh dài nhất. Sửa méo nhưng lãng phí 50%+ token cho padding ảnh dọc. Chi phí attention bậc hai trên mọi token pad đó.
 
-The 2024-2025 answer: let the transformer eat patches at the image's native resolution, and figure out how to pack a heterogeneous batch into one sequence without wasted compute.
+Câu trả lời 2024-2025: để transformer ăn patch ở độ phân giải nguyên bản ảnh, và tìm cách đóng gói batch không đồng nhất thành một chuỗi không lãng phí tính toán.
 
 ## The Concept
 
 ### NaViT and patch-n'-pack
 
-NaViT (Dehghani et al., 2023) was the paper that showed this works at scale. The idea is mechanical:
+NaViT (Dehghani và cộng sự, 2023) là bài báo cho thấy điều này hoạt động ở quy mô lớn. Ý tưởng mang tính cơ học:
 
-1. For each image in the batch, compute its native patch grid at a chosen patch size (say 14).
-2. Flatten each image's patches into its own variable-length sequence.
-3. Concatenate all images' patches into one long sequence for the batch.
-4. Build a block-diagonal attention mask so image A's patches only attend within image A.
-5. Carry per-patch position information (2D RoPE or fractional position embeddings).
+1. Với mỗi ảnh trong batch, tính lưới patch nguyên bản ở kích thước patch chọn (chẳng hạn 14).
+2. Làm phẳng patch mỗi ảnh thành chuỗi độ dài thay đổi riêng.
+3. Nối patch mọi ảnh thành một chuỗi dài cho batch.
+4. Xây attention mask chéo khối để patch ảnh A chỉ attend trong ảnh A.
+5. Mang thông tin vị trí mỗi patch (RoPE 2D hoặc embedding vị trí phân số).
 
-A batch of three images at 336x336 (576 tokens), 224x224 (256 tokens), and 448x336 (768 tokens) becomes one 1600-token sequence with a 1600x1600 block-diagonal mask. No padding. No wasted compute. The transformer handles arbitrary aspect ratios.
+Batch ba ảnh ở 336x336 (576 token), 224x224 (256 token) và 448x336 (768 token) thành một chuỗi 1600 token với mask chéo khối 1600x1600. Không padding. Không lãng phí tính toán. Transformer xử lý tỷ lệ khung hình tùy ý.
 
-NaViT also introduced fractional patch dropping during training — drop 50% of patches at random across the batch — which both regularizes and speeds training. SigLIP 2 inherited this.
+NaViT cũng giới thiệu bỏ patch theo tỷ phần trong huấn luyện — bỏ ngẫu nhiên 50% patch trên batch — vừa chính quy hóa vừa tăng tốc huấn luyện. SigLIP 2 kế thừa.
 
 ### AnyRes (LLaVA-NeXT)
 
-LLaVA-NeXT's AnyRes is the pragmatic alternative. Given a high-resolution image and a fixed encoder (CLIP or SigLIP at 336), tile the image:
+AnyRes LLaVA-NeXT là phương án thực dụng. Với ảnh độ phân giải cao và encoder cố định (CLIP hoặc SigLIP ở 336), chia ô ảnh:
 
-1. Pick a grid layout from a predefined set — (1x1), (1x2), (2x1), (1x3), (3x1), (2x2), etc. — that best fits the image's aspect ratio.
-2. Tile the full image into the grid; each tile becomes a 336x336 crop.
-3. Also produce a thumbnail: the whole image resized to 336x336 as a global-context token.
-4. Encode every tile through the frozen 336-encoder. Concatenate the tile tokens + thumbnail tokens.
+1. Chọn bố trí lưới từ tập định sẵn — (1x1), (1x2), (2x1), (1x3), (3x1), (2x2), v.v. — khớp nhất tỷ lệ khung hình.
+2. Chia toàn ảnh vào lưới; mỗi ô thành crop 336x336.
+3. Cũng tạo ảnh thu nhỏ: toàn ảnh đổi kích thước về 336x336 làm token ngữ cảnh toàn cục.
+4. Mã hóa mọi ô qua encoder 336 đóng băng. Nối token ô + token ảnh thu nhỏ.
 
-For a 672x672 image at 2x2 grid plus thumbnail: 4 * 576 + 576 = 2880 visual tokens. Expensive but effective — the LLM sees both local detail and global context.
+Với ảnh 672x672 ở lưới 2x2 cộng ảnh thu nhỏ: 4 * 576 + 576 = 2880 token thị giác. Đắt nhưng hiệu quả — LLM thấy cả chi tiết cục bộ và ngữ cảnh toàn cục.
 
-AnyRes is the route of choice when your encoder is frozen and only supports one resolution. It explodes token count for large images (a 1344x1344 image at 4x4 grid is 9216 + 576 ≈ 9800 tokens, which fills most of a 8k LLM context).
+AnyRes là đường ưu tiên khi encoder đóng băng và chỉ hỗ trợ một độ phân giải. Nó làm số token bùng nổ cho ảnh lớn (ảnh 1344x1344 ở lưới 4x4 là 9216 + 576 ≈ 9800 token, lấp phần lớn ngữ cảnh LLM 8k).
 
 ### M-RoPE (Qwen2-VL)
 
-Qwen2-VL introduced Multimodal Rotary Position Embedding. Instead of NaViT's fractional positions or AnyRes's tile-and-thumbnail, each patch carries a 3D position (temporal, height, width). The query/key rotations handle arbitrary H, W, and temporal length.
+Qwen2-VL giới thiệu Multimodal Rotary Position Embedding. Thay vị trí phân số NaViT hoặc chia ô-và-ảnh thu nhỏ AnyRes, mỗi patch mang vị trí 3D (thời gian, chiều cao, chiều rộng). Phép quay query/key xử lý H, W và độ dài thời gian tùy ý.
 
-M-RoPE ships native dynamic resolution without retraining. At inference you feed any HxW image, the patch embedder produces H/14 x W/14 tokens, each token gets its (t=0, r=row, c=col) position, RoPE rotates attention with the right frequencies, done. Qwen2.5-VL and Qwen3-VL continue this. InternVL3's V2PE is the same idea with variable encoding per modality.
+M-RoPE cung cấp độ phân giải động nguyên bản không huấn luyện lại. Khi suy luận đưa bất kỳ ảnh HxW, bộ nhúng patch tạo H/14 x W/14 token, mỗi token nhận vị trí (t=0, r=row, c=col), RoPE quay attention với tần số đúng, xong. Qwen2.5-VL và Qwen3-VL tiếp tục. V2PE InternVL3 cùng ý tưởng với mã hóa thay đổi theo phương thức.
 
-Unlike AnyRes, M-RoPE is O(H x W / P^2) tokens at native resolution — no multiplicative tile overhead. Unlike NaViT, it still expects a single image per forward. Batching across resolutions still needs patch-n'-pack on top.
+Khác AnyRes, M-RoPE có O(H x W / P^2) token ở độ phân giải nguyên bản — không chi phí ô nhân thêm. Khác NaViT, nó vẫn kỳ vọng một ảnh mỗi forward. Batch giữa các độ phân giải vẫn cần patch-n'-pack bên trên.
 
 ### NaFlex (SigLIP 2)
 
-NaFlex is the SigLIP 2 checkpoint's native-flex mode. A single model serves multiple sequence lengths (256, 729, 1024 tokens) at inference. Internally it uses NaViT-style patch-n'-pack during training and absolute fractional positions per patch. The selling point: one checkpoint, pick your token budget at inference based on the task.
+NaFlex là chế độ native-flex của checkpoint SigLIP 2. Một mô hình phục vụ nhiều độ dài chuỗi (256, 729, 1024 token) khi suy luận. Bên trong dùng patch-n'-pack kiểu NaViT trong huấn luyện và vị trí phân số tuyệt đối mỗi patch. Điểm bán: một checkpoint, chọn ngân sách token khi suy luận theo tác vụ.
 
-For a semantic task (classification, retrieval), 256 tokens. For OCR or chart understanding, 1024 tokens. No retraining.
+Cho tác vụ ngữ nghĩa (phân loại, truy xuất), 256 token. Cho OCR hoặc hiểu biểu đồ, 1024 token. Không huấn luyện lại.
 
 ### The packing mask
 
-The block-diagonal mask is where most implementations stumble. For a packed sequence of length `N_total` covering images `i=0..B-1` with lengths `n_i`, the mask `M` of shape `(N_total, N_total)` is 1 if both indices fall in the same image's block, else 0. You can build it from a cumulative length list:
+Mask chéo khối là nơi hầu hết triển khai vấp. Với chuỗi đóng gói dài `N_total` bao quát ảnh `i=0..B-1` có độ dài `n_i`, mask `M` hình dạng `(N_total, N_total)` là 1 nếu hai chỉ số trong cùng khối ảnh, nếu không 0. Có thể xây từ danh sách độ dài tích lũy:
 
 ```
 offsets = [0, n_0, n_0+n_1, ..., N_total]
 M[i, j] = 1 iff there exists b where offsets[b] <= i < offsets[b+1] and offsets[b] <= j < offsets[b+1]
 ```
 
-This is one line in PyTorch with `torch.block_diag` or an explicit gather. FlashAttention's variable-length path (`cu_seqlens`) skips the mask entirely and attends within sequences using the cumulative-length tensor directly — ~10x faster than a dense mask for typical batches.
+Đây là một dòng PyTorch với `torch.block_diag` hoặc gather tường minh. Đường độ dài thay đổi của FlashAttention (`cu_seqlens`) bỏ hoàn toàn mask và attend trong chuỗi bằng tensor độ dài tích lũy trực tiếp — nhanh hơn ~10x mask dày đặc cho batch điển hình.
 
 ### Token budgets
 
-Pick your strategy by task:
+Chọn chiến lược theo tác vụ:
 
-- OCR / documents: 1024-4096 tokens. SigLIP 2 NaFlex at 1024, or AnyRes 3x3 + thumbnail.
-- Charts and UI: 729-1024 tokens at 384-448 native. Qwen2.5-VL dynamic resolution with max pixels cap.
-- Natural photos: 256-576 tokens is fine. The downstream LLM sees enough. Pay for tokens where content density is high.
-- Video: 64-128 tokens per frame after spatial pooling, 2-8 FPS. Lesson 12.17 covers this.
+- OCR / tài liệu: 1024-4096 token. SigLIP 2 NaFlex ở 1024 hoặc AnyRes 3x3 + ảnh thu nhỏ.
+- Biểu đồ và UI: 729-1024 token ở 384-448 nguyên bản. Độ phân giải động Qwen2.5-VL với trần pixel tối đa.
+- Ảnh tự nhiên: 256-576 token phù hợp. LLM downstream thấy đủ. Trả tiền token nơi mật độ nội dung cao.
+- Video: 64-128 token mỗi khung sau pooling không gian, 2-8 FPS. Bài 12.17 trình bày.
 
-The 2026 production rule: pick a per-task max-pixels cap, encode at native aspect ratio up to that cap, pack the batch, and skip padding. Qwen2.5-VL exposes `min_pixels` and `max_pixels` for exactly this knob.
+Quy tắc sản xuất năm 2026: chọn trần pixel tối đa mỗi tác vụ, mã hóa ở tỷ lệ khung hình nguyên bản đến trần, đóng gói batch và bỏ padding. Qwen2.5-VL mở `min_pixels` và `max_pixels` cho đúng núm này.
 
 ```figure
 mm-patch-n-pack
@@ -99,45 +99,45 @@ mm-patch-n-pack
 
 ## Use It
 
-`code/main.py` implements patch-n'-pack for a heterogeneous batch of images with integer pixel coordinates. It:
+`code/main.py` triển khai patch-n'-pack cho batch ảnh không đồng nhất với tọa độ pixel nguyên. Nó:
 
-- Takes a list of (H, W) image sizes.
-- Computes each image's patch sequence length at patch size 14.
-- Packs them into one sequence of total length `sum(n_i)`.
-- Builds the block-diagonal attention mask (dense, for clarity).
-- Compares the packed cost vs square-resize and AnyRes tiling.
-- Prints a token budget table for a mixed batch (receipt, chart, screenshot, photo).
+- Nhận danh sách kích thước ảnh (H, W).
+- Tính độ dài chuỗi patch mỗi ảnh ở kích thước patch 14.
+- Đóng gói chúng thành một chuỗi tổng dài `sum(n_i)`.
+- Xây attention mask chéo khối (dày đặc, để rõ).
+- So chi phí đóng gói với đổi kích thước vuông và chia ô AnyRes.
+- In bảng ngân sách token cho batch hỗn hợp (hóa đơn, biểu đồ, ảnh chụp màn hình, ảnh chụp).
 
-Run it. The numbers that drop out are the reason every 2026 open VLM uses patch-n'-pack.
+Chạy nó. Những con số xuất hiện là lý do mọi VLM mở năm 2026 dùng patch-n'-pack.
 
 ## Ship It
 
-This lesson produces `outputs/skill-resolution-budget-planner.md`. Given a mixed-aspect-ratio workload (OCR, charts, photos, video frames) and a total-token budget, it picks the right strategy (NaFlex, AnyRes, M-RoPE, or fixed-square) and emits a per-request configuration. Use this skill when you are sizing a VLM for a product — it prevents the silent 10x token blowup that kills latency budgets.
+Bài học này tạo `outputs/skill-resolution-budget-planner.md`. Với khối lượng công việc hỗn hợp tỷ lệ khung hình (OCR, biểu đồ, ảnh, khung video) và ngân sách tổng token, nó chọn chiến lược đúng (NaFlex, AnyRes, M-RoPE hoặc vuông cố định) và phát cấu hình mỗi yêu cầu. Dùng skill khi định cỡ VLM cho sản phẩm — nó ngăn bùng token âm thầm 10x giết ngân sách độ trễ.
 
 ## Exercises
 
-1. A receipt is 600x1500 (1:2.5). At patch size 14, how many native-resolution tokens? How many after square-resize to 336? Which loses more OCR accuracy in practice?
+1. Hóa đơn là 600x1500 (1:2.5). Ở kích thước patch 14, bao nhiêu token độ phân giải nguyên bản? Bao nhiêu sau đổi kích thước vuông về 336? Loại nào mất nhiều độ chính xác OCR hơn trong thực tế?
 
-2. Build the block-diagonal mask for a batch of four images with lengths 256, 576, 729, 1024. Verify the attention matrix is 2585x2585 and has exactly `256^2 + 576^2 + 729^2 + 1024^2` non-zero entries.
+2. Xây mask chéo khối cho batch bốn ảnh có độ dài 256, 576, 729, 1024. Xác minh ma trận attention là 2585x2585 và có đúng `256^2 + 576^2 + 729^2 + 1024^2` phần tử khác không.
 
-3. For a 1792x896 image at patch 14, compare: (a) square-resize to 336 then encode, (b) AnyRes 2x1 + thumbnail, (c) M-RoPE at native. Which uses fewest tokens? Which preserves most detail?
+3. Với ảnh 1792x896 ở patch 14, so: (a) đổi kích thước vuông về 336 rồi mã hóa, (b) AnyRes 2x1 + ảnh thu nhỏ, (c) M-RoPE nguyên bản. Loại nào ít token nhất? Loại nào giữ nhiều chi tiết nhất?
 
-4. Implement fractional patch dropping: given a packed sequence, drop 50% of tokens uniformly at random, and update the block-diagonal mask accordingly. Measure the mask's sparsity change.
+4. Triển khai bỏ patch theo tỷ phần: với chuỗi đóng gói, bỏ ngẫu nhiên đều 50% token và cập nhật mask chéo khối tương ứng. Đo thay đổi độ thưa mask.
 
-5. Read Section 3.2 of the Qwen2-VL paper (arXiv:2409.12191). Describe in two sentences what `min_pixels` and `max_pixels` control and why both bounds matter.
+5. Đọc Mục 3.2 bài báo Qwen2-VL (arXiv:2409.12191). Mô tả trong hai câu `min_pixels` và `max_pixels` kiểm soát gì và tại sao cả hai cận quan trọng.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Patch-n'-pack | "NaViT-style packing" | Concatenate variable-length patch sequences from different images into one batch dimension |
-| Block-diagonal mask | "Packing mask" | Attention mask that confines each image's patches to attend only to themselves, not neighbors in the pack |
-| AnyRes | "LLaVA-NeXT tiling" | Split a high-res image into a grid of fixed-size tiles plus a global thumbnail; encode every tile with a fixed encoder |
-| NaFlex | "SigLIP 2 native-flex" | Single SigLIP 2 checkpoint that serves 256/729/1024-token budgets at inference without retraining |
-| M-RoPE | "Multimodal RoPE" | 3D rotary position encoding (time, row, column) that handles arbitrary H, W, T without position tables |
-| cu_seqlens | "FlashAttention packing" | Cumulative-length tensor the FlashAttention varlen path uses instead of a dense block-diagonal mask |
-| min_pixels / max_pixels | "Resolution bounds" | Qwen2.5-VL per-request knobs capping token count on very small or very large inputs |
-| Visual token budget | "How many tokens per image" | Rough count of patch tokens emitted per image; sets the LLM's prompt budget and attention cost |
+| Patch-n'-pack | "Đóng gói kiểu NaViT" | Nối chuỗi patch độ dài thay đổi từ các ảnh khác nhau vào một chiều batch |
+| Block-diagonal mask (Mask chéo khối) | "Mask đóng gói" | Attention mask giới hạn patch mỗi ảnh chỉ attend đến chính chúng, không hàng xóm trong gói |
+| AnyRes | "Chia ô LLaVA-NeXT" | Chia ảnh độ phân giải cao thành lưới ô kích thước cố định cộng ảnh thu nhỏ toàn cục; mã hóa mọi ô bằng encoder cố định |
+| NaFlex | "Native-flex SigLIP 2" | Một checkpoint SigLIP 2 phục vụ ngân sách 256/729/1024 token khi suy luận không huấn luyện lại |
+| M-RoPE | "RoPE đa phương thức" | Mã hóa vị trí quay 3D (thời gian, hàng, cột) xử lý H, W, T tùy ý không bảng vị trí |
+| cu_seqlens | "Đóng gói FlashAttention" | Tensor độ dài tích lũy đường varlen FlashAttention dùng thay mask chéo khối dày đặc |
+| min_pixels / max_pixels | "Cận độ phân giải" | Núm mỗi yêu cầu Qwen2.5-VL giới hạn số token trên đầu vào rất nhỏ hoặc rất lớn |
+| Visual token budget (Ngân sách token thị giác) | "Bao nhiêu token mỗi ảnh" | Số token patch sơ bộ phát mỗi ảnh; đặt ngân sách prompt LLM và chi phí attention |
 
 ## Further Reading
 
