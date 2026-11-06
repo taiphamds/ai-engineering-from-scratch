@@ -9,36 +9,36 @@ tags: [computer-vision, detection, anchors, kmeans]
 
 # Anchor Designer
 
-Anchors are the single most dataset-specific hyperparameter in an anchor-based detector. Default COCO anchors underperform on cell-culture images, satellite tiles, or small-object surveillance. This skill derives anchors that actually match the target data.
+Anchor là siêu tham số riêng theo tập dữ liệu nhất trong một bộ phát hiện dựa trên anchor. Các anchor COCO mặc định hoạt động kém trên ảnh nuôi cấy tế bào, ô ảnh vệ tinh hoặc giám sát đối tượng nhỏ. Skill này suy ra các anchor thực sự khớp dữ liệu đích.
 
 ## When to use
 
-- Before a first training run on a new dataset.
-- When recall on very small or very large objects is weak on an otherwise healthy model.
-- After a major dataset expansion where box size distribution may have shifted.
+- Trước lần huấn luyện đầu trên một tập dữ liệu mới.
+- Khi recall trên các đối tượng rất nhỏ hoặc rất lớn yếu trong một mô hình nhìn chung khỏe mạnh.
+- Sau một đợt mở rộng tập dữ liệu lớn nơi phân phối kích thước hộp có thể đã dịch chuyển.
 
 ## Inputs
 
-- `boxes`: numpy array of shape (N, 4) in either `(cx, cy, w, h)` or `(x1, y1, x2, y2)` format; at least 1000 positive boxes recommended.
-- `num_anchors_per_level`: usually 3.
-- `num_fpn_levels`: usually 3 (P3, P4, P5) or 4.
-- `input_size`: training-resolution HxW.
-- Optional `strides`: per-level strides; when omitted, take the first `num_fpn_levels` entries of `[8, 16, 32, 64]`. Pass a longer or shorter array explicitly if the detector's FPN has different strides.
+- `boxes`: mảng numpy hình dạng (N, 4) ở định dạng `(cx, cy, w, h)` hoặc `(x1, y1, x2, y2)`; khuyến nghị ít nhất 1000 hộp dương.
+- `num_anchors_per_level`: thường 3.
+- `num_fpn_levels`: thường 3 (P3, P4, P5) hoặc 4.
+- `input_size`: HxW độ phân giải huấn luyện.
+- `strides` tùy chọn: stride mỗi mức; khi bỏ qua, lấy `num_fpn_levels` phần tử đầu của `[8, 16, 32, 64]`. Truyền tường minh một mảng dài hoặc ngắn hơn nếu FPN của bộ phát hiện có stride khác.
 
 ## Steps
 
-1. **Normalise boxes** to `(w, h)` pairs in pixel units at `input_size`. Drop any with w or h < 2 pixels.
+1. **Chuẩn hóa các hộp** thành các cặp `(w, h)` theo đơn vị pixel tại `input_size`. Bỏ mọi hộp có w hoặc h < 2 pixel.
 
-2. **Run k-means** on `(w, h)` pairs, with `k = num_anchors_per_level * num_fpn_levels`. Use `1 - IoU(box, cluster)` as the distance function, not Euclidean distance — Euclidean on `(w, h)` collapses thin tall boxes and square boxes together. All boxes contribute equally (unweighted); if you have a class-imbalanced dataset and want larger-box recall, repeat rare-class boxes in the input array rather than passing a weight vector.
+2. **Chạy k-means** trên các cặp `(w, h)`, với `k = num_anchors_per_level * num_fpn_levels`. Sử dụng `1 - IoU(box, cluster)` làm hàm khoảng cách, không phải khoảng cách Euclid — Euclid trên `(w, h)` gộp các hộp cao mảnh và hộp vuông lại với nhau. Mọi hộp đóng góp ngang nhau (không trọng số); nếu bạn có tập dữ liệu mất cân bằng lớp và muốn recall hộp lớn hơn, lặp lại các hộp lớp hiếm trong mảng đầu vào thay vì truyền một vector trọng số.
 
-3. **Sort clusters by area** ascending. Split into `num_fpn_levels` groups of `num_anchors_per_level`. Smallest areas go to the highest-resolution level (smallest stride).
+3. **Sắp xếp các cụm theo diện tích** tăng dần. Chia thành `num_fpn_levels` nhóm gồm `num_anchors_per_level`. Các diện tích nhỏ nhất tới mức độ phân giải cao nhất (stride nhỏ nhất).
 
-4. **Compute coverage statistics** per level:
-   - `median IoU` of each ground-truth box to its best anchor at that level.
-   - `recall@IoU=0.5` — percentage of boxes whose best anchor has IoU >= 0.5.
-   - `area coverage` — fraction of boxes whose area falls within `[anchor_min_area / 4, anchor_max_area * 4]` of the level.
+4. **Tính thống kê bao phủ** mỗi mức:
+   - `median IoU` của mỗi hộp sự thật nền với anchor tốt nhất của nó ở mức đó.
+   - `recall@IoU=0.5` — phần trăm hộp có anchor tốt nhất đạt IoU >= 0.5.
+   - `area coverage` — tỷ lệ hộp có diện tích nằm trong `[anchor_min_area / 4, anchor_max_area * 4]` của mức.
 
-5. **Report per-level anchors** and flag levels where `recall@IoU=0.5 < 0.9`; that level's anchors do not match the data well and should be retuned or the number of anchors per level increased.
+5. **Báo cáo các anchor mỗi mức** và đánh dấu các mức có `recall@IoU=0.5 < 0.9`; các anchor của mức đó không khớp dữ liệu tốt và nên được điều chỉnh lại hoặc tăng số anchor mỗi mức.
 
 ## Report format
 
@@ -67,8 +67,8 @@ Anchors are the single most dataset-specific hyperparameter in an anchor-based d
 
 ## Rules
 
-- Always use IoU-based distance; Euclidean k-means produces visually reasonable but empirically worse anchors.
-- Sort clusters by area, then assign to levels in ascending order.
-- When `num_anchors_per_level = 1`, skip k-means entirely: split boxes into `num_fpn_levels` bins by area quantile (e.g. terciles for 3 levels), and set each level's anchor to the per-bin median (w, h). This is more robust than running k-means with `k = num_fpn_levels` on small datasets.
-- Never output negative anchor dimensions; clamp at 1.
-- If the dataset has < 200 boxes, warn the user that anchor search is unreliable and recommend using default COCO anchors plus more training data.
+- Luôn sử dụng khoảng cách dựa trên IoU; k-means Euclid tạo ra các anchor trông hợp lý nhưng tệ hơn theo thực nghiệm.
+- Sắp xếp các cụm theo diện tích, rồi gán tới các mức theo thứ tự tăng dần.
+- Khi `num_anchors_per_level = 1`, bỏ qua k-means hoàn toàn: chia các hộp thành `num_fpn_levels` bin theo phân vị diện tích (ví dụ ba phân vị cho 3 mức), rồi đặt anchor mỗi mức thành trung vị (w, h) theo bin. Cách này vững hơn chạy k-means với `k = num_fpn_levels` trên các tập dữ liệu nhỏ.
+- Không bao giờ xuất kích thước anchor âm; chặn ở 1.
+- Nếu tập dữ liệu có < 200 hộp, cảnh báo người dùng rằng tìm kiếm anchor không đáng tin cậy và khuyến nghị dùng các anchor COCO mặc định cộng thêm dữ liệu huấn luyện.

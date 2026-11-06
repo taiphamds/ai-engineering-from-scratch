@@ -1,6 +1,6 @@
 # Object Detection — YOLO from Scratch
 
-> Detection is classification plus regression, run at every position in a feature map, then cleaned up with non-maximum suppression.
+> Phát hiện là phân loại cộng hồi quy, chạy tại mọi vị trí trong một bản đồ đặc trưng, rồi được dọn sạch bằng triệt tiêu phi cực đại.
 
 **Type:** Build
 **Languages:** Python
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Explain the grid-and-anchor design that turns detection into a dense prediction problem and state what every number in the output tensor means
-- Compute Intersection-over-Union between boxes and implement non-maximum suppression from scratch
-- Build a minimal YOLO-style head on top of a pretrained backbone, including the classification, objectness, and box-regression losses
-- Read a detection metric row (precision@0.5, recall, mAP@0.5, mAP@0.5:0.95) and pick which knob to turn next
+- Giải thích thiết kế lưới-và-anchor biến phát hiện thành bài toán dự đoán dày đặc và nêu ý nghĩa mọi số trong tensor đầu ra
+- Tính Intersection-over-Union giữa các hộp và triển khai triệt tiêu phi cực đại từ đầu
+- Xây một đầu kiểu YOLO tối giản trên một backbone được tiền huấn luyện, bao gồm các mất mát phân loại, objectness và hồi quy hộp
+- Đọc một hàng thước đo phát hiện (precision@0.5, recall, mAP@0.5, mAP@0.5:0.95) và chọn núm điều chỉnh tiếp theo
 
 ## The Problem
 
-Classification says "this image is a dog." Detection says "there is a dog at pixels (112, 40, 280, 210), there is a cat at (400, 180, 560, 310), and nothing else in the frame." That one structural change — predicting a variable number of labelled boxes instead of one label per image — is what every autonomous system, every surveillance product, every document layout parser, and every factory vision line depends on.
+Phân loại nói "hình ảnh này là một con chó." Phát hiện nói "có một con chó tại các pixel (112, 40, 280, 210), có một con mèo tại (400, 180, 560, 310) và không có gì khác trong khung hình." Một thay đổi cấu trúc đó — dự đoán số lượng hộp có nhãn thay đổi thay vì một nhãn mỗi hình ảnh — là điều mà mọi hệ thống tự hành, mọi sản phẩm giám sát, mọi bộ phân tích bố cục tài liệu và mọi dây chuyền thị giác nhà máy phụ thuộc.
 
-Detection is also where every engineering trade-off in vision shows up at once. You want boxes that are accurate (regression head), you want the right class for each box (classification head), you want the model to know when there is nothing to detect (objectness score), and you want exactly one prediction per real object (non-maximum suppression). Miss any of these and the pipeline either misses objects, reports hallucinated boxes, or predicts the same object fifteen times in slightly different positions.
+Phát hiện cũng là nơi mọi đánh đổi kỹ thuật trong thị giác xuất hiện cùng lúc. Bạn muốn các hộp chính xác (đầu hồi quy), muốn lớp đúng cho mỗi hộp (đầu phân loại), muốn mô hình biết khi không có gì để phát hiện (điểm objectness) và muốn đúng một dự đoán mỗi đối tượng thật (triệt tiêu phi cực đại). Bỏ sót bất kỳ điều nào và pipeline hoặc bỏ sót đối tượng, báo cáo các hộp ảo giác hoặc dự đoán cùng đối tượng mười lăm lần ở các vị trí hơi khác nhau.
 
-YOLO (You Only Look Once, Redmon et al. 2016) was the design that made all of this run in real time by doing it with a single forward pass of a conv net, and the same structural decisions are still the backbone of modern detectors (YOLOv8, YOLOv9, YOLO-NAS, RT-DETR). Learn the core and every variant becomes a rearrangement of the same parts.
+YOLO (You Only Look Once, Redmon et al. 2016) là thiết kế khiến tất cả điều này chạy thời gian thực bằng một lượt truyền xuôi duy nhất của một mạng tích chập, và cùng các quyết định cấu trúc vẫn là xương sống của các bộ phát hiện hiện đại (YOLOv8, YOLOv9, YOLO-NAS, RT-DETR). Học cốt lõi và mọi biến thể trở thành sự sắp xếp lại của cùng các phần.
 
 ## The Concept
 
 ### Detection as dense prediction
 
-A classifier outputs C numbers per image. A YOLO-style detector outputs `(S x S x (5 + C))` numbers per image, where S is the spatial grid size.
+Một bộ phân loại xuất ra C số mỗi hình ảnh. Một bộ phát hiện kiểu YOLO xuất ra `(S x S x (5 + C))` số mỗi hình ảnh, trong đó S là kích thước lưới không gian.
 
 ```mermaid
 flowchart LR
@@ -44,19 +44,19 @@ flowchart LR
     style RESULT fill:#dcfce7,stroke:#16a34a
 ```
 
-Each of the `S * S` grid cells predicts `B` boxes. For each box:
+Mỗi ô trong `S * S` ô lưới dự đoán `B` hộp. Với mỗi hộp:
 
-- 4 numbers describe geometry: `tx, ty, tw, th`.
-- 1 number is the objectness score: "is there an object centred in this cell?"
-- C numbers are class probabilities.
+- 4 số mô tả hình học: `tx, ty, tw, th`.
+- 1 số là điểm objectness: "có đối tượng đặt tâm trong ô này không?"
+- C số là các xác suất lớp.
 
-Total per cell: `B * (5 + C)`. For VOC with `S=13, B=2, C=20`, that is 50 numbers per cell.
+Tổng mỗi ô: `B * (5 + C)`. Với VOC có `S=13, B=2, C=20`, đó là 50 số mỗi ô.
 
 ### Why grids and anchors
 
-Plain regression would predict `(x, y, w, h)` for every object as an absolute coordinate. That is hard for a conv network because translating the image should not translate all predictions by the same amount — each object is spatially anchored. The grid answers this by assigning each ground-truth box to the grid cell its centre falls in; only that cell is responsible for that object.
+Hồi quy thông thường sẽ dự đoán `(x, y, w, h)` cho mỗi đối tượng như một tọa độ tuyệt đối. Điều đó khó với một mạng tích chập vì tịnh tiến hình ảnh không nên tịnh tiến mọi dự đoán cùng một lượng — mỗi đối tượng được neo trong không gian. Lưới trả lời bằng cách gán mỗi hộp sự thật nền cho ô lưới chứa tâm của nó; chỉ ô đó chịu trách nhiệm cho đối tượng đó.
 
-Anchors address a second problem. A 3x3 conv cannot easily regress a 500-pixel-wide box out of a 16-pixel receptive field feature cell. Instead, we pre-define `B` prior box shapes (anchors) per cell and predict small deltas from each anchor. The model learns to pick the right anchor and nudge it rather than regress from nothing.
+Anchor giải quyết vấn đề thứ hai. Một tích chập 3x3 không dễ hồi quy một hộp rộng 500 pixel từ một ô đặc trưng có trường tiếp nhận 16 pixel. Thay vào đó, chúng ta định trước `B` hình dạng hộp tiên nghiệm (anchor) mỗi ô và dự đoán các độ lệch nhỏ từ mỗi anchor. Mô hình học chọn anchor đúng và dịch nó thay vì hồi quy từ không có gì.
 
 ```
 Anchor box priors (example for 416x416 input):
@@ -68,11 +68,11 @@ Anchor box priors (example for 416x416 input):
 At each grid cell, every anchor emits (tx, ty, tw, th, obj, c_1, ..., c_C).
 ```
 
-Modern detectors often use FPN with different anchor sets per resolution — small anchors on shallow high-resolution maps, large anchors on deep low-resolution maps. Same idea, more scales.
+Các bộ phát hiện hiện đại thường sử dụng FPN với các tập anchor khác nhau mỗi độ phân giải — anchor nhỏ trên bản đồ nông độ phân giải cao, anchor lớn trên bản đồ sâu độ phân giải thấp. Cùng ý tưởng, nhiều tỷ lệ hơn.
 
 ### Decoding predictions
 
-The raw `tx, ty, tw, th` are not box coordinates; they are regression targets to be transformed before plotting:
+Các `tx, ty, tw, th` thô không phải tọa độ hộp; chúng là các mục tiêu hồi quy cần được biến đổi trước khi vẽ:
 
 ```
 centre x  = (sigmoid(tx) + cell_x) * stride
@@ -81,21 +81,21 @@ width     = anchor_w * exp(tw)
 height    = anchor_h * exp(th)
 ```
 
-`sigmoid` keeps centre offsets inside the cell. `exp` lets the width scale freely from the anchor without a sign flip. `stride` scales the grid coordinates back to pixels. This decode step is the same in every YOLO version since v2.
+`sigmoid` giữ các độ lệch tâm trong ô. `exp` cho phép chiều rộng co giãn tự do từ anchor mà không đổi dấu. `stride` co giãn tọa độ lưới trở lại pixel. Bước giải mã này giống nhau trong mọi phiên bản YOLO từ v2.
 
 ### IoU
 
-Detection's universal similarity metric between two boxes:
+Thước đo tương đồng phổ quát của phát hiện giữa hai hộp:
 
 ```
 IoU(A, B) = area(A intersect B) / area(A union B)
 ```
 
-IoU = 1 means identical; IoU = 0 means no overlap. IoU between the prediction and the ground-truth box is what decides whether a prediction counts as a true positive (typically IoU >= 0.5). IoU between two predictions is what NMS uses to deduplicate.
+IoU = 1 nghĩa là giống hệt; IoU = 0 nghĩa là không chồng lấn. IoU giữa dự đoán và hộp sự thật nền quyết định liệu một dự đoán được tính là dương tính thật không (thường IoU >= 0.5). IoU giữa hai dự đoán là thứ NMS dùng để loại trùng.
 
 ### Non-maximum suppression
 
-A conv network trained on adjacent anchors will often predict overlapping boxes for the same object. NMS keeps the highest-confidence prediction and deletes any other prediction with IoU above a threshold.
+Một mạng tích chập được huấn luyện trên các anchor liền kề thường dự đoán các hộp chồng lấn cho cùng đối tượng. NMS giữ dự đoán có độ tin cậy cao nhất và xóa mọi dự đoán khác có IoU trên một ngưỡng.
 
 ```
 NMS(boxes, scores, iou_threshold):
@@ -107,11 +107,11 @@ NMS(boxes, scores, iou_threshold):
     return keep
 ```
 
-Typical threshold: 0.45 for object detection. Recent detectors replace standard NMS with `soft-NMS`, `DIoU-NMS`, or learn the suppression directly (RT-DETR) but the structural purpose is the same.
+Ngưỡng điển hình: 0.45 cho phát hiện đối tượng. Các bộ phát hiện gần đây thay NMS tiêu chuẩn bằng `soft-NMS`, `DIoU-NMS` hoặc trực tiếp học triệt tiêu (RT-DETR) nhưng mục đích cấu trúc giống nhau.
 
 ### The loss
 
-YOLO loss is three losses added with weights:
+Mất mát YOLO là ba mất mát cộng với các trọng số:
 
 ```
 L = lambda_coord * L_box(pred, target, where obj=1)
@@ -120,20 +120,20 @@ L = lambda_coord * L_box(pred, target, where obj=1)
   + lambda_cls   * L_cls(pred, target, where obj=1)
 ```
 
-Only cells that contain an object contribute to the box-regression and classification losses. Cells without objects contribute only to the objectness loss (teaching the model to stay silent). `lambda_noobj` is usually small (~0.5) because the vast majority of cells are empty and would otherwise dominate the total loss.
+Chỉ các ô chứa một đối tượng đóng góp vào các mất mát hồi quy hộp và phân loại. Các ô không có đối tượng chỉ đóng góp vào mất mát objectness (dạy mô hình im lặng). `lambda_noobj` thường nhỏ (~0.5) vì đại đa số ô trống và nếu không sẽ chi phối tổng mất mát.
 
-Modern variants swap MSE box loss for CIoU / DIoU (which optimise IoU directly), use focal loss for class imbalance, and balance objectness with quality focal loss. The three-component structure is unchanged.
+Các biến thể hiện đại đổi mất mát hộp MSE thành CIoU / DIoU (tối ưu trực tiếp IoU), sử dụng focal loss cho mất cân bằng lớp và cân bằng objectness với quality focal loss. Cấu trúc ba thành phần không đổi.
 
 ### Detection metrics
 
-Accuracy does not transfer to detection. Four numbers that do:
+Accuracy không chuyển sang phát hiện. Bốn con số làm được:
 
-- **Precision@IoU=0.5** — of the predictions counted as positives, how many are actually correct.
-- **Recall@IoU=0.5** — of the real objects, how many did we find.
-- **AP@0.5** — precision-recall curve area at IoU threshold 0.5; one number per class.
-- **mAP@0.5:0.95** — average of AP over IoU thresholds 0.5, 0.55, ..., 0.95. The COCO metric; strictest and most informative.
+- **Precision@IoU=0.5** — trong các dự đoán được tính là dương tính, bao nhiêu thực sự đúng.
+- **Recall@IoU=0.5** — trong các đối tượng thật, chúng ta tìm được bao nhiêu.
+- **AP@0.5** — diện tích đường cong precision-recall tại ngưỡng IoU 0.5; một số mỗi lớp.
+- **mAP@0.5:0.95** — trung bình AP trên các ngưỡng IoU 0.5, 0.55, ..., 0.95. Thước đo COCO; nghiêm ngặt nhất và nhiều thông tin nhất.
 
-Report all four. A detector that is strong on mAP@0.5 but weak on mAP@0.5:0.95 is localising roughly but not tightly; fix with better box-regression loss. A detector with high precision and low recall is too conservative; lower the confidence threshold or increase the objectness weight.
+Báo cáo cả bốn. Một bộ phát hiện mạnh ở mAP@0.5 nhưng yếu ở mAP@0.5:0.95 đang định vị gần đúng nhưng chưa sát; khắc phục bằng mất mát hồi quy hộp tốt hơn. Một bộ phát hiện có precision cao và recall thấp quá thận trọng; hạ ngưỡng tin cậy hoặc tăng trọng số objectness.
 
 ```figure
 object-detection-nms
@@ -143,7 +143,7 @@ object-detection-nms
 
 ### Step 1: IoU
 
-The workhorse of the whole lesson. Works on two arrays of boxes in `(x1, y1, x2, y2)` format.
+Thành phần chủ lực của toàn bài học. Hoạt động trên hai mảng hộp ở định dạng `(x1, y1, x2, y2)`.
 
 ```python
 import numpy as np
@@ -167,7 +167,7 @@ def box_iou(boxes_a, boxes_b):
     return inter / np.clip(union, 1e-8, None)
 ```
 
-Returns an `(N_a, N_b)` matrix of pairwise IoUs. Use it against a single ground-truth box by making one of the arrays shape `(1, 4)`.
+Trả về một ma trận `(N_a, N_b)` các IoU từng cặp. Sử dụng với một hộp sự thật nền duy nhất bằng cách cho một mảng hình dạng `(1, 4)`.
 
 ### Step 2: Non-max suppression
 
@@ -186,11 +186,11 @@ def nms(boxes, scores, iou_threshold=0.45):
     return np.array(keep, dtype=np.int64)
 ```
 
-Deterministic, `O(N log N)` from the sort, and matches the behaviour of `torchvision.ops.nms` on identical inputs.
+Tất định, `O(N log N)` từ sắp xếp, và khớp hành vi `torchvision.ops.nms` trên các đầu vào giống hệt.
 
 ### Step 3: Box encoding and decoding
 
-Convert between pixel coordinates and the `(tx, ty, tw, th)` targets that the network actually regresses.
+Chuyển giữa tọa độ pixel và các mục tiêu `(tx, ty, tw, th)` mà mạng thực sự hồi quy.
 
 ```python
 def encode(box_xyxy, cell_x, cell_y, stride, anchor_wh):
@@ -219,11 +219,11 @@ def sigmoid(x):
     return 1.0 / (1.0 + np.exp(-x))
 ```
 
-Test: encode a box then decode — you should get back something very close to the original (up to the sigmoid inverse not being perfectly invertible when `tx` is not in the post-sigmoid range).
+Kiểm tra: mã hóa một hộp rồi giải mã — bạn nên nhận lại thứ rất gần bản gốc (ngoại trừ nghịch đảo sigmoid không hoàn toàn khả nghịch khi `tx` không nằm trong phạm vi sau sigmoid).
 
 ### Step 4: A minimal YOLO head
 
-One 1x1 conv on a feature map, reshaping to `(B, S, S, num_anchors, 5 + C)`.
+Một tích chập 1x1 trên một bản đồ đặc trưng, đổi hình dạng thành `(B, S, S, num_anchors, 5 + C)`.
 
 ```python
 import torch
@@ -244,11 +244,11 @@ class YOLOHead(nn.Module):
         return y
 ```
 
-Output shape: `(N, H, W, num_anchors, 5 + C)`. The last dimension holds `[tx, ty, tw, th, obj, cls_0, ..., cls_{C-1}]`.
+Hình dạng đầu ra: `(N, H, W, num_anchors, 5 + C)`. Chiều cuối chứa `[tx, ty, tw, th, obj, cls_0, ..., cls_{C-1}]`.
 
 ### Step 5: Ground-truth assignment
 
-For every ground-truth box, decide which `(cell, anchor)` is responsible.
+Với mọi hộp sự thật nền, quyết định `(cell, anchor)` nào chịu trách nhiệm.
 
 ```python
 def assign_targets(boxes_xyxy, classes, anchors, stride, grid_size, num_classes):
@@ -279,7 +279,7 @@ def assign_targets(boxes_xyxy, classes, anchors, stride, grid_size, num_classes)
     return target, has_obj
 ```
 
-Anchor selection is "best shape IoU with the ground truth" — a cheap proxy that matches the YOLOv2/v3 assignment. v5 and later use more sophisticated strategies (task-aligned matching, dynamic k) that refine the same idea.
+Lựa chọn anchor là "IoU hình dạng tốt nhất với sự thật nền" — một đại diện rẻ khớp phép gán YOLOv2/v3. v5 trở lên dùng các chiến lược tinh vi hơn (ghép căn chỉnh tác vụ, k động) tinh chỉnh cùng ý tưởng.
 
 ### Step 6: The three losses
 
@@ -315,11 +315,11 @@ def yolo_loss(pred, target, has_obj, lambda_coord=5.0, lambda_obj=1.0, lambda_no
                    "obj_neg": loss_obj_neg.item(), "cls": loss_cls.item()}
 ```
 
-Five hyper-parameters that every YOLO tutorial either hardcodes or sweeps. The ratios matter: `lambda_coord=5, lambda_noobj=0.5` mirrors the original YOLOv1 paper and still works as a reasonable default.
+Năm siêu tham số mà mọi hướng dẫn YOLO hoặc mã hóa cứng hoặc quét. Các tỷ lệ quan trọng: `lambda_coord=5, lambda_noobj=0.5` phản ánh bài báo YOLOv1 gốc và vẫn hoạt động như một mặc định hợp lý.
 
 ### Step 7: Inference pipeline
 
-Decode the raw head output, apply sigmoid/exp, threshold on objectness, and NMS.
+Giải mã đầu ra đầu thô, áp dụng sigmoid/exp, đặt ngưỡng trên objectness và NMS.
 
 ```python
 def postprocess(pred_tensor, anchors, stride, img_size, conf_threshold=0.25, iou_threshold=0.45):
@@ -353,11 +353,11 @@ def postprocess(pred_tensor, anchors, stride, img_size, conf_threshold=0.25, iou
     return boxes[keep], scores[keep], classes[keep]
 ```
 
-That is the complete eval path: head -> decode -> threshold -> NMS.
+Đó là toàn bộ đường eval: đầu -> giải mã -> ngưỡng -> NMS.
 
 ## Use It
 
-`torchvision.models.detection` ships production detectors with the same conceptual structure. Loading a pretrained model takes three lines.
+`torchvision.models.detection` cung cấp các bộ phát hiện production với cùng cấu trúc khái niệm. Tải một mô hình được tiền huấn luyện cần ba dòng.
 
 ```python
 import torch
@@ -373,37 +373,37 @@ print(f"scores: {predictions[0]['scores'].shape}")
 print(f"labels: {predictions[0]['labels'].shape}")
 ```
 
-For real-time inference pipelines, `ultralytics` (YOLOv8/v9) is the standard: `from ultralytics import YOLO; model = YOLO('yolov8n.pt'); model(img)`. The model handles decoding and NMS internally and returns the same `boxes / scores / labels` triple you built above.
+Với các pipeline suy luận thời gian thực, `ultralytics` (YOLOv8/v9) là tiêu chuẩn: `from ultralytics import YOLO; model = YOLO('yolov8n.pt'); model(img)`. Mô hình xử lý giải mã và NMS bên trong rồi trả về cùng bộ ba `boxes / scores / labels` bạn đã xây ở trên.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-detection-metric-reader.md` — a prompt that turns a `precision, recall, AP, mAP@0.5:0.95` row into a one-line diagnosis and the single most useful next experiment.
-- `outputs/skill-anchor-designer.md` — a skill that, given a dataset of ground-truth boxes, runs k-means on `(w, h)` and returns anchor sets per FPN level plus the coverage statistics you need to pick the right number of anchors.
+- `outputs/prompt-detection-metric-reader.md` — một prompt biến một hàng `precision, recall, AP, mAP@0.5:0.95` thành một chẩn đoán một dòng và một thí nghiệm tiếp theo hữu ích nhất.
+- `outputs/skill-anchor-designer.md` — một skill, với một tập dữ liệu hộp sự thật nền, chạy k-means trên `(w, h)` và trả về các tập anchor mỗi mức FPN cộng thống kê bao phủ bạn cần để chọn số anchor đúng.
 
 ## Exercises
 
-1. **(Easy)** Implement `box_iou` and run it against `torchvision.ops.box_iou` on 1,000 random box pairs. Verify max absolute difference is below `1e-6`.
-2. **(Medium)** Port `yolo_loss` to a version that uses `CIoU` box loss instead of MSE. Show on a 100-image synthetic dataset that CIoU converges to a better final mAP@0.5:0.95 than MSE in the same number of epochs.
-3. **(Hard)** Implement multi-scale inference: feed the same image at three resolutions through the model, union the box predictions, and run a single NMS at the end. Measure the mAP lift vs single-scale inference on a held-out set.
+1. **(Dễ)** Triển khai `box_iou` và chạy đối chiếu với `torchvision.ops.box_iou` trên 1,000 cặp hộp ngẫu nhiên. Xác minh chênh lệch tuyệt đối tối đa dưới `1e-6`.
+2. **(Vừa)** Chuyển `yolo_loss` sang một phiên bản sử dụng mất mát hộp `CIoU` thay MSE. Cho thấy trên một tập dữ liệu tổng hợp 100 hình ảnh rằng CIoU hội tụ tới mAP@0.5:0.95 cuối tốt hơn MSE trong cùng số epoch.
+3. **(Khó)** Triển khai suy luận đa tỷ lệ: đưa cùng hình ảnh ở ba độ phân giải qua mô hình, hợp các dự đoán hộp và chạy một NMS duy nhất ở cuối. Đo mức tăng mAP so với suy luận một tỷ lệ trên một tập được giữ lại.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Anchor | "Box prior" | A pre-defined box shape at each grid cell from which the network predicts deltas instead of absolute coordinates |
-| IoU | "Overlap" | Intersection-over-union of two boxes; the universal similarity measure in detection |
-| NMS | "Deduplicate" | Greedy algorithm that keeps highest-score predictions and removes overlapping ones above a threshold |
-| Objectness | "Is there something here" | Per-anchor, per-cell scalar predicting whether an object is centred in that cell |
-| Grid stride | "Downsample factor" | Pixels per grid cell; a 416-px input with a 13-grid head has stride 32 |
-| mAP | "Mean average precision" | Average of the area under the precision-recall curve, averaged over classes and (for COCO) IoU thresholds |
-| AP@0.5 | "PASCAL VOC AP" | Average precision with IoU threshold 0.5; the lenient version of the metric |
-| mAP@0.5:0.95 | "COCO AP" | Average over IoU thresholds 0.5..0.95 step 0.05; the strict version and current community standard |
+| Anchor | "Tiên nghiệm hộp" | Một hình dạng hộp định trước tại mỗi ô lưới mà từ đó mạng dự đoán các độ lệch thay vì tọa độ tuyệt đối |
+| IoU | "Chồng lấn" | Giao trên hợp của hai hộp; thước đo tương đồng phổ quát trong phát hiện |
+| NMS | "Loại trùng" | Thuật toán tham lam giữ các dự đoán điểm cao nhất và loại bỏ các dự đoán chồng lấn trên một ngưỡng |
+| Objectness | "Có thứ gì ở đây không" | Số vô hướng mỗi anchor, mỗi ô dự đoán liệu một đối tượng có tâm trong ô đó không |
+| Grid stride (Stride lưới) | "Hệ số giảm mẫu" | Số pixel mỗi ô lưới; một đầu vào 416-px với đầu lưới 13 có stride 32 |
+| mAP | "Trung bình average precision" | Trung bình diện tích dưới đường cong precision-recall, lấy trung bình trên các lớp và (với COCO) các ngưỡng IoU |
+| AP@0.5 | "PASCAL VOC AP" | Average precision với ngưỡng IoU 0.5; phiên bản dễ dãi của thước đo |
+| mAP@0.5:0.95 | "COCO AP" | Trung bình trên các ngưỡng IoU 0.5..0.95 bước 0.05; phiên bản nghiêm ngặt và tiêu chuẩn cộng đồng hiện tại |
 
 ## Further Reading
 
-- [YOLOv1: You Only Look Once (Redmon et al., 2016)](https://arxiv.org/abs/1506.02640) — the founding paper; every YOLO since is a refinement of this structure
-- [YOLOv3 (Redmon & Farhadi, 2018)](https://arxiv.org/abs/1804.02767) — the paper that introduced multi-scale FPN-style heads; still the clearest diagram
-- [Ultralytics YOLOv8 docs](https://docs.ultralytics.com) — the current production reference; covers dataset formats, augmentations, training recipes
-- [The Illustrated Guide to Object Detection (Jonathan Hui)](https://jonathan-hui.medium.com/object-detection-series-24d03a12f904) — best plain-English tour of the full detector zoo; priceless for understanding how DETR, RetinaNet, FCOS, and YOLO relate
+- [YOLOv1: You Only Look Once (Redmon et al., 2016)](https://arxiv.org/abs/1506.02640) — bài báo nền tảng; mọi YOLO sau đó là sự tinh chỉnh cấu trúc này
+- [YOLOv3 (Redmon & Farhadi, 2018)](https://arxiv.org/abs/1804.02767) — bài báo giới thiệu các đầu đa tỷ lệ kiểu FPN; vẫn là sơ đồ rõ ràng nhất
+- [Ultralytics YOLOv8 docs](https://docs.ultralytics.com) — tài liệu tham khảo production hiện tại; bao quát các định dạng tập dữ liệu, tăng cường, công thức huấn luyện
+- [The Illustrated Guide to Object Detection (Jonathan Hui)](https://jonathan-hui.medium.com/object-detection-series-24d03a12f904) — chuyến tham quan bằng tiếng Anh đơn giản tốt nhất về toàn bộ bộ sưu tập bộ phát hiện; vô giá để hiểu DETR, RetinaNet, FCOS và YOLO liên hệ thế nào
