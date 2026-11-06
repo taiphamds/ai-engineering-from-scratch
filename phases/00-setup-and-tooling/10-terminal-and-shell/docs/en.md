@@ -1,6 +1,6 @@
 # Terminal & Shell
 
-> The terminal is where AI engineers live. Get comfortable here.
+> Terminal là nơi sống của các kỹ sư AI. Hãy trở nên thoải mái ở đây.
 
 **Type:** Learn
 **Languages:** --
@@ -9,16 +9,16 @@
 
 ## Learning Objectives
 
-- Use piping, redirects, and `grep` to filter and process training logs from the command line
-- Create persistent tmux sessions with multiple panes for concurrent training and GPU monitoring
-- Monitor system and GPU resources with `htop`, `nvtop`, and `nvidia-smi`
-- Transfer files between local and remote machines using SSH, `scp`, and `rsync`
+- Dùng đường ống, chuyển hướng và `grep` để lọc và xử lý nhật ký huấn luyện từ dòng lệnh
+- Tạo các phiên tmux bền vững với nhiều ô để huấn luyện và giám sát GPU đồng thời
+- Giám sát tài nguyên hệ thống và GPU bằng `htop`, `nvtop` và `nvidia-smi`
+- Truyền tệp giữa máy cục bộ và máy từ xa bằng SSH, `scp` và `rsync`
 
 ## The Problem
 
-You will spend more time in the terminal than in any editor. Training runs, GPU monitoring, log tailing, remote SSH sessions, environment management. Every AI workflow touches the shell. If you're slow here, you're slow everywhere.
+Bạn sẽ dành nhiều thời gian trong terminal hơn trong bất kỳ trình soạn thảo nào. Các lượt huấn luyện, giám sát GPU, theo dõi phần cuối nhật ký, phiên SSH từ xa, quản lý môi trường. Mọi quy trình AI đều chạm đến shell. Nếu bạn chậm ở đây, bạn chậm ở mọi nơi.
 
-This lesson covers the terminal skills that matter for AI work. No history of Unix. No deep-dive into Bash scripting. Just what you need.
+Bài học này bao gồm những kỹ năng terminal quan trọng cho công việc AI. Không có lịch sử Unix. Không đi sâu vào viết script Bash. Chỉ những gì bạn cần.
 
 ## The Concept
 
@@ -33,7 +33,7 @@ graph TD
     end
 ```
 
-Three things running at once. One terminal. You can detach, go home, SSH back in, and reattach. The training keeps running.
+Ba thứ chạy cùng lúc. Một terminal. Bạn có thể tách phiên, về nhà, SSH trở lại và gắn lại phiên. Quá trình huấn luyện vẫn tiếp tục chạy.
 
 ```figure
 s0-shell-pipeline
@@ -43,15 +43,15 @@ s0-shell-pipeline
 
 ### Step 1: Know your shell
 
-Check which shell you're running:
+Kiểm tra bạn đang chạy shell nào:
 
 ```bash
 echo $SHELL
 ```
 
-Most systems use `bash` or `zsh`. Both work fine. The commands in this course work in either.
+Hầu hết hệ thống dùng `bash` hoặc `zsh`. Cả hai đều hoạt động tốt. Các lệnh trong khóa học này hoạt động ở cả hai.
 
-Key things to know:
+Những điều then chốt cần biết:
 
 ```bash
 # Move around
@@ -75,7 +75,7 @@ clear   # or Ctrl+L
 
 ### Step 2: Piping and redirects
 
-Piping connects commands together. This is how you process logs, filter output, and chain tools. You will use this constantly.
+Đường ống kết nối các lệnh với nhau. Đây là cách bạn xử lý nhật ký, lọc đầu ra và nối chuỗi công cụ. Bạn sẽ dùng nó liên tục.
 
 ```bash
 # Count how many times "loss" appears in a log
@@ -97,7 +97,7 @@ python train.py > output.log 2> errors.log
 python train.py > train_full.log 2>&1
 ```
 
-The three redirects you need:
+Ba cách chuyển hướng bạn cần:
 
 | Symbol | What it does |
 |--------|-------------|
@@ -109,7 +109,7 @@ The three redirects you need:
 
 ### Step 3: Background processes
 
-Training runs take hours. You don't want to keep your terminal open the whole time.
+Các lượt huấn luyện mất hàng giờ. Bạn không muốn giữ terminal mở suốt thời gian đó.
 
 ```bash
 # Run in background (output still goes to terminal)
@@ -131,7 +131,7 @@ kill %1
 kill $(pgrep -f "train.py")
 ```
 
-The difference between `&`, `nohup`, and `screen`/`tmux`:
+Sự khác nhau giữa `&`, `nohup` và `screen`/`tmux`:
 
 | Method | Survives terminal close? | Can reattach? |
 |--------|-------------------------|---------------|
@@ -139,11 +139,11 @@ The difference between `&`, `nohup`, and `screen`/`tmux`:
 | `nohup command &` | Yes | No (check log file) |
 | `screen` / `tmux` | Yes | Yes |
 
-For anything longer than a few minutes, use tmux.
+Với bất cứ việc gì kéo dài hơn vài phút, hãy dùng tmux.
 
 ### Step 4: tmux
 
-tmux lets you create persistent terminal sessions with multiple panes. This is the single most useful tool for managing training runs.
+tmux cho phép bạn tạo các phiên terminal bền vững với nhiều ô. Đây là công cụ hữu ích nhất để quản lý các lượt huấn luyện.
 
 ```bash
 # Install
@@ -177,7 +177,7 @@ tmux ls
 tmux kill-session -t training
 ```
 
-A typical AI workflow session:
+Một phiên làm việc AI điển hình:
 
 ```bash
 tmux new -s train
@@ -216,15 +216,15 @@ watch -n1 nvidia-smi
 nvidia-smi --query-compute-apps=pid,name,used_memory --format=csv
 ```
 
-`htop` keybindings you'll use:
-- `F6` or `>` to sort by column (sort by memory to find memory leaks)
-- `F5` to toggle tree view (see child processes)
-- `F9` to kill a process
-- `/` to search for a process name
+Các tổ hợp phím `htop` bạn sẽ dùng:
+- `F6` hoặc `>` để sắp xếp theo cột (sắp xếp theo bộ nhớ để tìm rò rỉ bộ nhớ)
+- `F5` để bật/tắt chế độ cây (xem các tiến trình con)
+- `F9` để kết thúc một tiến trình
+- `/` để tìm tên tiến trình
 
 ### Step 6: SSH for remote GPU boxes
 
-When you rent a cloud GPU (Lambda, RunPod, Vast.ai), you connect via SSH.
+Khi thuê GPU đám mây (Lambda, RunPod, Vast.ai), bạn kết nối qua SSH.
 
 ```bash
 # Basic connection
@@ -259,13 +259,13 @@ ssh -L 8888:localhost:8888 user@gpu-box-ip
 
 ### Step 7: Useful aliases for AI work
 
-Add these to your `~/.bashrc` or `~/.zshrc`:
+Thêm những mục này vào `~/.bashrc` hoặc `~/.zshrc` của bạn:
 
 ```bash
 source phases/00-setup-and-tooling/10-terminal-and-shell/code/shell_aliases.sh
 ```
 
-Or copy the ones you want. The key aliases:
+Hoặc sao chép những mục bạn muốn. Các bí danh then chốt:
 
 ```bash
 # GPU status at a glance
@@ -281,11 +281,11 @@ alias ae='source .venv/bin/activate'
 alias watchloss='tail -f logs/*.log | grep --line-buffered "loss"'
 ```
 
-See `code/shell_aliases.sh` for the full set.
+Xem `code/shell_aliases.sh` để có bộ đầy đủ.
 
 ### Step 8: Common AI terminal patterns
 
-These come up repeatedly in practice:
+Những mẫu này xuất hiện lặp lại trong thực tế:
 
 ```bash
 # Run training, log everything, notify when done
@@ -317,7 +317,7 @@ env | grep -i torch
 
 ## Use It
 
-Here's when each tool comes into play during this course:
+Đây là lúc mỗi công cụ được sử dụng trong khóa học này:
 
 | Tool | When you use it |
 |------|----------------|
@@ -331,18 +331,18 @@ Here's when each tool comes into play during this course:
 
 ## Exercises
 
-1. Install tmux, create a session with three panes, and run `htop` in one, `watch -n1 date` in another, and a Python script in the third. Detach and reattach.
-2. Add the aliases from `code/shell_aliases.sh` to your shell config and reload with `source ~/.zshrc` (or `~/.bashrc`).
-3. Create a fake training log with `for i in $(seq 1 100); do echo "epoch $i loss: $(echo "scale=4; 1/$i" | bc)"; sleep 0.1; done > fake_train.log` and then use `grep`, `tail`, and `awk` to extract just the loss values.
-4. Set up an SSH config entry for a server you have access to (or use `localhost` to practice the syntax).
+1. Cài tmux, tạo phiên có ba ô và chạy `htop` trong một ô, `watch -n1 date` trong ô khác và một script Python trong ô thứ ba. Tách phiên rồi gắn lại.
+2. Thêm các bí danh từ `code/shell_aliases.sh` vào cấu hình shell và tải lại bằng `source ~/.zshrc` (hoặc `~/.bashrc`).
+3. Tạo nhật ký huấn luyện giả bằng `for i in $(seq 1 100); do echo "epoch $i loss: $(echo "scale=4; 1/$i" | bc)"; sleep 0.1; done > fake_train.log` rồi dùng `grep`, `tail` và `awk` để chỉ trích xuất các giá trị mất mát.
+4. Thiết lập một mục cấu hình SSH cho máy chủ bạn có quyền truy cập (hoặc dùng `localhost` để thực hành cú pháp).
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Shell | "The terminal" | The program that interprets your commands (bash, zsh, fish) |
-| tmux | "Terminal multiplexer" | A program that lets you run multiple terminal sessions inside one window, and detach/reattach |
-| Pipe | "The bar thing" | The `\|` operator that sends one command's output as input to another |
-| PID | "Process ID" | A unique number assigned to every running process, used to monitor or kill it |
-| nohup | "No hangup" | Runs a command immune to the hangup signal, so closing the terminal won't kill it |
-| SSH | "Connecting to the server" | Secure Shell, an encrypted protocol for running commands on a remote machine |
+| Shell | "Terminal" | Chương trình thông dịch các lệnh của bạn (bash, zsh, fish) |
+| tmux | "Bộ ghép kênh terminal" | Một chương trình cho phép bạn chạy nhiều phiên terminal bên trong một cửa sổ và tách ra/gắn lại |
+| Pipe | "Cái dấu gạch" | Toán tử `\|` gửi đầu ra của một lệnh làm đầu vào cho một lệnh khác |
+| PID | "ID tiến trình" | Một số duy nhất được gán cho mọi tiến trình đang chạy, được sử dụng để giám sát hoặc kết thúc tiến trình đó |
+| nohup | "Không ngắt kết nối" | Chạy một lệnh miễn nhiễm với tín hiệu ngắt kết nối, nên việc đóng terminal sẽ không kết thúc lệnh đó |
+| SSH | "Kết nối đến máy chủ" | Secure Shell, một giao thức được mã hóa để chạy các lệnh trên một máy từ xa |
