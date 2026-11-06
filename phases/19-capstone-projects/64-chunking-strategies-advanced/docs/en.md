@@ -1,6 +1,6 @@
 # Chunking Strategies, Compared
 
-> Chunking decides what your retriever can ever surface. Get the boundaries wrong and no embedding model, no reranker, no LLM can repair the damage downstream.
+> Chia đoạn quyết định thứ bộ truy xuất của bạn có thể từng đưa ra. Làm sai ranh giới và không mô hình embedding, không bộ xếp hạng lại, không LLM nào có thể sửa thiệt hại ở hạ nguồn.
 
 **Type:** Build
 **Languages:** Python
@@ -8,18 +8,18 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Implement five chunking strategies from scratch: fixed-window, sentence, recursive-split, semantic clustering, and structural markdown headers.
-- Measure recall@k on a fixture corpus with gold-labeled answer spans and explain why one strategy wins on prose and a different strategy wins on technical documents.
-- Read a chunk-length distribution and recognize the failure modes each strategy injects: orphan sentences, mid-symbol cuts, header-only chunks, semantic drift.
-- Pick a default for a new corpus without running the benchmark by inspecting three properties: document type, average paragraph length, and whether the format carries explicit structure.
+- Triển khai năm chiến lược chia đoạn từ đầu: cửa sổ cố định, câu, chia đệ quy, phân cụm ngữ nghĩa, và các tiêu đề markdown cấu trúc.
+- Đo recall@k trên một corpus fixture với các khoảng đáp án được gắn nhãn chuẩn và giải thích tại sao một chiến lược thắng trên văn xuôi và một chiến lược khác thắng trên các tài liệu kỹ thuật.
+- Đọc một phân phối độ dài đoạn và nhận ra các chế độ lỗi mỗi chiến lược đưa vào: câu mồ côi, cắt giữa ký hiệu, đoạn chỉ tiêu đề, độ trôi ngữ nghĩa.
+- Chọn một mặc định cho một corpus mới mà không chạy benchmark bằng cách kiểm tra ba thuộc tính: loại tài liệu, độ dài đoạn văn trung bình, và liệu định dạng mang cấu trúc tường minh không.
 
 ## The Problem
 
-Every RAG pipeline starts by cutting source documents into pieces small enough that an embedding model fits them and large enough that each piece carries a self-contained idea. The choice of where to cut is not a hyperparameter. It is the upper bound on what the retriever can ever return.
+Mọi pipeline RAG bắt đầu bằng cắt các tài liệu nguồn thành các phần đủ nhỏ để một mô hình embedding chứa được và đủ lớn để mỗi phần mang một ý tưởng tự chứa. Lựa chọn nơi cắt không phải một siêu tham số. Nó là cận trên của thứ bộ truy xuất có thể từng trả về.
 
-A query that asks "what does the budget abort threshold look like" can only succeed if the chunk that holds the abort threshold is reachable. If the fixed-window splitter cut the threshold value from the surrounding context, the embedding moves to a different cluster, the BM25 score drops, the rerankers see noise, and the answer the LLM generates is wrong. The 2024 paper "LongRAG: Enhancing Retrieval-Augmented Generation with Long-context LLMs" measured a 35 percent absolute swing in retrieval recall purely from the chunking choice. The follow-up work in 2025 on contextual chunk headers narrowed the gap but did not close it.
+Một truy vấn hỏi "ngưỡng hủy do ngân sách trông như thế nào" chỉ có thể thành công nếu đoạn giữ ngưỡng hủy có thể tiếp cận. Nếu bộ chia cửa sổ cố định cắt giá trị ngưỡng khỏi ngữ cảnh xung quanh, embedding chuyển sang một cụm khác, điểm BM25 giảm, các bộ xếp hạng lại thấy nhiễu, và đáp án LLM sinh là sai. Bài báo năm 2024 "LongRAG: Enhancing Retrieval-Augmented Generation with Long-context LLMs" đo một dao động tuyệt đối 35 phần trăm về recall truy xuất chỉ từ lựa chọn chia đoạn. Nghiên cứu tiếp nối năm 2025 về tiêu đề đoạn theo ngữ cảnh thu hẹp khoảng cách nhưng không đóng nó.
 
-This lesson builds five strategies side by side, runs them against a fixture corpus with gold-labeled answer spans, and lets you read the recall numbers yourself.
+Bài này xây dựng năm chiến lược cạnh nhau, chạy chúng với một corpus fixture có các khoảng đáp án được gắn nhãn chuẩn, và để bạn tự đọc các số recall.
 
 ## The Concept
 
@@ -45,27 +45,27 @@ flowchart LR
 
 ### Fixed-window
 
-The brute-force baseline. Cut every N characters. Optionally overlap so a sentence cut at position N appears whole inside the chunk that starts at position N - overlap. Fast, deterministic, terrible at boundaries. Use it as a control, not a default.
+Đường cơ sở vét cạn. Cắt mỗi N ký tự. Tùy chọn chồng lấn để một câu bị cắt ở vị trí N xuất hiện nguyên vẹn bên trong đoạn bắt đầu ở vị trí N - overlap. Nhanh, tất định, tệ ở các ranh giới. Dùng nó làm đối chứng, không phải mặc định.
 
 ### Sentence
 
-Split on sentence boundaries with a regex or a simple state machine. Pack one or more sentences into a chunk up to a target character budget. Stops cutting mid-word. Still cuts mid-paragraph and mid-section. The default in many early RAG pipelines and a reasonable choice for prose with no other structure.
+Chia tại các ranh giới câu bằng một regex hoặc một máy trạng thái đơn giản. Đóng gói một hoặc nhiều câu vào một đoạn tới một ngân sách ký tự đích. Ngừng cắt giữa từ. Vẫn cắt giữa đoạn văn và giữa mục. Mặc định trong nhiều pipeline RAG đầu tiên và một lựa chọn hợp lý cho văn xuôi không có cấu trúc khác.
 
 ### Recursive split
 
-The hierarchy strategy popularized by 2023-era libraries. Try to split on the strongest separator first (double newline, paragraph), fall back to the next (single newline), then to sentences, then to characters. The recursion terminates when the chunk fits the budget. Strong on documents that have inconsistent structure because it adapts per region.
+Chiến lược phân cấp được các thư viện thời 2023 phổ biến. Thử chia theo dấu phân cách mạnh nhất trước (dòng mới kép, đoạn văn), quay về cái tiếp theo (dòng mới đơn), rồi đến câu, rồi đến ký tự. Đệ quy kết thúc khi đoạn vừa ngân sách. Mạnh trên các tài liệu có cấu trúc không nhất quán vì nó thích ứng theo vùng.
 
 ### Semantic clustering
 
-Embed every sentence. Cluster contiguous sentences that share a topic centroid. Cut whenever the running similarity to the centroid drops below a threshold. The boundaries reflect meaning, not characters. Slower to build and dependent on the embedding model, but resilient against documents that switch topics inside a paragraph.
+Nhúng mọi câu. Phân cụm các câu liên tiếp chia sẻ một tâm chủ đề. Cắt bất cứ khi nào độ tương tự đang chạy với tâm giảm dưới một ngưỡng. Các ranh giới phản ánh ý nghĩa, không phải ký tự. Chậm hơn để xây dựng và phụ thuộc mô hình embedding, nhưng bền vững với các tài liệu chuyển chủ đề bên trong một đoạn văn.
 
 ### Structural markdown headers
 
-For documents that carry explicit structure (markdown, reStructuredText, RFC-style numbered sections), cut at heading boundaries. Each chunk becomes the heading plus everything underneath it down to the next heading at the same or higher level. Smallest chunks per topic, but only available when the corpus is well-formed.
+Với các tài liệu mang cấu trúc tường minh (markdown, reStructuredText, các mục đánh số kiểu RFC), cắt tại ranh giới tiêu đề. Mỗi đoạn trở thành tiêu đề cộng mọi thứ bên dưới nó đến tiêu đề tiếp theo ở cùng hoặc cấp cao hơn. Các đoạn nhỏ nhất theo chủ đề, nhưng chỉ có khi corpus đúng cấu trúc.
 
 ### How recall@k measures the boundary choice
 
-A gold-labeled query carries the exact character offsets of the answer span inside the source document. After chunking, you ask: does any of the top-k chunks the retriever returned overlap the gold span? If yes, recall@k for that query is 1. If no, it is 0. Average across the query set. Run the same evaluation for each strategy and the spread shows you which boundary policy survives the corpus you have.
+Một truy vấn được gắn nhãn chuẩn mang các độ lệch ký tự chính xác của khoảng đáp án bên trong tài liệu nguồn. Sau chia đoạn, bạn hỏi: có bất kỳ đoạn nào trong top-k bộ truy xuất trả về chồng lấn khoảng chuẩn không? Nếu có, recall@k cho truy vấn đó là 1. Nếu không, là 0. Lấy trung bình trên tập truy vấn. Chạy cùng đánh giá cho mỗi chiến lược và độ trải cho bạn thấy chính sách ranh giới nào sống sót qua corpus bạn có.
 
 ```figure
 ci-chunk-boundaries
@@ -73,87 +73,87 @@ ci-chunk-boundaries
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `fixed_window(text, size, overlap)` - the baseline.
-- `sentence_chunks(text, target)` - simple sentence packer.
-- `recursive_split(text, separators, target)` - hierarchical recursion.
-- `semantic_chunks(text, similarity_threshold)` - centroid-based clustering on top of a deterministic mock embedding.
-- `structural_markdown(text)` - header-aware splitter.
-- `mock_embed(text, dim)` - a hash-based embedding so the loop runs offline.
-- `DenseIndex` - the same shape used in Phase 19 Track B's hybrid retrieval lesson.
-- `eval_recall(strategy, corpus, queries, k)` - the comparison loop.
-- A `main()` that runs every strategy on the fixture corpus and prints a recall@k table.
+- `fixed_window(text, size, overlap)` - đường cơ sở.
+- `sentence_chunks(text, target)` - bộ đóng gói câu đơn giản.
+- `recursive_split(text, separators, target)` - đệ quy phân cấp.
+- `semantic_chunks(text, similarity_threshold)` - phân cụm dựa trên tâm trên một embedding giả lập tất định.
+- `structural_markdown(text)` - bộ chia có nhận thức tiêu đề.
+- `mock_embed(text, dim)` - một embedding dựa trên băm để vòng lặp chạy ngoại tuyến.
+- `DenseIndex` - cùng hình thức được dùng trong bài truy xuất lai của Phase 19 Track B.
+- `eval_recall(strategy, corpus, queries, k)` - vòng lặp so sánh.
+- Một `main()` chạy mọi chiến lược trên corpus fixture và in một bảng recall@k.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-The output is a small table with one row per strategy and one column per k. Sentence loses on the structured fixture. Structural-markdown wins on the markdown fixture. Recursive holds its own on the mixed fixture because the recursion adapts. Semantic clustering wins on the prose fixture where there are no useful structural cues.
+Đầu ra là một bảng nhỏ với một hàng mỗi chiến lược và một cột mỗi k. Câu thua trên fixture có cấu trúc. Markdown cấu trúc thắng trên fixture markdown. Đệ quy tự giữ vị thế trên fixture hỗn hợp vì đệ quy thích ứng. Phân cụm ngữ nghĩa thắng trên fixture văn xuôi nơi không có các dấu hiệu cấu trúc hữu ích.
 
 ## Failure modes the table will not hide
 
-**Orphan sentences.** Sentence packing produces chunks that miss the topic sentence. The embedding then points at the wrong cluster.
+**Các câu mồ côi.** Đóng gói câu tạo các đoạn thiếu câu chủ đề. Embedding sau đó trỏ tới sai cụm.
 
-**Mid-symbol cuts.** Fixed-window inside code or YAML will split an identifier in half. The two halves embed to noise.
+**Cắt giữa ký hiệu.** Cửa sổ cố định bên trong mã hoặc YAML sẽ chia đôi một định danh. Hai nửa nhúng thành nhiễu.
 
-**Header-only chunks.** Structural markdown emits a chunk containing nothing but `## Title`. Filter those out or attach the next chunk's first paragraph.
+**Các đoạn chỉ tiêu đề.** Markdown cấu trúc phát ra một đoạn không chứa gì ngoài `## Title`. Lọc chúng ra hoặc gắn đoạn văn đầu của đoạn tiếp theo.
 
-**Semantic drift.** Semantic clustering under-cuts when the corpus is uniformly on topic. A 5000-character chunk packs many specific answers into one diffuse embedding. Combine semantic with a hard character cap.
+**Độ trôi ngữ nghĩa.** Phân cụm ngữ nghĩa cắt thiếu khi corpus đồng đều cùng chủ đề. Một đoạn 5000 ký tự đóng gói nhiều đáp án cụ thể vào một embedding khuếch tán. Kết hợp ngữ nghĩa với một trần ký tự cứng.
 
-**Stale embeddings.** Semantic clustering uses an embedding model. If you change the model, you also change the chunks. Pin the chunk model separately from the retrieval model or rebuild the index together.
+**Các embedding cũ.** Phân cụm ngữ nghĩa dùng một mô hình embedding. Nếu bạn thay mô hình, bạn cũng thay các đoạn. Ghim mô hình chia đoạn riêng khỏi mô hình truy xuất hoặc dựng lại chỉ mục cùng nhau.
 
 ## Choosing a default without running the benchmark
 
-Three properties decide the default chunker for a new corpus.
+Ba thuộc tính quyết định bộ chia đoạn mặc định cho một corpus mới.
 
-| Property | Value | Default |
+| Thuộc tính | Giá trị | Mặc định |
 |----------|-------|---------|
-| Document type | Prose with no structure | Recursive split, target 800 |
-| Document type | Markdown / RFC / API docs | Structural markdown |
-| Document type | Code | AST-aware (out of scope; see Phase 19 lesson 02) |
-| Paragraph length | Long, single topic | Sentence, target 500 |
-| Paragraph length | Short, mixed topics | Semantic, threshold 0.6 |
+| Loại tài liệu | Văn xuôi không cấu trúc | Chia đệ quy, mục tiêu 800 |
+| Loại tài liệu | Markdown / RFC / tài liệu API | Markdown cấu trúc |
+| Loại tài liệu | Mã | Có nhận thức AST (ngoài phạm vi; xem Phase 19 bài 02) |
+| Độ dài đoạn văn | Dài, một chủ đề | Câu, mục tiêu 500 |
+| Độ dài đoạn văn | Ngắn, chủ đề hỗn hợp | Ngữ nghĩa, ngưỡng 0.6 |
 
-When in doubt, pick recursive split. It is the strongest single-strategy baseline.
+Khi nghi ngờ, chọn chia đệ quy. Nó là đường cơ sở một chiến lược mạnh nhất.
 
 ## Use It
 
-Production patterns:
+Các mẫu sản xuất:
 
-- Run the eval before you ship a new pipeline; do not trust the strategy your library defaults to.
-- Re-run the eval whenever you change the embedding model or the corpus mix; the winner is corpus-dependent.
-- Persist the strategy name in each chunk's metadata so you can attribute regressions later.
+- Chạy đánh giá trước khi bạn cung cấp một pipeline mới; đừng tin chiến lược thư viện của bạn mặc định.
+- Chạy lại đánh giá bất cứ khi nào bạn đổi mô hình embedding hoặc hỗn hợp corpus; người thắng phụ thuộc corpus.
+- Lưu bền vững tên chiến lược trong siêu dữ liệu của mỗi đoạn để bạn có thể quy nguồn các lỗi thoái lui sau này.
 
 ## Ship It
 
-The Track F end-to-end RAG system in lesson 69 uses the chunker selected here as its first stage. The eval harness in lesson 68 reads recall@k from the same shape that `eval_recall` returns in this lesson. Pick the strategy that wins on your corpus and feed it forward.
+Hệ thống RAG đầu cuối Track F trong bài 69 dùng bộ chia đoạn được chọn ở đây làm giai đoạn đầu. Harness đánh giá trong bài 68 đọc recall@k từ cùng hình thức mà `eval_recall` trả về trong bài này. Chọn chiến lược thắng trên corpus của bạn và cấp nó về phía trước.
 
 ## Exercises
 
-1. Add a sixth strategy: token-window using `tiktoken` instead of character counts. Compare against fixed-window on the same fixture.
-2. Inject a 30 percent fraction of code blocks into the prose fixture. Re-run the table. Explain why every strategy except structural markdown loses recall.
-3. Replace the deterministic embedding with the one from your project's real provider. Measure the semantic-clustering recall delta. Report whether the spread between strategies widens or narrows.
-4. Add a `summary` field per chunk: a one-sentence centroid description. Re-run the eval with the summary appended to the chunk body. Measure the recall lift.
+1. Thêm một chiến lược thứ sáu: cửa sổ token dùng `tiktoken` thay vì số ký tự. So sánh với cửa sổ cố định trên cùng fixture.
+2. Chèn một tỷ lệ 30 phần trăm các khối mã vào fixture văn xuôi. Chạy lại bảng. Giải thích tại sao mọi chiến lược trừ markdown cấu trúc mất recall.
+3. Thay embedding tất định bằng embedding từ nhà cung cấp thực của dự án bạn. Đo chênh lệch recall phân cụm ngữ nghĩa. Báo cáo liệu độ trải giữa các chiến lược mở rộng hay thu hẹp.
+4. Thêm một trường `summary` mỗi đoạn: một mô tả tâm một câu. Chạy lại đánh giá với tóm tắt được thêm vào thân đoạn. Đo mức tăng recall.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Recall@k | "Did we get the right chunk?" | Fraction of queries where any of the top-k chunks overlaps the gold answer span |
-| Chunk overlap | "Sliding window" | Re-include the last N characters of the previous chunk in the next chunk |
-| Structural splitter | "Header-aware chunks" | Cut at H1/H2/H3 boundaries; the heading text is part of the chunk |
-| Semantic chunker | "Topic-aware chunks" | Embed sentences, cluster by centroid similarity, cut on drift |
-| Centroid drift | "Topic shift" | Cosine similarity between the running mean and the next sentence drops past a threshold |
+| Recall@k | "Chúng ta có lấy được đoạn đúng không?" | Tỷ lệ truy vấn mà bất kỳ đoạn nào trong top-k chồng lấn khoảng đáp án chuẩn |
+| Chunk overlap (Chồng lấn đoạn) | "Cửa sổ trượt" | Đưa lại N ký tự cuối của đoạn trước vào đoạn tiếp theo |
+| Structural splitter (Bộ chia cấu trúc) | "Các đoạn có nhận thức tiêu đề" | Cắt tại các ranh giới H1/H2/H3; văn bản tiêu đề là một phần của đoạn |
+| Semantic chunker (Bộ chia đoạn ngữ nghĩa) | "Các đoạn có nhận thức chủ đề" | Nhúng các câu, phân cụm theo độ tương tự tâm, cắt khi trôi |
+| Centroid drift (Độ trôi tâm) | "Chuyển chủ đề" | Độ tương tự cosine giữa trung bình đang chạy và câu tiếp theo giảm qua một ngưỡng |
 
 ## Further Reading
 
 - [LongRAG: Enhancing Retrieval-Augmented Generation with Long-context LLMs (arXiv 2406.15319)](https://arxiv.org/abs/2406.15319)
 - [Anthropic, Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval)
 - [LlamaIndex, Chunking strategies for production RAG](https://docs.llamaindex.ai/en/stable/optimizing/production_rag/)
-- Phase 11 lesson 06 - RAG fundamentals
-- Phase 11 lesson 07 - advanced RAG
-- Phase 19 lesson 65 - hybrid retrieval that ranks the chunks produced here
-- Phase 19 lesson 68 - the eval harness that scores the strategy choice in production
+- Phase 11 bài 06 - các nền tảng RAG
+- Phase 11 bài 07 - RAG nâng cao
+- Phase 19 bài 65 - truy xuất lai xếp hạng các đoạn được tạo ở đây
+- Phase 19 bài 68 - harness đánh giá chấm lựa chọn chiến lược trong sản xuất
