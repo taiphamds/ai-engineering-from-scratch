@@ -1,6 +1,6 @@
 # Debugging Neural Networks
 
-> Your network compiled. It ran. It produced a number. The number is wrong and nothing crashed. Welcome to the hardest kind of debugging -- the kind where there is no error message.
+> Mạng của bạn đã biên dịch. Nó đã chạy. Nó tạo ra một con số. Con số sai và không có gì bị sập. Chào mừng đến với kiểu gỡ lỗi khó nhất -- kiểu không có thông báo lỗi.
 
 **Type:** Build
 **Languages:** Python, PyTorch
@@ -9,30 +9,30 @@
 
 ## Learning Objectives
 
-- Diagnose common neural network failures (NaN loss, flat loss curve, overfitting, oscillation) using systematic debugging strategies
-- Apply the "overfit one batch" technique to verify that your model architecture and training loop are correct
-- Inspect gradient magnitudes, activation distributions, and weight norms to identify vanishing/exploding gradient problems
-- Build a debugging checklist that covers data pipeline, model architecture, loss function, optimizer, and learning rate issues
+- Chẩn đoán các thất bại mạng nơ-ron thường gặp (mất mát NaN, đường cong mất mát phẳng, quá khớp, dao động) bằng các chiến lược gỡ lỗi có hệ thống
+- Áp dụng kỹ thuật "quá khớp một batch" để xác minh kiến trúc mô hình và vòng lặp huấn luyện của bạn đúng
+- Xem xét các độ lớn gradient, phân phối kích hoạt và chuẩn trọng số để xác định các vấn đề gradient tiêu biến/bùng nổ
+- Xây dựng một danh sách kiểm tra gỡ lỗi bao quát các vấn đề pipeline dữ liệu, kiến trúc mô hình, hàm mất mát, bộ tối ưu hóa và tốc độ học
 
 ## The Problem
 
-Traditional software crashes when it is broken. A null pointer throws an exception. A type mismatch fails at compile time. An off-by-one error produces a clearly wrong output.
+Phần mềm truyền thống sập khi nó hỏng. Một con trỏ null ném ra ngoại lệ. Một trường hợp không khớp kiểu thất bại lúc biên dịch. Một lỗi lệch một đơn vị tạo ra đầu ra rõ ràng sai.
 
-Neural networks do not give you that luxury.
+Mạng nơ-ron không cho bạn sự xa xỉ đó.
 
-A broken neural network runs to completion, prints a loss value, and outputs predictions. The loss might decrease. The predictions might look plausible. But the model is silently wrong -- learning shortcuts, memorizing noise, or converging to a useless local minimum. Google researchers estimated that 60-70% of ML debugging time is spent on "silent" bugs that produce no errors but degrade model quality.
+Một mạng nơ-ron hỏng chạy đến hoàn tất, in một giá trị mất mát và xuất ra các dự đoán. Mất mát có thể giảm. Các dự đoán có thể trông hợp lý. Nhưng mô hình âm thầm sai -- học các lối tắt, ghi nhớ nhiễu hoặc hội tụ tới một cực tiểu cục bộ vô dụng. Các nhà nghiên cứu Google ước tính 60-70% thời gian gỡ lỗi ML dành cho các lỗi "âm thầm" không tạo ra lỗi nhưng làm giảm chất lượng mô hình.
 
-The difference between a working model and a broken one is often a single misplaced line: a missing `zero_grad()`, a transposed dimension, a learning rate off by 10x. the canonical "Recipe for Training Neural Networks" (2019) opens with this: "The most common neural net mistakes are bugs that don't crash."
+Khác biệt giữa một mô hình hoạt động và một mô hình hỏng thường là một dòng đặt sai chỗ: thiếu `zero_grad()`, một chiều bị chuyển vị, một tốc độ học sai lệch 10 lần. tài liệu chuẩn "Recipe for Training Neural Networks" (2019) mở đầu bằng điều này: "Những sai lầm mạng nơ-ron thường gặp nhất là các lỗi không gây sập."
 
-This lesson teaches you to find those bugs.
+Bài học này dạy bạn tìm những lỗi đó.
 
 ## The Concept
 
 ### The Debugging Mindset
 
-Forget print-and-pray debugging. Neural network debugging requires a systematic approach because the feedback loop is slow (minutes to hours per training run) and the symptoms are ambiguous (bad loss could mean 20 different things).
+Quên cách gỡ lỗi in-ra-rồi-cầu-nguyện đi. Gỡ lỗi mạng nơ-ron cần một cách tiếp cận có hệ thống vì vòng phản hồi chậm (vài phút tới vài giờ mỗi lần huấn luyện) và các triệu chứng mơ hồ (mất mát tệ có thể có 20 ý nghĩa khác nhau).
 
-The golden rule: **start simple, add complexity one piece at a time, and verify each piece independently.**
+Quy tắc vàng: **bắt đầu đơn giản, thêm độ phức tạp từng phần một và xác minh từng phần độc lập.**
 
 ```mermaid
 flowchart TD
@@ -52,55 +52,55 @@ flowchart TD
 
 ### Symptom 1: Loss Not Decreasing
 
-This is the most common complaint. The training loop runs, epochs tick by, and the loss stays flat or oscillates wildly.
+Đây là lời phàn nàn thường gặp nhất. Vòng lặp huấn luyện chạy, các epoch trôi qua và mất mát giữ phẳng hoặc dao động dữ dội.
 
-**Wrong learning rate.** Too high: loss oscillates or jumps to NaN. Too low: loss decreases so slowly it looks flat. For Adam, start at 1e-3. For SGD, start at 1e-1 or 1e-2. Always try 3 learning rates spanning 10x each (e.g., 1e-2, 1e-3, 1e-4) before concluding something else is wrong.
+**Tốc độ học sai.** Quá cao: mất mát dao động hoặc nhảy tới NaN. Quá thấp: mất mát giảm chậm tới mức trông phẳng. Với Adam, bắt đầu ở 1e-3. Với SGD, bắt đầu ở 1e-1 hoặc 1e-2. Luôn thử 3 tốc độ học cách nhau 10 lần (ví dụ: 1e-2, 1e-3, 1e-4) trước khi kết luận có điều gì khác sai.
 
-**Dead ReLUs.** If a ReLU neuron receives a large negative input, it outputs 0 and its gradient is 0. It never activates again. If enough neurons die, the network cannot learn. Check: print the fraction of activations that are exactly 0 after each ReLU layer. If >50% are dead, switch to LeakyReLU or reduce the learning rate.
+**ReLU chết.** Nếu một nơ-ron ReLU nhận một đầu vào âm lớn, nó xuất ra 0 và gradient của nó là 0. Nó không bao giờ kích hoạt trở lại. Nếu đủ nơ-ron chết, mạng không thể học. Kiểm tra: in tỷ lệ các kích hoạt đúng bằng 0 sau mỗi lớp ReLU. Nếu >50% đã chết, chuyển sang LeakyReLU hoặc giảm tốc độ học.
 
-**Vanishing gradients.** In deep networks with sigmoid or tanh activations, gradients shrink exponentially as they propagate backward. By the time they reach the first layer, they are ~0. The first layers stop learning. Fix: use ReLU/GELU, add residual connections, or use batch normalization.
+**Gradient tiêu biến.** Trong các mạng sâu có kích hoạt sigmoid hoặc tanh, các gradient co lại theo cấp số nhân khi lan truyền ngược. Khi đến lớp đầu tiên, chúng là ~0. Các lớp đầu ngừng học. Khắc phục: sử dụng ReLU/GELU, thêm các kết nối phần dư hoặc sử dụng batch normalization.
 
-**Exploding gradients.** The opposite problem -- gradients grow exponentially. Common in RNNs and very deep networks. Loss jumps to NaN. Fix: gradient clipping (`torch.nn.utils.clip_grad_norm_`), lower learning rate, or add normalization.
+**Gradient bùng nổ.** Vấn đề ngược lại -- các gradient tăng theo cấp số nhân. Thường gặp trong RNN và các mạng rất sâu. Mất mát nhảy tới NaN. Khắc phục: cắt gradient (`torch.nn.utils.clip_grad_norm_`), giảm tốc độ học hoặc thêm chuẩn hóa.
 
 ### Symptom 2: Loss Decreasing But Model is Bad
 
-The loss goes down. Training accuracy hits 99%. But test accuracy is 55%. Or the model produces nonsensical outputs on real data.
+Mất mát đi xuống. Accuracy huấn luyện đạt 99%. Nhưng accuracy test là 55%. Hoặc mô hình tạo ra các đầu ra vô nghĩa trên dữ liệu thật.
 
-**Overfitting.** The model memorizes training data instead of learning patterns. Gap between training and validation loss grows over time. Fix: more data, dropout, weight decay, early stopping, data augmentation.
+**Quá khớp.** Mô hình ghi nhớ dữ liệu huấn luyện thay vì học các mẫu. Khoảng cách giữa mất mát huấn luyện và validation tăng theo thời gian. Khắc phục: thêm dữ liệu, dropout, weight decay, dừng sớm, tăng cường dữ liệu.
 
-**Data leakage.** Test data leaked into training. Accuracy is suspiciously high. Common causes: shuffling before splitting, preprocessing with statistics from the full dataset, duplicate samples across splits. Fix: split first, preprocess second, check for duplicates.
+**Rò rỉ dữ liệu.** Dữ liệu test rò vào huấn luyện. Accuracy cao đáng ngờ. Các nguyên nhân thường gặp: xáo trộn trước khi chia, tiền xử lý với thống kê từ toàn bộ tập dữ liệu, các mẫu trùng lặp giữa các tập chia. Khắc phục: chia trước, tiền xử lý sau, kiểm tra trùng lặp.
 
-**Label errors.** 5-10% of labels in most real datasets are wrong (Northcutt et al., 2021 -- "Pervasive Label Errors in Test Sets"). The model learns the noise. Fix: use confident learning to find and fix mislabeled examples, or use loss truncation to ignore high-loss samples.
+**Lỗi nhãn.** 5-10% nhãn trong hầu hết các tập dữ liệu thật là sai (Northcutt et al., 2021 -- "Pervasive Label Errors in Test Sets"). Mô hình học nhiễu. Khắc phục: sử dụng confident learning để tìm và sửa các ví dụ gán nhãn sai, hoặc sử dụng cắt cụt mất mát để bỏ qua các mẫu có mất mát cao.
 
 ### Symptom 3: NaN or Inf in Loss
 
-The loss value becomes `nan` or `inf`. Training is dead.
+Giá trị mất mát trở thành `nan` hoặc `inf`. Huấn luyện đã chết.
 
-**Learning rate too high.** Gradient updates overshoot so far that weights explode. Fix: reduce by 10x.
+**Tốc độ học quá cao.** Các cập nhật gradient vượt quá xa tới mức các trọng số bùng nổ. Khắc phục: giảm 10 lần.
 
-**log(0) or log(negative).** Cross-entropy loss computes `log(p)`. If your model outputs exactly 0 or a negative probability, the log explodes. Fix: clamp predictions to `[eps, 1-eps]` where `eps=1e-7`.
+**log(0) hoặc log(âm).** Mất mát cross-entropy tính `log(p)`. Nếu mô hình của bạn xuất ra đúng 0 hoặc một xác suất âm, log bùng nổ. Khắc phục: chặn các dự đoán về `[eps, 1-eps]` trong đó `eps=1e-7`.
 
-**Division by zero.** Batch normalization divides by standard deviation. A batch with constant values has std=0. Fix: add epsilon to the denominator (PyTorch does this by default, but custom implementations might not).
+**Chia cho không.** Batch normalization chia cho độ lệch chuẩn. Một batch có các giá trị hằng có std=0. Khắc phục: thêm epsilon vào mẫu số (PyTorch làm điều này theo mặc định, nhưng các bản triển khai tùy chỉnh có thể không).
 
-**Numerical overflow.** Large activations fed into `exp()` produce Inf. Softmax is especially prone. Fix: subtract the max before exponentiating (the log-sum-exp trick).
+**Tràn số.** Các kích hoạt lớn đưa vào `exp()` tạo ra Inf. Softmax đặc biệt dễ gặp. Khắc phục: trừ giá trị lớn nhất trước khi lấy hàm mũ (thủ thuật log-sum-exp).
 
 ### Technique 1: Gradient Checking
 
-Compare your analytical gradients (from backprop) to numerical gradients (from finite differences). If they disagree, your backward pass has a bug.
+So sánh các gradient giải tích của bạn (từ backprop) với các gradient số (từ sai phân hữu hạn). Nếu chúng không khớp, lượt truyền ngược của bạn có lỗi.
 
-Numerical gradient for parameter `w`:
+Gradient số cho tham số `w`:
 
 ```
 grad_numerical = (loss(w + eps) - loss(w - eps)) / (2 * eps)
 ```
 
-Agreement metric (relative difference):
+Thước đo mức khớp (chênh lệch tương đối):
 
 ```
 rel_diff = |grad_analytical - grad_numerical| / max(|grad_analytical|, |grad_numerical|, 1e-8)
 ```
 
-If `rel_diff < 1e-5`: correct. If `rel_diff > 1e-3`: almost certainly a bug.
+Nếu `rel_diff < 1e-5`: đúng. Nếu `rel_diff > 1e-3`: gần như chắc chắn có lỗi.
 
 ```mermaid
 flowchart LR
@@ -117,18 +117,18 @@ flowchart LR
 
 ### Technique 2: Activation Statistics
 
-Monitor the mean and standard deviation of activations after each layer during training. Healthy networks maintain activations with mean near 0 and std near 1 (after normalization) or at least bounded.
+Giám sát trung bình và độ lệch chuẩn của các kích hoạt sau mỗi lớp trong huấn luyện. Các mạng khỏe mạnh duy trì các kích hoạt có trung bình gần 0 và độ lệch chuẩn gần 1 (sau chuẩn hóa) hoặc ít nhất bị chặn.
 
-| Health indicator | Mean | Std | Diagnosis |
+| Chỉ báo sức khỏe | Trung bình | Độ lệch chuẩn | Chẩn đoán |
 |-----------------|------|-----|-----------|
-| Healthy | ~0 | ~1 | Network is learning normally |
-| Saturated | >>0 or <<0 | ~0 | Activations stuck at extreme values |
-| Dead | 0 | 0 | Neurons are dead (all zeros) |
-| Exploding | >>10 | >>10 | Activations growing without bound |
+| Khỏe mạnh | ~0 | ~1 | Mạng đang học bình thường |
+| Bão hòa | >>0 hoặc <<0 | ~0 | Các kích hoạt mắc kẹt ở các giá trị cực đoan |
+| Chết | 0 | 0 | Các nơ-ron đã chết (tất cả bằng không) |
+| Bùng nổ | >>10 | >>10 | Các kích hoạt tăng không giới hạn |
 
 ### Technique 3: Gradient Flow Visualization
 
-Plot the average gradient magnitude for each layer. In a healthy network, gradient magnitudes should be roughly similar across layers. If early layers have gradients 1000x smaller than later layers, you have vanishing gradients.
+Vẽ độ lớn gradient trung bình cho mỗi lớp. Trong một mạng khỏe mạnh, các độ lớn gradient nên gần tương tự giữa các lớp. Nếu các lớp đầu có gradient nhỏ hơn các lớp sau 1000 lần, bạn có gradient tiêu biến.
 
 ```mermaid
 graph LR
@@ -146,22 +146,22 @@ graph LR
 
 ### Technique 4: The Overfit-One-Batch Test
 
-The single most important debugging technique in deep learning.
+Kỹ thuật gỡ lỗi quan trọng nhất trong học sâu.
 
-Take one small batch (8-32 samples). Train on it for 100+ iterations. The loss should go to nearly zero and training accuracy should hit 100%. If it does not, your model or training loop has a fundamental bug -- do not proceed to full training.
+Lấy một batch nhỏ (8-32 mẫu). Huấn luyện trên nó trong 100+ lần lặp. Mất mát nên về gần không và accuracy huấn luyện nên đạt 100%. Nếu không, mô hình hoặc vòng lặp huấn luyện của bạn có một lỗi cơ bản -- đừng tiếp tục huấn luyện đầy đủ.
 
-This test catches:
-- Broken loss functions
-- Broken backward passes
-- Architecture too small to represent the data
-- Optimizer not connected to model parameters
-- Data and labels misaligned
+Phép kiểm tra này phát hiện:
+- Các hàm mất mát hỏng
+- Các lượt truyền ngược hỏng
+- Kiến trúc quá nhỏ để biểu diễn dữ liệu
+- Bộ tối ưu hóa không được kết nối với các tham số mô hình
+- Dữ liệu và nhãn bị lệch nhau
 
-This takes 30 seconds to run and saves hours of debugging full training runs.
+Phép kiểm tra này mất 30 giây để chạy và tiết kiệm hàng giờ gỡ lỗi các lần huấn luyện đầy đủ.
 
 ### Technique 5: Learning Rate Finder
 
-Leslie Smith (2017) proposed sweeping the learning rate from very small (1e-7) to very large (10) over one epoch while recording the loss. Plot loss vs learning rate. The optimal learning rate is roughly 10x smaller than the rate where loss starts decreasing fastest.
+Leslie Smith (2017) đề xuất quét tốc độ học từ rất nhỏ (1e-7) tới rất lớn (10) trong một epoch trong khi ghi lại mất mát. Vẽ mất mát theo tốc độ học. Tốc độ học tối ưu nhỏ hơn khoảng 10 lần tốc độ mà mất mát bắt đầu giảm nhanh nhất.
 
 ```mermaid
 graph TD
@@ -175,37 +175,37 @@ graph TD
     end
 ```
 
-Best LR in this example: ~1e-3 (one order of magnitude before the steepest point).
+LR tốt nhất trong ví dụ này: ~1e-3 (một bậc độ lớn trước điểm dốc nhất).
 
 ### Common PyTorch Bugs
 
-These are the bugs that waste the most collective hours in the PyTorch community:
+Đây là những lỗi gây lãng phí tổng số giờ nhiều nhất trong cộng đồng PyTorch:
 
-| Bug | Symptom | Fix |
+| Lỗi | Triệu chứng | Cách khắc phục |
 |-----|---------|-----|
-| Forgetting `optimizer.zero_grad()` | Gradients accumulate across batches, loss oscillates | Add `optimizer.zero_grad()` before `loss.backward()` |
-| Forgetting `model.eval()` at test time | Dropout and batch norm behave differently, test accuracy varies between runs | Add `model.eval()` and `torch.no_grad()` |
-| Wrong tensor shapes | Silent broadcasting produces wrong results, no error | Print shapes after every operation during debugging |
-| CPU/GPU mismatch | `RuntimeError: expected CUDA tensor` | Use `.to(device)` on model AND data |
-| Not detaching tensors | Computation graph grows forever, OOM | Use `.detach()` or `with torch.no_grad()` |
-| In-place operations breaking autograd | `RuntimeError: modified by in-place operation` | Replace `x += 1` with `x = x + 1` |
-| Data not normalized | Loss stuck at random-chance level | Normalize inputs to mean=0, std=1 |
-| Labels as wrong dtype | Cross-entropy expects `Long`, got `Float` | Cast labels: `labels.long()` |
+| Quên `optimizer.zero_grad()` | Các gradient tích lũy qua các batch, mất mát dao động | Thêm `optimizer.zero_grad()` trước `loss.backward()` |
+| Quên `model.eval()` khi test | Dropout và batch norm hoạt động khác nhau, accuracy test thay đổi giữa các lần chạy | Thêm `model.eval()` và `torch.no_grad()` |
+| Hình dạng tensor sai | Broadcasting âm thầm tạo ra các kết quả sai, không có lỗi | In các hình dạng sau mỗi phép toán khi gỡ lỗi |
+| CPU/GPU không khớp | `RuntimeError: expected CUDA tensor` | Sử dụng `.to(device)` trên mô hình VÀ dữ liệu |
+| Không tách các tensor | Đồ thị tính toán tăng mãi, OOM | Sử dụng `.detach()` hoặc `with torch.no_grad()` |
+| Các phép toán tại chỗ làm hỏng autograd | `RuntimeError: modified by in-place operation` | Thay `x += 1` bằng `x = x + 1` |
+| Dữ liệu không được chuẩn hóa | Mất mát mắc kẹt ở mức may rủi ngẫu nhiên | Chuẩn hóa các đầu vào về mean=0, std=1 |
+| Nhãn sai dtype | Cross-entropy kỳ vọng `Long`, nhận `Float` | Ép kiểu nhãn: `labels.long()` |
 
 ### The Master Debugging Table
 
-| Symptom | Likely cause | First thing to try |
+| Triệu chứng | Nguyên nhân có khả năng | Điều đầu tiên cần thử |
 |---------|-------------|-------------------|
-| Loss stuck at -log(1/num_classes) | Model predicting uniform distribution | Check data pipeline, verify labels match inputs |
-| Loss NaN after a few steps | Learning rate too high | Reduce LR by 10x |
-| Loss NaN immediately | log(0) or division by zero | Add epsilon to log/division operations |
-| Loss oscillating wildly | LR too high or batch size too small | Reduce LR, increase batch size |
-| Loss decreasing then plateaus | LR too high for fine-tuning phase | Add LR schedule (cosine or step decay) |
-| Training acc high, test acc low | Overfitting | Add dropout, weight decay, more data |
-| Training acc = test acc = chance | Model not learning anything | Run overfit-one-batch test |
-| Training acc = test acc but both low | Underfitting | Bigger model, more layers, more features |
-| Gradients all zero | Dead ReLUs or detached computation graph | Switch to LeakyReLU, check `.requires_grad` |
-| Out of memory during training | Batch too large or graph not freed | Reduce batch size, use `torch.no_grad()` for eval |
+| Mất mát mắc kẹt ở -log(1/num_classes) | Mô hình dự đoán phân phối đều | Kiểm tra pipeline dữ liệu, xác minh nhãn khớp đầu vào |
+| Mất mát NaN sau vài bước | Tốc độ học quá cao | Giảm LR 10 lần |
+| Mất mát NaN ngay lập tức | log(0) hoặc chia cho không | Thêm epsilon vào các phép toán log/chia |
+| Mất mát dao động dữ dội | LR quá cao hoặc kích thước batch quá nhỏ | Giảm LR, tăng kích thước batch |
+| Mất mát giảm rồi chững lại | LR quá cao cho giai đoạn tinh chỉnh | Thêm lịch LR (cosine hoặc suy giảm bậc thang) |
+| Accuracy huấn luyện cao, accuracy test thấp | Quá khớp | Thêm dropout, weight decay, thêm dữ liệu |
+| Accuracy huấn luyện = accuracy test = may rủi | Mô hình không học được gì | Chạy phép kiểm tra quá khớp một batch |
+| Accuracy huấn luyện = accuracy test nhưng cả hai thấp | Khớp thiếu | Mô hình lớn hơn, nhiều lớp hơn, nhiều đặc trưng hơn |
+| Các gradient đều bằng không | ReLU chết hoặc đồ thị tính toán bị tách | Chuyển sang LeakyReLU, kiểm tra `.requires_grad` |
+| Hết bộ nhớ trong huấn luyện | Batch quá lớn hoặc đồ thị chưa được giải phóng | Giảm kích thước batch, sử dụng `torch.no_grad()` cho eval |
 
 ```figure
 learning-curves
@@ -213,11 +213,11 @@ learning-curves
 
 ## Build It
 
-A diagnostic toolkit that monitors activations, gradients, and loss curves. You will deliberately break a network and use the toolkit to diagnose each problem.
+Một bộ công cụ chẩn đoán giám sát các kích hoạt, gradient và đường cong mất mát. Bạn sẽ cố ý làm hỏng một mạng và sử dụng bộ công cụ để chẩn đoán từng vấn đề.
 
 ### Step 1: The NetworkDebugger Class
 
-Hooks into a PyTorch model to record activation and gradient statistics per layer.
+Gắn hook vào một mô hình PyTorch để ghi lại các thống kê kích hoạt và gradient theo từng lớp.
 
 ```python
 import torch
@@ -497,7 +497,7 @@ def gradient_check(model, x, y, criterion, eps=1e-4):
 
 ### Step 5: Deliberately Broken Networks
 
-Now apply the toolkit to broken networks and diagnose each one.
+Giờ áp dụng bộ công cụ cho các mạng hỏng và chẩn đoán từng mạng.
 
 ```python
 def demo_broken_networks():
@@ -656,56 +656,56 @@ for epoch in range(100):
 
 ### The Debug Checklist (Before Full Training)
 
-1. Run overfit-one-batch test. If it fails, stop.
-2. Print model summary -- verify parameter count is reasonable.
-3. Run a single forward pass with random data -- check output shape.
-4. Train for 5 epochs -- verify loss decreases.
-5. Check activation statistics -- no dead layers, no explosions.
-6. Check gradient flow -- no vanishing, no exploding.
-7. Verify data pipeline -- print 5 random samples with labels.
+1. Chạy phép kiểm tra quá khớp một batch. Nếu thất bại, dừng.
+2. In tóm tắt mô hình -- xác minh số tham số hợp lý.
+3. Chạy một lượt truyền xuôi với dữ liệu ngẫu nhiên -- kiểm tra hình dạng đầu ra.
+4. Huấn luyện trong 5 epoch -- xác minh mất mát giảm.
+5. Kiểm tra thống kê kích hoạt -- không lớp chết, không bùng nổ.
+6. Kiểm tra luồng gradient -- không tiêu biến, không bùng nổ.
+7. Xác minh pipeline dữ liệu -- in 5 mẫu ngẫu nhiên với nhãn.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-nn-debugger.md` -- a prompt for diagnosing neural network training failures
-- `outputs/skill-debug-checklist.md` -- a decision-tree checklist for debugging training issues
+Bài học này tạo ra:
+- `outputs/prompt-nn-debugger.md` -- một prompt chẩn đoán các thất bại huấn luyện mạng nơ-ron
+- `outputs/skill-debug-checklist.md` -- một danh sách kiểm tra dạng cây quyết định để gỡ lỗi các vấn đề huấn luyện
 
-Key deployment patterns for debugging:
-- Add monitoring hooks to production training scripts
-- Log activation and gradient statistics to W&B or TensorBoard every N steps
-- Implement automatic alerts for NaN loss, dead neurons (>80% zero), or gradient explosion
-- Always run the overfit-one-batch test when changing architectures or data pipelines
+Các mẫu triển khai chính cho gỡ lỗi:
+- Thêm các hook giám sát vào các script huấn luyện production
+- Ghi các thống kê kích hoạt và gradient vào W&B hoặc TensorBoard mỗi N bước
+- Triển khai các cảnh báo tự động cho mất mát NaN, nơ-ron chết (>80% bằng không) hoặc bùng nổ gradient
+- Luôn chạy phép kiểm tra quá khớp một batch khi thay đổi kiến trúc hoặc pipeline dữ liệu
 
 ## Exercises
 
-1. **Add an exploding gradient detector.** Modify the `NetworkDebugger` to detect when gradients exceed a threshold and automatically suggest a gradient clipping value. Test it on a 20-layer network with no normalization.
+1. **Thêm một bộ phát hiện gradient bùng nổ.** Sửa `NetworkDebugger` để phát hiện khi các gradient vượt một ngưỡng và tự động đề xuất một giá trị cắt gradient. Kiểm thử trên một mạng 20 lớp không có chuẩn hóa.
 
-2. **Build a dead neuron resurrector.** Write a function that identifies dead ReLU neurons (always outputting 0) and reinitializes their incoming weights with Kaiming initialization. Show that this recovers a network where >70% of neurons are dead.
+2. **Xây dựng một công cụ hồi sinh nơ-ron chết.** Viết một hàm xác định các nơ-ron ReLU chết (luôn xuất ra 0) và khởi tạo lại các trọng số đi vào của chúng bằng khởi tạo Kaiming. Cho thấy điều này phục hồi một mạng mà >70% nơ-ron đã chết.
 
-3. **Implement the learning rate finder with plotting.** Extend `find_learning_rate` to save results as a CSV and write a separate script that reads the CSV and displays the LR vs loss curve using matplotlib. Identify the optimal LR for ResNet-18 on CIFAR-10.
+3. **Triển khai công cụ tìm tốc độ học với vẽ đồ thị.** Mở rộng `find_learning_rate` để lưu các kết quả thành CSV và viết một script riêng đọc CSV rồi hiển thị đường cong LR theo mất mát bằng matplotlib. Xác định LR tối ưu cho ResNet-18 trên CIFAR-10.
 
-4. **Create a data pipeline validator.** Write a function that checks for: duplicate samples across train/test splits, label distribution imbalance (>10:1 ratio), input normalization (mean near 0, std near 1), and NaN/Inf values in the data. Run it on a deliberately corrupted dataset.
+4. **Tạo một bộ xác thực pipeline dữ liệu.** Viết một hàm kiểm tra: các mẫu trùng lặp giữa các tập chia huấn luyện/test, mất cân bằng phân phối nhãn (tỷ lệ >10:1), chuẩn hóa đầu vào (trung bình gần 0, độ lệch chuẩn gần 1) và các giá trị NaN/Inf trong dữ liệu. Chạy trên một tập dữ liệu được cố ý làm hỏng.
 
-5. **Debug a real failure.** Take the mini-framework from Lesson 10, introduce a subtle bug (e.g., transpose the weight matrix in backward), and use gradient checking to locate exactly which parameter has incorrect gradients. Document the debugging process.
+5. **Gỡ lỗi một thất bại thực tế.** Lấy mini-framework từ Bài 10, đưa vào một lỗi tinh vi (ví dụ: chuyển vị ma trận trọng số trong backward) và sử dụng kiểm tra gradient để xác định chính xác tham số nào có gradient sai. Ghi lại quá trình gỡ lỗi.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Silent bug | "It runs but gives bad results" | A bug that produces no error but degrades model quality -- the dominant failure mode in ML |
-| Dead ReLU | "The neurons died" | A ReLU neuron whose input is always negative, so it outputs 0 and receives 0 gradient permanently |
-| Vanishing gradients | "Early layers stop learning" | Gradients shrink exponentially through layers, making weights in early layers effectively frozen |
-| Exploding gradients | "Loss went to NaN" | Gradients grow exponentially through layers, causing weight updates so large they overflow |
-| Gradient checking | "Verify backprop is correct" | Comparing analytical gradients from backprop to numerical gradients from finite differences |
-| Overfit-one-batch | "The most important debug test" | Training on a single small batch to verify the model CAN learn -- if it cannot, something is fundamentally broken |
-| LR finder | "Sweep to find the right learning rate" | Exponentially increasing the learning rate over one epoch and picking the rate just before loss diverges |
-| Data leakage | "Test data leaked into training" | When information from the test set contaminates training, producing artificially high accuracy |
-| Activation statistics | "Monitor layer health" | Tracking mean, std, and zero-fraction of each layer's output to detect dead, saturated, or exploding neurons |
-| Gradient clipping | "Cap the gradient magnitude" | Scaling gradients down when their norm exceeds a threshold, preventing exploding gradient updates |
+| Silent bug (Lỗi âm thầm) | "Nó chạy nhưng cho kết quả tệ" | Một lỗi không tạo ra thông báo lỗi nhưng làm giảm chất lượng mô hình -- kiểu thất bại chủ đạo trong ML |
+| Dead ReLU (ReLU chết) | "Các nơ-ron đã chết" | Một nơ-ron ReLU có đầu vào luôn âm, nên nó xuất ra 0 và nhận gradient 0 vĩnh viễn |
+| Vanishing gradients (Gradient tiêu biến) | "Các lớp đầu ngừng học" | Các gradient co lại theo cấp số nhân qua các lớp, khiến các trọng số ở các lớp đầu về thực chất bị đóng băng |
+| Exploding gradients (Gradient bùng nổ) | "Mất mát thành NaN" | Các gradient tăng theo cấp số nhân qua các lớp, gây ra các cập nhật trọng số lớn tới mức tràn số |
+| Gradient checking (Kiểm tra gradient) | "Xác minh backprop đúng" | So sánh các gradient giải tích từ backprop với các gradient số từ sai phân hữu hạn |
+| Overfit-one-batch (Quá khớp một batch) | "Phép kiểm tra gỡ lỗi quan trọng nhất" | Huấn luyện trên một batch nhỏ duy nhất để xác minh mô hình CÓ THỂ học -- nếu không, có điều gì đó hỏng về cơ bản |
+| LR finder (Công cụ tìm LR) | "Quét để tìm tốc độ học đúng" | Tăng tốc độ học theo hàm mũ trong một epoch và chọn tốc độ ngay trước khi mất mát phân kỳ |
+| Data leakage (Rò rỉ dữ liệu) | "Dữ liệu test rò vào huấn luyện" | Khi thông tin từ tập test làm nhiễm huấn luyện, tạo ra accuracy cao giả tạo |
+| Activation statistics (Thống kê kích hoạt) | "Giám sát sức khỏe lớp" | Theo dõi trung bình, độ lệch chuẩn và tỷ lệ bằng không của đầu ra mỗi lớp để phát hiện các nơ-ron chết, bão hòa hoặc bùng nổ |
+| Gradient clipping (Cắt gradient) | "Chặn độ lớn gradient" | Co nhỏ các gradient khi chuẩn của chúng vượt một ngưỡng, ngăn các cập nhật gradient bùng nổ |
 
 ## Further Reading
 
-- Smith, "Cyclical Learning Rates for Training Neural Networks" (2017) -- the paper introducing the learning rate range test (LR finder)
-- Northcutt et al., "Pervasive Label Errors in Test Sets Destabilize Machine Learning Benchmarks" (2021) -- demonstrates that 3-6% of labels in ImageNet, CIFAR-10, and other major benchmarks are wrong
-- Zhang et al., "Understanding Deep Learning Requires Rethinking Generalization" (2017) -- the paper showing neural networks can memorize random labels, which is why the overfit-one-batch test works
-- PyTorch documentation on `torch.autograd.detect_anomaly` and `torch.autograd.set_detect_anomaly` for built-in NaN/Inf detection
+- Smith, "Cyclical Learning Rates for Training Neural Networks" (2017) -- bài báo giới thiệu phép kiểm tra phạm vi tốc độ học (công cụ tìm LR)
+- Northcutt et al., "Pervasive Label Errors in Test Sets Destabilize Machine Learning Benchmarks" (2021) -- chứng minh 3-6% nhãn trong ImageNet, CIFAR-10 và các benchmark lớn khác là sai
+- Zhang et al., "Understanding Deep Learning Requires Rethinking Generalization" (2017) -- bài báo cho thấy mạng nơ-ron có thể ghi nhớ các nhãn ngẫu nhiên, là lý do phép kiểm tra quá khớp một batch hoạt động
+- Tài liệu PyTorch về `torch.autograd.detect_anomaly` và `torch.autograd.set_detect_anomaly` để phát hiện NaN/Inf tích hợp
