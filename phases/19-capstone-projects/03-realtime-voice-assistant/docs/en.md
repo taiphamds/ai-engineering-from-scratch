@@ -1,6 +1,6 @@
 # Capstone 03 — Real-Time Voice Assistant (ASR to LLM to TTS)
 
-> A voice agent that feels right has end-to-end latency under 800ms, knows when you have stopped talking, handles barge-in, and can call a tool without stalling. Retell, Vapi, LiveKit Agents, and Pipecat all hit this bar in 2026. They do it with the same shape: a streaming ASR, a turn-detector, a streaming LLM, and a streaming TTS, all wired through WebRTC with aggressive latency budgets at every hop. Build one, measure WER and MOS and false-cutoff rate, and run it under packet loss.
+> Agent giọng nói có cảm giác đúng có độ trễ đầu cuối dưới 800ms, biết khi bạn ngừng nói, xử lý ngắt lời và gọi công cụ không đình trệ. Retell, Vapi, LiveKit Agents và Pipecat đều đạt mức này năm 2026. Chúng làm bằng cùng hình dạng: ASR truyền luồng, bộ phát hiện lượt, LLM truyền luồng và TTS truyền luồng, nối qua WebRTC với ngân sách độ trễ quyết liệt mỗi chặng. Xây một hệ thống, đo WER, MOS, tỷ lệ cắt nhầm và chạy dưới mất gói.
 
 **Type:** Capstone
 **Languages:** Python (agent + pipeline), TypeScript (web client)
@@ -10,17 +10,17 @@
 
 ## Problem
 
-Voice has been the fastest-moving AI UX category of 2025-2026. The technical ceiling dropped each quarter. OpenAI Realtime API, Gemini 2.5 Live, Cartesia Sonic-2, ElevenLabs Flash v3, LiveKit Agents 1.0, and Pipecat 0.0.70 all put sub-800ms first-audio-out within reach. The bar is not latency alone. It is the interaction feel: not cutting the user off, not getting cut off, recovering from a mid-sentence interruption, calling a tool mid-conversation without stalling the audio, surviving jittery mobile networks.
+Giọng nói là nhóm UX AI chuyển động nhanh nhất 2025-2026. Trần kỹ thuật giảm mỗi quý. OpenAI Realtime API, Gemini 2.5 Live, Cartesia Sonic-2, ElevenLabs Flash v3, LiveKit Agents 1.0 và Pipecat 0.0.70 đều đưa âm thanh đầu tiên dưới 800ms trong tầm tay. Tiêu chuẩn không chỉ độ trễ. Đó là cảm giác tương tác: không cắt ngang người dùng, không bị cắt ngang, khôi phục từ ngắt giữa câu, gọi công cụ giữa hội thoại không đình trệ âm thanh, trụ qua mạng di động chập chờn.
 
-You cannot get there by stitching three REST calls. The architecture is pipelined streaming end to end. Build it and the failure modes become visible: a VAD tuned for phone audio firing on background TV, a turn-detector waiting for punctuation that never comes, a TTS that buffers 400ms before emitting. The capstone is to fix these one at a time under load and publish a latency-and-quality report.
+Bạn không đạt được bằng ghép ba lệnh gọi REST. Kiến trúc là pipeline truyền luồng đầu cuối. Xây nó và chế độ lỗi hiện ra: VAD chỉnh cho âm thanh điện thoại kích hoạt bởi TV nền, bộ phát hiện lượt chờ dấu câu không bao giờ đến, TTS đệm 400ms trước xuất. Bài tổng kết là sửa từng lỗi dưới tải và công bố báo cáo độ trễ-và-chất lượng.
 
 ## Concept
 
-The pipeline has five streaming stages: **audio in** (WebRTC from browser or PSTN), **ASR** (streaming partial transcripts from Deepgram Nova-3 or faster-whisper), **turn detection** (VAD plus a small turn-detector model that reads partial transcripts for completion cues), **LLM** (streaming tokens as soon as the turn is judged complete), **TTS** (streaming audio out within ~200ms of the first LLM token).
+Pipeline có năm giai đoạn truyền luồng: **âm thanh vào** (WebRTC từ trình duyệt hoặc PSTN), **ASR** (bản chép lời từng phần từ Deepgram Nova-3 hoặc faster-whisper), **phát hiện lượt** (VAD cộng mô hình phát hiện lượt nhỏ đọc bản chép lời từng phần để tìm dấu hiệu hoàn tất), **LLM** (truyền token ngay khi lượt được phán hoàn tất), **TTS** (truyền âm thanh ra trong ~200ms từ token LLM đầu).
 
-Three cross-cutting concerns. **Barge-in**: when the user starts speaking while the agent is speaking, the TTS cancels and the ASR picks up immediately. **Tool use**: mid-conversation function calls (weather, calendar) must run on a side channel without stalling the audio; the agent pre-fills an acknowledgement token ("one second...") if latency exceeds 300ms. **Backpressure**: under packet loss, partial transcripts are held, VAD raises the speech-gate threshold, and the agent avoids speaking over an unacknowledged message.
+Ba mối quan tâm xuyên suốt. **Ngắt lời**: khi người dùng bắt đầu nói lúc agent đang nói, TTS hủy và ASR tiếp nhận ngay. **Dùng công cụ**: lệnh gọi hàm giữa hội thoại (thời tiết, lịch) phải chạy kênh phụ không đình trệ âm thanh; agent điền trước token xác nhận ("một giây...") nếu độ trễ vượt 300ms. **Áp lực ngược**: dưới mất gói, bản chép lời từng phần được giữ, VAD tăng ngưỡng cổng giọng nói và agent tránh nói đè thông điệp chưa được xác nhận.
 
-The measurement bar is quantitative. WER under 8% on the Hamming VAD benchmark at 15 dB SNR. First-audio-out p50 under 800ms on 100 measured calls. False-cutoff rate under 3%. MOS above 4.2 on TTS. 50 concurrent calls on a single g5.xlarge. These numbers are the deliverable.
+Tiêu chuẩn đo định lượng. WER dưới 8% trên phép đo chuẩn Hamming VAD ở SNR 15 dB. Âm thanh đầu tiên p50 dưới 800ms trên 100 cuộc gọi đo. Tỷ lệ cắt nhầm dưới 3%. MOS trên 4.2 cho TTS. 50 cuộc gọi đồng thời trên một g5.xlarge. Các số này là sản phẩm bàn giao.
 
 ## Architecture
 
@@ -60,14 +60,14 @@ browser / Twilio PSTN
 
 ## Stack
 
-- Transport: LiveKit Agents 1.0 (WebRTC) plus Twilio PSTN gateway; Pipecat 0.0.70 as the alternate framework
-- ASR: Deepgram Nova-3 (streaming, sub-300ms first partial) or faster-whisper Whisper-v3-turbo self-hosted
-- VAD: Silero VAD v5 plus the LiveKit turn-detector (small transformer that reads partial transcripts)
-- LLM: OpenAI GPT-4o-realtime for tight integration, Gemini 2.5 Flash Live, or cascaded Claude Haiku 4.5 (streaming completions, separate audio path)
-- TTS: Cartesia Sonic-2 (lowest first-byte), ElevenLabs Flash v3, or open-source Orpheus for self-host
-- Tools: FastMCP side-channel for weather/calendar/booking; agent pre-emits filler if tool takes >300ms
-- Observability: OpenTelemetry voice spans, Langfuse voice traces with audio replay
-- Deployment: single g5.xlarge (24GB VRAM) for self-hosted Whisper + Orpheus; hosted APIs for lowest latency
+- Truyền tải: LiveKit Agents 1.0 (WebRTC) cộng gateway PSTN Twilio; Pipecat 0.0.70 là framework thay thế
+- ASR: Deepgram Nova-3 (truyền luồng, phần đầu dưới 300ms) hoặc faster-whisper Whisper-v3-turbo tự lưu trữ
+- VAD: Silero VAD v5 cộng bộ phát hiện lượt LiveKit (transformer nhỏ đọc bản chép lời từng phần)
+- LLM: OpenAI GPT-4o-realtime cho tích hợp chặt, Gemini 2.5 Flash Live hoặc Claude Haiku 4.5 xếp tầng (hoàn thành truyền luồng, đường âm thanh riêng)
+- TTS: Cartesia Sonic-2 (byte đầu nhanh nhất), ElevenLabs Flash v3 hoặc Orpheus mã nguồn mở để tự lưu trữ
+- Công cụ: kênh phụ FastMCP cho thời tiết/lịch/đặt chỗ; agent xuất trước câu lấp khoảng trống nếu công cụ mất >300ms
+- Khả năng quan sát: span giọng nói OpenTelemetry, dấu vết giọng nói Langfuse có phát lại âm thanh
+- Triển khai: một g5.xlarge (VRAM 24GB) cho Whisper + Orpheus tự lưu trữ; API được lưu trữ để độ trễ thấp nhất
 
 ```figure
 ce-voice-latency
@@ -75,23 +75,23 @@ ce-voice-latency
 
 ## Build It
 
-1. **WebRTC session.** Stand up a LiveKit room and a web client that streams microphone audio. On the server, attach an agent worker that joins the room.
+1. **Phiên WebRTC.** Dựng phòng LiveKit và client web truyền âm thanh micro. Trên máy chủ, gắn worker agent tham gia phòng.
 
-2. **ASR streaming.** Feed 20ms PCM frames to Deepgram Nova-3 (or faster-whisper on GPU). Subscribe to partial and final transcripts. Log per-partial latency.
+2. **Truyền luồng ASR.** Đưa khung PCM 20ms vào Deepgram Nova-3 (hoặc faster-whisper trên GPU). Đăng ký bản chép lời từng phần và cuối. Ghi độ trễ theo phần.
 
-3. **VAD and turn detector.** Run Silero VAD v5 on the frame stream. On speech-end event, fire the LiveKit turn-detector against the latest partial transcript. Only commit to "turn complete" when VAD says silence for 500ms and the turn-detector scores completion > 0.6.
+3. **VAD và bộ phát hiện lượt.** Chạy Silero VAD v5 trên luồng khung. Khi sự kiện kết thúc giọng nói, kích hoạt bộ phát hiện lượt LiveKit trên bản chép lời từng phần mới nhất. Chỉ chốt "lượt hoàn tất" khi VAD báo im lặng 500ms và bộ phát hiện chấm hoàn tất > 0.6.
 
-4. **LLM stream.** On turn complete, start the LLM call with the running conversation plus the final transcript. Stream tokens out. At the first token, hand off to TTS.
+4. **Luồng LLM.** Khi lượt hoàn tất, bắt đầu lệnh gọi LLM với hội thoại đang diễn ra cộng bản chép lời cuối. Truyền token ra. Ở token đầu, chuyển giao cho TTS.
 
-5. **TTS stream.** Cartesia Sonic-2 streams audio chunks back. The first chunk must leave the server within 200ms of the first LLM token. Emit chunks to LiveKit room; client plays through WebRTC jitter buffer.
+5. **Luồng TTS.** Cartesia Sonic-2 truyền đoạn âm thanh trở lại. Đoạn đầu phải rời máy chủ trong 200ms từ token LLM đầu. Phát đoạn vào phòng LiveKit; client phát qua bộ đệm jitter WebRTC.
 
-6. **Barge-in.** When VAD detects new user speech while TTS is playing, cancel the TTS stream immediately, drop the remaining LLM output, and re-arm the ASR. Publish a `tts_canceled` span.
+6. **Ngắt lời.** Khi VAD phát hiện giọng nói người dùng mới lúc TTS phát, hủy luồng TTS ngay, bỏ đầu ra LLM còn lại và kích hoạt lại ASR. Công bố span `tts_canceled`.
 
-7. **Tool side channel.** Register weather and calendar as function-calling tools. When invoked, fire the call concurrently; if it does not resolve within 300ms, have the LLM emit "one second, let me check" as a filler; resume once the tool returns.
+7. **Kênh phụ công cụ.** Đăng ký thời tiết và lịch làm công cụ gọi hàm. Khi gọi, thực hiện đồng thời; nếu không hoàn tất trong 300ms, cho LLM xuất "một giây, để tôi kiểm tra" làm câu lấp khoảng trống; tiếp tục khi công cụ trả.
 
-8. **Eval harness.** Record 100 calls. Compute WER (against a held-out transcript), false-cutoff rate (TTS cancelled while user was mid-sentence), first-audio-out p50, TTS MOS (human or NISQA), and a jitter-loss test (drop 3% of packets).
+8. **Bộ kiểm thử đánh giá.** Ghi 100 cuộc gọi. Tính WER (so bản chép lời giữ riêng), tỷ lệ cắt nhầm (TTS hủy khi người dùng giữa câu), âm thanh đầu tiên p50, MOS TTS (con người hoặc NISQA) và kiểm thử jitter-mất gói (bỏ 3% gói).
 
-9. **Load test.** Drive 50 concurrent calls on a single g5.xlarge with a synthetic caller. Measure sustained first-audio-out p95.
+9. **Kiểm thử tải.** Tạo 50 cuộc gọi đồng thời trên một g5.xlarge bằng người gọi tổng hợp. Đo âm thanh đầu tiên p95 duy trì.
 
 ## Use It
 
@@ -108,48 +108,48 @@ turn latency: 1040ms user-stop -> audio-out
 
 ## Ship It
 
-`outputs/skill-voice-agent.md` is the deliverable. Given a domain (customer support, scheduling, or kiosk), it stands up a LiveKit agent with the ASR/VAD/LLM/TTS pipeline tuned to the measurement bar. Rubric:
+`outputs/skill-voice-agent.md` là sản phẩm bàn giao. Với miền (hỗ trợ khách hàng, lập lịch hoặc kiosk), dựng agent LiveKit với pipeline ASR/VAD/LLM/TTS chỉnh theo tiêu chuẩn đo. Tiêu chí chấm:
 
-| Weight | Criterion | How it is measured |
+| Trọng số | Tiêu chí | Cách đo |
 |:-:|---|---|
-| 25 | End-to-end latency | p50 first-audio-out under 800ms across 100 recorded calls |
-| 20 | Turn-taking quality | False-cutoff rate under 3% on the Hamming VAD benchmark |
-| 20 | Tool-use correctness | Mid-conversation tool calls that return the right data without stalling audio |
-| 20 | Reliability under packet loss | WER and turn-taking stability with 3% packet drop injected |
-| 15 | Eval harness completeness | Reproducible measurements with public config |
+| 25 | Độ trễ đầu cuối | p50 âm thanh đầu tiên dưới 800ms trên 100 cuộc gọi ghi |
+| 20 | Chất lượng luân phiên lượt | Tỷ lệ cắt nhầm dưới 3% trên phép đo chuẩn Hamming VAD |
+| 20 | Tính đúng dùng công cụ | Lệnh gọi công cụ giữa hội thoại trả dữ liệu đúng không đình trệ âm thanh |
+| 20 | Độ tin cậy dưới mất gói | WER và ổn định luân phiên lượt khi chèn mất 3% gói |
+| 15 | Đầy đủ bộ kiểm thử đánh giá | Phép đo tái lập được với cấu hình công khai |
 | **100** | | |
 
 ## Exercises
 
-1. Swap Deepgram Nova-3 for faster-whisper v3 turbo on a g5.xlarge. Measure the latency and WER gap. Identify where CPU-vs-GPU decisions matter.
+1. Đổi Deepgram Nova-3 sang faster-whisper v3 turbo trên g5.xlarge. Đo khoảng cách độ trễ và WER. Xác định nơi quyết định CPU-với-GPU quan trọng.
 
-2. Add an interruption-arbitration policy: what does the agent do when the user barges in during a tool call? Compare three policies (hard cancel, finish-tool-then-stop, queue next turn).
+2. Thêm chính sách phân xử ngắt: agent làm gì khi người dùng ngắt trong lệnh gọi công cụ? So sánh ba chính sách (hủy cứng, xong công cụ rồi dừng, xếp lượt tiếp).
 
-3. Run an adversarial turn-detector test: give the user long pauses mid-sentence. Tune the VAD silence threshold and the turn-detector score threshold for lowest false-cutoff without blowing past 900ms.
+3. Chạy kiểm thử đối kháng bộ phát hiện lượt: cho người dùng ngừng lâu giữa câu. Chỉnh ngưỡng im lặng VAD và ngưỡng điểm phát hiện lượt cho cắt nhầm thấp nhất mà không vượt 900ms.
 
-4. Deploy the same agent on PSTN via Twilio. Compare PSTN first-audio-out to WebRTC. Explain the jitter-buffer and codec differences.
+4. Triển khai cùng agent trên PSTN qua Twilio. So âm thanh đầu tiên PSTN với WebRTC. Giải thích khác biệt bộ đệm jitter và codec.
 
-5. Add voice activity detection for non-English languages (Japanese, Spanish). Measure the Silero VAD v5 false-trigger rate versus language-specific fine-tunes.
+5. Thêm phát hiện hoạt động giọng nói cho ngôn ngữ ngoài tiếng Anh (Nhật, Tây Ban Nha). Đo tỷ lệ kích hoạt nhầm Silero VAD v5 so với bản tinh chỉnh riêng ngôn ngữ.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|-----------------|------------------------|
-| Turn detection | "End of utterance" | Classifier that, given VAD silence and a partial transcript, decides the user is done speaking |
-| Barge-in | "Interruption handling" | Canceling TTS mid-playback when VAD detects new user speech |
-| First-audio-out | "Latency" | Time from user stops speaking to the first audio packet leaving the server |
-| VAD | "Speech gate" | Model classifying audio frames as speech vs silence; Silero VAD v5 is the 2026 default |
-| Jitter buffer | "Audio smoothing" | Client-side buffer that holds packets briefly to absorb network variance |
-| Filler | "Acknowledgment token" | Short phrase the agent emits to avoid silence when a tool is slow |
-| MOS | "Mean opinion score" | Perceptual speech quality rating; NISQA is the automated proxy |
+| Turn detection (Phát hiện lượt) | "Kết thúc phát ngôn" | Bộ phân loại quyết định người dùng nói xong dựa trên im lặng VAD và bản chép lời từng phần |
+| Barge-in (Ngắt lời) | "Xử lý ngắt" | Hủy TTS giữa phát khi VAD phát hiện giọng nói người dùng mới |
+| First-audio-out (Âm thanh đầu tiên ra) | "Độ trễ" | Thời gian từ người dùng ngừng nói đến gói âm thanh đầu rời máy chủ |
+| VAD | "Cổng giọng nói" | Mô hình phân loại khung âm thanh thành giọng nói so với im lặng; Silero VAD v5 là mặc định 2026 |
+| Jitter buffer (Bộ đệm jitter) | "Làm mượt âm thanh" | Bộ đệm phía client giữ gói ngắn để hấp thụ biến thiên mạng |
+| Filler (Câu lấp khoảng trống) | "Token xác nhận" | Cụm ngắn agent xuất để tránh im lặng khi công cụ chậm |
+| MOS | "Điểm ý kiến trung bình" | Đánh giá chất lượng giọng nói cảm nhận; NISQA là đại diện tự động |
 
 ## Further Reading
 
-- [LiveKit Agents 1.0](https://github.com/livekit/agents) — reference WebRTC agent framework
-- [Pipecat](https://github.com/pipecat-ai/pipecat) — alternate Python-first streaming agent framework
-- [OpenAI Realtime API](https://platform.openai.com/docs/guides/realtime) — reference for integrated speech models
-- [Deepgram Nova-3 documentation](https://developers.deepgram.com/docs) — streaming ASR reference
-- [Silero VAD v5](https://github.com/snakers4/silero-vad) — VAD reference model
-- [Cartesia Sonic-2](https://docs.cartesia.ai) — low-latency TTS reference
-- [Retell AI architecture](https://docs.retellai.com) — production voice agent architecture
-- [Vapi.ai production stack](https://docs.vapi.ai) — alternate production reference
+- [LiveKit Agents 1.0](https://github.com/livekit/agents) — framework agent WebRTC tham chiếu
+- [Pipecat](https://github.com/pipecat-ai/pipecat) — framework agent truyền luồng ưu tiên Python thay thế
+- [OpenAI Realtime API](https://platform.openai.com/docs/guides/realtime) — tham chiếu mô hình giọng nói tích hợp
+- [Deepgram Nova-3 documentation](https://developers.deepgram.com/docs) — tham chiếu ASR truyền luồng
+- [Silero VAD v5](https://github.com/snakers4/silero-vad) — mô hình VAD tham chiếu
+- [Cartesia Sonic-2](https://docs.cartesia.ai) — tham chiếu TTS độ trễ thấp
+- [Retell AI architecture](https://docs.retellai.com) — kiến trúc agent giọng nói sản xuất
+- [Vapi.ai production stack](https://docs.vapi.ai) — tham chiếu sản xuất thay thế

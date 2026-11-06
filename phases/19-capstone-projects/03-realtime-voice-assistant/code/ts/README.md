@@ -1,8 +1,8 @@
 # Capstone 19/03 — Realtime Voice Assistant (TypeScript)
 
-Multi-file TypeScript web-client harness for the streaming voice pipeline
-described in `../docs/en.md`. Offline state-machine simulation plus a live
-WebSocket server backed by the `ws` package.
+Harness client web TypeScript nhiều file cho pipeline giọng nói truyền luồng
+mô tả trong `../docs/en.md`. Mô phỏng máy trạng thái ngoại tuyến cộng máy chủ
+WebSocket trực tiếp dựa trên gói `ws`.
 
 ## Layout
 
@@ -30,6 +30,6 @@ npm test                 # node --test runner via tsx
 npm run typecheck        # tsc --noEmit
 ```
 
-The non-interactive `npm start` path asserts the clean session reaches
-`first_audio_out`, the barge-in session registers at least one barge-in event,
-and the live WebSocket probe receives a `summary` frame before close.
+Đường chạy `npm start` không tương tác khẳng định phiên sạch đạt
+`first_audio_out`, phiên ngắt lời ghi ít nhất một sự kiện ngắt lời,
+và thăm dò WebSocket trực tiếp nhận khung `summary` trước đóng.
