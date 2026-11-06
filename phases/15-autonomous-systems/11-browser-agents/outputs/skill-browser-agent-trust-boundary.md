@@ -7,34 +7,34 @@ lesson: 11
 tags: [browser-agents, prompt-injection, trust-boundary, osworld, webarena]
 ---
 
-Given a proposed browser-agent workflow, produce a trust-boundary scoping document that enumerates every read, every write, and the minimum defense stack required for first run.
+Với một quy trình agent trình duyệt được đề xuất, tạo một tài liệu xác định phạm vi ranh giới tin cậy liệt kê mọi lần đọc, mọi lần ghi, và ngăn xếp phòng thủ tối thiểu cần cho lần chạy đầu tiên.
 
-Produce:
+Tạo ra:
 
-1. **Read surface.** List every origin the agent will fetch. Classify each as in-trust (first-party sites operated by the user's organization) or out-of-trust (any third-party, any user-generated content, any search result). All out-of-trust reads must be treated as potential prompt-injection channels.
-2. **Write surface.** List every consequential action the agent is authorized to take (submit form, post content, call a backend tool, write to memory). For each, state the blast radius and whether the action is reversible.
-3. **Required defenses.** Minimum stack: content sanitizer, read/write boundary (writes require fresh approval when content_origin is out-of-trust), tool allowlist per task, session isolation with scoped credentials, canary tokens on persistent memory, HITL on irreversible actions.
-4. **Benchmark-to-distribution fit.** If the agent reports a BrowseComp, OSWorld, or WebArena-Verified score, name the distribution overlap between the benchmark and the real task. A high BrowseComp score does not predict booking-flow reliability.
-5. **Known-attack checklist.** Confirm the deployment is hardened against (a) visible-text injection, (b) URL-fragment / query injection, (c) memory-binding attacks (Tainted Memories class), (d) CSRF-shaped attacks on authenticated sessions, (e) one-click hijacks. For each, name the specific defense and where it fires.
+1. **Bề mặt đọc.** Liệt kê mọi origin agent sẽ lấy về. Phân loại mỗi origin là trong vùng tin cậy (các trang bên thứ nhất do tổ chức của người dùng vận hành) hoặc ngoài vùng tin cậy (bất kỳ bên thứ ba nào, bất kỳ nội dung do người dùng tạo nào, bất kỳ kết quả tìm kiếm nào). Mọi lần đọc ngoài vùng tin cậy phải được coi là các kênh chèn prompt tiềm năng.
+2. **Bề mặt ghi.** Liệt kê mọi hành động có hệ quả mà agent được phép thực hiện (gửi biểu mẫu, đăng nội dung, gọi một công cụ backend, ghi vào bộ nhớ). Với mỗi hành động, nêu phạm vi ảnh hưởng và liệu hành động có thể đảo ngược hay không.
+3. **Các biện pháp phòng thủ bắt buộc.** Ngăn xếp tối thiểu: bộ làm sạch nội dung, ranh giới đọc/ghi (việc ghi yêu cầu phê duyệt mới khi content_origin nằm ngoài vùng tin cậy), danh sách công cụ cho phép theo từng tác vụ, cách ly phiên với thông tin xác thực có phạm vi giới hạn, token canary trên bộ nhớ bền vững, HITL trên các hành động không thể đảo ngược.
+4. **Độ phù hợp giữa benchmark và phân phối.** Nếu agent báo cáo một điểm BrowseComp, OSWorld, hoặc WebArena-Verified, nêu phần chồng lấp phân phối giữa benchmark và tác vụ thực. Một điểm BrowseComp cao không dự đoán độ tin cậy của luồng đặt chỗ.
+5. **Danh sách kiểm tra các cuộc tấn công đã biết.** Xác nhận triển khai được gia cố chống lại (a) chèn văn bản hiển thị, (b) chèn fragment / truy vấn URL, (c) các cuộc tấn công gắn bộ nhớ (loại Tainted Memories), (d) các cuộc tấn công dạng CSRF vào các phiên đã xác thực, (e) chiếm quyền bằng một lần nhấp. Với mỗi loại, nêu biện pháp phòng thủ cụ thể và nơi nó kích hoạt.
 
-Hard rejects:
-- Browser agents with access to production credentials and no session isolation.
-- Any deployment where a write initiated from out-of-trust content does not require fresh HITL approval.
-- Any deployment relying solely on a content sanitizer (sanitizers catch easy attacks; sophisticated payloads pass).
-- Persistent memory with no canary entries.
-- Workflows that touch financial transactions or customer data with no HITL on writes.
+Các trường hợp loại bỏ dứt khoát:
+- Các agent trình duyệt có quyền truy cập thông tin xác thực sản xuất và không có cách ly phiên.
+- Bất kỳ triển khai nào mà một lần ghi khởi phát từ nội dung ngoài vùng tin cậy không yêu cầu phê duyệt HITL mới.
+- Bất kỳ triển khai nào chỉ dựa vào một bộ làm sạch nội dung (các bộ làm sạch bắt được các cuộc tấn công dễ; các payload tinh vi vượt qua).
+- Bộ nhớ bền vững không có các mục canary.
+- Các quy trình chạm tới giao dịch tài chính hoặc dữ liệu khách hàng mà không có HITL trên các lần ghi.
 
-Refusal rules:
-- If the user cannot name the blast radius of an injection-driven wrong write, refuse and require an explicit sentence.
-- If the user proposes a browser agent on a stack where scoped credentials are not available, refuse and require a separate identity first.
-- If the user cites a benchmark score (BrowseComp, OSWorld, WebArena) as evidence the agent "can" do a production task, refuse and require internal evals on the real distribution.
+Các quy tắc từ chối:
+- Nếu người dùng không thể nêu phạm vi ảnh hưởng của một lần ghi sai do chèn prompt gây ra, hãy từ chối và yêu cầu một câu tường minh.
+- Nếu người dùng đề xuất một agent trình duyệt trên một ngăn xếp không có thông tin xác thực có phạm vi giới hạn, hãy từ chối và yêu cầu một danh tính riêng trước.
+- Nếu người dùng viện dẫn một điểm benchmark (BrowseComp, OSWorld, WebArena) làm bằng chứng agent “có thể” làm một tác vụ sản xuất, hãy từ chối và yêu cầu các đánh giá nội bộ trên phân phối thực.
 
-Output format:
+Định dạng đầu ra:
 
-Return a trust-boundary memo with:
-- **Read surface table** (origin, in-trust / out-of-trust)
-- **Write surface table** (action, blast radius, reversible y/n)
-- **Defense stack** (bulleted list of configured layers)
-- **Benchmark-fit note** (if applicable)
-- **Known-attack checklist** (five rows, defense named per row)
-- **Deployment verdict** (production / staging / research-only)
+Trả về một bản ghi nhớ ranh giới tin cậy với:
+- **Bảng bề mặt đọc** (origin, trong vùng tin cậy / ngoài vùng tin cậy)
+- **Bảng bề mặt ghi** (hành động, phạm vi ảnh hưởng, có thể đảo ngược có/không)
+- **Ngăn xếp phòng thủ** (danh sách gạch đầu dòng các lớp được cấu hình)
+- **Ghi chú độ phù hợp benchmark** (nếu áp dụng)
+- **Danh sách kiểm tra các cuộc tấn công đã biết** (năm hàng, mỗi hàng nêu biện pháp phòng thủ)
+- **Kết luận triển khai** (sản xuất / staging / chỉ nghiên cứu)
