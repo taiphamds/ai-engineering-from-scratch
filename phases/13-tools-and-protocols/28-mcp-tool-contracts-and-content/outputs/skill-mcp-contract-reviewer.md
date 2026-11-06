@@ -7,105 +7,105 @@ lesson: 28
 tags: [mcp, tools, json-schema, pagination, completion, security]
 ---
 
-Review the supplied MCP tool surface against protocol version `2026-07-28`.
+Đánh giá bề mặt công cụ MCP cung cấp theo phiên bản giao thức `2026-07-28`.
 
-Ask for these inputs if they are absent:
+Hỏi các đầu vào này nếu vắng:
 
-1. The complete `tools/list` descriptor pages, including every `nextCursor` field.
-2. At least one successful result and one failure result per tool.
-3. The Streamable HTTP parameter-header mapping, if used.
-4. Completion references, caller classes, and example suggestions.
-5. The authorization context that can change the visible tool set.
+1. Toàn trang bộ mô tả `tools/list`, gồm mọi trường `nextCursor`.
+2. Ít nhất một kết quả thành công và một thất bại mỗi công cụ.
+3. Ánh xạ header tham số Streamable HTTP, nếu dùng.
+4. Tham chiếu completion, lớp bên gọi và gợi ý ví dụ.
+5. Ngữ cảnh cấp quyền có thể đổi tập công cụ hiển thị.
 
-Produce a compact report with these sections.
+Tạo báo cáo gọn với các mục này.
 
 ## Descriptor admission
 
-For each tool:
+Với mỗi công cụ:
 
-- verify a non-empty stable name;
-- require an object `inputSchema`;
-- identify the JSON Schema dialect, defaulting to 2020-12 when omitted;
-- validate `outputSchema` when present;
-- list annotations as untrusted hints, not policy;
-- return `ADMIT`, `REJECT`, or `CONDITIONAL` with one precise reason.
+- xác minh tên ổn định không rỗng;
+- yêu cầu `inputSchema` đối tượng;
+- xác định phương ngữ JSON Schema, mặc định 2020-12 khi bỏ;
+- xác thực `outputSchema` khi có;
+- liệt kê chú giải như gợi ý không đáng tin, không chính sách;
+- trả `ADMIT`, `REJECT` hoặc `CONDITIONAL` với một lý do chính xác.
 
-Reject one malformed descriptor without rejecting unrelated valid tools.
+Từ chối một bộ mô tả sai dạng không từ chối công cụ hợp lệ không liên quan.
 
 ## Result contract
 
-For every complete result, including one with `isError: true`:
+Với mọi kết quả đầy đủ, gồm một có `isError: true`:
 
-- require `resultType: complete`;
-- validate every content block by type;
-- treat `structuredContent` as any JSON value, not object-only;
-- require `structuredContent` and conformance to `outputSchema` when one exists;
-- require a compatibility text block for structured results;
-- distinguish resource links from embedded resources;
-- state size and media-type limits.
+- yêu cầu `resultType: complete`;
+- xác thực mọi khối nội dung theo kiểu;
+- coi `structuredContent` là mọi giá trị JSON, không chỉ đối tượng;
+- yêu cầu `structuredContent` và tuân thủ `outputSchema` khi có;
+- yêu cầu khối văn bản tương thích cho kết quả có cấu trúc;
+- phân biệt liên kết tài nguyên với tài nguyên nhúng;
+- nêu giới hạn kích thước và media type.
 
-Classify malformed requests as JSON-RPC errors. Classify actionable execution
-failures as complete results with `isError: true`, without bypassing the
-published output contract.
+Phân loại yêu cầu sai dạng là lỗi JSON-RPC. Phân loại thất bại thực thi
+xử lý được là kết quả đầy đủ với `isError: true`, không bỏ qua
+hợp đồng đầu ra công bố.
 
 ## Parameter headers
 
-For every `x-mcp-header`:
+Với mọi `x-mcp-header`:
 
-- require a valid, non-empty HTTP field-name token;
-- require case-insensitive uniqueness;
-- require string, integer, or boolean type;
-- traverse the entire input schema, including nested properties, combinators,
-  array items, and definitions used by `$ref`;
-- allow the annotation only on a direct `inputSchema.properties` member and
-  reject every annotation found elsewhere or in `outputSchema`;
-- reject `number` and integer values outside `-9007199254740991` through
+- yêu cầu token tên trường HTTP hợp lệ, không rỗng;
+- yêu cầu duy nhất không phân biệt hoa thường;
+- yêu cầu kiểu string, integer hoặc boolean;
+- duyệt toàn lược đồ đầu vào, gồm thuộc tính lồng, combinator,
+  phần tử mảng và định nghĩa dùng bởi `$ref`;
+- chỉ cho chú giải trên thành viên `inputSchema.properties` trực tiếp và
+  từ chối mọi chú giải ở nơi khác hoặc trong `outputSchema`;
+- từ chối `number` và giá trị integer ngoài `-9007199254740991` đến
   `9007199254740991`;
-- reject credential, token, secret, password, authorization, and PII fields by deployment policy;
-- transmit a value plainly only when it is non-empty visible ASCII and does
-  not begin with `=?base64?`;
-- otherwise emit exactly `=?base64?{Base64UTF8}?=` without trimming or
-  normalizing the original value;
-- encode Unicode, empty, whitespace, control, CR or LF, padded, and
-  sentinel-looking strings, and render booleans as lowercase text;
-- at the HTTP boundary, decode recognized `Mcp-Param-*` values, compare header
-  names case-insensitively and decoded values exactly with the JSON body, and
-  reject a missing, duplicated, unexpected, malformed, or mismatched copy as
-  HTTP `400` plus JSON-RPC `-32020`;
-- log the final header name and rejection category, never the argument value
-  or encoded payload.
+- từ chối trường thông tin xác thực, token, bí mật, mật khẩu, cấp quyền và PII theo chính sách triển khai;
+- chỉ truyền giá trị thuần khi không rỗng, ASCII hiển thị và
+  không bắt đầu `=?base64?`;
+- nếu không phát đúng `=?base64?{Base64UTF8}?=` không cắt hoặc
+  chuẩn hóa giá trị gốc;
+- mã hóa chuỗi Unicode, rỗng, khoảng trắng, điều khiển, CR hoặc LF, có đệm và
+  giống dấu báo hiệu, kết xuất boolean chữ thường;
+- tại ranh giới HTTP, giải mã giá trị `Mcp-Param-*` nhận biết, so tên
+  header không phân biệt hoa thường và giá trị giải mã chính xác với phần thân JSON,
+  từ chối bản sao thiếu, trùng, ngoài dự kiến, sai dạng hoặc không khớp như
+  HTTP `400` cộng JSON-RPC `-32020`;
+- ghi tên header cuối và loại từ chối, không bao giờ giá trị đối số
+  hoặc payload mã hóa.
 
 ## Pagination
 
-Trace every list request. Continue whenever `nextCursor` is present and non-null, including when it is an empty string. Never decode, modify, increment, order, or derive meaning from a cursor. Report duplicate tools, missing pages, and unstable ordering.
+Lần vết mọi yêu cầu danh sách. Tiếp tục khi `nextCursor` có và khác null, gồm chuỗi rỗng. Không bao giờ giải mã, sửa, tăng, xếp hoặc suy nghĩa từ con trỏ. Báo công cụ trùng, trang thiếu và thứ tự không ổn định.
 
 ## Completion
 
-For each prompt or resource reference:
+Với mỗi tham chiếu prompt hoặc tài nguyên:
 
-- validate the reference and argument;
-- filter suggestions through the caller's authorization;
-- cap the result at 100 values;
-- define client debounce and server rate limits;
-- test that hidden tenant, resource, and environment names do not leak.
+- xác thực tham chiếu và đối số;
+- lọc gợi ý qua cấp quyền bên gọi;
+- giới hạn kết quả ở 100 giá trị;
+- định nghĩa debounce client và giới hạn tốc độ máy chủ;
+- kiểm thử tên tenant, tài nguyên và môi trường ẩn không rò.
 
 ## Verification matrix
 
-Return at least these checks:
+Trả ít nhất kiểm tra này:
 
-| Check | Fixture | Expected result |
+| Kiểm tra | Fixture | Kết quả kỳ vọng |
 |------|---------|-----------------|
-| Non-object structured output | Valid array, scalar, or null schema | Accepted when conforming |
-| Output mismatch | Wrong JSON type or missing property | Rejected before model use |
-| Error output mismatch | `isError: true` with missing or invalid structured content | Rejected before model use |
-| Empty cursor | `nextCursor: ""` | Follow-up request sends the exact cursor |
-| Unsafe header | Token or invalid field name | Descriptor rejected |
-| Nested header annotation | `oneOf`, `items`, nested object, or `$ref` definition | Descriptor rejected during full-tree admission |
-| Encoded header values | Unicode, newline, padding, or sentinel-looking text | Exact base64 UTF-8 sentinel round-trips the original value |
-| Integer header values | Both safe bounds and one value beyond each bound | Safe bounds pass; unsafe values are rejected |
-| Header and body parity | Case variant, missing copy, and decoded mismatch | Case variant passes; missing or mismatch returns HTTP 400 and JSON-RPC -32020 |
-| Mixed content | Text, media, link, embedded resource | Each block validated independently |
-| Completion isolation | Low-privilege caller | No privileged suggestion returned |
-| Error layering | Unknown tool and business failure | JSON-RPC error and `isError: true` remain distinct |
+| Đầu ra có cấu trúc không đối tượng | Lược đồ mảng, scalar hoặc null hợp lệ | Chấp nhận khi tuân thủ |
+| Đầu ra không khớp | Sai kiểu JSON hoặc thiếu thuộc tính | Từ chối trước mô hình dùng |
+| Đầu ra lỗi không khớp | `isError: true` với nội dung có cấu trúc thiếu hoặc không hợp lệ | Từ chối trước mô hình dùng |
+| Con trỏ rỗng | `nextCursor: ""` | Yêu cầu tiếp gửi đúng con trỏ |
+| Header không an toàn | Token hoặc tên trường không hợp lệ | Bộ mô tả từ chối |
+| Chú giải header lồng | `oneOf`, `items`, đối tượng lồng hoặc định nghĩa `$ref` | Bộ mô tả từ chối khi tiếp nhận toàn cây |
+| Giá trị header mã hóa | Unicode, dòng mới, đệm hoặc văn bản giống dấu báo hiệu | Dấu báo hiệu base64 UTF-8 chính xác đi-về giá trị gốc |
+| Giá trị header số nguyên | Cả hai biên an toàn và một giá trị ngoài mỗi biên | Biên an toàn đạt; giá trị không an toàn bị từ chối |
+| Header và phần thân bằng nhau | Biến thể hoa thường, bản sao thiếu và giải mã không khớp | Biến thể hoa thường đạt; thiếu hoặc không khớp trả HTTP 400 và JSON-RPC -32020 |
+| Nội dung hỗn hợp | Văn bản, media, liên kết, tài nguyên nhúng | Mỗi khối xác thực độc lập |
+| Cô lập completion | Bên gọi đặc quyền thấp | Không gợi ý đặc quyền trả về |
+| Phân tầng lỗi | Công cụ không biết và thất bại nghiệp vụ | Lỗi JSON-RPC và `isError: true` giữ riêng |
 
-Refuse approval when evidence includes only a successful tool call. Require discovery pages, admission decisions, and validated result fixtures.
+Từ chối phê duyệt khi bằng chứng chỉ gồm lời gọi công cụ thành công. Yêu cầu trang khám phá, quyết định tiếp nhận và fixture kết quả đã xác thực.

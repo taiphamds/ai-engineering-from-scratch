@@ -1,6 +1,6 @@
 # MCP Tool Contracts and Content
 
-> A tool is safe to automate only when discovery, arguments, results, pagination, and transport metadata agree on one contract.
+> Công cụ chỉ an toàn để tự động hóa khi khám phá, đối số, kết quả, phân trang và siêu dữ liệu vận chuyển đồng ý một hợp đồng.
 
 **Type:** Build
 **Languages:** Python
@@ -9,53 +9,53 @@
 
 ## Learning Objectives
 
-- Define tool inputs and outputs with JSON Schema 2020-12.
-- Validate structured results without assuming they are JSON objects.
-- Choose between text, image, audio, resource links, and embedded resources.
-- Reject unsafe `x-mcp-header` definitions before a tool reaches the model.
-- Encode parameter-header values and verify exact header-to-body parity.
-- Traverse cursor pagination without interpreting cursor values.
-- Bound and authorize `completion/complete` suggestions.
+- Định nghĩa đầu vào và đầu ra công cụ bằng JSON Schema 2020-12.
+- Xác thực kết quả có cấu trúc không giả định là đối tượng JSON.
+- Chọn giữa văn bản, ảnh, âm thanh, liên kết tài nguyên và tài nguyên nhúng.
+- Từ chối định nghĩa `x-mcp-header` không an toàn trước công cụ đến mô hình.
+- Mã hóa giá trị header tham số và xác minh header-phần thân bằng nhau chính xác.
+- Duyệt phân trang con trỏ không diễn giải giá trị con trỏ.
+- Giới hạn và cấp quyền gợi ý `completion/complete`.
 
 ## The Problem
 
-Calling a Python function is easy. Calling a remote capability through an AI host is a contract problem.
+Gọi hàm Python dễ. Gọi khả năng từ xa qua host AI là vấn đề hợp đồng.
 
-The server publishes a descriptor. The client turns that descriptor into model context and user interface. The model creates arguments. A gateway may route the request from mirrored headers. The server executes the tool. The client then decides whether the result is safe and valid enough to return to the model.
+Máy chủ công bố bộ mô tả. Client chuyển thành ngữ cảnh mô hình và giao diện người dùng. Mô hình tạo đối số. Gateway có thể định tuyến yêu cầu từ header phản chiếu. Máy chủ thực thi công cụ. Client rồi quyết định kết quả đủ an toàn và hợp lệ để trả cho mô hình chưa.
 
-One weak boundary corrupts the whole chain.
+Một ranh giới yếu làm hỏng toàn chuỗi.
 
-Consider five failures:
+Xét năm thất bại:
 
-- The descriptor says the result is an object, but the server returns an array.
-- The client stops pagination when `nextCursor` is an empty string.
-- A token parameter is mirrored into an HTTP header and becomes visible to intermediaries.
-- A Unicode routing value is sent as a raw header, then the gateway and origin interpret different bytes.
-- A completion endpoint suggests a production environment to a caller who cannot access it.
+- Bộ mô tả nói kết quả là đối tượng nhưng máy chủ trả mảng.
+- Client dừng phân trang khi `nextCursor` là chuỗi rỗng.
+- Tham số token phản chiếu vào header HTTP và hiển thị với trung gian.
+- Giá trị định tuyến Unicode gửi dưới header thô, rồi gateway và máy chủ gốc diễn giải byte khác.
+- Endpoint completion gợi ý môi trường sản xuất cho bên gọi không truy cập được.
 
-None of these failures is fixed by better prompting. They require explicit protocol and application contracts.
+Không thất bại nào được sửa bằng prompting tốt hơn. Cần hợp đồng giao thức và ứng dụng tường minh.
 
 ## The Contract Pipeline
 
-Treat each tool call as five gates:
+Coi mỗi lời gọi công cụ như năm cổng:
 
-1. **Discover.** Read a deterministic, paginated tool list.
-2. **Admit.** Validate each descriptor and apply local security policy.
-3. **Invoke.** Validate arguments and build transport metadata.
-4. **Execute.** Run the handler and classify failures correctly.
-5. **Consume.** Validate content blocks and structured output before model use.
+1. **Khám phá.** Đọc danh sách công cụ tất định, phân trang.
+2. **Tiếp nhận.** Xác thực mỗi bộ mô tả và áp chính sách bảo mật cục bộ.
+3. **Gọi.** Xác thực đối số và xây siêu dữ liệu vận chuyển.
+4. **Thực thi.** Chạy trình xử lý và phân loại thất bại đúng.
+5. **Tiếp nhận kết quả.** Xác thực khối nội dung và đầu ra có cấu trúc trước mô hình dùng.
 
 ```figure
 mcp-contract-pipeline
 ```
 
-The host owns the admission and consumption gates. A server cannot force a client to trust its annotations, schemas, or outputs.
+Host sở hữu cổng tiếp nhận công cụ và tiếp nhận kết quả. Máy chủ không thể ép client tin chú giải, lược đồ hoặc đầu ra.
 
 ## JSON Schema Is a Runtime Boundary
 
-In MCP `2026-07-28`, `inputSchema` and `outputSchema` use JSON Schema. When `$schema` is absent, the default dialect is 2020-12.
+Trong MCP `2026-07-28`, `inputSchema` và `outputSchema` dùng JSON Schema. Khi `$schema` vắng, phương ngữ mặc định 2020-12.
 
-The input schema must be a schema object. A tool with no arguments should still say exactly what it accepts:
+Lược đồ đầu vào phải là đối tượng lược đồ. Công cụ không đối số vẫn nên nói chính xác nhận gì:
 
 ```json
 {
@@ -64,26 +64,26 @@ The input schema must be a schema object. A tool with no arguments should still 
 }
 ```
 
-This is stricter than `{ "type": "object" }`, which accepts arbitrary properties.
+Nghiêm hơn `{ "type": "object" }`, vốn nhận thuộc tính tùy ý.
 
-An output schema is optional. Once a server publishes one, every complete tool
-result commits to returning conforming `structuredContent`, including results
-with `isError: true`. The error flag classifies execution outcome; it does not
-waive the published output contract. Clients should validate the result instead
-of trusting the descriptor.
+Lược đồ đầu ra tùy chọn. Khi máy chủ công bố, mọi kết quả công cụ
+đầy đủ cam kết trả `structuredContent` tuân thủ, gồm kết quả
+với `isError: true`. Cờ lỗi phân loại kết quả thực thi; không
+miễn hợp đồng đầu ra công bố. Client nên xác thực kết quả thay
+tin bộ mô tả.
 
 ### Structured content is any JSON value
 
-Do not hard-code `structuredContent` as a dictionary. It can be:
+Không mã hóa cứng `structuredContent` thành từ điển. Có thể là:
 
-- an object;
-- an array;
-- a string;
-- a number;
-- a boolean;
+- đối tượng;
+- mảng;
+- chuỗi;
+- số;
+- boolean;
 - `null`.
 
-This tool returns an array:
+Công cụ này trả mảng:
 
 ```json
 {
@@ -99,7 +99,7 @@ This tool returns an array:
 }
 ```
 
-Its successful result is valid:
+Kết quả thành công hợp lệ:
 
 ```json
 {
@@ -115,42 +115,42 @@ Its successful result is valid:
 }
 ```
 
-For compatibility, structured results should also include serialized JSON in a text block. The text is not the validation source. `structuredContent` is.
+Để tương thích, kết quả có cấu trúc cũng nên gồm JSON tuần tự hóa trong khối văn bản. Văn bản không là nguồn xác thực. `structuredContent` mới là.
 
 ### A small validator still teaches the boundary
 
-The lesson uses a deliberate JSON Schema subset because it stays inside the Python standard library. It checks the mechanisms used by the sample tools:
+Bài dùng tập con JSON Schema có chủ ý vì giữ trong thư viện chuẩn Python. Kiểm tra cơ chế công cụ mẫu dùng:
 
-- object, array, string, integer, number, boolean, and null types;
-- required properties;
+- kiểu object, array, string, integer, number, boolean và null;
+- thuộc tính bắt buộc;
 - `additionalProperties: false`;
-- array items;
-- enum values;
-- minimum string length.
+- phần tử mảng;
+- giá trị enum;
+- độ dài chuỗi tối thiểu.
 
-This is not a replacement for a complete production validator. The reusable lesson is where validation happens: after discovery for descriptors, before execution for arguments, and before consumption for structured results.
+Không thay bộ xác thực sản xuất đầy đủ. Bài học tái sử dụng là nơi xác thực xảy ra: sau khám phá cho bộ mô tả, trước thực thi cho đối số và trước tiếp nhận cho kết quả có cấu trúc.
 
 ## Content Blocks Carry Different Costs
 
-The `content` array can combine several content types.
+Mảng `content` có thể kết hợp nhiều kiểu nội dung.
 
-| Type | Use it for | Main boundary |
+| Kiểu | Dùng cho | Ranh giới chính |
 |------|------------|---------------|
-| `text` | Human and model-readable summaries | Treat text as untrusted output |
-| `image` | Visual evidence encoded as base64 | Validate media type and size |
-| `audio` | Spoken or recorded output encoded as base64 | Validate media type and duration limits |
-| `resource_link` | A URI the client may fetch later | Reauthorize the later resource read |
-| `resource` | Data embedded directly in the result | Enforce payload and content limits now |
+| `text` | Tóm tắt con người và mô hình đọc được | Coi văn bản là đầu ra không đáng tin |
+| `image` | Bằng chứng thị giác mã hóa base64 | Xác thực media type và kích thước |
+| `audio` | Đầu ra nói hoặc ghi âm mã hóa base64 | Xác thực media type và giới hạn thời lượng |
+| `resource_link` | URI client có thể lấy sau | Cấp quyền lại lần đọc tài nguyên sau |
+| `resource` | Dữ liệu nhúng thẳng trong kết quả | Thực thi giới hạn payload và nội dung ngay |
 
-A resource link is not proof that the resource appears in `resources/list`. It is a reference returned by this tool call. The client still applies its resource policy when it follows the URI.
+Liên kết tài nguyên không phải bằng chứng tài nguyên xuất hiện trong `resources/list`. Là tham chiếu lời gọi công cụ này trả. Client vẫn áp chính sách tài nguyên khi theo URI.
 
-An embedded resource avoids another round trip but increases the current response size. Use links for large or independently changing artifacts. Use embedded resources for small evidence that must travel atomically with the result.
+Tài nguyên nhúng tránh thêm lượt khứ hồi nhưng tăng kích thước phản hồi hiện tại. Dùng liên kết cho sản phẩm lớn hoặc đổi độc lập. Dùng tài nguyên nhúng cho bằng chứng nhỏ phải đi nguyên tử cùng kết quả.
 
-The lesson's `evidence_bundle` result includes all five types. The client validates each block before accepting the result.
+Kết quả `evidence_bundle` của bài gồm cả năm kiểu. Client xác thực mỗi khối trước nhận kết quả.
 
 ## `x-mcp-header` Is Routing Metadata
 
-A property inside `inputSchema` may declare `x-mcp-header`. Over Streamable HTTP, the client mirrors that argument into `Mcp-Param-{name}`.
+Thuộc tính trong `inputSchema` có thể khai báo `x-mcp-header`. Trên Streamable HTTP, client phản chiếu đối số đó vào `Mcp-Param-{name}`.
 
 ```json
 {
@@ -161,76 +161,76 @@ A property inside `inputSchema` may declare `x-mcp-header`. Over Streamable HTTP
 }
 ```
 
-With `region: "eu-west"`, the transport can emit:
+Với `region: "eu-west"`, vận chuyển có thể phát:
 
 ```http
 Mcp-Param-Region: eu-west
 ```
 
-The annotation exists so a load balancer, gateway, or policy engine can route without parsing the JSON body. It is not a place to put credentials.
+Chú giải tồn tại để bộ cân bằng tải, gateway hoặc máy chính sách định tuyến không phân tích phần thân JSON. Không phải nơi đặt thông tin xác thực.
 
-The protocol constrains the annotation:
+Giao thức ràng buộc chú giải:
 
-- the header name is non-empty and follows HTTP field-name token syntax;
-- header names are unique without regard to case;
-- the property type is string, integer, or boolean;
-- `number` is not allowed;
-- the annotation appears only on a direct member of `inputSchema.properties`;
-- integer values stay within `-9007199254740991` through `9007199254740991`.
+- tên header không rỗng và theo cú pháp token tên trường HTTP;
+- tên header duy nhất không xét hoa thường;
+- kiểu thuộc tính là string, integer hoặc boolean;
+- `number` không được phép;
+- chú giải chỉ xuất hiện trên thành viên trực tiếp của `inputSchema.properties`;
+- giá trị integer ở trong `-9007199254740991` đến `9007199254740991`.
 
-The location rule is syntactic and fail-closed. Walk the entire schema tree,
-not just the properties your validator happens to understand. Reject an
-annotation under a nested object's `properties`, a `oneOf` branch, `items`, a
-definition reached by `$ref`, or any output schema. Resolving a reference does
-not turn the referenced node into a direct top-level property.
+Quy tắc vị trí mang tính cú pháp và thất bại theo hướng đóng. Duyệt toàn cây lược đồ,
+không chỉ thuộc tính bộ xác thực tình cờ hiểu. Từ chối
+chú giải dưới `properties` đối tượng lồng, nhánh `oneOf`, `items`,
+định nghĩa qua `$ref` hoặc mọi lược đồ đầu ra. Phân giải tham chiếu
+không biến nút tham chiếu thành thuộc tính cấp cao nhất trực tiếp.
 
-This lesson adds a deployment policy: reject descriptors that mirror names such as `password`, `secret`, `token`, `api_key`, or `authorization`. The official specification advises server authors not to mirror sensitive parameters. A client can turn that advice into a hard admission rule.
+Bài thêm chính sách triển khai: từ chối bộ mô tả phản chiếu tên như `password`, `secret`, `token`, `api_key` hoặc `authorization`. Đặc tả chính thức khuyên tác giả máy chủ không phản chiếu tham số nhạy cảm. Client có thể biến lời khuyên thành quy tắc tiếp nhận cứng.
 
-Audit the header name, not its value. The sample code records `Mcp-Param-Region` while keeping `eu-west` out of the audit event.
+Kiểm toán tên header, không giá trị. Mã mẫu ghi `Mcp-Param-Region` trong khi giữ `eu-west` ngoài sự kiện kiểm toán.
 
 ### Encode values before building HTTP headers
 
-A parameter value may travel as plain text only when it is a non-empty string
-of visible ASCII characters from `!` through `~` and does not resemble the
-encoding sentinel. Everything else uses this exact form:
+Giá trị tham số chỉ đi dạng văn bản thuần khi là chuỗi không rỗng
+gồm ký tự ASCII hiển thị từ `!` đến `~` và không giống
+dấu báo hiệu mã hóa. Mọi thứ khác dùng đúng dạng:
 
 ```text
 =?base64?{Base64UTF8}?=
 ```
 
-`Base64UTF8` is standard base64 over the exact UTF-8 bytes. Do not trim,
-normalize, or replace the value first. Encode Unicode, empty strings, spaces,
-tabs, control characters, CR or LF, leading or trailing whitespace, and any
-value beginning with `=?base64?`. Encoding a sentinel-looking value again is
-what lets the receiver recover the literal original text instead of decoding
-it as transport syntax.
+`Base64UTF8` là base64 chuẩn trên đúng byte UTF-8. Không cắt,
+chuẩn hóa hoặc thay giá trị trước. Mã hóa Unicode, chuỗi rỗng, khoảng trắng,
+tab, ký tự điều khiển, CR hoặc LF, khoảng trắng đầu hoặc cuối và mọi
+giá trị bắt đầu `=?base64?`. Mã hóa lại giá trị giống dấu báo hiệu
+cho bên nhận khôi phục văn bản gốc nguyên văn thay vì giải mã
+như cú pháp vận chuyển.
 
-Booleans render as lowercase `true` or `false`. Integers render in base 10 and
-must stay inside the JavaScript safe integer range. Values outside that range
-are rejected instead of rounded by an intermediary.
+Boolean kết xuất chữ thường `true` hoặc `false`. Số nguyên kết xuất cơ số 10 và
+phải trong dải số nguyên an toàn JavaScript. Giá trị ngoài dải
+bị từ chối thay bị trung gian làm tròn.
 
 ### The server checks the mirrored copy
 
-Header generation is only the client half. At the Streamable HTTP boundary,
-the server must:
+Tạo header chỉ là nửa client. Tại ranh giới Streamable HTTP,
+máy chủ phải:
 
-1. find recognized `Mcp-Param-*` names without regard to header-name case;
-2. decode the exact base64 sentinel form when present;
-3. compare the decoded text with the corresponding JSON body argument exactly;
-4. reject a missing, duplicated, unexpected, malformed, or mismatched
-   recognized header before dispatch.
+1. tìm tên `Mcp-Param-*` nhận biết không xét hoa thường tên header;
+2. giải mã đúng dạng dấu báo hiệu base64 khi có;
+3. so văn bản giải mã chính xác với đối số phần thân JSON tương ứng;
+4. từ chối header nhận biết thiếu, trùng, ngoài dự kiến, sai dạng hoặc không khớp
+   trước phân phối.
 
-The rejection is HTTP `400` with JSON-RPC error code `-32020`. Neither the
-body value nor its encoded header form belongs in the audit record. Record the
-recognized header name and the rejection category only.
+Từ chối là HTTP `400` với mã lỗi JSON-RPC `-32020`. Cả
+giá trị phần thân lẫn dạng header mã hóa không thuộc bản ghi kiểm toán. Chỉ ghi
+tên header nhận biết và loại từ chối.
 
-`code/main.py` models this boundary directly. [Lesson 09](../../09-mcp-transports/)
-covers the wider Streamable HTTP validation order, including method and
-protocol-version parity.
+`code/main.py` mô hình hóa ranh giới trực tiếp. [Bài 09](../../09-mcp-transports/)
+đề cập thứ tự xác thực Streamable HTTP rộng hơn, gồm phương thức và
+phiên bản giao thức bằng nhau.
 
 ## Pagination Cursors Are Opaque
 
-MCP list operations use cursor pagination. The server selects page size and cursor format. The client gets one decision:
+Thao tác danh sách MCP dùng phân trang con trỏ. Máy chủ chọn cỡ trang và định dạng con trỏ. Client có một quyết định:
 
 ```python
 if result.get("nextCursor") is None:
@@ -238,31 +238,31 @@ if result.get("nextCursor") is None:
 cursor = result["nextCursor"]
 ```
 
-Do not write this:
+Không viết thế này:
 
 ```python
 if not result.get("nextCursor"):
     break
 ```
 
-An empty string is a valid cursor. Truthiness would stop too early.
+Chuỗi rỗng là con trỏ hợp lệ. Xét tính đúng sẽ dừng quá sớm.
 
-Clients must not decode a cursor, increment it, compare it with a prior cursor for ordering, or infer a page number. A server may sign a cursor, bind it to a catalog version, or map it to private state. That is the server's implementation detail.
+Client không được giải mã con trỏ, tăng, so với con trỏ trước để xếp thứ tự hoặc suy số trang. Máy chủ có thể ký con trỏ, gắn phiên bản danh mục hoặc ánh xạ trạng thái riêng. Đó là chi tiết triển khai máy chủ.
 
-The sample server deliberately returns `""` after the first page. The client must send that exact value on the second request. Its trace is:
+Máy chủ mẫu cố ý trả `""` sau trang đầu. Client phải gửi đúng giá trị trên yêu cầu thứ hai. Trace là:
 
 ```text
 <first request with no cursor>
 <second request with cursor "">
 ```
 
-Invalid cursors produce JSON-RPC invalid params, code `-32602`.
+Con trỏ không hợp lệ tạo params JSON-RPC không hợp lệ, mã `-32602`.
 
 ## Completion Is an Authorization Surface
 
-`completion/complete` provides suggestions for prompt arguments and resource-template arguments. It is useful for interactive forms, but it can leak names that ordinary list methods protect.
+`completion/complete` cung cấp gợi ý cho đối số prompt và đối số mẫu tài nguyên. Hữu ích cho biểu mẫu tương tác, nhưng có thể rò tên phương thức danh sách thường bảo vệ.
 
-A completion request names a reference and the argument being completed:
+Yêu cầu completion nêu tham chiếu và đối số đang hoàn thành:
 
 ```json
 {
@@ -280,75 +280,75 @@ A completion request names a reference and the argument being completed:
 }
 ```
 
-The result returns at most 100 values and may report `total` plus `hasMore`.
+Kết quả trả tối đa 100 giá trị và có thể báo `total` cộng `hasMore`.
 
-Apply the same authorization boundary used by the referenced prompt or resource. An analyst in the sample receives `development` and `staging`. Only an operator can receive `production`.
+Áp cùng ranh giới cấp quyền dùng bởi prompt hoặc tài nguyên tham chiếu. Analyst trong mẫu nhận `development` và `staging`. Chỉ operator có thể nhận `production`.
 
-Production completion also needs:
+Completion sản xuất cũng cần:
 
-- input validation;
-- caller-aware filtering;
-- request debouncing in the client;
-- rate limiting in the server;
-- bounded result counts;
-- logs that do not expose sensitive suggestion values.
+- xác thực đầu vào;
+- lọc nhận biết bên gọi;
+- debounce yêu cầu trong client;
+- giới hạn tốc độ trong máy chủ;
+- số kết quả có giới hạn;
+- nhật ký không lộ giá trị gợi ý nhạy cảm.
 
-Completion is assistance, not discovery bypass.
+Completion là trợ giúp, không bỏ qua khám phá.
 
 ## Two Error Layers
 
-Keep protocol errors separate from tool execution errors.
+Giữ lỗi giao thức riêng lỗi thực thi công cụ.
 
-Use a JSON-RPC error when the MCP request cannot be dispatched correctly:
+Dùng lỗi JSON-RPC khi yêu cầu MCP không phân phối đúng được:
 
-- unknown tool name;
-- malformed request shape;
-- missing request metadata;
-- invalid cursor.
+- tên công cụ không biết;
+- hình dạng yêu cầu sai;
+- thiếu siêu dữ liệu yêu cầu;
+- con trỏ không hợp lệ.
 
-Use a complete tool result with `isError: true` when the invocation reached the tool and the tool reports an actionable failure:
+Dùng kết quả công cụ đầy đủ với `isError: true` khi lần gọi đến công cụ và công cụ báo thất bại xử lý được:
 
-- a report source is unavailable;
-- a date is outside the supported range;
-- a business rule rejects the requested operation.
+- nguồn báo cáo không sẵn;
+- ngày ngoài dải hỗ trợ;
+- quy tắc nghiệp vụ từ chối thao tác yêu cầu.
 
-Models can often repair a tool execution error. They cannot repair a server that violated its own output schema.
+Mô hình thường sửa được lỗi thực thi công cụ. Không sửa được máy chủ vi phạm lược đồ đầu ra riêng.
 
-If the tool declares an output schema, model an actionable failure inside that
-schema. The sample `route_report` failure returns its requested region with
-`accepted: false`, alongside human-readable error text and `isError: true`.
+Nếu công cụ khai báo lược đồ đầu ra, mô hình hóa thất bại xử lý được trong
+lược đồ đó. Thất bại `route_report` mẫu trả vùng yêu cầu với
+`accepted: false`, cùng văn bản lỗi con người đọc được và `isError: true`.
 
 ## Build It
 
-`code/main.py` builds both sides of the boundary with the Python standard library.
+`code/main.py` xây cả hai phía ranh giới bằng thư viện chuẩn Python.
 
-The server implements:
+Máy chủ triển khai:
 
-- per-request MCP metadata validation;
-- `server/discover` with tools and completions capabilities;
-- deterministic `tools/list` pagination;
-- four tool descriptors, including one that must be rejected;
-- array structured output;
-- every current tool content block type;
-- a Streamable HTTP parity gate that decodes recognized parameter headers and
-  returns HTTP `400` plus JSON-RPC `-32020` on mismatch;
-- authorized and rate-limited completion.
+- xác thực siêu dữ liệu MCP mỗi yêu cầu;
+- `server/discover` với khả năng công cụ và completion;
+- phân trang `tools/list` tất định;
+- bốn bộ mô tả công cụ, gồm một phải từ chối;
+- đầu ra có cấu trúc mảng;
+- mọi kiểu khối nội dung công cụ hiện tại;
+- cổng bằng nhau Streamable HTTP giải mã header tham số nhận biết và
+  trả HTTP `400` cộng JSON-RPC `-32020` khi không khớp;
+- completion có cấp quyền và giới hạn tốc độ.
 
-The client implements:
+Client triển khai:
 
-- descriptor admission;
-- full-tree `x-mcp-header` placement validation and sensitive-field policy;
-- exact plain-visible-ASCII or base64 UTF-8 value encoding;
-- an opaque cursor loop that follows an empty string;
-- argument and result validation;
-- content-block validation;
-- header audit events containing names but not values.
+- tiếp nhận bộ mô tả;
+- xác thực vị trí `x-mcp-header` toàn cây và chính sách trường nhạy cảm;
+- mã hóa giá trị ASCII hiển thị thuần hoặc base64 UTF-8 chính xác;
+- vòng con trỏ mờ theo chuỗi rỗng;
+- xác thực đối số và kết quả;
+- xác thực khối nội dung;
+- sự kiện kiểm toán header chứa tên không giá trị.
 
-The deliberately unsafe descriptor is teaching data. It proves that one rejected tool does not prevent valid tools from loading.
+Bộ mô tả cố ý không an toàn là dữ liệu giảng dạy. Chứng minh một công cụ bị từ chối không ngăn công cụ hợp lệ tải.
 
 ## Use It
 
-From the repository root:
+Từ thư mục gốc repo:
 
 ```bash
 cd phases/13-tools-and-protocols/28-mcp-tool-contracts-and-content/code
@@ -356,120 +356,120 @@ python3 main.py
 python3 -m unittest discover tests -v
 ```
 
-The demo prints admitted tools, the rejected descriptor, both pagination
-requests, structured array content, content-block types, mirrored header
-names, whether the value required encoding, the HTTP parity status, and
-caller-filtered completion values.
+Demo in công cụ tiếp nhận, bộ mô tả từ chối, cả hai yêu cầu
+phân trang, nội dung mảng có cấu trúc, kiểu khối nội dung, tên header
+phản chiếu, giá trị có cần mã hóa không, trạng thái HTTP bằng nhau và
+giá trị completion lọc bên gọi.
 
 ## Interactive Lab
 
-Open `code/main.py` and locate `TOOLS`.
+Mở `code/main.py` và tìm `TOOLS`.
 
-1. Change `tag_catalog.outputSchema.type` from `array` to `object`.
-2. Run the demo. The client should reject the returned array.
-3. Restore the schema.
-4. Keep the first page's `nextCursor` as `""`, then make the final page return
-   `nextCursor: None` instead of omitting the field.
-5. Run the tests and compare the cursor trace.
-6. Add `x-mcp-header: "Authorization"` to a string property.
-7. Confirm descriptor admission rejects it before invocation.
-8. Try `region` values containing Unicode, a newline, surrounding spaces, and
-   the literal text `=?base64?SGVsbG8=?=`. Decode each emitted header and prove
-   the original value survives exactly.
-9. Move the annotation under `oneOf`, `items`, or a `$ref` definition. Confirm
-   each descriptor is rejected even if that branch is never used by the demo.
-10. Remove the recognized header or change its decoded value. Confirm the HTTP
-    boundary returns status `400` and JSON-RPC code `-32020`.
+1. Đổi `tag_catalog.outputSchema.type` từ `array` thành `object`.
+2. Chạy demo. Client nên từ chối mảng trả về.
+3. Khôi phục lược đồ.
+4. Giữ `nextCursor` trang đầu là `""`, rồi làm trang cuối trả
+   `nextCursor: None` thay bỏ trường.
+5. Chạy kiểm thử và so trace con trỏ.
+6. Thêm `x-mcp-header: "Authorization"` vào thuộc tính chuỗi.
+7. Xác nhận tiếp nhận bộ mô tả từ chối trước gọi.
+8. Thử giá trị `region` chứa Unicode, dòng mới, khoảng trắng quanh và
+   văn bản nguyên văn `=?base64?SGVsbG8=?=`. Giải mã mỗi header phát và chứng minh
+   giá trị gốc tồn tại chính xác.
+9. Chuyển chú giải dưới `oneOf`, `items` hoặc định nghĩa `$ref`. Xác nhận
+   mỗi bộ mô tả bị từ chối dù nhánh đó không bao giờ dùng trong demo.
+10. Bỏ header nhận biết hoặc đổi giá trị giải mã. Xác nhận ranh giới HTTP
+    trả trạng thái `400` và mã JSON-RPC `-32020`.
 
-The point is not to memorize a JSON shape. It is to watch each gate fail at the boundary that owns it.
+Mục đích không phải nhớ hình dạng JSON. Là quan sát mỗi cổng thất bại tại ranh giới sở hữu.
 
 ## Practice Lab
 
-Extend the contract lab with a `search_evidence` tool.
+Mở rộng lab hợp đồng với công cụ `search_evidence`.
 
-Requirements:
+Yêu cầu:
 
-1. Its input schema accepts `query`, `limit`, and a safe `region` routing field.
-2. Its output schema is an array of objects with `uri`, `title`, and `score`.
-3. The result includes compatibility text and a resource link per item.
-4. Arguments reject unknown properties.
-5. `limit` is bounded by application validation.
-6. A caller without access to one URI never sees that URI through completion or tool output.
-7. Tests include a nonconforming score, an invalid header annotation, and a two-page list.
-8. Header-value tests cover visible ASCII, Unicode, control characters,
-   whitespace, sentinel-looking text, and both JavaScript-safe integer bounds.
-9. The HTTP fixture accepts case-insensitive header names but rejects missing
-   or mismatched recognized values with status `400` and code `-32020`.
+1. Lược đồ đầu vào nhận `query`, `limit` và trường định tuyến `region` an toàn.
+2. Lược đồ đầu ra là mảng đối tượng có `uri`, `title` và `score`.
+3. Kết quả gồm văn bản tương thích và liên kết tài nguyên mỗi mục.
+4. Đối số từ chối thuộc tính không biết.
+5. `limit` giới hạn bằng xác thực ứng dụng.
+6. Bên gọi không truy cập một URI không bao giờ thấy URI đó qua completion hoặc đầu ra công cụ.
+7. Kiểm thử gồm điểm không tuân thủ, chú giải header không hợp lệ và danh sách hai trang.
+8. Kiểm thử giá trị header bao phủ ASCII hiển thị, Unicode, ký tự điều khiển,
+   khoảng trắng, văn bản giống dấu báo hiệu và cả hai biên số nguyên an toàn JavaScript.
+9. Fixture HTTP nhận tên header không phân biệt hoa thường nhưng từ chối giá trị nhận biết thiếu
+   hoặc không khớp bằng trạng thái `400` và mã `-32020`.
 
 ## Shipped Artifact
 
-`outputs/skill-mcp-contract-reviewer.md` is a flat, reusable review skill. Give it a tool descriptor, sample results, pagination behavior, and completion policy. It returns an admission decision, result-validation plan, header policy, and concrete failure tests.
+`outputs/skill-mcp-contract-reviewer.md` là skill đánh giá phẳng tái sử dụng. Cho bộ mô tả công cụ, kết quả mẫu, hành vi phân trang và chính sách completion. Trả quyết định tiếp nhận, kế hoạch xác thực kết quả, chính sách header và kiểm thử thất bại cụ thể.
 
 ## Verify It
 
-The lesson is complete when these statements are true:
+Bài hoàn tất khi tuyên bố này đúng:
 
-- `tools/list` returns the same logical order on repeated calls.
-- The client performs a second request when `nextCursor` is `""`.
-- The unsafe sensitive-header descriptor is excluded while other tools remain available.
-- An array passes its array output schema.
-- An object fails that same array schema.
-- Error results cannot omit or violate a published output schema.
-- Text, image, audio, resource link, and embedded resource blocks validate.
-- Header audit events contain names and no values.
-- Plain visible ASCII remains plain; Unicode, control, padded, empty, and
-  sentinel-looking values round-trip through exact base64 UTF-8 encoding.
-- Mirrored integers outside the JavaScript safe range are rejected.
-- Annotations under `oneOf`, `items`, nested objects, `$ref` definitions, or
-  output schemas are rejected during admission.
-- Case-insensitive recognized header names pass only when the decoded value
-  exactly matches the body; missing or mismatched copies produce HTTP `400`
-  and JSON-RPC `-32020`.
-- Analyst completion never returns `production`.
-- A tool failure uses `isError: true`; a malformed protocol call uses JSON-RPC `error`.
+- `tools/list` trả cùng thứ tự logic trên lời gọi lặp.
+- Client thực hiện yêu cầu thứ hai khi `nextCursor` là `""`.
+- Bộ mô tả header nhạy cảm không an toàn bị loại trong khi công cụ khác còn sẵn.
+- Mảng qua lược đồ đầu ra mảng.
+- Đối tượng trượt cùng lược đồ mảng đó.
+- Kết quả lỗi không thể bỏ hoặc vi phạm lược đồ đầu ra công bố.
+- Khối văn bản, ảnh, âm thanh, liên kết tài nguyên và tài nguyên nhúng xác thực được.
+- Sự kiện kiểm toán header chứa tên và không giá trị.
+- ASCII hiển thị thuần giữ thuần; Unicode, điều khiển, có đệm, rỗng và
+  giá trị giống dấu báo hiệu đi-về qua mã hóa base64 UTF-8 chính xác.
+- Số nguyên phản chiếu ngoài dải an toàn JavaScript bị từ chối.
+- Chú giải dưới `oneOf`, `items`, đối tượng lồng, định nghĩa `$ref` hoặc
+  lược đồ đầu ra bị từ chối khi tiếp nhận.
+- Tên header nhận biết không phân biệt hoa thường chỉ đạt khi giá trị giải mã
+  khớp chính xác phần thân; bản sao thiếu hoặc không khớp tạo HTTP `400`
+  và JSON-RPC `-32020`.
+- Completion analyst không bao giờ trả `production`.
+- Thất bại công cụ dùng `isError: true`; lời gọi giao thức sai dạng dùng JSON-RPC `error`.
 
 ## Production Failure Modes
 
-| Failure | What the learner sees | Correct response |
+| Thất bại | Người học thấy gì | Phản ứng đúng |
 |---------|-----------------------|------------------|
-| Client assumes object output | Valid arrays fail or are silently wrapped | Validate against the published schema without object-only types |
-| Empty cursor treated as false | Final pages disappear | Continue whenever `nextCursor` is present and non-null |
-| Sensitive value mirrored | Secret appears in proxy, WAF, or trace data | Reject the descriptor and keep secrets in protected request data |
-| Raw Unicode or whitespace mirrored | Gateway and origin disagree or the value is normalized | Use exact base64 UTF-8 sentinel encoding and compare after decoding |
-| Annotation hidden in a schema branch | A client misses routing metadata during admission | Traverse the entire schema tree and allow only direct top-level properties |
-| Large integer mirrored | JavaScript intermediary rounds the routing value | Reject values outside the JavaScript safe integer range |
-| Header and body disagree | Gateway routes one target while the origin executes another | Reject before dispatch with HTTP `400` and JSON-RPC `-32020` |
-| Output schema ignored | Downstream code consumes corrupt structure | Validate before model or application use |
-| Resource link trusted automatically | Caller follows an unauthorized URI | Reauthorize every resource read |
-| Completion shares global suggestions | Hidden tenant names leak | Filter by caller, reference, and authorization |
-| Tool annotations treated as policy | Destructive operation bypasses confirmation | Enforce authorization and approval outside annotations |
-| One malformed tool breaks discovery | Entire server becomes unavailable | Reject the bad descriptor and admit valid tools independently |
+| Client giả định đầu ra đối tượng | Mảng hợp lệ trượt hoặc bị âm thầm bọc | Xác thực theo lược đồ công bố không kiểu chỉ đối tượng |
+| Con trỏ rỗng coi là false | Trang cuối biến mất | Tiếp tục bất cứ khi nào `nextCursor` có và khác null |
+| Giá trị nhạy cảm phản chiếu | Bí mật xuất hiện trong proxy, WAF hoặc dữ liệu trace | Từ chối bộ mô tả và giữ bí mật trong dữ liệu yêu cầu được bảo vệ |
+| Unicode hoặc khoảng trắng thô phản chiếu | Gateway và máy chủ gốc bất đồng hoặc giá trị chuẩn hóa | Dùng đúng mã hóa dấu báo hiệu base64 UTF-8 và so sau giải mã |
+| Chú giải giấu trong nhánh lược đồ | Client bỏ lỡ siêu dữ liệu định tuyến lúc tiếp nhận | Duyệt toàn cây lược đồ và chỉ cho thuộc tính cấp cao nhất trực tiếp |
+| Số nguyên lớn phản chiếu | Trung gian JavaScript làm tròn giá trị định tuyến | Từ chối giá trị ngoài dải số nguyên an toàn JavaScript |
+| Header và phần thân bất đồng | Gateway định tuyến đích này trong khi máy chủ gốc thực thi đích khác | Từ chối trước phân phối bằng HTTP `400` và JSON-RPC `-32020` |
+| Lược đồ đầu ra bị bỏ qua | Mã phía sau tiếp nhận cấu trúc hỏng | Xác thực trước mô hình hoặc ứng dụng dùng |
+| Liên kết tài nguyên tự động tin | Bên gọi theo URI không được cấp quyền | Cấp quyền lại mọi lần đọc tài nguyên |
+| Completion chia gợi ý toàn cục | Tên tenant ẩn rò | Lọc theo bên gọi, tham chiếu và cấp quyền |
+| Chú giải công cụ coi là chính sách | Thao tác phá hủy bỏ qua xác nhận | Cưỡng chế cấp quyền và phê duyệt ngoài chú giải |
+| Một công cụ sai dạng phá khám phá | Toàn máy chủ không sẵn | Từ chối bộ mô tả xấu và tiếp nhận công cụ hợp lệ độc lập |
 
 ## Capstone Connection
 
-The Phase 13 capstone needs a gateway that can merge tools from several servers. This lesson provides its admission core.
+Bài tổng kết Giai đoạn 13 cần gateway gộp công cụ từ nhiều máy chủ. Bài này cung cấp lõi tiếp nhận.
 
-Use the artifact to grade four pieces of capstone evidence:
+Dùng sản phẩm chấm bốn phần bằng chứng tổng kết:
 
-- deterministic and complete paginated discovery;
-- descriptor validation before model exposure;
-- validated structured output plus bounded content blocks;
-- completion and routing metadata that preserve authorization boundaries.
+- khám phá phân trang tất định và đầy đủ;
+- xác thực bộ mô tả trước đưa cho mô hình;
+- đầu ra có cấu trúc đã xác thực cộng khối nội dung có giới hạn;
+- completion và siêu dữ liệu định tuyến giữ ranh giới cấp quyền.
 
-Do not claim gateway compatibility from a successful `tools/call` alone. Capture the descriptor, page trace, admitted tool set, rejected tool set, and one validated result.
+Không tuyên bố tương thích gateway chỉ từ `tools/call` thành công. Thu bộ mô tả, trace trang, tập công cụ tiếp nhận, tập công cụ từ chối và một kết quả đã xác thực.
 
 ## Key Terms
 
-| Term | Meaning |
+| Thuật ngữ | Ý nghĩa |
 |------|---------|
-| `inputSchema` | JSON Schema object defining accepted tool arguments |
-| `outputSchema` | Optional JSON Schema defining `structuredContent` |
-| `structuredContent` | Any JSON value produced by a tool result |
-| Content block | Typed text, image, audio, resource link, or embedded resource |
-| `x-mcp-header` | Schema annotation that mirrors a primitive argument into Streamable HTTP metadata |
-| Opaque cursor | Server-issued pagination token whose value the client does not interpret |
-| Completion reference | Prompt name or resource URI/template whose argument is being completed |
-| Admission | Client decision to expose or reject a discovered descriptor |
+| `inputSchema` | Đối tượng JSON Schema định nghĩa đối số công cụ chấp nhận |
+| `outputSchema` | JSON Schema tùy chọn định nghĩa `structuredContent` |
+| `structuredContent` | Mọi giá trị JSON do kết quả công cụ tạo |
+| Content block (Khối nội dung) | Văn bản, ảnh, âm thanh, liên kết tài nguyên hoặc tài nguyên nhúng có kiểu |
+| `x-mcp-header` | Chú giải lược đồ phản chiếu đối số nguyên thủy vào siêu dữ liệu Streamable HTTP |
+| Opaque cursor (Con trỏ mờ) | Token phân trang máy chủ cấp có giá trị client không diễn giải |
+| Completion reference (Tham chiếu hoàn thành) | Tên prompt hoặc URI/mẫu tài nguyên có đối số đang được hoàn thành |
+| Admission (Tiếp nhận) | Quyết định client đưa ra hoặc từ chối bộ mô tả khám phá |
 
 ## Further Reading
 
