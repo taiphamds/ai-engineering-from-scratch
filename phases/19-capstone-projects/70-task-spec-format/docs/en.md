@@ -1,6 +1,6 @@
 # Task Spec Format
 
-> An eval harness is only as good as the contract its tasks honour. Freeze the JSONL shape and the metric vocabulary before you write a single scoring function.
+> Một harness đánh giá chỉ tốt như hợp đồng mà các tác vụ của nó tuân thủ. Đóng băng hình thức JSONL và từ vựng chỉ số trước khi bạn viết một hàm chấm điểm duy nhất.
 
 **Type:** Build
 **Languages:** Python
@@ -9,11 +9,11 @@
 
 ## Learning objectives
 
-- Define a JSONL task record schema that covers arithmetic, multiple-choice, code execution, classification, and free-text summarisation in one shape.
-- Pin a closed vocabulary of metric names so downstream lessons (71-73) can dispatch on a single field.
-- Specify few-shot examples and post-processing rules as part of the task, not the runner, so the same prompt produces the same target across models.
-- Implement a strict validator that rejects malformed records before they reach the runner.
-- Ship a 10-task fixture set that exercises every branch of the spec so the validator has something real to chew on.
+- Định nghĩa một lược đồ bản ghi tác vụ JSONL bao phủ số học, trắc nghiệm, thực thi mã, phân loại, và tóm tắt văn bản tự do trong một hình thức.
+- Ghim một từ vựng đóng các tên chỉ số để các bài hạ nguồn (71-73) có thể điều phối theo một trường duy nhất.
+- Đặc tả các ví dụ few-shot và quy tắc hậu xử lý như một phần của tác vụ, không phải trình chạy, để cùng prompt tạo cùng đích trên các mô hình.
+- Triển khai một bộ xác thực nghiêm ngặt từ chối các bản ghi sai định dạng trước khi chúng đến trình chạy.
+- Cung cấp một tập fixture 10 tác vụ thực thi mọi nhánh của đặc tả để bộ xác thực có thứ thực để nhai.
 
 ```figure
 ci-task-spec-gate
@@ -21,13 +21,13 @@ ci-task-spec-gate
 
 ## Why a frozen spec
 
-A research codebase will accumulate eval scripts faster than it accumulates tests. Six months in, every notebook has its own JSON shape, every metric is reimplemented twice, and nothing can be compared across runs. The fix is boring. Pick a schema. Write a validator. Reject everything else. That is what this lesson does.
+Một cơ sở mã nghiên cứu sẽ tích lũy các script đánh giá nhanh hơn các kiểm thử. Sau sáu tháng, mọi notebook có hình thức JSON riêng, mọi chỉ số được triển khai lại hai lần, và không gì có thể so sánh giữa các lần chạy. Cách sửa nhàm chán. Chọn một lược đồ. Viết một bộ xác thực. Từ chối mọi thứ khác. Đó là điều bài này làm.
 
-The shape borrows ideas from BIG-bench, HELM, and lm-eval style harnesses, but the field names are ours. Every field has a single owner. The runner reads the task. The metric reads the targets. The post-process step normalises the generation. No field is mutable mid-pipeline.
+Hình thức mượn các ý tưởng từ BIG-bench, HELM, và các harness kiểu lm-eval, nhưng các tên trường là của chúng ta. Mọi trường có một chủ sở hữu duy nhất. Trình chạy đọc tác vụ. Chỉ số đọc các đích. Bước hậu xử lý chuẩn hóa phần sinh. Không trường nào có thể thay đổi giữa pipeline.
 
 ## The record shape
 
-A task is a JSON object on a single line. The harness reads `tasks.jsonl` and validates each line independently. A bad line aborts that record, not the run.
+Một tác vụ là một đối tượng JSON trên một dòng duy nhất. Harness đọc `tasks.jsonl` và xác thực từng dòng độc lập. Một dòng sai hủy bản ghi đó, không phải lần chạy.
 
 ```json
 {
@@ -44,23 +44,23 @@ A task is a JSON object on a single line. The harness reads `tasks.jsonl` and va
 }
 ```
 
-The required fields are `task_id`, `category`, `prompt`, `targets`, `metric_name`, `post_process`. `few_shot_examples` and `metadata` are optional. Unknown top-level fields fail validation.
+Các trường bắt buộc là `task_id`, `category`, `prompt`, `targets`, `metric_name`, `post_process`. `few_shot_examples` và `metadata` tùy chọn. Các trường cấp cao nhất không xác định làm xác thực thất bại.
 
 ## Field rules
 
-`task_id` is a string with no whitespace. The validator enforces uniqueness across the file.
+`task_id` là một chuỗi không có khoảng trắng. Bộ xác thực thực thi tính duy nhất trên toàn file.
 
-`category` is one of `arithmetic`, `mcq`, `code_exec`, `classification`, `summary`. The category constrains which metric and post-process pair is legal. A `code_exec` task must use `metric_name = code_exec` and a `mcq` task must use `metric_name = exact_match` against a single-letter target.
+`category` là một trong `arithmetic`, `mcq`, `code_exec`, `classification`, `summary`. Hạng mục ràng buộc cặp chỉ số và hậu xử lý nào hợp lệ. Một tác vụ `code_exec` phải dùng `metric_name = code_exec` và một tác vụ `mcq` phải dùng `metric_name = exact_match` với một đích một chữ cái.
 
-`prompt` is a non-empty string. The validator forbids trailing whitespace and rejects records that already contain a few-shot block in the prompt body. Few-shot rendering happens in the runner, not the author.
+`prompt` là một chuỗi không rỗng. Bộ xác thực cấm khoảng trắng cuối và từ chối các bản ghi đã chứa một khối few-shot trong thân prompt. Kết xuất few-shot xảy ra trong trình chạy, không phải tác giả.
 
-`targets` is a non-empty list of strings. For `exact_match`, any element matching counts. For `f1` and `rouge_l`, the highest-scoring target wins. For `mcq`, the list holds exactly one element.
+`targets` là một danh sách chuỗi không rỗng. Với `exact_match`, bất kỳ phần tử nào khớp đều được tính. Với `f1` và `rouge_l`, đích có điểm cao nhất thắng. Với `mcq`, danh sách giữ chính xác một phần tử.
 
-`metric_name` is one of `exact_match`, `f1`, `bleu_4`, `rouge_l`, `accuracy`, `code_exec`. The vocabulary is closed. A new metric requires a new lesson and a new entry here.
+`metric_name` là một trong `exact_match`, `f1`, `bleu_4`, `rouge_l`, `accuracy`, `code_exec`. Từ vựng đóng. Một chỉ số mới đòi hỏi một bài mới và một mục mới ở đây.
 
-`few_shot_examples` is a list of `{prompt, completion}` pairs. The validator caps the list at eight entries to keep prompts bounded.
+`few_shot_examples` là một danh sách các cặp `{prompt, completion}`. Bộ xác thực giới hạn danh sách ở tám mục để giữ các prompt có giới hạn.
 
-`post_process` is one of `none`, `strip_whitespace`, `lower`, `extract_letter`, `extract_code_block`, `extract_first_line`. Each rule has a single deterministic behaviour. The validator forbids combining rules.
+`post_process` là một trong `none`, `strip_whitespace`, `lower`, `extract_letter`, `extract_code_block`, `extract_first_line`. Mỗi quy tắc có một hành vi tất định duy nhất. Bộ xác thực cấm kết hợp các quy tắc.
 
 ## Validator behaviour
 
@@ -83,11 +83,11 @@ flowchart TD
     H -->|no| I[return validated, errors]
 ```
 
-The validator returns two lists: validated records and error records with the offending line, the violated rule, and the field at fault. The runner refuses to start if the error list is non-empty unless an explicit `--allow-bad-tasks` flag is set.
+Bộ xác thực trả về hai danh sách: các bản ghi đã xác thực và các bản ghi lỗi với dòng vi phạm, quy tắc bị vi phạm, và trường có lỗi. Trình chạy từ chối bắt đầu nếu danh sách lỗi không rỗng trừ khi một cờ `--allow-bad-tasks` rõ ràng được đặt.
 
 ## Few-shot rendering
 
-The runner concatenates few-shot examples in front of the prompt with a blank line separator. The same code path runs for every model, so the only source of variance is the model itself. Authors write examples once, not once per provider.
+Trình chạy nối các ví dụ few-shot phía trước prompt với một dấu phân cách dòng trống. Cùng đường mã chạy cho mọi mô hình, nên nguồn phương sai duy nhất là chính mô hình. Các tác giả viết ví dụ một lần, không phải một lần mỗi nhà cung cấp.
 
 ```python
 def render(task):
@@ -100,29 +100,29 @@ def render(task):
 
 ## Post-process rules
 
-The post-process step runs after generation, before the metric. It is deterministic and stateless.
+Bước hậu xử lý chạy sau sinh, trước chỉ số. Nó tất định và phi trạng thái.
 
-- `none` returns the string unchanged.
-- `strip_whitespace` strips leading and trailing whitespace.
-- `lower` lowercases the string.
-- `extract_letter` returns the first character that matches `[A-E]`, used for MCQ.
-- `extract_code_block` returns the body of the first triple-backtick fenced block, used for code-exec.
-- `extract_first_line` returns the first non-empty line, used for summary classification.
+- `none` trả về chuỗi không đổi.
+- `strip_whitespace` bỏ khoảng trắng đầu và cuối.
+- `lower` chuyển chuỗi thành chữ thường.
+- `extract_letter` trả về ký tự đầu khớp `[A-E]`, được dùng cho MCQ.
+- `extract_code_block` trả về thân của khối rào ba dấu backtick đầu tiên, được dùng cho thực thi mã.
+- `extract_first_line` trả về dòng không rỗng đầu tiên, được dùng cho phân loại tóm tắt.
 
-A task that needs a rule outside this list belongs in a new lesson.
+Một tác vụ cần một quy tắc ngoài danh sách này thuộc về một bài mới.
 
 ## What this lesson does not do
 
-It does not score. It does not call a model. It does not run code. Those come in lessons 71, 72, and 75. This lesson freezes the contract that all of them honour.
+Nó không chấm điểm. Nó không gọi một mô hình. Nó không chạy mã. Những thứ đó đến trong các bài 71, 72, và 75. Bài này đóng băng hợp đồng mà tất cả tuân thủ.
 
-The 10-task fixture covers two arithmetic items, two MCQ items, two code-exec items, two classification items, and two summarisation items. The validator passes on all 10. A separate fixture (`tasks_bad.jsonl`) trips every rule and the validator returns exactly that many errors.
+Fixture 10 tác vụ bao phủ hai mục số học, hai mục MCQ, hai mục thực thi mã, hai mục phân loại, và hai mục tóm tắt. Bộ xác thực đạt trên cả 10. Một fixture riêng (`tasks_bad.jsonl`) kích hoạt mọi quy tắc và bộ xác thực trả về chính xác từng ấy lỗi.
 
 ## How to read the code
 
-`main.py` defines `TaskSpec`, `validate_task`, `validate_file`, and a CLI entry point. The fixture loader is `load_fixtures`. The render and post-process helpers live next to validation so the runner in lesson 75 imports a single module.
+`main.py` định nghĩa `TaskSpec`, `validate_task`, `validate_file`, và một điểm vào CLI. Bộ nạp fixture là `load_fixtures`. Các hàm hỗ trợ kết xuất và hậu xử lý nằm cạnh xác thực để trình chạy trong bài 75 import một module duy nhất.
 
-Read `main.py` top to bottom. Then read `code/tests/test_spec.py`. The tests pin every validation rule and every post-process behaviour. The demo at the bottom of `main.py` validates the bundled fixture and prints a summary.
+Đọc `main.py` từ trên xuống dưới. Rồi đọc `code/tests/test_spec.py`. Các kiểm thử ghim mọi quy tắc xác thực và mọi hành vi hậu xử lý. Demo ở cuối `main.py` xác thực fixture được đóng gói và in một tóm tắt.
 
 ## Going further
 
-Real eval suites grow categories the way schemas grow columns. The sober move is to refuse to add a category without also adding a metric, a post-process rule, and at least one fixture task. Treat the spec like a database migration. Every change is reviewed, versioned, and accompanied by tests. The validator in this lesson is the gate.
+Các bộ đánh giá thực phát triển các hạng mục theo cách các lược đồ phát triển các cột. Bước đi tỉnh táo là từ chối thêm một hạng mục mà không đồng thời thêm một chỉ số, một quy tắc hậu xử lý, và ít nhất một tác vụ fixture. Coi đặc tả như một lần di chuyển cơ sở dữ liệu. Mọi thay đổi được rà soát, có phiên bản, và đi kèm các kiểm thử. Bộ xác thực trong bài này là cổng.
