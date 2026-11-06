@@ -1,6 +1,6 @@
 # Checkpoint Save and Resume
 
-> Train interrupts kill runs; checkpoints let them continue. Save model, optimizer, scheduler, loss history, step counter, and RNG state, atomically, so a kill at any moment leaves a valid file on disk.
+> Các lần ngắt huấn luyện giết các lần chạy; checkpoint cho chúng tiếp tục. Lưu mô hình, bộ tối ưu, bộ lập lịch, lịch sử mất mát, bộ đếm bước, và trạng thái RNG, một cách nguyên tử, để một lần diệt ở bất kỳ thời điểm nào đều để lại một file hợp lệ trên đĩa.
 
 **Type:** Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Capture the full training state into a single payload that can be reloaded into a fresh process.
-- Implement atomic save with write-to-temp then rename so a crash never leaves a half-written file.
-- Restore the RNG state for Python, NumPy, and PyTorch so the post-resume loss matches the uninterrupted baseline.
-- Build a sharded checkpoint layout for models that no longer fit in a single file, with hash-verified shards and a JSON index.
+- Thu thập toàn bộ trạng thái huấn luyện vào một payload duy nhất có thể được nạp lại vào một tiến trình mới.
+- Triển khai lưu nguyên tử bằng ghi vào file tạm rồi đổi tên để một sự cố không bao giờ để lại một file ghi nửa chừng.
+- Khôi phục trạng thái RNG cho Python, NumPy, và PyTorch để mất mát sau tiếp tục khớp đường cơ sở không bị ngắt.
+- Xây dựng một bố cục checkpoint chia shard cho các mô hình không còn vừa một file duy nhất, với các shard được xác minh băm và một chỉ mục JSON.
 
 ## The Problem
 
-You set a training job for 18 hours. The wallclock cap is 4 hours. The cluster reboots at hour 11 because someone above your pay grade approved a kernel upgrade. Without checkpoints you start over. Without resume you also lose the optimizer state that took the first 11 hours to learn, so even if the model weights survived, the AdamW moments are gone and the next step lurches in a direction the training trajectory had already moved past.
+Bạn đặt một công việc huấn luyện trong 18 giờ. Trần thời gian thực là 4 giờ. Cụm khởi động lại ở giờ 11 vì ai đó ở cấp lương cao hơn bạn phê duyệt một nâng cấp kernel. Không có checkpoint bạn bắt đầu lại. Không có tiếp tục bạn cũng mất trạng thái bộ tối ưu đã mất 11 giờ đầu để học, nên ngay cả nếu các trọng số mô hình sống sót, các mômen AdamW đã mất và bước tiếp theo giật theo một hướng mà quỹ đạo huấn luyện đã đi qua.
 
-The right artifact is a single file that holds everything needed to continue: model parameters, optimizer state, scheduler state, the loss history for plots, the current step and epoch and batch-in-epoch counters, and the RNG state for every source of randomness. Without the RNG state the resumed loss curve is a different curve. Same model, same data, different shuffle, different dropout mask, different number on the dashboard.
+Hiện vật đúng là một file duy nhất giữ mọi thứ cần để tiếp tục: các tham số mô hình, trạng thái bộ tối ưu, trạng thái bộ lập lịch, lịch sử mất mát cho các biểu đồ, các bộ đếm bước và epoch và lô-trong-epoch hiện tại, và trạng thái RNG cho mọi nguồn ngẫu nhiên. Không có trạng thái RNG đường cong mất mát được tiếp tục là một đường cong khác. Cùng mô hình, cùng dữ liệu, xáo trộn khác, mặt nạ dropout khác, con số khác trên bảng điều khiển.
 
-Atomic save is the other half of the contract. Writing into the final filename means a crash mid-write leaves a corrupt file; the resume reads garbage. Writing into a temporary file in the same directory and then renaming means a crash mid-write leaves the previous good file untouched. The rename is atomic on POSIX file systems.
+Lưu nguyên tử là nửa còn lại của hợp đồng. Ghi vào tên file cuối nghĩa là một sự cố giữa lần ghi để lại một file hỏng; việc tiếp tục đọc rác. Ghi vào một file tạm trong cùng thư mục rồi đổi tên nghĩa là một sự cố giữa lần ghi để nguyên file tốt trước đó. Đổi tên là nguyên tử trên các hệ thống file POSIX.
 
 ## The Concept
 
@@ -37,13 +37,13 @@ flowchart TD
 
 ### The five state buckets
 
-| Bucket | Why it matters |
+| Nhóm | Tại sao nó quan trọng |
 |--------|----------------|
-| Model | Weights and buffers; what the model is. |
-| Optimizer | Momentum and adaptive moments; without these the next step is a different optimization problem. |
-| Scheduler | Where the learning rate is on its curve; cosine schedules in particular care. |
-| Train counters | Step, epoch, batch-in-epoch, plus the loss history that draws the dashboard. |
-| RNG state | Determinism for dropout, data shuffling, and any sampling inside the model. |
+| Mô hình | Trọng số và buffer; mô hình là gì. |
+| Bộ tối ưu | Động lượng và các mômen thích ứng; không có chúng bước tiếp theo là một bài toán tối ưu khác. |
+| Bộ lập lịch | Tốc độ học đang ở đâu trên đường cong của nó; các lịch cosine đặc biệt quan tâm. |
+| Các bộ đếm huấn luyện | Bước, epoch, lô-trong-epoch, cùng lịch sử mất mát vẽ bảng điều khiển. |
+| Trạng thái RNG | Tính tất định cho dropout, xáo trộn dữ liệu, và bất kỳ lấy mẫu nào bên trong mô hình. |
 
 ### Atomic save
 
@@ -56,11 +56,11 @@ flowchart LR
   crash2[crash after rename] --> done
 ```
 
-Two rules. First, the temporary file lives in the same directory as the target so the rename stays within the same file system; cross-device renames are not atomic. Second, the temporary name is unique per attempt so two writers do not stomp.
+Hai quy tắc. Thứ nhất, file tạm nằm trong cùng thư mục như đích để đổi tên nằm trong cùng hệ thống file; đổi tên chéo thiết bị không nguyên tử. Thứ hai, tên tạm là duy nhất theo lần thử để hai bộ ghi không giẫm lên nhau.
 
 ### Sharded checkpoints
 
-When the model gets large the single-file payload becomes too big to load fast, too big to inspect, and too painful when a network share hiccups mid-read. The fix is to split the parameter state into shards and write a small index that ties them together.
+Khi mô hình lớn payload một file trở nên quá lớn để nạp nhanh, quá lớn để kiểm tra, và quá đau đớn khi một ổ chia sẻ mạng trục trặc giữa lần đọc. Cách sửa là chia trạng thái tham số thành các shard và ghi một chỉ mục nhỏ gắn chúng lại.
 
 ```mermaid
 flowchart LR
@@ -74,11 +74,11 @@ flowchart LR
   meta[meta.pt: optimizer + scheduler + train_state + rng] --> idx
 ```
 
-The index records the shard count, the sha256 of each shard, and the sha256 of the meta file. The loader fails loudly when any hash mismatches. The shards can land on different physical disks; the meta is small and reads first.
+Chỉ mục ghi số shard, sha256 của mỗi shard, và sha256 của file meta. Loader thất bại rõ ràng khi bất kỳ băm nào không khớp. Các shard có thể nằm trên các đĩa vật lý khác nhau; meta nhỏ và được đọc trước.
 
 ### Resume continues mid epoch
 
-A resume that snaps to the start of the next epoch wastes anywhere from minutes to a day. The fix is `(epoch, batch_in_epoch)` plus the RNG state. After load, the training loop fast-forwards the random number generator past the batches already consumed in the current epoch and continues from `batch_in_epoch`. The lesson code does this exactly; the assertion is that the loss trajectory after resume matches the uninterrupted baseline within 1e-4.
+Một lần tiếp tục nhảy đến đầu epoch tiếp theo lãng phí từ vài phút đến một ngày. Cách sửa là `(epoch, batch_in_epoch)` cùng trạng thái RNG. Sau khi nạp, vòng lặp huấn luyện tua nhanh bộ sinh số ngẫu nhiên qua các lô đã được tiêu thụ trong epoch hiện tại và tiếp tục từ `batch_in_epoch`. Mã bài học làm chính xác điều này; khẳng định là quỹ đạo mất mát sau tiếp tục khớp đường cơ sở không bị ngắt trong 1e-4.
 
 ```figure
 cc-atomic-checkpoint
@@ -86,75 +86,75 @@ cc-atomic-checkpoint
 
 ## Build It
 
-`code/main.py` provides four primitives and a demo driver.
+`code/main.py` cung cấp bốn thành phần cơ sở và một trình điều khiển demo.
 
 ### Step 1: capture and restore RNG state
 
-`capture_rng_state` returns a dict with Python's `random.getstate`, NumPy's `np.random.get_state`, and PyTorch CPU and CUDA RNG bytes. Every piece is stored as plain Python numbers, tuples, and lists (NumPy's key array goes through `tolist()`), so the loader in Step 3 can read it back without unpickling arbitrary objects. `restore_rng_state` reverses it. The CPU tensor is a uint8 byte buffer that PyTorch's RNG knows how to consume.
+`capture_rng_state` trả về một dict với `random.getstate` của Python, `np.random.get_state` của NumPy, và các byte RNG CPU và CUDA của PyTorch. Mọi phần được lưu như các số, tuple, và danh sách Python thông thường (mảng khóa của NumPy đi qua `tolist()`), để loader trong Bước 3 có thể đọc lại nó mà không giải pickle các đối tượng tùy ý. `restore_rng_state` đảo ngược nó. Tensor CPU là một bộ đệm byte uint8 mà RNG của PyTorch biết cách tiêu thụ.
 
 ### Step 2: atomic save
 
-`atomic_save` writes the payload to a temp file in the target directory, then `os.replace` swaps it into the final name. `atomic_write_json` does the same for the sharded index.
+`atomic_save` ghi payload vào một file tạm trong thư mục đích, rồi `os.replace` hoán đổi nó vào tên cuối. `atomic_write_json` làm tương tự cho chỉ mục chia shard.
 
 ### Step 3: full checkpoint round trip
 
-`save_checkpoint` packages the model, optimizer, scheduler, train state, and RNG into one dict. `load_checkpoint` reverses it and returns a `TrainState`. The schema field is the upgrade hook: future format changes bump the version string and the loader dispatches.
+`save_checkpoint` đóng gói mô hình, bộ tối ưu, bộ lập lịch, trạng thái huấn luyện, và RNG vào một dict. `load_checkpoint` đảo ngược nó và trả về một `TrainState`. Trường schema là hook nâng cấp: các thay đổi định dạng tương lai tăng chuỗi phiên bản và loader điều phối.
 
-`load_checkpoint` calls `torch.load(..., weights_only=True)`. A `.pt` file is a pickle, and unpickling an untrusted file with `weights_only=False` runs whatever code the file names. The weights-only loader accepts tensors and primitive containers and rejects everything else, which is why Step 1 keeps the RNG state in plain lists. Integrity checks raise `ValueError` instead of using `assert`, because `python -O` strips asserts. Use torch 2.6 or newer: before that release `weights_only=True` had a known bypass (CVE-2025-32434), so the guarantee this lesson relies on holds only from 2.6 on.
+`load_checkpoint` gọi `torch.load(..., weights_only=True)`. Một file `.pt` là một pickle, và giải pickle một file không đáng tin cậy bằng `weights_only=False` chạy bất kỳ mã nào file đặt tên. Loader chỉ trọng số chấp nhận các tensor và container cơ sở và từ chối mọi thứ khác, đó là lý do Bước 1 giữ trạng thái RNG trong các danh sách thông thường. Các kiểm tra toàn vẹn phát sinh `ValueError` thay vì dùng `assert`, vì `python -O` loại bỏ các assert. Dùng torch 2.6 hoặc mới hơn: trước bản phát hành đó `weights_only=True` có một cách vượt qua đã biết (CVE-2025-32434), nên bảo đảm mà bài này dựa vào chỉ đúng từ 2.6 trở đi.
 
 ### Step 4: sharded variant
 
-`save_sharded_checkpoint` round-robins the parameter keys across N shards, writes each shard with its own atomic save, writes a meta file with optimizer and scheduler and train state, and writes the JSON index with shard sha256s. `load_sharded_checkpoint` verifies every shard before merging and refuses any shard path that resolves outside the checkpoint directory.
+`save_sharded_checkpoint` phân luân phiên các khóa tham số trên N shard, ghi mỗi shard với lần lưu nguyên tử riêng, ghi một file meta với bộ tối ưu và bộ lập lịch và trạng thái huấn luyện, và ghi chỉ mục JSON với các sha256 shard. `load_sharded_checkpoint` xác minh mọi shard trước khi hợp nhất và từ chối bất kỳ đường dẫn shard nào phân giải ra ngoài thư mục checkpoint.
 
 ### Step 5: resume demo
 
-`run_resume_demo` trains a small model for `total_steps`, saves a checkpoint at `interrupt_at`, then continues. A second process restores the checkpoint and runs the remaining steps. The function returns the max absolute difference between the two loss trajectories after the interruption point. With RNG restored, the difference is zero or floating-point noise.
+`run_resume_demo` huấn luyện một mô hình nhỏ trong `total_steps`, lưu một checkpoint tại `interrupt_at`, rồi tiếp tục. Một tiến trình thứ hai khôi phục checkpoint và chạy các bước còn lại. Hàm trả về chênh lệch tuyệt đối tối đa giữa hai quỹ đạo mất mát sau điểm ngắt. Với RNG được khôi phục, chênh lệch bằng không hoặc nhiễu dấu phẩy động.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-The single-file and sharded demos both assert max-diff under 1e-4. The summary lands in `outputs/resume-demo.json`.
+Các demo một file và chia shard đều khẳng định max-diff dưới 1e-4. Tóm tắt nằm trong `outputs/resume-demo.json`.
 
 ## Use It
 
-Production training stacks ship checkpointing as part of the trainer. The shape is the same: model + optimizer + scheduler + counters + RNG, written atomically, named by step so the latest is easy to find. Sharded layouts power large model loading with parallel reads; the index.json is what makes that work.
+Các ngăn xếp huấn luyện sản xuất cung cấp checkpoint như một phần của bộ huấn luyện. Hình thức giống nhau: mô hình + bộ tối ưu + bộ lập lịch + các bộ đếm + RNG, được ghi nguyên tử, được đặt tên theo bước để bản mới nhất dễ tìm. Các bố cục chia shard hỗ trợ nạp mô hình lớn bằng các lần đọc song song; index.json là thứ khiến điều đó hoạt động.
 
-Four patterns to enforce:
+Bốn mẫu cần thực thi:
 
-- **Load with `weights_only=True`.** A checkpoint pulled from a shared drive or a download is untrusted input. The weights-only loader keeps a malicious file from running code on the machine that resumes.
-- **Schema is a string in the payload.** Migrations branch on it. Without it you cannot evolve the format without breaking old runs.
-- **Sha256 every shard.** A silently truncated download is the worst kind of bug; the loader fails fast or it fails late.
-- **Keep checkpoint cadence honest.** Save every N steps and every wallclock-minute, whichever is shorter. Otherwise the long step that crashes wastes a full window of work.
+- **Nạp bằng `weights_only=True`.** Một checkpoint kéo từ một ổ chia sẻ hoặc một bản tải là đầu vào không đáng tin cậy. Loader chỉ trọng số ngăn một file độc hại chạy mã trên máy tiếp tục.
+- **Schema là một chuỗi trong payload.** Các lần di chuyển phân nhánh theo nó. Không có nó bạn không thể phát triển định dạng mà không phá các lần chạy cũ.
+- **Sha256 mọi shard.** Một bản tải âm thầm bị cắt ngắn là loại lỗi tệ nhất; loader thất bại nhanh hoặc nó thất bại muộn.
+- **Giữ nhịp checkpoint trung thực.** Lưu mỗi N bước và mỗi phút thời gian thực, cái nào ngắn hơn. Nếu không bước dài bị sập lãng phí cả một cửa sổ công việc.
 
 ## Ship It
 
-`outputs/skill-checkpoint-save-resume.md` is the recipe for any new training script: payload shape, atomic write, RNG capture, sharded index. Drop the skill into a repo, wire `save_checkpoint` at the periodic save site, wire `load_checkpoint` at startup, and the run survives kills.
+`outputs/skill-checkpoint-save-resume.md` là công thức cho bất kỳ script huấn luyện mới nào: hình thức payload, ghi nguyên tử, thu thập RNG, chỉ mục chia shard. Đặt skill vào một repo, nối `save_checkpoint` tại vị trí lưu định kỳ, nối `load_checkpoint` lúc khởi động, và lần chạy sống sót qua các lần diệt.
 
 ## Exercises
 
-1. Replace round-robin sharding with sharding by parameter group (layers ending in `.weight` vs `.bias`). When is each layout preferable?
-2. Extend the save loop to keep the last K checkpoints and prune older ones. What is the right K when the disk is small?
-3. Add a `--ckpt-every-seconds` flag that triggers a save on a wallclock interval, not just step count.
-4. Add a checksum verification path that runs at startup, scans every checkpoint in the directory, and reports which ones are corrupt.
-5. Implement a `migrate_v1_to_v2` function that adds a new field to the payload and bumps the schema string. Make load tolerate both versions.
+1. Thay chia shard luân phiên bằng chia shard theo nhóm tham số (các lớp kết thúc bằng `.weight` so với `.bias`). Khi nào mỗi bố cục thích hợp hơn?
+2. Mở rộng vòng lặp lưu để giữ K checkpoint cuối và loại bỏ các bản cũ hơn. K đúng là gì khi đĩa nhỏ?
+3. Thêm một cờ `--ckpt-every-seconds` kích hoạt một lần lưu theo một khoảng thời gian thực, không chỉ số bước.
+4. Thêm một đường xác minh checksum chạy lúc khởi động, quét mọi checkpoint trong thư mục, và báo cáo những bản nào hỏng.
+5. Triển khai một hàm `migrate_v1_to_v2` thêm một trường mới vào payload và tăng chuỗi schema. Làm việc nạp chấp nhận cả hai phiên bản.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Atomic save | "Write and pray" | Write to a temp file in the same directory, then os.replace into the target name |
-| State dict | "The weights" | Model parameters and buffers, keyed by parameter name |
-| Sharded checkpoint | "Big model file" | Multiple files, one per shard, plus a meta file and a JSON index with sha256s |
-| RNG state | "Random seed" | Captured state for python random, numpy, torch CPU, torch CUDA; not just the seed |
-| Mid-epoch resume | "Restart" | Fast-forward the RNG and continue from the next batch in the same epoch |
+| Atomic save (Lưu nguyên tử) | "Ghi và cầu nguyện" | Ghi vào một file tạm trong cùng thư mục, rồi os.replace vào tên đích |
+| State dict (Từ điển trạng thái) | "Các trọng số" | Các tham số mô hình và buffer, được đặt khóa theo tên tham số |
+| Sharded checkpoint (Checkpoint chia shard) | "File mô hình lớn" | Nhiều file, một mỗi shard, cùng một file meta và một chỉ mục JSON với các sha256 |
+| RNG state (Trạng thái RNG) | "Seed ngẫu nhiên" | Trạng thái được thu thập cho python random, numpy, torch CPU, torch CUDA; không chỉ seed |
+| Mid-epoch resume (Tiếp tục giữa epoch) | "Khởi động lại" | Tua nhanh RNG và tiếp tục từ lô tiếp theo trong cùng epoch |
 
 ## Further Reading
 
-- POSIX `rename` semantics for the atomicity claim that `os.replace` relies on.
-- PyTorch documentation on `torch.save` and `torch.load`, including `map_location` for cross-device restores and `weights_only` for loading untrusted files.
-- Phase 19 lesson 46 covers the gradient accumulation that this lesson's checkpoint payload survives across.
-- Phase 19 lesson 48 covers the distributed wrappers whose state dict format this scheme accommodates.
-- The Linux kernel `fsync` documentation for the durability guarantee behind atomic rename.
+- Ngữ nghĩa `rename` POSIX cho khẳng định tính nguyên tử mà `os.replace` dựa vào.
+- Tài liệu PyTorch về `torch.save` và `torch.load`, bao gồm `map_location` cho khôi phục chéo thiết bị và `weights_only` cho nạp các file không đáng tin cậy.
+- Phase 19 bài 46 bao phủ tích lũy gradient mà payload checkpoint của bài này sống sót qua.
+- Phase 19 bài 48 bao phủ các lớp bọc phân tán có định dạng state dict mà sơ đồ này hỗ trợ.
+- Tài liệu `fsync` kernel Linux cho bảo đảm bền vững đằng sau đổi tên nguyên tử.

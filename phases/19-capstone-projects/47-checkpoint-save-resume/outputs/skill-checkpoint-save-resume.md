@@ -9,7 +9,7 @@ tags: [training, durability, resume, sharded-state]
 
 ## When to use
 
-Any training run longer than the wallclock cap of the cluster, any run that must survive a node reboot, any model too large for a single payload.
+Bất kỳ lần chạy huấn luyện nào dài hơn trần thời gian thực của cụm, bất kỳ lần chạy nào phải sống sót qua một nút khởi động lại, bất kỳ mô hình nào quá lớn cho một payload duy nhất.
 
 ## Payload shape
 
@@ -27,28 +27,28 @@ Any training run longer than the wallclock cap of the cluster, any run that must
 
 ## Atomic save
 
-1. Write the payload to a unique temp file in the same directory as the target.
-2. `os.replace(tmp, target)` to swap atomically.
-3. Never write directly to the target name.
+1. Ghi payload vào một file tạm duy nhất trong cùng thư mục như đích.
+2. `os.replace(tmp, target)` để hoán đổi nguyên tử.
+3. Không bao giờ ghi trực tiếp vào tên đích.
 
 ## Sharded layout
 
-- `model.shard-NNN.pt` per shard, round robin on keys or split by parameter group.
-- `meta.pt` carries optimizer, scheduler, train state, RNG, and the shard manifest.
-- `index.json` carries `sha256` for every shard and for `meta.pt`.
-- Loader verifies every hash before merging and rejects shard paths outside the checkpoint directory.
-- Load every file with `torch.load(path, map_location="cpu", weights_only=True)`. Keep RNG state as plain lists so it survives the weights-only loader.
+- `model.shard-NNN.pt` mỗi shard, luân phiên trên các khóa hoặc chia theo nhóm tham số.
+- `meta.pt` mang bộ tối ưu, bộ lập lịch, trạng thái huấn luyện, RNG, và bản kê khai shard.
+- `index.json` mang `sha256` cho mọi shard và cho `meta.pt`.
+- Loader xác minh mọi băm trước khi hợp nhất và từ chối các đường dẫn shard ngoài thư mục checkpoint.
+- Nạp mọi file bằng `torch.load(path, map_location="cpu", weights_only=True)`. Giữ trạng thái RNG như các danh sách thông thường để nó sống sót qua loader chỉ trọng số.
 
 ## Mid-epoch resume
 
-- Save `(epoch, batch_in_epoch)` next to `step`.
-- Restore RNG state before the first batch of the resumed epoch.
-- Fast-forward the generator past consumed batches.
+- Lưu `(epoch, batch_in_epoch)` cạnh `step`.
+- Khôi phục trạng thái RNG trước lô đầu của epoch được tiếp tục.
+- Tua nhanh bộ sinh qua các lô đã tiêu thụ.
 
 ## Failure modes
 
-- Cross-device rename: not atomic, lose the previous file. Put temp in same directory.
-- Forgetting RNG: resumed loss diverges from baseline. Run the demo's assertion.
-- Forgetting optimizer state: next step lurches. Same diff blows up.
-- Pruning the wrong checkpoint: keep last K plus best.
-- Loading with `weights_only=False`: a `.pt` file is a pickle, so an untrusted checkpoint runs code on load.
+- Đổi tên chéo thiết bị: không nguyên tử, mất file trước. Đặt file tạm trong cùng thư mục.
+- Quên RNG: mất mát được tiếp tục phân kỳ khỏi đường cơ sở. Chạy khẳng định của demo.
+- Quên trạng thái bộ tối ưu: bước tiếp theo giật. Cùng diff bùng nổ.
+- Loại bỏ sai checkpoint: giữ K cuối cộng bản tốt nhất.
+- Nạp bằng `weights_only=False`: một file `.pt` là một pickle, nên một checkpoint không đáng tin cậy chạy mã khi nạp.
