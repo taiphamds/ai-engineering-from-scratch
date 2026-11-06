@@ -1,6 +1,6 @@
 # Chameleon and Early-Fusion Token-Only Multimodal Models
 
-> Every VLM we have seen so far keeps images and text separate. Visual tokens come from a vision encoder, flow into a projector, then meet text inside the LLM. The vision and text vocabularies never overlap. Chameleon (Meta, May 2024) asked: what if they did? Train a VQ-VAE that turns an image into a sequence of discrete tokens from a shared vocabulary. Every multimodal document is now one sequence — text tokens and image tokens interleaved, a single autoregressive loss. Side effect: the model can generate mixed-modality outputs — alternating text and image tokens in a single inference call. This lesson reads the early-fusion thesis and builds a toy version end to end.
+> Mọi VLM đã thấy đến nay giữ ảnh và văn bản riêng. Token thị giác đến từ encoder thị giác, chảy vào projector, rồi gặp văn bản trong LLM. Từ vựng thị giác và văn bản không bao giờ chồng lấp. Chameleon (Meta, tháng 5 năm 2024) hỏi: nếu có thì sao? Huấn luyện VQ-VAE biến ảnh thành chuỗi token rời rạc từ từ vựng dùng chung. Mọi tài liệu đa phương thức giờ là một chuỗi — token văn bản và token ảnh xen kẽ, một loss tự hồi quy duy nhất. Tác dụng phụ: mô hình sinh được đầu ra hỗn hợp phương thức — luân phiên token văn bản và ảnh trong một lệnh gọi suy luận. Bài học này đọc luận điểm hợp nhất sớm và xây phiên bản minh họa từ đầu đến cuối.
 
 **Type:** Build
 **Languages:** Python (stdlib, VQ-VAE tokenizer + interleaved decoder)
@@ -9,94 +9,94 @@
 
 ## Learning Objectives
 
-- Explain why a shared vocabulary + single loss changes what the model can do.
-- Describe how a VQ-VAE tokenizes an image into a discrete sequence compatible with a transformer's next-token objective.
-- Name Chameleon's training-stability tricks: QK-Norm, dropout placement, LayerNorm ordering.
-- Compare Chameleon vs BLIP-2's Q-Former approach and describe when each is the right choice.
+- Giải thích tại sao từ vựng dùng chung + một loss thay đổi điều mô hình làm được.
+- Mô tả cách VQ-VAE token hóa ảnh thành chuỗi rời rạc tương thích mục tiêu token tiếp theo của transformer.
+- Nêu tên thủ thuật ổn định huấn luyện Chameleon: QK-Norm, vị trí dropout, thứ tự LayerNorm.
+- So Chameleon với cách Q-Former BLIP-2 và mô tả khi nào mỗi loại là lựa chọn đúng.
 
 ## The Problem
 
-Adapter-based VLMs (LLaVA, BLIP-2, Qwen-VL) treat text and image as two different things. A text token goes through `embed(text_token)`; an image goes through `visual_encoder(image) → projector → ... pseudo_tokens`. The model has two input paths that merge partway in.
+VLM dựa trên adapter (LLaVA, BLIP-2, Qwen-VL) xem văn bản và ảnh là hai thứ khác nhau. Token văn bản đi qua `embed(text_token)`; ảnh qua `visual_encoder(image) → projector → ... pseudo_tokens`. Mô hình có hai đường đầu vào hợp lại giữa chừng.
 
-Three consequences:
+Ba hệ quả:
 
-1. The LLM can only consume images, not emit them. Output is text only.
-2. Mixed-modality documents (alternating paragraphs and images, as in an article) are awkward — you either parse the multimodal input outside the model or chain generations.
-3. Distributional mismatch. Visual tokens and text tokens live in different regions of the hidden space, creating subtle alignment issues.
+1. LLM chỉ tiêu thụ ảnh, không phát ảnh. Đầu ra chỉ văn bản.
+2. Tài liệu hỗn hợp phương thức (đoạn văn và ảnh luân phiên, như bài viết) khó xử lý — hoặc phân tích đầu vào đa phương thức ngoài mô hình hoặc nối các lần sinh.
+3. Không khớp phân phối. Token thị giác và văn bản nằm trong vùng khác của không gian ẩn, tạo vấn đề căn chỉnh tinh tế.
 
-Chameleon rejects the premise: images are just sequences of discrete tokens from a shared vocabulary. Train the model on interleaved documents, one loss, one autoregressive decoder, and you unlock mixed-modality generation for free.
+Chameleon bác tiền đề: ảnh chỉ là chuỗi token rời rạc từ từ vựng dùng chung. Huấn luyện mô hình trên tài liệu xen kẽ, một loss, một decoder tự hồi quy và mở khóa sinh hỗn hợp phương thức miễn phí.
 
 ## The Concept
 
 ### VQ-VAE as image tokenizer
 
-The tokenizer is a vector-quantized variational autoencoder. The architecture:
+Tokenizer là autoencoder biến phân lượng tử hóa vector. Kiến trúc:
 
-- Encoder: CNN + ViT that maps image to a spatial feature map, say 32x32 features of dim 256.
-- Codebook: a learned vocabulary of K vectors (Chameleon uses 8192), also dim 256.
-- Quantization: for each spatial feature, look up the nearest codebook entry by L2 distance. Replace the continuous feature with the integer index.
-- Decoder: CNN that takes quantized features back to pixels.
+- Encoder: CNN + ViT ánh xạ ảnh sang bản đồ đặc trưng không gian, chẳng hạn đặc trưng 32x32 chiều 256.
+- Codebook: từ vựng được học gồm K vector (Chameleon dùng 8192), cũng chiều 256.
+- Lượng tử hóa: với mỗi đặc trưng không gian, tra mục codebook gần nhất theo khoảng cách L2. Thay đặc trưng liên tục bằng chỉ số nguyên.
+- Decoder: CNN đưa đặc trưng lượng tử hóa về pixel.
 
-Training: VAE reconstruction loss + commitment loss + codebook loss. The codebook indices form a discrete alphabet for images.
+Huấn luyện: loss tái dựng VAE + loss cam kết + loss codebook. Chỉ số codebook tạo bảng chữ cái rời rạc cho ảnh.
 
-For Chameleon: one image becomes 32*32 = 1024 tokens drawn from a vocabulary of 8192. Concatenate with text tokens (from the LLM's BPE vocabulary, say 32000). Final vocabulary: 40192. The transformer sees one sequence, one loss.
+Với Chameleon: một ảnh thành 32*32 = 1024 token lấy từ từ vựng 8192. Nối với token văn bản (từ từ vựng BPE LLM, chẳng hạn 32000). Từ vựng cuối: 40192. Transformer thấy một chuỗi, một loss.
 
 ### The shared vocabulary
 
-Chameleon's vocabulary combines text tokens, image tokens, and modality separators. Each token has a single ID. The input embedding layer maps every ID to a D-dim hidden vector. The output projection maps hidden back to vocab logits. Softmax picks the next token, whatever modality.
+Từ vựng Chameleon kết hợp token văn bản, token ảnh và dấu phân cách phương thức. Mỗi token có một ID. Lớp embedding đầu vào ánh xạ mọi ID sang vector ẩn D chiều. Phép chiếu đầu ra ánh xạ ẩn về logit từ vựng. Softmax chọn token tiếp, bất kể phương thức.
 
-Separators matter: `<image>` and `</image>` tags bracket the image-token sequence. At generation time, if the model emits `<image>`, downstream software knows the next 1024 tokens are VQ indices to send to the decoder for pixel rendering.
+Dấu phân cách quan trọng: thẻ `<image>` và `</image>` bao chuỗi token ảnh. Khi sinh, nếu mô hình phát `<image>`, phần mềm downstream biết 1024 token tiếp là chỉ số VQ gửi decoder để kết xuất pixel.
 
 ### Mixed-modality generation
 
-Inference is next-token prediction in the shared vocabulary. Example prompt: "Draw a cat and describe it." Chameleon emits:
+Suy luận là dự đoán token tiếp trong từ vựng dùng chung. Prompt ví dụ: "Vẽ mèo và mô tả nó." Chameleon phát:
 
 ```
 <image> 4821 1029 2891 ... (1024 image tokens) </image>
 The cat is orange, sitting on a windowsill...
 ```
 
-The model picks the order autonomously — it may produce image then text, text then image, or interleave. Same decoder, same loss.
+Mô hình tự chọn thứ tự — có thể tạo ảnh rồi văn bản, văn bản rồi ảnh hoặc xen kẽ. Cùng decoder, cùng loss.
 
-Compare to adapter VLMs where generation is text-only. Chameleon reopens the question of model output modalities.
+So với VLM adapter nơi sinh chỉ văn bản. Chameleon mở lại câu hỏi phương thức đầu ra mô hình.
 
 ### Training stability — QK-Norm, dropout, LayerNorm ordering
 
-Early-fusion training is unstable at scale. Chameleon's paper documents three tricks:
+Huấn luyện hợp nhất sớm bất ổn ở quy mô lớn. Bài báo Chameleon ghi ba thủ thuật:
 
-- QK-Norm. Apply LayerNorm to the query and key projections inside attention, before the dot product. Prevents logit magnitude explosion at depth. Used by multiple post-2024 large models.
-- Dropout placement. Dropout after every residual-add, not just after attention and MLP. More regularization required when gradients from image tokens can dominate.
-- LayerNorm ordering. Pre-LN on the residual branch (standard), plus an extra LN on the skip connection of the last block. Stabilizes final-layer gradient flow.
+- QK-Norm. Áp dụng LayerNorm cho phép chiếu query và key trong attention, trước tích vô hướng. Ngăn độ lớn logit bùng nổ ở độ sâu. Nhiều mô hình lớn sau năm 2024 dùng.
+- Vị trí dropout. Dropout sau mọi phép cộng residual, không chỉ sau attention và MLP. Cần chính quy hóa hơn khi gradient token ảnh có thể chi phối.
+- Thứ tự LayerNorm. Pre-LN trên nhánh residual (tiêu chuẩn), cộng LN thêm trên kết nối skip khối cuối. Ổn định luồng gradient lớp cuối.
 
-Without these tricks, 34B-param Chameleon training diverged at multiple checkpoints. With them, it converges. The training recipe is as much of the contribution as the architecture.
+Không các thủ thuật này, huấn luyện Chameleon 34B tham số phân kỳ ở nhiều checkpoint. Có chúng, hội tụ. Công thức huấn luyện đóng góp ngang kiến trúc.
 
 ### The tokenizer's reconstruction ceiling
 
-VQ-VAE is lossy. At 8192 codebook entries and 1024 tokens per 512x512 image, reconstruction PSNR caps around 26-28 dB. This is enough for recognizable image gen but visibly worse than continuous-space diffusion (Stable Diffusion 3 achieves 32+ dB).
+VQ-VAE mất thông tin. Với 8192 mục codebook và 1024 token mỗi ảnh 512x512, PSNR tái dựng đạt trần khoảng 26-28 dB. Đủ cho sinh ảnh nhận biết được nhưng thấy rõ kém hơn diffusion không gian liên tục (Stable Diffusion 3 đạt 32+ dB).
 
-The tokenizer is the bottleneck. Better tokenizers (MAGVIT-v2, IBQ, SBER-MoVQGAN) lift the ceiling. Emu3 (Lesson 12.12) achieves SDXL-quality generation via a better tokenizer alone.
+Tokenizer là nút thắt. Tokenizer tốt hơn (MAGVIT-v2, IBQ, SBER-MoVQGAN) nâng trần. Emu3 (Bài 12.12) đạt sinh chất lượng SDXL chỉ nhờ tokenizer tốt hơn.
 
 ### Chameleon vs BLIP-2 / LLaVA
 
-Chameleon (early fusion, shared vocab):
-- One loss, one decoder.
-- Generates mixed-modality output.
-- Tokenizer is the quality ceiling.
-- Expensive: VQ-VAE decoder per generated image on inference path.
+Chameleon (hợp nhất sớm, từ vựng chung):
+- Một loss, một decoder.
+- Sinh đầu ra hỗn hợp phương thức.
+- Tokenizer là trần chất lượng.
+- Đắt: decoder VQ-VAE mỗi ảnh sinh trên đường suy luận.
 
-BLIP-2 / LLaVA (late fusion, separate towers):
-- Vision in, text out only.
-- Reuses pretrained LLM.
-- No tokenizer bottleneck for understanding.
-- Cheap: single forward pass.
+BLIP-2 / LLaVA (hợp nhất muộn, tháp riêng):
+- Thị giác vào, chỉ văn bản ra.
+- Tái sử dụng LLM đã tiền huấn luyện.
+- Không nút thắt tokenizer cho hiểu.
+- Rẻ: một forward pass.
 
-Pick by task. If you need image generation, Chameleon family. If you only need understanding, adapter-VLM is simpler and reuses more pretrained compute.
+Chọn theo tác vụ. Nếu cần sinh ảnh, họ Chameleon. Nếu chỉ cần hiểu, VLM adapter đơn giản hơn và tái sử dụng nhiều tính toán tiền huấn luyện hơn.
 
 ### Fuyu and AnyGPT
 
-Fuyu (Adept, 2023) is a related approach: skip the separate vision encoder entirely, feed raw image patches through the LLM's input projection as if they were tokens, no tokenizer. Simpler than Chameleon, loses the shared-vocab output generation.
+Fuyu (Adept, 2023) là cách liên quan: bỏ hoàn toàn encoder thị giác riêng, đưa patch ảnh thô qua phép chiếu đầu vào LLM như token, không tokenizer. Đơn giản hơn Chameleon, mất sinh đầu ra từ vựng dùng chung.
 
-AnyGPT (Zhan et al., 2024) extends Chameleon to four modalities: text, image, speech, music. Same VQ-VAE trick for each, shared transformer. Any-to-any generation. Covered more in Lesson 12.16.
+AnyGPT (Zhan và cộng sự, 2024) mở rộng Chameleon sang bốn phương thức: văn bản, ảnh, lời nói, nhạc. Cùng thủ thuật VQ-VAE cho từng loại, transformer chung. Sinh bất kỳ sang bất kỳ. Trình bày thêm trong Bài 12.16.
 
 ```figure
 vq-codebook
@@ -104,42 +104,42 @@ vq-codebook
 
 ## Use It
 
-`code/main.py` builds a toy end-to-end early-fusion model:
+`code/main.py` xây mô hình hợp nhất sớm minh họa từ đầu đến cuối:
 
-- A tiny VQ-VAE-style quantizer that maps 8x8 patches to codebook indices (K=16).
-- A shared vocabulary of (text ids 0..31) + (image ids 32..47) + (separators 48, 49).
-- A toy autoregressive decoder (bigram table) trained on synthetic captions + image-token sequences.
-- Sampling loop that emits alternating text + image tokens given a prompt.
+- Bộ lượng tử hóa nhỏ kiểu VQ-VAE ánh xạ patch 8x8 thành chỉ số codebook (K=16).
+- Từ vựng chung gồm (ID văn bản 0..31) + (ID ảnh 32..47) + (dấu phân cách 48, 49).
+- Decoder tự hồi quy minh họa (bảng bigram) huấn luyện trên chú thích tổng hợp + chuỗi token ảnh.
+- Vòng lặp lấy mẫu phát token văn bản + ảnh luân phiên với prompt cho trước.
 
-The code intentionally keeps the transformer tiny (bigrams) so you can trace the signal flow end to end.
+Mã cố ý giữ transformer nhỏ (bigram) để theo dấu luồng tín hiệu từ đầu đến cuối.
 
 ## Ship It
 
-This lesson produces `outputs/skill-tokenizer-vs-adapter-picker.md`. Given a product spec (understand only vs understand + generate, required image quality, cost budget), it picks between Chameleon-family (early fusion) and LLaVA-family (late fusion) and justifies with quantitative rules of thumb.
+Bài học này tạo `outputs/skill-tokenizer-vs-adapter-picker.md`. Với đặc tả sản phẩm (chỉ hiểu so với hiểu + sinh, chất lượng ảnh cần, ngân sách chi phí), nó chọn giữa họ Chameleon (hợp nhất sớm) và họ LLaVA (hợp nhất muộn) và lý giải bằng quy tắc kinh nghiệm định lượng.
 
 ## Exercises
 
-1. Chameleon uses K=8192 codebook entries and 1024 tokens per 512x512 image. Estimate the compression ratio vs a 24-bit RGB image. Is it lossy? How lossy?
+1. Chameleon dùng K=8192 mục codebook và 1024 token mỗi ảnh 512x512. Ước lượng tỷ lệ nén so với ảnh RGB 24 bit. Có mất thông tin không? Mất bao nhiêu?
 
-2. A 4K image (3840x2160) at the same VQ-VAE density produces how many image tokens? Can a Chameleon-style model generate a 4K image in one inference call? What breaks first — context, tokenizer quality, or KV cache?
+2. Ảnh 4K (3840x2160) ở cùng mật độ VQ-VAE tạo bao nhiêu token ảnh? Mô hình kiểu Chameleon sinh được ảnh 4K trong một lệnh gọi suy luận không? Thứ gì hỏng trước — ngữ cảnh, chất lượng tokenizer hay KV cache?
 
-3. Implement QK-Norm in pure Python. Given a 64-dim query and key, show the dot product before and after LayerNorm. Why is magnitude control important at depth?
+3. Triển khai QK-Norm bằng Python thuần. Với query và key 64 chiều, cho tích vô hướng trước và sau LayerNorm. Tại sao kiểm soát độ lớn quan trọng ở độ sâu?
 
-4. Read Chameleon Section 2.3 on training stability. Describe the exact failure mode the paper observed at 34B without QK-Norm. What was the "norm explosion" signature?
+4. Đọc Mục 2.3 Chameleon về ổn định huấn luyện. Mô tả chính xác dạng thất bại bài báo quan sát ở 34B không QK-Norm. Dấu hiệu "bùng nổ chuẩn" là gì?
 
-5. Extend the toy decoder to emit a mixed-modality response given a text-only prompt. Measure how often the model picks image-first vs text-first given training-data distribution 60% text-first / 40% image-first.
+5. Mở rộng decoder minh họa phát phản hồi hỗn hợp phương thức từ prompt chỉ văn bản. Đo tần suất chọn ảnh trước so với văn bản trước với phân phối dữ liệu huấn luyện 60% văn bản trước / 40% ảnh trước.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Early fusion | "Unified tokens" | Images converted to discrete tokens sharing the transformer's vocabulary from step one |
-| VQ-VAE | "Image tokenizer" | CNN + ViT + codebook that maps images to integer indices the transformer can predict |
-| Shared vocabulary | "One dictionary" | A single token ID space covering text + image + modality separators |
-| QK-Norm | "Attention stabilizer" | LayerNorm applied to query and key before their dot product, prevents norm blowup |
-| Mixed-modality generation | "Text + image output" | Inference that autonomously produces interleaved text and image tokens in one pass |
-| Codebook size | "K entries" | Number of discrete vectors the VQ-VAE can quantize to; trades compression for fidelity |
-| Tokenizer ceiling | "Reconstruction limit" | Best PSNR achievable by decoding VQ tokens; bounds the model's image quality |
+| Early fusion (Hợp nhất sớm) | "Token thống nhất" | Ảnh chuyển thành token rời rạc chung từ vựng transformer từ bước đầu |
+| VQ-VAE | "Tokenizer ảnh" | CNN + ViT + codebook ánh xạ ảnh thành chỉ số nguyên transformer dự đoán được |
+| Shared vocabulary (Từ vựng dùng chung) | "Một từ điển" | Một không gian ID token bao văn bản + ảnh + dấu phân cách phương thức |
+| QK-Norm | "Bộ ổn định attention" | LayerNorm áp dụng query và key trước tích vô hướng, ngăn chuẩn bùng nổ |
+| Mixed-modality generation (Sinh hỗn hợp phương thức) | "Đầu ra văn bản + ảnh" | Suy luận tự tạo token văn bản và ảnh xen kẽ trong một lượt |
+| Codebook size (Kích thước codebook) | "K mục" | Số vector rời rạc VQ-VAE lượng tử hóa tới; đánh đổi nén lấy độ trung thực |
+| Tokenizer ceiling (Trần tokenizer) | "Giới hạn tái dựng" | PSNR tốt nhất đạt được khi giải mã token VQ; giới hạn chất lượng ảnh mô hình |
 
 ## Further Reading
 

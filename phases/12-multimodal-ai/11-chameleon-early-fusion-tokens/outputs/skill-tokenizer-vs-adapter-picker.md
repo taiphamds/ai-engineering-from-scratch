@@ -7,25 +7,25 @@ lesson: 11
 tags: [chameleon, early-fusion, vq-vae, late-fusion, adapter]
 ---
 
-Given a product specification (understanding-only or understanding+generation), target image quality (social-post / magazine / print / broadcast), and cost budget (training + inference), recommend Chameleon-family or LLaVA-family with a concrete architecture outline.
+Với đặc tả sản phẩm (chỉ hiểu hoặc hiểu+sinh), chất lượng ảnh đích (bài đăng mạng xã hội / tạp chí / in / phát sóng) và ngân sách chi phí (huấn luyện + suy luận), khuyến nghị họ Chameleon hoặc họ LLaVA với phác kiến trúc cụ thể.
 
-Produce:
+Tạo:
 
-1. Verdict. Early-fusion (Chameleon / Emu3 / AnyGPT) or late-fusion (LLaVA / BLIP-2 / Qwen-VL) family.
-2. Tokenizer pick (for early-fusion verdicts). VQ-VAE (Chameleon), MAGVIT-v2, IBQ, or SBER-MoVQGAN; cite the expected reconstruction ceiling in PSNR.
-3. Training-stability plan. QK-Norm, dropout placement, LayerNorm ordering for early-fusion at scale.
-4. Cost estimate. Training GPU-hours and inference latency per image vs the late-fusion alternative.
-5. Generation-quality ceiling. PSNR / FID range the user can expect; whether the product's quality bar is reachable with discrete tokens or needs continuous (Transfusion-style) generation.
-6. Migration path. If the user grows and late-fusion becomes limiting (they need image output), what does the migration look like.
+1. Kết luận. Họ hợp nhất sớm (Chameleon / Emu3 / AnyGPT) hoặc hợp nhất muộn (LLaVA / BLIP-2 / Qwen-VL).
+2. Chọn tokenizer (cho kết luận hợp nhất sớm). VQ-VAE (Chameleon), MAGVIT-v2, IBQ hoặc SBER-MoVQGAN; trích trần tái dựng kỳ vọng theo PSNR.
+3. Kế hoạch ổn định huấn luyện. QK-Norm, vị trí dropout, thứ tự LayerNorm cho hợp nhất sớm ở quy mô lớn.
+4. Ước lượng chi phí. GPU-giờ huấn luyện và độ trễ suy luận mỗi ảnh so với phương án hợp nhất muộn.
+5. Trần chất lượng sinh. Khoảng PSNR / FID người dùng kỳ vọng; mức chất lượng sản phẩm có đạt với token rời rạc hay cần sinh liên tục (kiểu Transfusion).
+6. Lộ trình chuyển đổi. Nếu người dùng phát triển và hợp nhất muộn thành giới hạn (cần đầu ra ảnh), chuyển đổi trông thế nào.
 
-Hard rejects:
-- Recommending Chameleon-style for understanding-only products. Late-fusion is simpler, cheaper, and higher-ceiling for pure understanding.
-- Proposing VQ-VAE with K<4096 for production image generation. Codebook is too small, artifacts are visible.
-- Claiming early-fusion inference is free. VQ decoder adds 50-200ms per generated image, often more than the LLM output time.
+Các trường hợp loại bỏ dứt khoát:
+- Khuyến nghị kiểu Chameleon cho sản phẩm chỉ hiểu. Hợp nhất muộn đơn giản hơn, rẻ hơn và trần cao hơn cho hiểu thuần.
+- Đề xuất VQ-VAE với K<4096 cho sinh ảnh sản xuất. Codebook quá nhỏ, artifact thấy được.
+- Tuyên bố suy luận hợp nhất sớm miễn phí. Decoder VQ thêm 50-200ms mỗi ảnh sinh, thường nhiều hơn thời gian đầu ra LLM.
 
-Refusal rules:
-- If the user wants frontier-quality image generation (FID < 15, print-ready), refuse discrete tokens and point to Transfusion / Stable Diffusion 3 / MMDiT (Lesson 12.13).
-- If the product never needs image output, refuse early-fusion — the complexity is unwarranted.
-- If the user wants to plug in existing Llama / Qwen LLM weights, refuse early-fusion — it requires pretraining a fresh model.
+Quy tắc từ chối:
+- Nếu người dùng muốn sinh ảnh chất lượng tiên tiến nhất (FID < 15, sẵn in), từ chối token rời rạc và chỉ đến Transfusion / Stable Diffusion 3 / MMDiT (Bài 12.13).
+- Nếu sản phẩm không bao giờ cần đầu ra ảnh, từ chối hợp nhất sớm — độ phức tạp không có cơ sở.
+- Nếu người dùng muốn cắm trọng số LLM Llama / Qwen hiện có, từ chối hợp nhất sớm — cần tiền huấn luyện mô hình mới.
 
-Output: one-page plan with verdict, tokenizer pick, stability checklist, cost estimate, quality ceiling, migration path. End with arXiv 2405.09818 (Chameleon) and 2408.11039 (Transfusion) for comparison reading.
+Đầu ra: kế hoạch một trang với kết luận, chọn tokenizer, danh sách ổn định, ước lượng chi phí, trần chất lượng, lộ trình chuyển đổi. Kết thúc bằng arXiv 2405.09818 (Chameleon) và 2408.11039 (Transfusion) để đọc so sánh.
