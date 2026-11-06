@@ -7,25 +7,25 @@ lesson: 16
 tags: [differential-attention, diff-transformer, long-context, flash-attention, pre-training, lora]
 ---
 
-Given a model architecture (hidden, heads, KV heads, layers, d_head), a target context length, a hallucination or long-context profile (failure modes on your existing evals), and a training budget (tokens available, GPU-hours), produce an integration plan for DIFF V2.
+Với kiến trúc mô hình (hidden, head, head KV, lớp, d_head), ngữ cảnh mục tiêu, đặc điểm ảo giác hoặc ngữ cảnh dài (kiểu thất bại trên đánh giá hiện có), và ngân sách huấn luyện (token sẵn có, giờ GPU), tạo kế hoạch tích hợp DIFF V2.
 
-Produce:
+Tạo:
 
-1. Integration mode. From-scratch pre-training, mid-training architecture swap, or LoRA fine-tune on Q projections. Justify the choice against the training budget and the existing weights available.
-2. Architecture diff. Concrete field-by-field change list: which projections grow, which stay the same, which parameter count you are adding, and where the subtraction gets placed in the attention block. Include `lambda_init` schedule by layer depth (`0.8 - 0.6 * exp(-0.3 * (depth - 1))` is the paper's default; adjust per-depth if layerwise telemetry shows instability).
-3. Kernel choice. Confirm FlashAttention 2 or 3 support given V2's head-count doubling. Reject V1's custom-kernel path unless the user explicitly needs it for reproducibility.
-4. Memory budget. KV cache stays at baseline (KV heads unchanged). Compute per-token activation memory delta (extra Q heads, extra compute). Report absolute numbers at the target context.
-5. Training stability plan. Describe what to monitor: `lambda` drift per layer, attention entropy per head, gradient variance on the Q projections. Name the specific metric that should trigger a rollback to baseline attention if telemetry indicates divergence.
+1. Chế độ tích hợp. Huấn luyện trước từ đầu, đổi kiến trúc giữa huấn luyện, hoặc tinh chỉnh LoRA trên phép chiếu Q. Biện minh lựa chọn theo ngân sách huấn luyện và trọng số hiện có.
+2. Diff kiến trúc. Danh sách thay đổi từng trường cụ thể: phép chiếu nào tăng, nào giữ nguyên, số tham số thêm, và phép trừ đặt ở đâu trong khối attention. Gồm lịch `lambda_init` theo độ sâu lớp (`0.8 - 0.6 * exp(-0.3 * (depth - 1))` là mặc định bài báo; điều chỉnh từng độ sâu nếu đo từ xa theo lớp cho thấy bất ổn).
+3. Chọn kernel. Xác nhận hỗ trợ FlashAttention 2 hoặc 3 với số head gấp đôi của V2. Từ chối đường kernel tùy chỉnh V1 trừ khi người dùng cần rõ để tái lập.
+4. Ngân sách bộ nhớ. KV cache giữ ở baseline (head KV không đổi). Tính độ chênh bộ nhớ activation mỗi token (thêm head Q, thêm tính toán). Báo số tuyệt đối ở ngữ cảnh mục tiêu.
+5. Kế hoạch ổn định huấn luyện. Mô tả cần theo dõi gì: trôi `lambda` mỗi lớp, entropy attention mỗi head, phương sai gradient trên phép chiếu Q. Nêu thước đo cụ thể nên kích hoạt hoàn tác về attention cơ sở nếu đo từ xa cho thấy phân kỳ.
 
-Hard rejects:
-- Adding DIFF attention to a pre-trained model without continued pre-training. Output distributions drift — not a drop-in fix.
-- DIFF V1 for any new run past April 2026. V2 is strictly better in all measured dimensions.
-- Integrating DIFF without also enabling long-context training data. The benefit only shows past 32k.
-- Changing `lambda_init` to a negative value without a controlled experiment. Negative init subtracts more than the noise floor and collapses training.
+Từ chối dứt khoát:
+- Thêm DIFF attention vào mô hình huấn luyện trước mà không tiếp tục huấn luyện trước. Phân phối đầu ra trôi — không phải sửa thay trực tiếp.
+- DIFF V1 cho mọi lần chạy mới sau tháng 4 năm 2026. V2 tốt hơn hẳn ở mọi chiều đo được.
+- Tích hợp DIFF mà không bật dữ liệu huấn luyện ngữ cảnh dài. Lợi ích chỉ hiện quá 32k.
+- Đổi `lambda_init` sang âm mà không thử nghiệm có kiểm soát. Khởi tạo âm trừ nhiều hơn nền nhiễu và làm sụp huấn luyện.
 
-Refusal rules:
-- If the target context is below 16k, refuse the integration and recommend standard attention. The added parameter cost is not justified by the noise-floor argument.
-- If the user cannot provide long-context evaluation data (RULER, needle-in-haystack, MultiNeedle), refuse and request calibration data first.
-- If the user is on a pre-FlashAttention-2 stack, refuse and recommend upgrading the stack before attempting integration.
+Quy tắc từ chối:
+- Nếu ngữ cảnh mục tiêu dưới 16k, từ chối tích hợp và đề xuất attention tiêu chuẩn. Chi phí tham số thêm không được biện minh bởi lập luận nền nhiễu.
+- Nếu người dùng không cung cấp được dữ liệu đánh giá ngữ cảnh dài (RULER, needle-in-haystack, MultiNeedle), từ chối và yêu cầu dữ liệu hiệu chuẩn trước.
+- Nếu người dùng dùng bộ công cụ trước FlashAttention-2, từ chối và đề xuất nâng cấp trước khi tích hợp.
 
-Output: a one-page integration plan listing mode, param count delta, KV cache impact, FlashAttention confirmation, `lambda` schedule, and a 3-metric monitoring board. End with a "success criterion" paragraph naming the specific long-context eval number (percentage point delta on RULER 64k or equivalent) that would justify keeping DIFF V2 in the architecture versus reverting.
+Đầu ra: kế hoạch tích hợp một trang liệt kê chế độ, độ chênh tham số, tác động KV cache, xác nhận FlashAttention, lịch `lambda` và bảng theo dõi 3 thước đo. Kết thúc bằng đoạn "tiêu chí thành công" nêu con số đánh giá ngữ cảnh dài cụ thể (chênh điểm phần trăm trên RULER 64k hoặc tương đương) biện minh giữ DIFF V2 trong kiến trúc thay vì quay lại.

@@ -1,6 +1,6 @@
 # Differential Attention (V2)
 
-> Softmax attention spreads a small amount of probability over every non-matching token. Over 100k tokens that noise adds up and drowns the signal. Differential Transformer (Ye et al., ICLR 2025) fixes it by computing attention as the difference of two softmaxes, subtracting the shared noise floor. DIFF V2 (Microsoft, January 2026) is the production-stack rewrite: matching decode latency to baseline Transformer, no custom kernels, FlashAttention-compatible. This lesson is V1 to V2 end-to-end, with a working toy implementation of the difference operation you can run in stdlib Python.
+> Attention softmax trải một lượng xác suất nhỏ lên mọi token không khớp. Qua 100k token, nhiễu cộng dồn và nhấn chìm tín hiệu. Differential Transformer (Ye và cộng sự, ICLR 2025) sửa bằng tính attention như hiệu hai softmax, trừ nền nhiễu chung. DIFF V2 (Microsoft, tháng 1 năm 2026) là bản viết lại cho bộ production: độ trễ decode khớp Transformer cơ sở, không kernel tùy chỉnh, tương thích FlashAttention. Bài này đi từ V1 đến V2 đầu cuối, với triển khai đồ chơi chạy được của phép hiệu bằng Python stdlib.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,91 +9,91 @@
 
 ## Learning Objectives
 
-- State precisely why softmax attention has a noise floor and why it grows with context length.
-- Derive the differential attention formula and explain why the subtraction cancels the shared noise component while preserving signal.
-- Walk the V1-to-V2 diff: what got faster, what got simpler, what got more stable, and why each change was necessary for production pre-training.
-- Implement differential attention from scratch in pure Python and empirically verify the noise-cancellation property on a synthetic signal-plus-noise query.
+- Nêu chính xác vì sao attention softmax có nền nhiễu và vì sao nó tăng theo độ dài ngữ cảnh.
+- Suy ra công thức attention vi sai và giải thích vì sao phép trừ triệt thành phần nhiễu chung trong khi giữ tín hiệu.
+- Duyệt diff V1 sang V2: thứ gì nhanh hơn, đơn giản hơn, ổn định hơn, và vì sao mỗi thay đổi cần cho huấn luyện trước production.
+- Triển khai attention vi sai từ đầu bằng Python thuần và xác minh thực nghiệm tính khử nhiễu trên query tín hiệu-cộng-nhiễu tổng hợp.
 
 ## The Problem
 
-Standard softmax attention has a mathematical property that turns into an operational headache at scale. For a query `q`, the attention weights are `softmax(qK^T / sqrt(d))`. Softmax can never produce exact zeros — every non-matching token gets some positive mass. That residual mass is noise, and it scales with context length. At 128k tokens, even if each non-matching token gets only 0.001% of the probability, 127,999 of them combined contribute about 12% of the total. The model has to learn to route around a noise floor that grows with context.
+Attention softmax tiêu chuẩn có tính chất toán học thành đau đầu vận hành ở quy mô lớn. Với query `q`, trọng số attention là `softmax(qK^T / sqrt(d))`. Softmax không bao giờ tạo số không chính xác — mỗi token không khớp nhận một khối lượng dương. Khối lượng dư đó là nhiễu, tăng theo độ dài ngữ cảnh. Ở 128k token, dù mỗi token không khớp chỉ nhận 0.001% xác suất, 127,999 token cộng lại đóng góp khoảng 12% tổng. Mô hình phải học định tuyến tránh nền nhiễu tăng theo ngữ cảnh.
 
-Empirically this shows up as attention-head interference: hallucinated citations in long-context RAG, lost-in-the-middle failures on 100k-token retrieval tasks, and subtle accuracy degradation on needle-in-haystack benchmarks past 32k. The Differential Transformer paper (arXiv:2410.05258, ICLR 2025) measured the gap: DIFF Transformers hit lower perplexity, higher long-context accuracy, and fewer hallucinations than same-size baselines.
+Thực nghiệm cho thấy nhiễu giữa head attention: trích dẫn ảo giác trong RAG ngữ cảnh dài, thất bại lost-in-the-middle trên truy xuất 100k token, và suy giảm chính xác tinh tế trên benchmark needle-in-haystack quá 32k. Bài báo Differential Transformer (arXiv:2410.05258, ICLR 2025) đo khoảng cách: DIFF Transformer đạt perplexity thấp hơn, chính xác ngữ cảnh dài cao hơn và ít ảo giác hơn baseline cùng kích thước.
 
-DIFF V1 had three problems that kept it out of frontier pre-training pipelines. Its value cache had to be loaded twice per decode step, it required custom CUDA kernels that broke FlashAttention compatibility, and its per-head RMSNorm destabilized long-run training at 70B-plus scale. DIFF V2 (Microsoft unilm blog, January 20, 2026) fixed all three. This lesson walks both versions, builds the difference operator, and benchmarks noise cancellation on a toy query.
+DIFF V1 có ba vấn đề ngăn nó vào pipeline huấn luyện trước hàng đầu. Cache value phải tải hai lần mỗi bước decode, cần kernel CUDA tùy chỉnh phá tương thích FlashAttention, và RMSNorm theo head làm bất ổn huấn luyện dài ở quy mô 70B trở lên. DIFF V2 (blog Microsoft unilm, ngày 20 tháng 1 năm 2026) sửa cả ba. Bài này duyệt cả hai bản, xây toán tử hiệu và benchmark khử nhiễu trên query đồ chơi.
 
 ## The Concept
 
 ### The noise floor of softmax
 
-For a query `q` and keys `K = [k_1, ..., k_N]`, attention weights are:
+Với query `q` và key `K = [k_1, ..., k_N]`, trọng số attention là:
 
 ```
 w_i = exp(q . k_i / sqrt(d)) / sum_j exp(q . k_j / sqrt(d))
 ```
 
-No `w_i` is ever zero. If `k_i` is completely unrelated to `q`, the score `q . k_i` is not 0 — it fluctuates around zero with variance `||q||^2 / d`. After softmax normalization, each unrelated token still contributes `O(1/N)` to the weighted sum. The total contribution of unrelated tokens is `O((N-1)/N) = O(1)` — not a small quantity.
+Không `w_i` nào bằng không. Nếu `k_i` hoàn toàn không liên quan `q`, điểm `q . k_i` không phải 0 — nó dao động quanh không với phương sai `||q||^2 / d`. Sau chuẩn hóa softmax, mỗi token không liên quan vẫn đóng góp `O(1/N)` vào tổng có trọng số. Tổng đóng góp token không liên quan là `O((N-1)/N) = O(1)` — không phải lượng nhỏ.
 
-What the model wants is something like a hard top-k: high weight on matching tokens, near-zero weight everywhere else. Softmax is too smooth to do that directly.
+Mô hình muốn thứ như top-k cứng: trọng số cao trên token khớp, gần không ở mọi nơi khác. Softmax quá trơn để làm trực tiếp.
 
 ### The differential idea
 
-Split each head's Q and K projections into two: Q = (Q_1, Q_2) and K = (K_1, K_2). Compute two attention maps:
+Chia phép chiếu Q và K mỗi head thành hai: Q = (Q_1, Q_2) và K = (K_1, K_2). Tính hai bản đồ attention:
 
 ```
 A_1 = softmax(Q_1 K_1^T / sqrt(d))
 A_2 = softmax(Q_2 K_2^T / sqrt(d))
 ```
 
-Output:
+Đầu ra:
 
 ```
 DiffAttn = (A_1 - lambda * A_2) V
 ```
 
-The subtraction cancels whatever noise distribution the two maps share. If both maps have roughly uniform weight on the 127k unrelated tokens (which they will, at random initialization), those cancel. The signal — peaked weight on the few actually relevant tokens — only cancels if it appears in both maps at the same magnitude, which it will not once the model trains.
+Phép trừ triệt mọi phân phối nhiễu hai bản đồ chung. Nếu cả hai có trọng số gần đều trên 127k token không liên quan (điều sẽ xảy ra ở khởi tạo ngẫu nhiên), chúng triệt. Tín hiệu — trọng số nhọn trên vài token thực sự liên quan — chỉ triệt nếu xuất hiện ở cả hai cùng độ lớn, điều sẽ không xảy ra khi mô hình huấn luyện.
 
-`lambda` is a learnable scalar per head, parameterized as `lambda = exp(lambda_q1 dot lambda_k1) - exp(lambda_q2 dot lambda_k2) + lambda_init`. It can be negative. `lambda_init` defaults to a small positive number like 0.8.
+`lambda` là vô hướng có thể học mỗi head, tham số hóa thành `lambda = exp(lambda_q1 dot lambda_k1) - exp(lambda_q2 dot lambda_k2) + lambda_init`. Nó có thể âm. `lambda_init` mặc định số dương nhỏ như 0.8.
 
 ### Why this matches headed noise-canceling
 
-Think of two noisy microphones recording the same voice. Both pick up the speaker plus correlated background noise. Subtract one from the other and the shared noise drops out. The voice survives because the two signals differ in phase or amplitude by enough to prevent full cancellation. The per-head `lambda` learns exactly this balance.
+Nghĩ hai micro nhiều nhiễu thu cùng giọng. Cả hai thu người nói cộng nhiễu nền tương quan. Trừ một khỏi kia và nhiễu chung mất. Giọng sống sót vì hai tín hiệu khác pha hoặc biên độ đủ ngăn triệt hoàn toàn. `lambda` theo head học chính cân bằng này.
 
 ### V1 vs V2: the diff
 
-V1 kept the parameter count equal to the baseline Transformer. To get two queries per head it halved the head dimension. That cost head expressiveness and — more painfully — halved the value cache per head. Decode had to load the value cache twice per step (once per softmax branch). Result: decode slower than baseline despite matching parameter count.
+V1 giữ tham số bằng Transformer cơ sở. Để có hai query mỗi head, nó giảm nửa số chiều head. Điều đó tốn sức biểu đạt head và — đau hơn — giảm nửa cache value mỗi head. Decode phải tải cache value hai lần mỗi bước (mỗi nhánh softmax một lần). Kết quả: decode chậm hơn baseline dù cùng số tham số.
 
-V2 doubles the number of query heads and keeps the KV heads the same (borrowing parameters from the up-projection). The head dimension stays the same as baseline. After the subtraction, the extra dimension is projected back down to match baseline Transformer's O_W projection. Three things happen at once:
+V2 tăng gấp đôi số head query và giữ head KV như cũ (mượn tham số từ phép chiếu lên). Số chiều head giữ như baseline. Sau phép trừ, chiều bổ sung được chiếu xuống lại để khớp phép chiếu O_W của Transformer cơ sở. Ba thứ đồng thời xảy ra:
 
-1. Decode speed matches baseline (KV cache is loaded once).
-2. FlashAttention runs unchanged (no custom kernel).
-3. Arithmetic intensity at decode goes up (more compute per byte loaded from HBM).
+1. Tốc độ decode khớp baseline (KV cache tải một lần).
+2. FlashAttention chạy không đổi (không kernel tùy chỉnh).
+3. Cường độ số học khi decode tăng (nhiều tính toán mỗi byte tải từ HBM).
 
-V2 also removes the per-head RMSNorm that V1 used to stabilize the subtraction. At 70B-class pre-training scales, that RMSNorm destabilized late training. V2 replaces it with a simpler initialization scheme that keeps training stable without the extra module.
+V2 cũng bỏ RMSNorm theo head mà V1 dùng để ổn định phép trừ. Ở quy mô huấn luyện trước hạng 70B, RMSNorm đó gây bất ổn cuối huấn luyện. V2 thay bằng cách khởi tạo đơn giản hơn giữ huấn luyện ổn định không mô-đun bổ sung.
 
 ### When to reach for it
 
-| Workload | Benefit |
+| Khối lượng công việc | Lợi ích |
 |----------|---------|
-| Long-context RAG (64k+) | Cleaner attention maps, fewer hallucinated citations |
-| Needle-in-haystack benchmarks | Substantial accuracy lift past 32k |
-| Multi-document QA | Less cross-document interference |
-| Code completion at 8k | Marginal, not worth the architecture change |
-| Short chat (< 4k) | Essentially indistinguishable from baseline |
+| RAG ngữ cảnh dài (64k+) | Bản đồ attention sạch hơn, ít trích dẫn ảo giác hơn |
+| Benchmark needle-in-haystack | Tăng chính xác đáng kể quá 32k |
+| Hỏi đáp nhiều tài liệu | Ít nhiễu chéo tài liệu hơn |
+| Hoàn thành mã ở 8k | Nhỏ, không đáng thay kiến trúc |
+| Chat ngắn (< 4k) | Về cơ bản không phân biệt baseline |
 
-The value grows with context length. At 4k tokens the noise floor is small enough that standard attention is fine. At 128k it is hurting you.
+Giá trị tăng theo độ dài ngữ cảnh. Ở 4k token, nền nhiễu đủ nhỏ để attention tiêu chuẩn ổn. Ở 128k nó đang gây hại.
 
 ### How it stacks with other 2026 knobs
 
-| Feature | Compatible with DIFF V2? |
+| Tính năng | Tương thích DIFF V2? |
 |---------|------------------------|
-| GQA | Yes (V2 increases Q heads, not KV heads) |
-| MLA (DeepSeek) | Yes in principle, no published paper combining them |
-| MoE | Yes (attention is independent of MLP block) |
-| RoPE | Yes (unchanged) |
-| YaRN / long-context scaling | Yes (exactly where DIFF helps most) |
-| FlashAttention | Yes in V2 (was no in V1) |
-| Speculative decoding | Yes (attention change is invisible to the spec-decode loop) |
+| GQA | Có (V2 tăng head Q, không head KV) |
+| MLA (DeepSeek) | Có về nguyên tắc, chưa bài công bố kết hợp |
+| MoE | Có (attention độc lập khối MLP) |
+| RoPE | Có (không đổi) |
+| YaRN / co giãn ngữ cảnh dài | Có (chính nơi DIFF giúp nhất) |
+| FlashAttention | Có ở V2 (không ở V1) |
+| Speculative decoding | Có (thay attention vô hình với vòng spec-decode) |
 
 ```figure
 differential-attention
@@ -101,11 +101,11 @@ differential-attention
 
 ## Build It
 
-`code/main.py` implements differential attention in pure Python. A toy query with known signal-plus-noise structure lets you measure the noise-cancellation ratio directly.
+`code/main.py` triển khai attention vi sai bằng Python thuần. Query đồ chơi có cấu trúc tín hiệu-cộng-nhiễu đã biết cho phép đo trực tiếp tỷ lệ khử nhiễu.
 
 ### Step 1: standard softmax attention
 
-Stdlib matrix ops: lists of lists, manual matmul, softmax with numerical-stability subtraction of the max.
+Phép ma trận stdlib: danh sách của danh sách, nhân ma trận thủ công, softmax trừ cực đại để ổn định số.
 
 ```python
 def softmax(row):
@@ -117,7 +117,7 @@ def softmax(row):
 
 ### Step 2: split Q, K into two halves
 
-V1 style: halve the head dimension. V2 style: keep the head dimension and double the number of heads. The toy implementation uses V1 for pedagogical clarity — the math is identical, only the bookkeeping differs.
+Kiểu V1: giảm nửa số chiều head. Kiểu V2: giữ số chiều head và tăng gấp đôi số head. Triển khai đồ chơi dùng V1 cho rõ sư phạm — toán giống hệt, chỉ khác sổ sách.
 
 ### Step 3: two softmax branches + subtraction
 
@@ -128,75 +128,75 @@ diff_weights = [[a1 - lam * a2 for a1, a2 in zip(r1, r2)] for r1, r2 in zip(A1, 
 out = [[sum(w * v[j] for w, v in zip(row, V)) for j in range(d_v)] for row in diff_weights]
 ```
 
-Note: the output weights can be negative. That is fine — the value cache still handles signed contributions. The subsequent V projection absorbs the sign.
+Lưu ý: trọng số đầu ra có thể âm. Điều đó ổn — cache value vẫn xử lý đóng góp có dấu. Phép chiếu V sau hấp thụ dấu.
 
 ### Step 4: noise cancellation measurement
 
-Build a synthetic sequence of length 1024. Place the signal token at a known position, fill the rest with noise. Compute (a) standard softmax attention weight on the signal position and (b) differential attention weight. Measure the ratio of signal-to-noise in each. DIFF attention reliably produces a higher signal-to-noise ratio by a factor of 3x-10x depending on how much the two branches have been trained to differ.
+Xây chuỗi tổng hợp dài 1024. Đặt token tín hiệu ở vị trí biết trước, lấp phần còn lại bằng nhiễu. Tính (a) trọng số attention softmax tiêu chuẩn trên vị trí tín hiệu và (b) trọng số attention vi sai. Đo tỷ lệ tín hiệu/nhiễu mỗi cách. DIFF attention tạo tỷ lệ tín hiệu/nhiễu cao hơn đáng tin cậy với hệ số 3x-10x tùy mức hai nhánh được huấn luyện để khác.
 
 ### Step 5: V1 vs V2 parameter accounting
 
-Given a config (hidden=4096, heads=32, d_head=128), print:
+Với cấu hình (hidden=4096, heads=32, d_head=128), in:
 
-- Baseline Transformer: Q, K, V each size `hidden * hidden`, MLP at 4 * hidden.
-- DIFF V1: Q, K each size `hidden * hidden`, V size `hidden * hidden` (unchanged), head dim halved internally. Adds per-head `lambda` parameters (O(heads * d_head)).
-- DIFF V2: Q size `2 * hidden * hidden`, K size `hidden * hidden`, V size `hidden * hidden`. Extra dim projected back down before O_W. Adds same `lambda` parameters.
+- Transformer cơ sở: Q, K, V mỗi cái kích thước `hidden * hidden`, MLP ở 4 * hidden.
+- DIFF V1: Q, K mỗi cái kích thước `hidden * hidden`, V kích thước `hidden * hidden` (không đổi), số chiều head giảm nửa nội bộ. Thêm tham số `lambda` theo head (O(heads * d_head)).
+- DIFF V2: Q kích thước `2 * hidden * hidden`, K kích thước `hidden * hidden`, V kích thước `hidden * hidden`. Chiều thêm được chiếu xuống lại trước O_W. Thêm cùng tham số `lambda`.
 
-The toy measures the extra parameter cost for V2 (roughly `hidden * hidden` extra per attention block) and prints it.
+Mô hình đồ chơi đo chi phí tham số thêm cho V2 (khoảng thêm `hidden * hidden` mỗi khối attention) và in ra.
 
 ## Use It
 
-DIFF V2 is not yet shipping in every production inference server as of April 2026, but integration is underway in vLLM and SGLang. Meanwhile the pattern shows up in:
+DIFF V2 chưa được cung cấp trong mọi máy chủ suy luận production tính đến tháng 4 năm 2026, nhưng tích hợp đang diễn ra trong vLLM và SGLang. Trong khi đó mô thức xuất hiện ở:
 
-- Microsoft internal long-context production models.
-- Research replications in several open model training runs targeting 256k-plus context.
-- Hybrid architectures that combine DIFF attention with sliding-window attention on alternate layers.
+- Mô hình production ngữ cảnh dài nội bộ Microsoft.
+- Các bản tái lập nghiên cứu trong vài lần huấn luyện mô hình mở nhắm ngữ cảnh 256k trở lên.
+- Kiến trúc lai kết hợp DIFF attention với attention cửa sổ trượt ở lớp xen kẽ.
 
-When you would reach for this in 2026:
+Khi nào bạn sẽ dùng vào năm 2026:
 
-- Training a new model from scratch targeting 64k-plus effective context. Add differential attention from the start; retraining later is expensive.
-- Fine-tuning a long-context model where lost-in-the-middle failures dominate your eval. A LoRA on the Q projections can approximate the DIFF structure.
+- Huấn luyện mô hình mới từ đầu nhắm ngữ cảnh hiệu dụng 64k trở lên. Thêm attention vi sai ngay từ đầu; huấn luyện lại sau đắt.
+- Tinh chỉnh mô hình ngữ cảnh dài mà thất bại lost-in-the-middle chi phối đánh giá. LoRA trên phép chiếu Q có thể xấp xỉ cấu trúc DIFF.
 
-When you would not:
+Khi nào không:
 
-- You are serving a pre-trained dense model with stable long-context performance. The retraining cost rarely pays back on existing weights.
-- Your context is always under 16k. Noise floor is negligible.
+- Bạn đang phục vụ mô hình dense huấn luyện trước có hiệu năng ngữ cảnh dài ổn định. Chi phí huấn luyện lại hiếm khi hoàn vốn trên trọng số hiện có.
+- Ngữ cảnh luôn dưới 16k. Nền nhiễu không đáng kể.
 
 ## Ship It
 
-This lesson produces `outputs/skill-diff-attention-integrator.md`. Given a model architecture, target context length, hallucination profile, and training budget, it produces an integration plan for adding differential attention to a new pre-training run or LoRA fine-tune.
+Bài này tạo ra `outputs/skill-diff-attention-integrator.md`. Với kiến trúc mô hình, ngữ cảnh mục tiêu, đặc điểm ảo giác và ngân sách huấn luyện, nó tạo kế hoạch tích hợp thêm attention vi sai vào lần huấn luyện trước mới hoặc tinh chỉnh LoRA.
 
 ## Exercises
 
-1. Run `code/main.py`. Verify the signal-to-noise ratio reported for differential attention is higher than standard softmax attention on the synthetic query. Vary the noise amplitude and show the crossover point where standard attention becomes unusable.
+1. Chạy `code/main.py`. Xác minh tỷ lệ tín hiệu/nhiễu được báo cho attention vi sai cao hơn softmax tiêu chuẩn trên query tổng hợp. Thay biên độ nhiễu và cho thấy điểm giao nơi attention tiêu chuẩn không dùng được.
 
-2. Compute the parameter-count delta from baseline to DIFF V1 and from baseline to DIFF V2 for a 7B-class model (hidden=4096, heads=32, d_head=128, 32 layers). Show which components gained parameters and which stayed the same.
+2. Tính độ chênh số tham số từ baseline sang DIFF V1 và từ baseline sang DIFF V2 cho mô hình hạng 7B (hidden=4096, heads=32, d_head=128, 32 lớp). Cho thấy thành phần nào tăng tham số, thành phần nào giữ nguyên.
 
-3. Read Section 3 of the DIFF V1 paper (arXiv:2410.05258) and Section 2 of the DIFF V2 Hugging Face blog. In two sentences, explain why the V1 per-head RMSNorm was necessary and why V2 could remove it without causing training divergence.
+3. Đọc Mục 3 bài DIFF V1 (arXiv:2410.05258) và Mục 2 blog Hugging Face DIFF V2. Trong hai câu, giải thích vì sao RMSNorm theo head V1 cần thiết và vì sao V2 bỏ được mà không gây phân kỳ huấn luyện.
 
-4. Implement an ablation: compute differential attention with `lambda = 0` (pure first softmax) and `lambda = 1` (full subtraction). On the synthetic query, measure how signal-to-noise changes across the sweep. Identify the `lambda` that maximizes signal-to-noise.
+4. Triển khai thử nghiệm loại bỏ: tính attention vi sai với `lambda = 0` (softmax đầu thuần) và `lambda = 1` (trừ đầy đủ). Trên query tổng hợp, đo tín hiệu/nhiễu đổi qua phép quét. Xác định `lambda` tối đa tín hiệu/nhiễu.
 
-5. Extend the toy to GQA + DIFF V2. Pick 8 KV heads and 32 Q heads. Show that the KV cache size matches a baseline GQA model with the same (8, 32) configuration.
+5. Mở rộng mô hình đồ chơi sang GQA + DIFF V2. Chọn 8 head KV và 32 head Q. Cho thấy kích thước KV cache khớp mô hình GQA cơ sở cùng cấu hình (8, 32).
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|------------------------|
-| Differential attention | "Two softmaxes minus each other" | Split Q, K into two halves, compute two softmax maps, subtract the second (scaled by lambda) from the first, then multiply by V |
-| Noise floor | "The non-zero tail of softmax" | The O(1/N) weight softmax puts on every unrelated token, which sums to O(1) across long contexts |
-| lambda | "The subtraction scale" | Per-head learnable scalar parameterized as `exp(lq1.lk1) - exp(lq2.lk2) + lambda_init`; can be negative |
-| DIFF V1 | "The ICLR 2025 version" | Original Differential Transformer; halves head dim to preserve parameter count, needs custom kernel, slower decode |
-| DIFF V2 | "The January 2026 fix" | Doubles Q heads keeping KV heads; matches baseline decode speed and works with FlashAttention |
-| Per-head RMSNorm | "The V1 stabilizer" | Extra norm V1 applied after the difference; V2 removed it to prevent late-training instability |
-| Signal-to-noise ratio | "How much attention is wasted" | Ratio of weight on the true signal position to average weight on unrelated positions |
-| Lost in the middle | "Long-context failure mode" | Empirical phenomenon where retrieval accuracy dips for documents in the middle of a long context — DIFF attention reduces this |
-| Arithmetic intensity | "FLOPs per byte loaded" | Ratio V2 increased at decode by doubling queries per KV load; important for memory-bound decode |
+| Differential attention (Attention vi sai) | "Hai softmax trừ nhau" | Chia Q, K thành hai nửa, tính hai bản đồ softmax, trừ bản thứ hai (co giãn bằng lambda) khỏi thứ nhất, rồi nhân V |
+| Noise floor (Nền nhiễu) | "Đuôi khác không của softmax" | Trọng số O(1/N) softmax đặt trên mọi token không liên quan, cộng thành O(1) qua ngữ cảnh dài |
+| lambda | "Hệ số phép trừ" | Vô hướng có thể học theo head tham số hóa thành `exp(lq1.lk1) - exp(lq2.lk2) + lambda_init`; có thể âm |
+| DIFF V1 | "Phiên bản ICLR 2025" | Differential Transformer gốc; giảm nửa số chiều head để giữ tham số, cần kernel tùy chỉnh, decode chậm hơn |
+| DIFF V2 | "Bản sửa tháng 1 năm 2026" | Tăng gấp đôi head Q, giữ head KV; khớp tốc độ decode cơ sở và chạy với FlashAttention |
+| Per-head RMSNorm (RMSNorm theo head) | "Bộ ổn định V1" | Norm thêm V1 áp dụng sau hiệu; V2 bỏ để ngăn bất ổn cuối huấn luyện |
+| Signal-to-noise ratio (Tỷ lệ tín hiệu trên nhiễu) | "Bao nhiêu attention lãng phí" | Tỷ lệ trọng số trên vị trí tín hiệu thật so với trọng số trung bình trên vị trí không liên quan |
+| Lost in the middle (Lạc ở giữa) | "Kiểu thất bại ngữ cảnh dài" | Hiện tượng thực nghiệm độ chính xác truy xuất giảm với tài liệu giữa ngữ cảnh dài — DIFF attention giảm điều này |
+| Arithmetic intensity (Cường độ số học) | "FLOPs mỗi byte tải" | Tỷ lệ V2 tăng khi decode bằng gấp đôi query mỗi lần tải KV; quan trọng cho decode giới hạn bộ nhớ |
 
 ## Further Reading
 
-- [Ye et al. — Differential Transformer (arXiv:2410.05258, ICLR 2025)](https://arxiv.org/abs/2410.05258) — the original paper with noise-cancellation theory and long-context ablations
-- [Microsoft unilm — Differential Transformer V2 (Hugging Face blog, January 2026)](https://huggingface.co/blog/microsoft/diff-attn-v2) — the production-stack rewrite, matching baseline decode, FlashAttention-compatible
-- [Understanding Differential Transformer Unchains Pretrained Self-Attentions (arXiv:2505.16333)](https://arxiv.org/abs/2505.16333) — theoretical analysis of why the subtraction recovers pretrained attention structure
-- [Shared DIFF Transformer (arXiv:2501.17900)](https://arxiv.org/html/2501.17900) — parameter-sharing variant
-- [Vaswani et al. — Attention Is All You Need (arXiv:1706.03762)](https://arxiv.org/abs/1706.03762) — the baseline Transformer DIFF subtracts from
-- [Liu et al. — Lost in the Middle (arXiv:2307.03172)](https://arxiv.org/abs/2307.03172) — the long-context benchmark DIFF attention targets
+- [Ye et al. — Differential Transformer (arXiv:2410.05258, ICLR 2025)](https://arxiv.org/abs/2410.05258) — bài báo gốc với lý thuyết khử nhiễu và thử nghiệm loại bỏ ngữ cảnh dài
+- [Microsoft unilm — Differential Transformer V2 (Hugging Face blog, January 2026)](https://huggingface.co/blog/microsoft/diff-attn-v2) — viết lại cho bộ production, khớp decode cơ sở, tương thích FlashAttention
+- [Understanding Differential Transformer Unchains Pretrained Self-Attentions (arXiv:2505.16333)](https://arxiv.org/abs/2505.16333) — phân tích lý thuyết vì sao phép trừ khôi phục cấu trúc attention huấn luyện trước
+- [Shared DIFF Transformer (arXiv:2501.17900)](https://arxiv.org/html/2501.17900) — biến thể chia sẻ tham số
+- [Vaswani et al. — Attention Is All You Need (arXiv:1706.03762)](https://arxiv.org/abs/1706.03762) — Transformer cơ sở mà DIFF trừ từ đó
+- [Liu et al. — Lost in the Middle (arXiv:2307.03172)](https://arxiv.org/abs/2307.03172) — benchmark ngữ cảnh dài DIFF attention nhắm đến
