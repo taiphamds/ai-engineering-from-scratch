@@ -1,6 +1,6 @@
 # Transfer Learning & Fine-Tuning
 
-> Somebody else spent a million GPU hours teaching a network what edges, textures, and object parts look like. You should borrow those features before training your own.
+> Ai đó đã dành một triệu giờ GPU để dạy một mạng các cạnh, kết cấu và bộ phận đối tượng trông như thế nào. Bạn nên mượn các đặc trưng đó trước khi tự huấn luyện.
 
 **Type:** Build
 **Languages:** Python
@@ -9,24 +9,24 @@
 
 ## Learning Objectives
 
-- Distinguish feature extraction from fine-tuning and pick the right one based on dataset size, domain distance, and compute budget
-- Load a pretrained backbone, replace its classifier head, and train only the head to a working baseline in under 20 lines
-- Progressively unfreeze layers with discriminative learning rates so early generic features get smaller updates than late task-specific ones
-- Diagnose the three common failures: feature drift from too-high LR on unfrozen blocks, BN statistics collapse on tiny datasets, and catastrophic forgetting
+- Phân biệt trích xuất đặc trưng với tinh chỉnh và chọn cách phù hợp dựa trên kích thước tập dữ liệu, khoảng cách lĩnh vực và ngân sách tính toán
+- Tải một backbone được tiền huấn luyện, thay đầu phân loại và chỉ huấn luyện đầu tới một đường cơ sở hoạt động trong dưới 20 dòng
+- Mở băng dần các lớp với các tốc độ học phân biệt để các đặc trưng tổng quát ban đầu nhận cập nhật nhỏ hơn các đặc trưng riêng theo tác vụ phía sau
+- Chẩn đoán ba thất bại thường gặp: trôi đặc trưng do LR quá cao trên các khối được mở băng, sụp đổ thống kê BN trên các tập dữ liệu rất nhỏ và quên thảm họa
 
 ## The Problem
 
-Training a ResNet-50 on ImageNet costs around 2,000 GPU-hours. Very few teams have that budget for every task they ship. What almost every team actually ships is a pretrained backbone with a new head trained on a few hundred or few thousand task-specific images.
+Huấn luyện một ResNet-50 trên ImageNet tốn khoảng 2,000 giờ GPU. Rất ít nhóm có ngân sách đó cho mọi tác vụ họ phát hành. Thứ gần như mọi nhóm thực sự phát hành là một backbone được tiền huấn luyện với một đầu mới được huấn luyện trên vài trăm hoặc vài nghìn hình ảnh riêng theo tác vụ.
 
-This is not a shortcut. The first conv block of any ImageNet-trained CNN learns edges and Gabor-like filters. The next few blocks learn textures and simple motifs. The middle blocks learn object parts. The final blocks learn combinations that start to look like the 1,000 ImageNet categories. The first 90% of that hierarchy transfers almost unchanged to medical imaging, industrial inspection, satellite data, and every other vision task — because nature has a limited vocabulary of edges and textures. The last 10% is what you actually train.
+Đây không phải lối tắt. Khối tích chập đầu của bất kỳ CNN được huấn luyện ImageNet nào học các cạnh và các bộ lọc giống Gabor. Vài khối tiếp theo học các kết cấu và mô típ đơn giản. Các khối giữa học các bộ phận đối tượng. Các khối cuối học các tổ hợp bắt đầu giống 1,000 loại ImageNet. 90% đầu của hệ phân cấp đó chuyển giao gần như không đổi tới hình ảnh y tế, kiểm tra công nghiệp, dữ liệu vệ tinh và mọi tác vụ thị giác khác — vì tự nhiên có một vốn từ vựng cạnh và kết cấu hữu hạn. 10% cuối là những gì bạn thực sự huấn luyện.
 
-Getting transfer right has three bugs waiting for you: destroying pretrained features with a too-high learning rate, starving the model of information by freezing too much, and letting BatchNorm's running statistics drift toward a tiny dataset that the rest of the network never learnt from. This lesson walks each of them on purpose.
+Làm đúng chuyển giao có ba lỗi chờ bạn: phá hủy các đặc trưng được tiền huấn luyện bằng tốc độ học quá cao, làm mô hình thiếu thông tin bằng cách đóng băng quá nhiều và để các thống kê tích lũy của BatchNorm trôi về một tập dữ liệu rất nhỏ mà phần còn lại của mạng chưa bao giờ học từ đó. Bài học này cố ý đi qua từng lỗi.
 
 ## The Concept
 
 ### Feature extraction vs fine-tuning
 
-Two regimes, picked by how much you trust the pretrained features and how much data you have.
+Hai chế độ, được chọn theo mức tin tưởng các đặc trưng được tiền huấn luyện và lượng dữ liệu bạn có.
 
 ```mermaid
 flowchart TB
@@ -43,24 +43,24 @@ flowchart TB
     style FT2 fill:#dcfce7,stroke:#16a34a
 ```
 
-Rules of thumb:
+Các quy tắc kinh nghiệm:
 
-| Dataset size | Domain distance | Recipe |
+| Kích thước tập dữ liệu | Khoảng cách lĩnh vực | Công thức |
 |--------------|-----------------|--------|
-| < 1k images | close to ImageNet | Freeze backbone, train head only |
-| 1k-10k | close | Freeze first 2-3 stages, fine-tune the rest |
-| 10k-100k | any | Fine-tune end-to-end with discriminative LR |
-| 100k+ | far | Fine-tune everything; consider training from scratch if domain is far enough |
+| < 1k hình ảnh | gần ImageNet | Đóng băng backbone, chỉ huấn luyện đầu |
+| 1k-10k | gần | Đóng băng 2-3 giai đoạn đầu, tinh chỉnh phần còn lại |
+| 10k-100k | bất kỳ | Tinh chỉnh đầu-cuối với LR phân biệt |
+| 100k+ | xa | Tinh chỉnh mọi thứ; cân nhắc huấn luyện từ đầu nếu lĩnh vực đủ xa |
 
-"Close to ImageNet" roughly means natural RGB photos with object-like content. Medical CT scans, overhead satellite imagery, and microscopy are far domains — the features still help, but you will need to let more layers adapt.
+"Gần ImageNet" đại khái nghĩa là các ảnh RGB tự nhiên có nội dung dạng đối tượng. Các ảnh quét CT y tế, ảnh vệ tinh từ trên cao và ảnh hiển vi là các lĩnh vực xa — các đặc trưng vẫn giúp ích, nhưng bạn sẽ cần để nhiều lớp thích nghi hơn.
 
 ### Why freezing works at all
 
-The ImageNet features a CNN learns are not specialised to the 1,000 categories. They are specialised to the statistics of natural images: edges at specific orientations, textures, contrast patterns, shape primitives. Those statistics are stable across almost every visual domain a human can name. That is why a model trained on ImageNet and evaluated zero-shot on CIFAR-10 with just a new linear head (no fine-tuning of the backbone) reaches 80%+ accuracy. The head is learning which of the already-learnt features to weight for this task.
+Các đặc trưng ImageNet một CNN học không chuyên biệt cho 1,000 loại. Chúng chuyên biệt cho các thống kê hình ảnh tự nhiên: các cạnh ở những hướng cụ thể, kết cấu, mẫu tương phản, các thành phần hình dạng cơ bản. Các thống kê đó ổn định trên gần như mọi lĩnh vực thị giác con người có thể gọi tên. Đó là lý do một mô hình được huấn luyện trên ImageNet và đánh giá zero-shot trên CIFAR-10 chỉ với một đầu tuyến tính mới (không tinh chỉnh backbone) đạt accuracy 80%+. Đầu đang học nên gán trọng số cho những đặc trưng đã học nào cho tác vụ này.
 
 ### Discriminative learning rates
 
-When you do unfreeze, early layers should train slower than late layers. Early layers encode generic features that you want to preserve; late layers encode task-specific structure that you need to move a lot.
+Khi bạn mở băng, các lớp đầu nên huấn luyện chậm hơn các lớp sau. Các lớp đầu mã hóa các đặc trưng tổng quát bạn muốn giữ; các lớp sau mã hóa cấu trúc riêng theo tác vụ bạn cần thay đổi nhiều.
 
 ```
 Typical recipe:
@@ -72,21 +72,21 @@ Typical recipe:
   head:                          lr = base_lr  (or slightly higher)
 ```
 
-In PyTorch this is just a list of parameter groups passed to the optimizer. One model, five learning rates, zero extra code.
+Trong PyTorch đây chỉ là một danh sách nhóm tham số truyền cho bộ tối ưu hóa. Một mô hình, năm tốc độ học, không mã bổ sung.
 
 ### The BatchNorm problem
 
-BN layers hold `running_mean` and `running_var` buffers that were computed on ImageNet. If your task has a different pixel distribution — different lighting, different sensor, different colour space — those buffers are wrong. Three options in order of preference:
+Các lớp BN chứa bộ đệm `running_mean` và `running_var` đã được tính trên ImageNet. Nếu tác vụ của bạn có phân phối pixel khác — ánh sáng khác, cảm biến khác, không gian màu khác — các bộ đệm đó sai. Ba lựa chọn theo thứ tự ưu tiên:
 
-1. **Fine-tune with BN in train mode.** Let BN update its running statistics along with everything else. Default choice when the task dataset is medium-sized (>= 5k examples).
-2. **Freeze BN in eval mode.** Keep the ImageNet statistics and train only the weights. Correct when your dataset is small enough that BN's moving average would be noisy.
-3. **Replace BN with GroupNorm.** Removes the moving-average problem entirely. Used in detection and segmentation backbones where batch size per GPU is tiny.
+1. **Tinh chỉnh với BN ở chế độ train.** Để BN cập nhật các thống kê tích lũy cùng mọi thứ khác. Lựa chọn mặc định khi tập dữ liệu tác vụ cỡ vừa (>= 5k ví dụ).
+2. **Đóng băng BN ở chế độ eval.** Giữ thống kê ImageNet và chỉ huấn luyện các trọng số. Đúng khi tập dữ liệu của bạn đủ nhỏ để trung bình trượt BN bị nhiễu.
+3. **Thay BN bằng GroupNorm.** Loại bỏ hoàn toàn vấn đề trung bình trượt. Được sử dụng trong các backbone phát hiện và phân đoạn nơi kích thước batch mỗi GPU rất nhỏ.
 
-Getting this wrong silently tanks accuracy by 5-15%.
+Làm sai điều này âm thầm kéo accuracy xuống 5-15%.
 
 ### Head design
 
-The classifier head is 1-3 linear layers plus an optional dropout. Every torchvision backbone ships a default head that you replace:
+Đầu phân loại là 1-3 lớp tuyến tính cộng dropout tùy chọn. Mọi backbone torchvision đều cung cấp một đầu mặc định mà bạn thay thế:
 
 ```
 backbone.fc = nn.Linear(backbone.fc.in_features, num_classes)          # ResNet
@@ -94,26 +94,26 @@ backbone.classifier[1] = nn.Linear(..., num_classes)                    # Effici
 backbone.heads.head = nn.Linear(..., num_classes)                       # torchvision ViT
 ```
 
-For small datasets, a single linear layer is usually enough. Adding a hidden layer (Linear -> ReLU -> Dropout -> Linear) helps when the task distribution is farther from the backbone's training distribution.
+Với các tập dữ liệu nhỏ, một lớp tuyến tính duy nhất thường đủ. Thêm một lớp ẩn (Linear -> ReLU -> Dropout -> Linear) giúp ích khi phân phối tác vụ xa hơn phân phối huấn luyện của backbone.
 
 ### Layer-wise LR decay
 
-A smoother version of discriminative LR used in modern fine-tuning (BEiT, DINOv2, ViT-B fine-tunes). Instead of grouping layers into stages, give every layer a slightly smaller LR than the one above it:
+Một phiên bản mượt hơn của LR phân biệt được dùng trong tinh chỉnh hiện đại (BEiT, DINOv2, tinh chỉnh ViT-B). Thay vì nhóm các lớp thành giai đoạn, cho mỗi lớp một LR nhỏ hơn một chút so với lớp phía trên:
 
 ```
 lr_layer_k = base_lr * decay^(L - k)
 ```
 
-With decay = 0.75 and L = 12 transformer blocks, the first block trains at `0.75^11 ≈ 0.04x` the head's LR. Matters more for transformer fine-tunes than for CNNs, where stage-grouped LRs are usually enough.
+Với decay = 0.75 và L = 12 khối transformer, khối đầu huấn luyện ở `0.75^11 ≈ 0.04x` LR của đầu. Quan trọng với tinh chỉnh transformer hơn CNN, nơi các LR nhóm theo giai đoạn thường đủ.
 
 ### What to evaluate
 
-Transfer-learning runs need two numbers you would not track on a scratch run:
+Các lần học chuyển giao cần hai con số mà bạn sẽ không theo dõi khi huấn luyện từ đầu:
 
-- **Pretrained-only accuracy** — the head's accuracy with the backbone frozen. This is your floor.
-- **Fine-tuned accuracy** — the same model after end-to-end training. This is your ceiling.
+- **Accuracy chỉ với tiền huấn luyện** — accuracy của đầu khi backbone đóng băng. Đây là mức sàn của bạn.
+- **Accuracy đã tinh chỉnh** — cùng mô hình sau huấn luyện đầu-cuối. Đây là mức trần của bạn.
 
-If fine-tuned is less than pretrained-only, you have a learning-rate or BN bug. Always print both.
+Nếu kết quả tinh chỉnh thấp hơn chỉ tiền huấn luyện, bạn có lỗi tốc độ học hoặc BN. Luôn in cả hai.
 
 ```figure
 transfer-learning
@@ -135,7 +135,7 @@ print("classifier head:", backbone.fc)
 print("feature dim:", backbone.fc.in_features)
 ```
 
-`ResNet18` has four stages (`layer1..layer4`) plus a stem and a `fc` head. Every torchvision classification backbone has an analogous structure.
+`ResNet18` có bốn giai đoạn (`layer1..layer4`) cộng một stem và một đầu `fc`. Mọi backbone phân loại torchvision có một cấu trúc tương tự.
 
 ### Step 2: Feature extraction — freeze everything, replace the head
 
@@ -154,11 +154,11 @@ print(f"trainable: {trainable:>10,}")
 print(f"frozen:    {frozen:>10,}")
 ```
 
-Only `model.fc` is trainable. The backbone is a frozen feature extractor.
+Chỉ `model.fc` có thể huấn luyện. Backbone là một bộ trích xuất đặc trưng đóng băng.
 
 ### Step 3: Discriminative fine-tuning
 
-A utility that builds parameter groups with stage-specific learning rates.
+Một tiện ích xây dựng các nhóm tham số với tốc độ học riêng theo giai đoạn.
 
 ```python
 def discriminative_param_groups(model, base_lr=1e-3, decay=0.3):
@@ -189,11 +189,11 @@ for g in groups:
     print(f"{g['name']:>10s}  lr={g['lr']:.2e}  params={sum(p.numel() for p in g['params']):>8,}")
 ```
 
-`decay=0.3` means each stage trains at 30% of the rate of the next one. `fc` gets `base_lr`, `layer4` gets `0.3 * base_lr`, `conv1` gets `0.3^5 * base_lr ≈ 0.00243 * base_lr`. Extreme sounding; empirically it works.
+`decay=0.3` nghĩa là mỗi giai đoạn huấn luyện ở 30% tốc độ của giai đoạn tiếp theo. `fc` nhận `base_lr`, `layer4` nhận `0.3 * base_lr`, `conv1` nhận `0.3^5 * base_lr ≈ 0.00243 * base_lr`. Nghe cực đoan; thực nghiệm cho thấy nó hoạt động.
 
 ### Step 4: BatchNorm handling
 
-Helper to freeze BN running statistics without freezing its weights.
+Hàm hỗ trợ đóng băng các thống kê tích lũy BN mà không đóng băng các trọng số.
 
 ```python
 def freeze_bn_stats(model):
@@ -205,7 +205,7 @@ def freeze_bn_stats(model):
     return model
 ```
 
-Call it after you set `model.train()` at the start of every epoch. `model.train()` flips everything to training mode; this reverses it only for BN layers.
+Gọi nó sau khi bạn đặt `model.train()` ở đầu mỗi epoch. `model.train()` chuyển mọi thứ sang chế độ huấn luyện; điều này đảo lại chỉ với các lớp BN.
 
 ### Step 5: A minimal end-to-end fine-tuning loop
 
@@ -251,11 +251,11 @@ def fine_tune(model, train_loader, val_loader, device, epochs=5, base_lr=1e-3, f
     return model
 ```
 
-Five epochs with the above recipe on CIFAR-10 takes `ResNet18-IMAGENET1K_V1` from ~70% zero-shot linear-probe accuracy to ~93% fine-tuned accuracy. The head alone would plateau around 86% without ever touching the backbone.
+Năm epoch với công thức trên trên CIFAR-10 đưa `ResNet18-IMAGENET1K_V1` từ accuracy linear-probe zero-shot ~70% tới accuracy tinh chỉnh ~93%. Chỉ riêng đầu sẽ chững lại quanh 86% mà không chạm backbone.
 
 ### Step 6: Progressive unfreezing
 
-A schedule that unfreezes one stage per epoch from the end toward the beginning. Mitigates feature drift at the cost of some extra epochs.
+Một lịch mở băng một giai đoạn mỗi epoch từ cuối về đầu. Giảm trôi đặc trưng với chi phí thêm một số epoch.
 
 ```python
 def progressive_unfreeze_schedule(model):
@@ -281,11 +281,11 @@ def progressive_unfreeze_schedule(model):
     return start, unfreeze
 ```
 
-Call `start()` once before the first epoch. Call `unfreeze(epoch)` at the start of each epoch. Rebuild the optimizer whenever the set of trainable parameters changes, otherwise the frozen params still hold cached moments that confuse it.
+Gọi `start()` một lần trước epoch đầu tiên. Gọi `unfreeze(epoch)` ở đầu mỗi epoch. Xây lại bộ tối ưu hóa bất cứ khi nào tập tham số có thể huấn luyện thay đổi, nếu không các tham số đóng băng vẫn giữ các moment lưu đệm gây nhầm lẫn cho nó.
 
 ## Use It
 
-For most real tasks, `torchvision.models` + three lines is enough. The heavier machinery above matters when you run into the problems that library defaults cannot fix.
+Với hầu hết tác vụ thực, `torchvision.models` + ba dòng là đủ. Bộ máy nặng hơn ở trên quan trọng khi bạn gặp các vấn đề mà mặc định thư viện không thể sửa.
 
 ```python
 from torchvision.models import resnet50, ResNet50_Weights
@@ -295,40 +295,40 @@ model.fc = nn.Linear(model.fc.in_features, num_classes)
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
 ```
 
-Two other production-grade defaults:
+Hai mặc định khác đạt cấp production:
 
-- `timm` ships ~800 pretrained vision backbones with a consistent API (`timm.create_model("resnet50", pretrained=True, num_classes=10)`). For any fine-tune beyond the torchvision zoo, it is the standard.
-- For transformers, `transformers.AutoModelForImageClassification.from_pretrained(name, num_labels=N)` gives you ViT / BEiT / DeiT with the same loading semantics as text models.
+- `timm` cung cấp ~800 backbone thị giác được tiền huấn luyện với một API nhất quán (`timm.create_model("resnet50", pretrained=True, num_classes=10)`). Với bất kỳ tinh chỉnh nào ngoài bộ sưu tập torchvision, nó là tiêu chuẩn.
+- Với transformer, `transformers.AutoModelForImageClassification.from_pretrained(name, num_labels=N)` cho bạn ViT / BEiT / DeiT với cùng ngữ nghĩa tải như các mô hình văn bản.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-fine-tune-planner.md` — a prompt that picks feature-extraction vs progressive vs end-to-end fine-tuning based on dataset size, domain distance, and compute budget.
-- `outputs/skill-freeze-inspector.md` — a skill that, given a PyTorch model, reports which parameters are trainable, which BatchNorm layers are in eval mode, and whether the optimizer is actually being fed the trainable parameters.
+- `outputs/prompt-fine-tune-planner.md` — một prompt chọn trích xuất đặc trưng, tinh chỉnh dần hoặc đầu-cuối dựa trên kích thước tập dữ liệu, khoảng cách lĩnh vực và ngân sách tính toán.
+- `outputs/skill-freeze-inspector.md` — một skill, với một mô hình PyTorch, báo cáo các tham số nào có thể huấn luyện, các lớp BatchNorm nào ở chế độ eval và liệu bộ tối ưu hóa có thực sự được cung cấp các tham số có thể huấn luyện không.
 
 ## Exercises
 
-1. **(Easy)** Train a `ResNet18` as a linear probe (backbone frozen) and as a full fine-tune on the same synthetic-CIFAR dataset. Report both accuracies side by side. Explain which gap tells you the features transfer well and which tells you they do not.
-2. **(Medium)** Introduce a bug on purpose: set `base_lr = 1e-1` on the backbone stage instead of the head. Show the training loss explode, then recover by applying the `discriminative_param_groups` helper. Record the LR at which each stage starts diverging.
-3. **(Hard)** Take a medical imaging dataset (e.g. CheXpert-small, PatchCamelyon, or HAM10000) and compare three regimes: (a) ImageNet-pretrained frozen backbone + linear head; (b) ImageNet-pretrained fine-tune end-to-end; (c) scratch training. Report accuracy and compute cost for each. At what dataset size does scratch training become competitive?
+1. **(Dễ)** Huấn luyện một `ResNet18` như một linear probe (backbone đóng băng) và như một lần tinh chỉnh đầy đủ trên cùng tập dữ liệu CIFAR tổng hợp. Báo cáo hai accuracy cạnh nhau. Giải thích khoảng cách nào cho biết các đặc trưng chuyển giao tốt và khoảng cách nào cho biết chúng không chuyển giao tốt.
+2. **(Vừa)** Cố ý đưa vào một lỗi: đặt `base_lr = 1e-1` trên giai đoạn backbone thay vì đầu. Cho thấy mất mát huấn luyện bùng nổ, rồi phục hồi bằng hàm hỗ trợ `discriminative_param_groups`. Ghi lại LR mà mỗi giai đoạn bắt đầu phân kỳ.
+3. **(Khó)** Lấy một tập dữ liệu hình ảnh y tế (ví dụ CheXpert-small, PatchCamelyon hoặc HAM10000) và so sánh ba chế độ: (a) backbone đóng băng được tiền huấn luyện ImageNet + đầu tuyến tính; (b) tinh chỉnh đầu-cuối từ tiền huấn luyện ImageNet; (c) huấn luyện từ đầu. Báo cáo accuracy và chi phí tính toán cho mỗi cách. Ở kích thước tập dữ liệu nào huấn luyện từ đầu trở nên cạnh tranh?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Feature extraction | "Freeze and train head" | Backbone parameters frozen, only the new classifier head receives gradient |
-| Fine-tuning | "Retrain end-to-end" | All parameters trainable, usually with much smaller LR than scratch training |
-| Discriminative LR | "Smaller LR for early layers" | Optimizer parameter groups where early-stage LR is a fraction of late-stage LR |
-| Layer-wise LR decay | "Smooth LR gradient" | Per-layer LR multiplied by decay^(L - k); common in transformer fine-tunes |
-| Catastrophic forgetting | "The model lost ImageNet" | A too-high LR overwrites pretrained features before the new task signal is learnt |
-| BN statistics drift | "Running mean is wrong" | BatchNorm running_mean/var computed on a different distribution than the current task, silently hurting accuracy |
-| Linear probe | "Frozen backbone + linear head" | Evaluation of pretrained features — accuracy of the best linear classifier on top of the frozen representation |
-| Catastrophic collapse | "Everything predicts one class" | Happens when fine-tuning with an LR high enough to destroy features before gradients from the head can stabilise |
+| Feature extraction (Trích xuất đặc trưng) | "Đóng băng và huấn luyện đầu" | Các tham số backbone đóng băng, chỉ đầu phân loại mới nhận gradient |
+| Fine-tuning (Tinh chỉnh) | "Huấn luyện lại đầu-cuối" | Tất cả tham số có thể huấn luyện, thường với LR nhỏ hơn nhiều so với huấn luyện từ đầu |
+| Discriminative LR (LR phân biệt) | "LR nhỏ hơn cho các lớp đầu" | Các nhóm tham số bộ tối ưu hóa trong đó LR giai đoạn đầu là một phần LR giai đoạn sau |
+| Layer-wise LR decay (Suy giảm LR theo lớp) | "Gradient LR mượt" | LR mỗi lớp nhân với decay^(L - k); phổ biến trong tinh chỉnh transformer |
+| Catastrophic forgetting (Quên thảm họa) | "Mô hình mất ImageNet" | Một LR quá cao ghi đè các đặc trưng được tiền huấn luyện trước khi tín hiệu tác vụ mới được học |
+| BN statistics drift (Trôi thống kê BN) | "Trung bình tích lũy sai" | running_mean/var BatchNorm được tính trên phân phối khác tác vụ hiện tại, âm thầm làm hại accuracy |
+| Linear probe | "Backbone đóng băng + đầu tuyến tính" | Đánh giá các đặc trưng được tiền huấn luyện — accuracy của bộ phân loại tuyến tính tốt nhất trên biểu diễn đóng băng |
+| Catastrophic collapse (Sụp đổ thảm họa) | "Mọi thứ dự đoán một lớp" | Xảy ra khi tinh chỉnh với LR đủ cao để phá hủy các đặc trưng trước khi các gradient từ đầu có thể ổn định |
 
 ## Further Reading
 
-- [How transferable are features in deep neural networks? (Yosinski et al., 2014)](https://arxiv.org/abs/1411.1792) — the paper that quantified feature transferability across layers
-- [Universal Language Model Fine-tuning (ULMFiT, Howard & Ruder, 2018)](https://arxiv.org/abs/1801.06146) — the original discriminative LR / progressive unfreezing recipe; the ideas transfer directly to vision
-- [timm documentation](https://huggingface.co/docs/timm) — the reference for modern vision backbones and the exact fine-tune defaults they were trained with
-- [A Simple Framework for Linear-Probe Evaluation (Kornblith et al., 2019)](https://arxiv.org/abs/1805.08974) — why linear-probe accuracy matters and how to report it correctly
+- [How transferable are features in deep neural networks? (Yosinski et al., 2014)](https://arxiv.org/abs/1411.1792) — bài báo định lượng khả năng chuyển giao đặc trưng giữa các lớp
+- [Universal Language Model Fine-tuning (ULMFiT, Howard & Ruder, 2018)](https://arxiv.org/abs/1801.06146) — công thức LR phân biệt / mở băng dần gốc; các ý tưởng chuyển trực tiếp sang thị giác
+- [timm documentation](https://huggingface.co/docs/timm) — tài liệu tham khảo cho các backbone thị giác hiện đại và các mặc định tinh chỉnh chính xác chúng được huấn luyện
+- [A Simple Framework for Linear-Probe Evaluation (Kornblith et al., 2019)](https://arxiv.org/abs/1805.08974) — tại sao accuracy linear-probe quan trọng và cách báo cáo đúng

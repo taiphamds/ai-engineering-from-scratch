@@ -9,39 +9,39 @@ tags: [computer-vision, transfer-learning, debugging, pytorch]
 
 # Freeze Inspector
 
-Transfer-learning bugs hide in three places: parameters that should be frozen but are not, parameters that should be trainable but are not, and optimizers that were built before the freeze state changed. This skill surfaces all three in one pass.
+Các lỗi học chuyển giao ẩn ở ba nơi: các tham số đáng lẽ đóng băng nhưng không, các tham số đáng lẽ có thể huấn luyện nhưng không và các bộ tối ưu hóa được xây trước khi trạng thái đóng băng thay đổi. Skill này làm lộ cả ba trong một lượt.
 
 ## When to use
 
-- Right after setting `requires_grad` on a subset of parameters.
-- Before the first training step of a fine-tune run.
-- After calling `freeze_bn_stats` or any helper that flips BN mode.
-- When val accuracy is stuck at random and you suspect nothing is actually training.
+- Ngay sau khi đặt `requires_grad` trên một tập con tham số.
+- Trước bước huấn luyện đầu tiên của một lần tinh chỉnh.
+- Sau khi gọi `freeze_bn_stats` hoặc bất kỳ hàm hỗ trợ nào chuyển chế độ BN.
+- Khi accuracy validation mắc kẹt ở ngẫu nhiên và bạn nghi ngờ không gì thực sự được huấn luyện.
 
 ## Inputs
 
-- `model`: a PyTorch `nn.Module`.
-- `optimizer`: the optimizer about to be used for training.
-- Optional `expected_frozen_prefixes`: list of parameter-name prefixes that should be frozen (e.g. `["conv1", "bn1", "layer1"]`).
+- `model`: một `nn.Module` PyTorch.
+- `optimizer`: bộ tối ưu hóa sắp được sử dụng để huấn luyện.
+- `expected_frozen_prefixes` tùy chọn: danh sách các tiền tố tên tham số nên được đóng băng (ví dụ `["conv1", "bn1", "layer1"]`).
 
 ## Steps
 
-1. **Walk parameters.** For each `(name, param)`:
-   - record `requires_grad`
-   - record `shape` and `numel`
+1. **Duyệt các tham số.** Với mỗi `(name, param)`:
+   - ghi lại `requires_grad`
+   - ghi lại `shape` và `numel`
 
-2. **Walk modules.** For each module:
-   - if it is BatchNorm, record whether it is in eval mode and whether its affine parameters are trainable.
+2. **Duyệt các module.** Với mỗi module:
+   - nếu là BatchNorm, ghi lại liệu nó ở chế độ eval và liệu các tham số affine của nó có thể huấn luyện không.
 
-3. **Inspect the optimizer.** For each parameter group:
-   - flatten its `params` into a set of `id(p)`.
-   - compare with the set of all `id(p)` for params where `requires_grad == True`.
+3. **Xem xét bộ tối ưu hóa.** Với mỗi nhóm tham số:
+   - làm phẳng `params` của nó thành một tập hợp `id(p)`.
+   - so sánh với tập hợp tất cả `id(p)` cho các tham số có `requires_grad == True`.
 
-4. **Detect the four failure modes:**
-   - `leaked_train`: a param has `requires_grad=True` but does not appear in the optimizer (gradient is computed but never applied).
-   - `ghost_train`: a param appears in the optimizer but has `requires_grad=False` (optimizer state is wasted; can also cause bugs if you later re-enable requires_grad).
-   - `bn_mismatch`: either (a) a BN layer is in train mode (accumulates running stats) while its affine parameters (`weight`, `bias`) are frozen, or (b) a BN layer is in eval mode (frozen stats) while its affine parameters are trainable. Both states are inconsistent and almost always a bug.
-   - `expected_vs_actual`: any prefix listed in `expected_frozen_prefixes` still has a trainable parameter.
+4. **Phát hiện bốn kiểu thất bại:**
+   - `leaked_train`: một tham số có `requires_grad=True` nhưng không xuất hiện trong bộ tối ưu hóa (gradient được tính nhưng không bao giờ áp dụng).
+   - `ghost_train`: một tham số xuất hiện trong bộ tối ưu hóa nhưng có `requires_grad=False` (trạng thái bộ tối ưu hóa bị lãng phí; cũng có thể gây lỗi nếu sau đó bạn bật lại requires_grad).
+   - `bn_mismatch`: hoặc (a) một lớp BN ở chế độ train (tích lũy thống kê) trong khi các tham số affine (`weight`, `bias`) đóng băng, hoặc (b) một lớp BN ở chế độ eval (thống kê đóng băng) trong khi các tham số affine có thể huấn luyện. Cả hai trạng thái không nhất quán và gần như luôn là lỗi.
+   - `expected_vs_actual`: bất kỳ tiền tố nào liệt kê trong `expected_frozen_prefixes` vẫn có một tham số có thể huấn luyện.
 
 ## Report
 
@@ -70,8 +70,8 @@ Transfer-learning bugs hide in three places: parameters that should be frozen bu
 
 ## Rules
 
-- Only report parameter names; never print the weights themselves.
-- Sort every list alphabetically by parameter name.
-- If optimizer coverage is 100% and there are no mismatches, return `ok` and stop.
-- For `leaked_train`, always recommend rebuilding the optimizer after the freeze state changed.
-- For `ghost_train`, recommend removing the parameter group or setting `requires_grad=True` if the intent was to train it.
+- Chỉ báo cáo tên tham số; không bao giờ in bản thân các trọng số.
+- Sắp xếp mọi danh sách theo bảng chữ cái tên tham số.
+- Nếu độ bao phủ bộ tối ưu hóa là 100% và không có điểm không khớp, trả về `ok` rồi dừng.
+- Với `leaked_train`, luôn khuyến nghị xây lại bộ tối ưu hóa sau khi trạng thái đóng băng thay đổi.
+- Với `ghost_train`, khuyến nghị loại bỏ nhóm tham số hoặc đặt `requires_grad=True` nếu ý định là huấn luyện nó.
