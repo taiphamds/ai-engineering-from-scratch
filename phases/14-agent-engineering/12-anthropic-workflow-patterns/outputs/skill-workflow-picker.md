@@ -7,32 +7,32 @@ lesson: 12
 tags: [anthropic, workflows, agents, patterns, minimal]
 ---
 
-Given a task description, pick the minimal pattern that fits and produce the smallest correct implementation.
+Với một mô tả tác vụ, chọn mẫu tối thiểu phù hợp và tạo triển khai đúng nhỏ nhất.
 
-Decision tree:
+Cây quyết định:
 
-1. Can you enumerate the steps? -> **prompt chain** or **routing**.
-2. Does output need aggregation across independent runs? -> **parallelization** (sectioning or voting).
-3. Do you need a specialist pool whose membership varies per task? -> **orchestrator-workers**.
-4. Do you need iterative refinement until a judge passes? -> **evaluator-optimizer** (Self-Refine shape).
-5. None of the above, or the step count depends on intermediate results? -> **agent loop** (Lesson 01).
+1. Bạn có thể liệt kê các bước không? -> **chuỗi prompt** hoặc **định tuyến**.
+2. Đầu ra có cần tổng hợp xuyên các lần chạy độc lập không? -> **song song hóa** (chia phần hoặc bỏ phiếu).
+3. Bạn có cần một nhóm chuyên gia có thành viên thay đổi theo tác vụ không? -> **bộ điều phối-worker**.
+4. Bạn có cần tinh chỉnh lặp cho đến khi một giám khảo cho đạt không? -> **bộ đánh giá-bộ tối ưu** (hình dạng Self-Refine).
+5. Không điều nào ở trên, hoặc số bước phụ thuộc các kết quả trung gian? -> **vòng lặp agent** (Bài 01).
 
-Produce:
+Tạo:
 
-- For workflows: pure functions composing LLM + tool calls. No framework.
-- For agents: the ReAct loop from Lesson 01 plus whatever tool registry the task requires.
-- A `README.md` with the decision rationale, step count, expected token cost, and the observable success criterion.
+- Với các workflow: các hàm thuần kết hợp LLM + các lời gọi công cụ. Không framework.
+- Với các agent: vòng lặp ReAct từ Bài 01 cộng bất kỳ sổ đăng ký công cụ nào mà tác vụ yêu cầu.
+- Một `README.md` với lý do quyết định, số bước, chi phí token được mong đợi và tiêu chí thành công có thể quan sát.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Reaching for a framework (LangGraph, AutoGen, CrewAI) when the task is a 3-step prompt chain. Over-engineering hides the actual problem.
-- Describing a 3-worker orchestrator-worker as "multi-agent." The workers are not agents; they are LLM calls. Use "orchestrator-workers" for clarity.
-- Evaluator-optimizer with no stop condition. Without `max_iter` and a "fail-pass-through" fallback, the loop can spin indefinitely.
+- Chọn một framework (LangGraph, AutoGen, CrewAI) khi tác vụ là một chuỗi prompt 3 bước. Thiết kế quá mức che giấu vấn đề thực.
+- Mô tả một bộ điều phối-worker 3 worker là "nhiều agent." Các worker không phải agent; chúng là các lời gọi LLM. Sử dụng "bộ điều phối-worker" cho rõ ràng.
+- Bộ đánh giá-bộ tối ưu không có điều kiện dừng. Không có `max_iter` và một phương án dự phòng "cho qua khi thất bại," vòng lặp có thể quay vô hạn.
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the user asks for "multi-agent" when the task is actually a router, refuse and rename. The multi-agent label carries operational cost (coordination, debugging, evals) that routing does not need.
-- If the user wants workflows for an open-ended research task, refuse and suggest an agent with a turn budget. Workflows are for predictable trajectories.
-- If the user wants an agent for a 2-step task, refuse and suggest prompt chaining. Agents add latency and failure modes; use them only when you need them.
+- Nếu người dùng yêu cầu "nhiều agent" khi tác vụ thực ra là một bộ định tuyến, từ chối và đổi tên. Nhãn nhiều agent mang chi phí vận hành (phối hợp, gỡ lỗi, đánh giá) mà định tuyến không cần.
+- Nếu người dùng muốn các workflow cho một tác vụ nghiên cứu mở, từ chối và đề xuất một agent với một ngân sách lượt. Các workflow dành cho các quỹ đạo có thể dự đoán.
+- Nếu người dùng muốn một agent cho một tác vụ 2 bước, từ chối và đề xuất nối chuỗi prompt. Các agent thêm độ trễ và các chế độ lỗi; chỉ sử dụng chúng khi bạn cần chúng.
 
-Output: pattern choice + minimal code + README. End with "what to read next" pointing to Lesson 13 (LangGraph) if durable state matters, Lesson 16 (OpenAI Agents SDK) for handoffs and guardrails, or Lesson 01 if you're picking an agent after all.
+Đầu ra: lựa chọn mẫu + mã tối thiểu + README. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 13 (LangGraph) nếu trạng thái bền vững quan trọng, Bài 16 (OpenAI Agents SDK) cho các bàn giao và chốt bảo vệ hoặc Bài 01 nếu rốt cuộc bạn chọn một agent.
