@@ -1,6 +1,6 @@
 # Subword Tokenization — BPE, WordPiece, Unigram, SentencePiece
 
-> Word tokenizers choke on unseen words. Character tokenizers blow up sequence length. Subword tokenizers split the difference. Every modern LLM ships on one.
+> Tokenizer từ nghẹn với các từ chưa thấy. Tokenizer ký tự làm độ dài chuỗi bùng nổ. Tokenizer từ con dung hòa hai bên. Mọi LLM hiện đại được phát hành dựa trên một tokenizer như vậy.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,31 +9,31 @@
 
 ## The Problem
 
-Your vocabulary has 50,000 words. A user types "untokenizable". Your tokenizer returns `[UNK]`. The model now has no signal about the word. Worse: the 90th-percentile document in your corpus has 40 rare words, which means 40 bits of dropped information per document.
+Từ vựng của bạn có 50,000 từ. Một người dùng gõ "untokenizable". Tokenizer của bạn trả `[UNK]`. Mô hình giờ không có tín hiệu về từ đó. Tệ hơn: tài liệu ở phân vị thứ 90 trong ngữ liệu của bạn có 40 từ hiếm, nghĩa là 40 bit thông tin bị bỏ mỗi tài liệu.
 
-Subword tokenization solves this. Common words stay single tokens. Rare words decompose into meaningful pieces: `untokenizable` → `un`, `token`, `izable`. Training data covers everything because any string is ultimately a sequence of bytes.
+Tokenization từ con giải quyết điều này. Các từ phổ biến vẫn là token đơn. Các từ hiếm phân rã thành các mảnh có ý nghĩa: `untokenizable` → `un`, `token`, `izable`. Dữ liệu huấn luyện bao phủ mọi thứ vì bất kỳ chuỗi nào cuối cùng cũng là một chuỗi byte.
 
-Every frontier LLM in 2026 ships on one of three algorithms (BPE, Unigram, WordPiece), wrapped in one of three libraries (tiktoken, SentencePiece, HF Tokenizers). You cannot ship a language model without picking one.
+Mọi LLM tiên phong năm 2026 được phát hành trên một trong ba thuật toán (BPE, Unigram, WordPiece), được bọc trong một trong ba thư viện (tiktoken, SentencePiece, HF Tokenizers). Bạn không thể phát hành một mô hình ngôn ngữ mà không chọn một.
 
 ## The Concept
 
 ![BPE vs Unigram vs WordPiece, character-by-character](../assets/subword-tokenization.svg)
 
-**BPE (Byte-Pair Encoding).** Start with a character-level vocabulary. Count every adjacent pair. Merge the most frequent pair into a new token. Repeat until you hit the target vocabulary size. Dominant algorithm: GPT-2/3/4, Llama, Gemma, Qwen2, Mistral.
+**BPE (Byte-Pair Encoding).** Bắt đầu với một từ vựng cấp ký tự. Đếm mọi cặp liền kề. Gộp cặp thường gặp nhất thành một token mới. Lặp lại đến khi đạt kích thước từ vựng đích. Thuật toán chủ đạo: GPT-2/3/4, Llama, Gemma, Qwen2, Mistral.
 
-**Byte-level BPE.** Same algorithm but over raw bytes (256 base tokens) instead of Unicode characters. Guarantees zero `[UNK]` tokens — any byte sequence encodes. GPT-2 uses 50,257 tokens (256 bytes + 50,000 merges + 1 special).
+**BPE cấp byte.** Cùng thuật toán nhưng trên các byte thô (256 token cơ sở) thay cho ký tự Unicode. Bảo đảm không có token `[UNK]` — mọi chuỗi byte đều mã hóa được. GPT-2 dùng 50,257 token (256 byte + 50,000 phép gộp + 1 đặc biệt).
 
-**Unigram.** Start with a huge vocabulary. Assign each token a unigram probability. Iteratively prune tokens whose removal least increases the corpus log-likelihood. Probabilistic at inference: can sample tokenizations (useful for data augmentation via subword regularization). Used by T5, mBART, ALBERT, XLNet, Gemma.
+**Unigram.** Bắt đầu với một từ vựng khổng lồ. Gán cho mỗi token một xác suất unigram. Lặp việc cắt tỉa các token mà việc loại bỏ chúng làm tăng log-likelihood ngữ liệu ít nhất. Có tính xác suất khi suy luận: có thể lấy mẫu các cách tokenization (hữu ích để tăng cường dữ liệu qua điều chuẩn từ con). Được dùng bởi T5, mBART, ALBERT, XLNet, Gemma.
 
-**WordPiece.** Merge pairs that maximize likelihood of the training corpus rather than raw frequency. Used by BERT, DistilBERT, ELECTRA.
+**WordPiece.** Gộp các cặp tối đa hóa likelihood của ngữ liệu huấn luyện thay vì tần suất thô. Được dùng bởi BERT, DistilBERT, ELECTRA.
 
-**SentencePiece vs tiktoken.** SentencePiece is the library that *trains* vocabularies (BPE or Unigram) directly on raw Unicode text, encoding whitespace as `▁`. tiktoken is OpenAI's fast *encoder* against pre-built vocabularies; it does not train.
+**SentencePiece so với tiktoken.** SentencePiece là thư viện *huấn luyện* các từ vựng (BPE hoặc Unigram) trực tiếp trên văn bản Unicode thô, mã hóa khoảng trắng thành `▁`. tiktoken là *bộ mã hóa* nhanh của OpenAI trên các từ vựng có sẵn; nó không huấn luyện.
 
-Rule of thumb:
+Quy tắc kinh nghiệm:
 
-- **Training a new vocabulary:** SentencePiece (multilingual, no pre-tokenization) or HF Tokenizers.
-- **Fast inference against GPT vocab:** tiktoken (cl100k_base, o200k_base).
-- **Both:** HF Tokenizers — one library, training + serving.
+- **Huấn luyện một từ vựng mới:** SentencePiece (đa ngôn ngữ, không tiền tokenization) hoặc HF Tokenizers.
+- **Suy luận nhanh trên từ vựng GPT:** tiktoken (cl100k_base, o200k_base).
+- **Cả hai:** HF Tokenizers — một thư viện, huấn luyện + phục vụ.
 
 ```figure
 bpe-merge
@@ -43,7 +43,7 @@ bpe-merge
 
 ### Step 1: BPE from scratch
 
-See `code/main.py`. The loop:
+Xem `code/main.py`. Vòng lặp:
 
 ```python
 def train_bpe(corpus, num_merges):
@@ -62,7 +62,7 @@ def train_bpe(corpus, num_merges):
     return merges
 ```
 
-Three facts the algorithm encodes. `</w>` marks word end so "low" (suffix) and "lower" (prefix) stay distinct. Frequency weighting makes high-frequency pairs win early. The merge list is ordered — inference applies merges in training order.
+Ba sự thật thuật toán mã hóa. `</w>` đánh dấu kết thúc từ để "low" (hậu tố) và "lower" (tiền tố) vẫn khác biệt. Gán trọng số tần suất khiến các cặp tần suất cao thắng sớm. Danh sách phép gộp có thứ tự — suy luận áp dụng các phép gộp theo thứ tự huấn luyện.
 
 ### Step 2: encode with the learned merges
 
@@ -79,7 +79,7 @@ def encode_bpe(word, merges):
     return symbols
 ```
 
-Naive O(n·|merges|). Production implementations (tiktoken, HF Tokenizers) use merge-rank lookup with priority queues and run in near-linear time.
+O(n·|merges|) ngây thơ. Các triển khai production (tiktoken, HF Tokenizers) dùng tra cứu thứ hạng phép gộp với các hàng đợi ưu tiên và chạy trong thời gian gần tuyến tính.
 
 ### Step 3: SentencePiece in practice
 
@@ -100,7 +100,7 @@ print(sp.encode("untokenizable", out_type=str))
 # ['▁un', 'token', 'izable']
 ```
 
-Notice: no pre-tokenization required, space encoded as `▁`, `character_coverage` controls how aggressively rare characters are preserved vs mapped to `<unk>`.
+Chú ý: không yêu cầu tiền tokenization, khoảng trắng được mã hóa thành `▁`, `character_coverage` kiểm soát mức mạnh tay giữ các ký tự hiếm so với ánh xạ sang `<unk>`.
 
 ### Step 4: tiktoken for OpenAI-compatible vocabs
 
@@ -111,32 +111,32 @@ print(enc.encode("untokenizable"))        # [127340, 101028]
 print(len(enc.encode("Hello, world!")))   # 4
 ```
 
-Encoding-only. Fast (Rust backend). Exact match with GPT-4/5 tokenization for byte-counting, cost estimation, context-window budgeting.
+Chỉ mã hóa. Nhanh (backend Rust). Khớp chính xác tokenization GPT-4/5 để đếm byte, ước lượng chi phí, lập ngân sách cửa sổ ngữ cảnh.
 
 ## Pitfalls that still ship in 2026
 
-- **Tokenizer drift.** Training on vocab A, deploying against vocab B. Token IDs differ; model outputs garbage. Check `tokenizer.json` hash in CI.
-- **Whitespace ambiguity.** BPE "hello" vs " hello" produce different tokens. Always specify `add_special_tokens` and `add_prefix_space` explicitly.
-- **Multilingual undertraining.** English-heavy corpora produce vocabularies that split non-Latin scripts into 5-10x more tokens. Same prompt costs 5-10x more in Japanese/Arabic on GPT-3.5. o200k_base partially fixed this.
-- **Emoji splits.** A single emoji can take 5 tokens. Checkpoint emoji handling when budgeting context.
+- **Độ trôi tokenizer.** Huấn luyện trên từ vựng A, triển khai trên từ vựng B. Các ID token khác nhau; mô hình xuất rác. Kiểm tra hash `tokenizer.json` trong CI.
+- **Nhập nhằng khoảng trắng.** BPE "hello" so với " hello" tạo các token khác nhau. Luôn chỉ định `add_special_tokens` và `add_prefix_space` rõ ràng.
+- **Huấn luyện đa ngôn ngữ không đủ.** Các ngữ liệu thiên về tiếng Anh tạo các từ vựng chia các hệ chữ phi Latin thành nhiều token hơn 5-10 lần. Cùng prompt tốn hơn 5-10 lần bằng tiếng Nhật/Ả Rập trên GPT-3.5. o200k_base sửa một phần điều này.
+- **Chia tách emoji.** Một emoji duy nhất có thể mất 5 token. Kiểm tra cách xử lý emoji khi lập ngân sách ngữ cảnh.
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Situation | Pick |
+| Tình huống | Chọn |
 |-----------|------|
-| Training a monolingual model from scratch | HF Tokenizers (BPE) |
-| Training a multilingual model | SentencePiece (Unigram, `character_coverage=0.9995`) |
-| Serving an OpenAI-compatible API | tiktoken (`o200k_base` for GPT-4+) |
-| Domain-specific vocab (code, math, protein) | Train custom BPE on domain corpus, merge with base vocab |
-| Edge inference, small model | Unigram (smaller vocabularies work better) |
+| Huấn luyện một mô hình đơn ngôn ngữ từ đầu | HF Tokenizers (BPE) |
+| Huấn luyện một mô hình đa ngôn ngữ | SentencePiece (Unigram, `character_coverage=0.9995`) |
+| Phục vụ một API tương thích OpenAI | tiktoken (`o200k_base` cho GPT-4+) |
+| Từ vựng theo lĩnh vực (mã, toán, protein) | Huấn luyện BPE tùy chỉnh trên ngữ liệu lĩnh vực, gộp với từ vựng cơ sở |
+| Suy luận biên, mô hình nhỏ | Unigram (các từ vựng nhỏ hơn hoạt động tốt hơn) |
 
-Vocabulary size is a scaling decision, not a constant. Rough heuristic: 32k for <1B params, 50-100k for 1-10B, 200k+ for multilingual/frontier.
+Kích thước từ vựng là một quyết định mở rộng quy mô, không phải hằng số. Heuristic sơ bộ: 32k cho <1B tham số, 50-100k cho 1-10B, 200k+ cho đa ngôn ngữ/tiên phong.
 
 ## Ship It
 
-Save as `outputs/skill-bpe-vs-wordpiece.md`:
+Lưu thành `outputs/skill-bpe-vs-wordpiece.md`:
 
 ```markdown
 ---
@@ -161,26 +161,26 @@ Refuse to train a character-coverage <0.995 tokenizer on corpora with rare-scrip
 
 ## Exercises
 
-1. **Easy.** Train a 500-merge BPE on `code/main.py`'s tiny corpus. Encode three held-out words. How many produced exactly 1 token vs >1 token?
-2. **Medium.** Compare token counts on 100 English Wikipedia sentences between `cl100k_base`, `o200k_base`, and a SentencePiece BPE you train with vocab=32k. Report the compression ratio of each.
-3. **Hard.** Train the same corpus with BPE, Unigram, and WordPiece. Measure downstream accuracy when using each on a small sentiment classifier. Does the choice move the needle by more than 1 point F1?
+1. **Dễ.** Huấn luyện một BPE 500 phép gộp trên ngữ liệu nhỏ của `code/main.py`. Mã hóa ba từ được giữ lại. Bao nhiêu từ tạo chính xác 1 token so với >1 token?
+2. **Trung bình.** So sánh các số đếm token trên 100 câu Wikipedia tiếng Anh giữa `cl100k_base`, `o200k_base` và một SentencePiece BPE bạn huấn luyện với vocab=32k. Báo cáo tỷ lệ nén của mỗi loại.
+3. **Khó.** Huấn luyện cùng ngữ liệu bằng BPE, Unigram và WordPiece. Đo accuracy tác vụ phía sau khi dùng mỗi loại trên một bộ phân loại cảm xúc nhỏ. Lựa chọn có tạo khác biệt hơn 1 điểm F1 không?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| BPE | Byte-Pair Encoding | Greedy merge of most-frequent character pairs until target vocab size hit. |
-| Byte-level BPE | No unknown tokens ever | BPE over raw 256 bytes; GPT-2 / Llama use this. |
-| Unigram | Probabilistic tokenizer | Prunes from a large candidate set using log-likelihood; used by T5, Gemma. |
-| SentencePiece | The whitespace one | Library that trains BPE/Unigram on raw text; space encoded as `▁`. |
-| tiktoken | The fast one | OpenAI's Rust-backed BPE encoder for pre-built vocabs. No training. |
-| Merge list | The magic numbers | Ordered list of `(a, b) → ab` merges; inference applies in order. |
-| Character coverage | How rare is too rare? | Fraction of characters in training corpus the tokenizer must cover; ~0.9995 typical. |
+| BPE | Mã hóa cặp byte | Gộp tham lam các cặp ký tự thường gặp nhất đến khi đạt kích thước từ vựng đích. |
+| Byte-level BPE (BPE cấp byte) | Không bao giờ có token không biết | BPE trên 256 byte thô; GPT-2 / Llama dùng cách này. |
+| Unigram | Tokenizer có tính xác suất | Cắt tỉa từ một tập ứng viên lớn bằng log-likelihood; được dùng bởi T5, Gemma. |
+| SentencePiece | Loại khoảng trắng | Thư viện huấn luyện BPE/Unigram trên văn bản thô; khoảng trắng được mã hóa thành `▁`. |
+| tiktoken | Loại nhanh | Bộ mã hóa BPE của OpenAI dựa trên Rust cho các từ vựng có sẵn. Không huấn luyện. |
+| Merge list (Danh sách phép gộp) | Các con số kỳ diệu | Danh sách có thứ tự các phép gộp `(a, b) → ab`; suy luận áp dụng theo thứ tự. |
+| Character coverage (Độ bao phủ ký tự) | Hiếm đến đâu là quá hiếm? | Tỷ lệ các ký tự trong ngữ liệu huấn luyện mà tokenizer phải bao phủ; thường ~0.9995. |
 
 ## Further Reading
 
-- [Sennrich, Haddow, Birch (2015). Neural Machine Translation of Rare Words with Subword Units](https://arxiv.org/abs/1508.07909) — the BPE paper.
-- [Kudo (2018). Subword Regularization with Unigram Language Model](https://arxiv.org/abs/1804.10959) — the Unigram paper.
-- [Kudo, Richardson (2018). SentencePiece: A simple and language independent subword tokenizer](https://arxiv.org/abs/1808.06226) — the library.
-- [Hugging Face — Summary of the tokenizers](https://huggingface.co/docs/transformers/tokenizer_summary) — concise reference.
-- [OpenAI tiktoken repo](https://github.com/openai/tiktoken) — cookbook + encoding list.
+- [Sennrich, Haddow, Birch (2015). Neural Machine Translation of Rare Words with Subword Units](https://arxiv.org/abs/1508.07909) — bài báo BPE.
+- [Kudo (2018). Subword Regularization with Unigram Language Model](https://arxiv.org/abs/1804.10959) — bài báo Unigram.
+- [Kudo, Richardson (2018). SentencePiece: A simple and language independent subword tokenizer](https://arxiv.org/abs/1808.06226) — thư viện.
+- [Hugging Face — Summary of the tokenizers](https://huggingface.co/docs/transformers/tokenizer_summary) — tham chiếu súc tích.
+- [OpenAI tiktoken repo](https://github.com/openai/tiktoken) — cookbook + danh sách mã hóa.
