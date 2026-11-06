@@ -1,6 +1,6 @@
 # Text-to-Speech (TTS) — From Tacotron to F5 and Kokoro
 
-> ASR inverts speech to text; TTS inverts text to speech. The 2026 stack is three parts: text → tokens, tokens → mel, mel → waveform. Each part has a default model that fits in a laptop.
+> ASR đảo tiếng nói thành văn bản; TTS đảo văn bản thành tiếng nói. Ngăn xếp năm 2026 có ba phần: văn bản → token, token → mel, mel → dạng sóng. Mỗi phần có một mô hình mặc định vừa trong máy tính xách tay.
 
 **Type:** Build
 **Languages:** Python
@@ -9,55 +9,55 @@
 
 ## The Problem
 
-You have a string: "Please remind me to water the plants at 6 pm." You need a 3-second audio clip that sounds natural, has correct prosody (pauses, stress), pronounces "plants" with the right vowel, and runs in under 300 ms on a CPU for a live voice assistant. You also need to swap voices, handle code-switched input ("remind me at 6 pm, daijoubu?"), and not embarrass yourself on names.
+Bạn có một chuỗi: "Vui lòng nhắc tôi tưới cây lúc 6 giờ tối." Bạn cần một đoạn âm thanh 3 giây nghe tự nhiên, có ngữ điệu đúng (ngắt, trọng âm), phát âm "plants" với đúng nguyên âm và chạy trong dưới 300 ms trên CPU cho một trợ lý giọng nói trực tiếp. Bạn cũng cần hoán đổi giọng, xử lý đầu vào chuyển mã ngôn ngữ ("nhắc tôi lúc 6 giờ tối, daijoubu?") và không làm mình xấu hổ với tên riêng.
 
-Modern TTS pipelines look like this:
+Các pipeline TTS hiện đại trông như thế này:
 
-1. **Text frontend.** Normalize text (dates, numbers, emails), convert to phonemes or subword tokens, predict prosody features.
-2. **Acoustic model.** Text → mel spectrogram. Tacotron 2 (2017), FastSpeech 2 (2020), VITS (2021), F5-TTS (2024), Kokoro (2024).
-3. **Vocoder.** Mel → waveform. WaveNet (2016), WaveRNN, HiFi-GAN (2020), BigVGAN (2022), neural codec vocoders in 2024+.
+1. **Frontend văn bản.** Chuẩn hóa văn bản (ngày, số, email), chuyển thành âm vị hoặc token từ con, dự đoán các đặc trưng ngữ điệu.
+2. **Mô hình âm học.** Văn bản → phổ đồ mel. Tacotron 2 (2017), FastSpeech 2 (2020), VITS (2021), F5-TTS (2024), Kokoro (2024).
+3. **Vocoder.** Mel → dạng sóng. WaveNet (2016), WaveRNN, HiFi-GAN (2020), BigVGAN (2022), các vocoder codec nơ-ron từ 2024+.
 
-In 2026 the acoustic + vocoder split blurs with end-to-end diffusion and flow-matching models. But the mental model of three parts still holds for debugging.
+Năm 2026 sự phân tách âm học + vocoder mờ đi với các mô hình diffusion và flow-matching đầu cuối. Nhưng mô hình tư duy ba phần vẫn đúng để gỡ lỗi.
 
 ## The Concept
 
 ![Tacotron, FastSpeech, VITS, F5/Kokoro side-by-side](../assets/tts.svg)
 
-**Tacotron 2 (2017).** Seq2seq: char-embedding → BiLSTM encoder → location-sensitive attention → autoregressive LSTM decoder emits mel frames. Slow (AR), wobbly on long text. Still cited as a baseline.
+**Tacotron 2 (2017).** Seq2seq: embedding ký tự → encoder BiLSTM → attention nhạy vị trí → decoder LSTM tự hồi quy phát các khung mel. Chậm (AR), chập chờn trên văn bản dài. Vẫn được trích dẫn làm baseline.
 
-**FastSpeech 2 (2020).** Non-autoregressive. Duration predictor outputs how many mel frames each phoneme gets. 1-pass, 10× faster than Tacotron. Loses some naturalness (monotonic alignment) but ships everywhere.
+**FastSpeech 2 (2020).** Không tự hồi quy. Bộ dự đoán thời lượng xuất số khung mel mỗi âm vị nhận. 1 lượt, nhanh hơn Tacotron 10×. Mất một phần tự nhiên (căn chỉnh đơn điệu) nhưng được phát hành khắp nơi.
 
-**VITS (2021).** Jointly trains encoder + flow-based duration + HiFi-GAN vocoder end-to-end with variational inference. High quality, single model. Dominant open-source TTS 2022–2024. Variants: YourTTS (multi-speaker zero-shot), XTTS v2 (2024, Coqui).
+**VITS (2021).** Huấn luyện kết hợp encoder + thời lượng dựa trên flow + vocoder HiFi-GAN đầu cuối bằng suy luận biến phân. Chất lượng cao, một mô hình duy nhất. TTS mã nguồn mở chủ đạo 2022–2024. Các biến thể: YourTTS (zero-shot nhiều người nói), XTTS v2 (2024, Coqui).
 
-**F5-TTS (2024).** Diffusion transformer over flow matching. Natural prosody, zero-shot voice cloning with 5 seconds of reference audio. Top of the 2026 open-source TTS leaderboards. 335M params.
+**F5-TTS (2024).** Diffusion transformer trên flow matching. Ngữ điệu tự nhiên, nhân bản giọng nói zero-shot với 5 giây âm thanh tham chiếu. Đứng đầu các bảng xếp hạng TTS mã nguồn mở năm 2026. 335M tham số.
 
-**Kokoro (2024).** Small (82M), CPU-runnable, best-in-class English TTS for real-time use. Closed-vocabulary English-only, apache-2.0.
+**Kokoro (2024).** Nhỏ (82M), chạy được trên CPU, TTS tiếng Anh hàng đầu cho sử dụng thời gian thực. Từ vựng đóng chỉ tiếng Anh, apache-2.0.
 
-**OpenAI TTS-1-HD, ElevenLabs v2.5, Google Chirp-3.** Commercial state of the art. ElevenLabs v2.5 emotion tags ("[whispered]", "[laughing]") and character voices dominate audiobook production in 2026.
+**OpenAI TTS-1-HD, ElevenLabs v2.5, Google Chirp-3.** Tiên tiến nhất thương mại. Các nhãn cảm xúc ("[whispered]", "[laughing]") và giọng nhân vật của ElevenLabs v2.5 thống trị sản xuất sách nói năm 2026.
 
 ### Vocoder evolution
 
-| Era | Vocoder | Latency | Quality |
+| Thời kỳ | Vocoder | Độ trễ | Chất lượng |
 |-----|---------|---------|---------|
-| 2016 | WaveNet | offline only | SOTA at release |
-| 2018 | WaveRNN | ~realtime | good |
-| 2020 | HiFi-GAN | 100× realtime | near-human |
-| 2022 | BigVGAN | 50× realtime | generalizes across speakers/langs |
-| 2024 | SNAC, DAC (neural codecs) | integrated with AR models | discrete tokens, bit-efficient |
+| 2016 | WaveNet | chỉ ngoại tuyến | SOTA khi phát hành |
+| 2018 | WaveRNN | ~thời gian thực | tốt |
+| 2020 | HiFi-GAN | 100× thời gian thực | gần con người |
+| 2022 | BigVGAN | 50× thời gian thực | khái quát giữa người nói/ngôn ngữ |
+| 2024 | SNAC, DAC (codec nơ-ron) | tích hợp với các mô hình AR | token rời rạc, hiệu quả bit |
 
-By 2026 most "TTS" models are end-to-end from text to waveform; the mel spectrogram is an internal representation.
+Đến năm 2026 hầu hết các mô hình "TTS" là đầu cuối từ văn bản đến dạng sóng; phổ đồ mel là một biểu diễn nội bộ.
 
 ### Evaluation
 
-- **MOS (Mean Opinion Score).** 1–5 scale, crowd-sourced. Still the gold standard; painfully slow.
-- **CMOS (Comparative MOS).** A-vs-B preference. Tighter confidence intervals per annotation.
-- **UTMOS, DNSMOS.** Reference-free neural MOS predictors. Used for leaderboards.
-- **CER (Character Error Rate) via ASR.** Run TTS output through Whisper, compute CER against the input text. Proxy for intelligibility.
-- **SECS (Speaker Embedding Cosine Similarity).** Voice-cloning quality.
+- **MOS (Điểm Ý kiến Trung bình).** Thang 1–5, thu thập từ cộng đồng. Vẫn là tiêu chuẩn vàng; chậm đến đau đớn.
+- **CMOS (MOS So sánh).** Ưu tiên A-so-với-B. Các khoảng tin cậy hẹp hơn cho mỗi chú giải.
+- **UTMOS, DNSMOS.** Các bộ dự đoán MOS nơ-ron không tham chiếu. Được dùng cho các bảng xếp hạng.
+- **CER (Tỷ lệ Lỗi Ký tự) qua ASR.** Chạy đầu ra TTS qua Whisper, tính CER so với văn bản đầu vào. Đại diện cho tính dễ hiểu.
+- **SECS (Speaker Embedding Cosine Similarity).** Chất lượng nhân bản giọng nói.
 
-2026 numbers on LibriTTS test-clean:
+Các con số năm 2026 trên LibriTTS test-clean:
 
-| Model | UTMOS | CER (via Whisper) | Size |
+| Mô hình | UTMOS | CER (qua Whisper) | Kích thước |
 |-------|-------|-------------------|------|
 | Ground truth | 4.08 | 1.2% | — |
 | F5-TTS | 3.95 | 2.1% | 335M |
@@ -80,7 +80,7 @@ ph = phonemize("Hello world", language="en-us", backend="espeak")
 # 'həloʊ wɜːld'
 ```
 
-Phonemes are the universal bridge. Avoid feeding raw text to anything below VITS-level quality.
+Âm vị là cây cầu phổ dụng. Tránh đưa văn bản thô vào bất kỳ thứ gì dưới chất lượng cấp VITS.
 
 ### Step 2: run Kokoro (2026 CPU default)
 
@@ -91,7 +91,7 @@ audio, sr = tts("Please remind me to water the plants at 6 pm.", voice="af_bella
 # audio: float32 tensor, sr=24000
 ```
 
-Runs offline, single file, 82M params.
+Chạy ngoại tuyến, một file duy nhất, 82M tham số.
 
 ### Step 3: run F5-TTS with voice cloning
 
@@ -105,11 +105,11 @@ wav = tts.infer(
 )
 ```
 
-Pass a 5-second reference clip + its transcript; F5 clones prosody and timbre.
+Truyền một đoạn tham chiếu 5 giây + bản chép lời của nó; F5 nhân bản ngữ điệu và âm sắc.
 
 ### Step 4: HiFi-GAN vocoder from scratch
 
-Too big to fit in a tutorial script, but the shape is:
+Quá lớn để vừa trong một script hướng dẫn, nhưng hình dạng là:
 
 ```python
 class HiFiGAN(nn.Module):
@@ -121,7 +121,7 @@ class HiFiGAN(nn.Module):
         return self.blocks(mel)  # -> waveform
 ```
 
-Training: adversarial (discriminator on short windows) + mel-spectrogram reconstruction loss + feature-matching loss. Commoditized — use pretrained checkpoints from `hifi-gan` repo or nvidia-NeMo.
+Huấn luyện: đối kháng (bộ phân biệt trên các cửa sổ ngắn) + loss tái tạo phổ đồ mel + loss khớp đặc trưng. Đã phổ thông hóa — dùng các checkpoint được tiền huấn luyện từ kho `hifi-gan` hoặc nvidia-NeMo.
 
 ### Step 5: the full pipeline (pseudocode)
 
@@ -135,53 +135,53 @@ soundfile.write("out.wav", wav, 24000)
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Situation | Pick |
+| Tình huống | Chọn |
 |-----------|------|
-| Real-time English voice assistant | Kokoro (CPU) or XTTS v2 (GPU) |
-| Voice cloning from 5 s reference | F5-TTS |
-| Commercial character voices | ElevenLabs v2.5 |
-| Audiobook narration | ElevenLabs v2.5 or XTTS v2 + fine-tune |
-| Low-resource language | Train VITS on 5–20 h target-lang data |
-| Expressive / emotion tags | ElevenLabs v2.5 or StyleTTS 2 fine-tune |
+| Trợ lý giọng nói tiếng Anh thời gian thực | Kokoro (CPU) hoặc XTTS v2 (GPU) |
+| Nhân bản giọng nói từ tham chiếu 5 s | F5-TTS |
+| Các giọng nhân vật thương mại | ElevenLabs v2.5 |
+| Đọc sách nói | ElevenLabs v2.5 hoặc XTTS v2 + fine-tune |
+| Ngôn ngữ ít tài nguyên | Huấn luyện VITS trên 5–20 h dữ liệu ngôn ngữ đích |
+| Biểu cảm / nhãn cảm xúc | ElevenLabs v2.5 hoặc fine-tune StyleTTS 2 |
 
-Open-source leader as of 2026: **F5-TTS for quality, Kokoro for efficiency**. Don't reach for Tacotron unless you are a historian.
+Dẫn đầu mã nguồn mở tính đến năm 2026: **F5-TTS cho chất lượng, Kokoro cho hiệu quả**. Đừng tìm đến Tacotron trừ khi bạn là nhà sử học.
 
 ## Pitfalls
 
-- **No text normalizer.** "Dr. Smith" reads as "Doctor" or "Drive"? "2026" as "twenty twenty six" or "two zero two six"? Normalize BEFORE phonemizer.
-- **OOV proper nouns.** "Ghumare" → "ghyu-mair"? Ship a fallback grapheme-to-phoneme model for unknown tokens.
-- **Clipping.** Vocoder output rarely clips, but mel scaling mismatch at inference can overshoot ±1.0. Always `np.clip(wav, -1, 1)`.
-- **Sample-rate mismatch.** Kokoro outputs 24 kHz; your downstream pipeline expects 16 kHz → resample or get aliasing.
+- **Không bộ chuẩn hóa văn bản.** "Dr. Smith" đọc là "Doctor" hay "Drive"? "2026" là "hai mươi hai mươi sáu" hay "hai không hai sáu"? Chuẩn hóa TRƯỚC bộ chuyển âm vị.
+- **Các danh từ riêng OOV.** "Ghumare" → "ghyu-mair"? Phát hành một mô hình chữ viết-sang-âm vị dự phòng cho các token chưa biết.
+- **Clipping.** Đầu ra vocoder hiếm khi bị clipping, nhưng sự không khớp tỷ lệ mel khi suy luận có thể vượt ±1.0. Luôn `np.clip(wav, -1, 1)`.
+- **Không khớp tần số lấy mẫu.** Kokoro xuất 24 kHz; pipeline phía sau của bạn kỳ vọng 16 kHz → lấy mẫu lại hoặc bị chồng phổ.
 
 ## Ship It
 
-Save as `outputs/skill-tts-designer.md`. Design a TTS pipeline for a given voice, latency, and language target.
+Lưu thành `outputs/skill-tts-designer.md`. Thiết kế một pipeline TTS cho một đích giọng nói, độ trễ và ngôn ngữ nhất định.
 
 ## Exercises
 
-1. **Easy.** Run `code/main.py`. Builds a phoneme dictionary from a toy vocab, estimates duration per phoneme, and prints a fake "mel" schedule.
-2. **Medium.** Install Kokoro, synthesize the same sentence at voice `af_bella` and `am_adam`. Compare audio durations and subjective quality.
-3. **Hard.** Record a 5-second reference clip of yourself. Use F5-TTS to clone it. Report SECS between reference and cloned output.
+1. **Dễ.** Chạy `code/main.py`. Xây dựng một từ điển âm vị từ một từ vựng đồ chơi, ước lượng thời lượng mỗi âm vị và in một lịch "mel" giả.
+2. **Trung bình.** Cài Kokoro, tổng hợp cùng câu bằng giọng `af_bella` và `am_adam`. So sánh các thời lượng âm thanh và chất lượng chủ quan.
+3. **Khó.** Ghi một đoạn tham chiếu 5 giây của chính bạn. Dùng F5-TTS để nhân bản nó. Báo cáo SECS giữa tham chiếu và đầu ra được nhân bản.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Phoneme | Sound unit | Abstract sound class; 39 in English (ARPABet). |
-| Duration predictor | How long each phoneme lasts | Non-AR model output; integer frames per phoneme. |
-| Vocoder | Mel → waveform | Neural net mapping mel-spec to raw samples. |
-| HiFi-GAN | Standard vocoder | GAN-based; dominant 2020–2024. |
-| MOS | Subjective quality | 1–5 mean opinion score from human raters. |
-| SECS | Voice-clone metric | Cosine similarity between target and output speaker embedding. |
-| F5-TTS | 2024 open-source SOTA | Flow-matching diffusion; zero-shot cloning. |
-| Kokoro | CPU English leader | 82M-param model, Apache 2.0. |
+| Phoneme (Âm vị) | Đơn vị âm thanh | Lớp âm thanh trừu tượng; 39 trong tiếng Anh (ARPABet). |
+| Duration predictor (Bộ dự đoán thời lượng) | Mỗi âm vị kéo dài bao lâu | Đầu ra mô hình không AR; số khung nguyên mỗi âm vị. |
+| Vocoder | Mel → dạng sóng | Mạng nơ-ron ánh xạ mel-spec sang các mẫu thô. |
+| HiFi-GAN | Vocoder tiêu chuẩn | Dựa trên GAN; chủ đạo 2020–2024. |
+| MOS | Chất lượng chủ quan | Điểm ý kiến trung bình 1–5 từ những người chấm. |
+| SECS | Thước đo nhân bản giọng nói | Cosine similarity giữa embedding người nói đích và đầu ra. |
+| F5-TTS | SOTA mã nguồn mở 2024 | Diffusion flow-matching; nhân bản zero-shot. |
+| Kokoro | Dẫn đầu tiếng Anh trên CPU | Mô hình 82M tham số, Apache 2.0. |
 
 ## Further Reading
 
-- [Shen et al. (2017). Tacotron 2](https://arxiv.org/abs/1712.05884) — the seq2seq baseline.
-- [Kim, Kong, Son (2021). VITS](https://arxiv.org/abs/2106.06103) — end-to-end flow-based.
-- [Chen et al. (2024). F5-TTS](https://arxiv.org/abs/2410.06885) — current open-source SOTA.
-- [Kong, Kim, Bae (2020). HiFi-GAN](https://arxiv.org/abs/2010.05646) — the vocoder that still ships in 2026.
-- [Kokoro-82M on HuggingFace](https://huggingface.co/hexgrad/Kokoro-82M) — 2024 CPU-friendly English TTS.
+- [Shen et al. (2017). Tacotron 2](https://arxiv.org/abs/1712.05884) — baseline seq2seq.
+- [Kim, Kong, Son (2021). VITS](https://arxiv.org/abs/2106.06103) — đầu cuối dựa trên flow.
+- [Chen et al. (2024). F5-TTS](https://arxiv.org/abs/2410.06885) — SOTA mã nguồn mở hiện tại.
+- [Kong, Kim, Bae (2020). HiFi-GAN](https://arxiv.org/abs/2010.05646) — vocoder vẫn được phát hành năm 2026.
+- [Kokoro-82M on HuggingFace](https://huggingface.co/hexgrad/Kokoro-82M) — TTS tiếng Anh thân thiện CPU năm 2024.
