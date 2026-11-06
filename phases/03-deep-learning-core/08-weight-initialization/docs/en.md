@@ -1,6 +1,6 @@
 # Weight Initialization and Training Stability
 
-> Initialize wrong and training never starts. Initialize right and 50 layers train as smoothly as 3.
+> Khởi tạo sai và huấn luyện không bao giờ bắt đầu. Khởi tạo đúng và 50 lớp huấn luyện trơn tru như 3.
 
 **Type:** Build
 **Languages:** Python
@@ -9,102 +9,102 @@
 
 ## Learning Objectives
 
-- Implement zero, random, Xavier/Glorot, and Kaiming/He initialization strategies and measure their effect on activation magnitudes through 50 layers
-- Derive why Xavier init uses Var(w) = 2/(fan_in + fan_out) and Kaiming uses Var(w) = 2/fan_in
-- Demonstrate the symmetry problem with zero initialization and explain why random scale alone is insufficient
-- Match the correct initialization strategy to the activation function: Xavier for sigmoid/tanh, Kaiming for ReLU/GELU
+- Triển khai các chiến lược khởi tạo bằng không, ngẫu nhiên, Xavier/Glorot và Kaiming/He, và đo tác động của chúng lên độ lớn kích hoạt qua 50 lớp
+- Suy ra tại sao khởi tạo Xavier sử dụng Var(w) = 2/(fan_in + fan_out) và Kaiming sử dụng Var(w) = 2/fan_in
+- Minh họa vấn đề đối xứng với khởi tạo bằng không và giải thích tại sao chỉ thang đo ngẫu nhiên là chưa đủ
+- Ghép chiến lược khởi tạo đúng với hàm kích hoạt: Xavier cho sigmoid/tanh, Kaiming cho ReLU/GELU
 
 ## The Problem
 
-Initialize all weights to zero. Nothing learns. Every neuron computes the same function, receives the same gradient, and updates identically. After 10,000 epochs, your 512-neuron hidden layer is still 512 copies of the same neuron. You paid for 512 parameters and got 1.
+Khởi tạo tất cả các trọng số bằng không. Không gì học được. Mỗi nơ-ron tính cùng một hàm, nhận cùng một gradient và cập nhật giống hệt nhau. Sau 10,000 epoch, lớp ẩn 512 nơ-ron của bạn vẫn là 512 bản sao của cùng một nơ-ron. Bạn trả tiền cho 512 tham số và nhận được 1.
 
-Initialize them too large. Activations explode through the network. By layer 10, values hit 1e15. By layer 20, they overflow to infinity. Gradients follow the same trajectory in reverse.
+Khởi tạo chúng quá lớn. Các kích hoạt bùng nổ qua mạng. Đến lớp 10, các giá trị đạt 1e15. Đến lớp 20, chúng tràn tới vô cực. Các gradient đi theo cùng quỹ đạo theo chiều ngược lại.
 
-Initialize them randomly from a standard normal distribution. Works for 3 layers. At 50 layers, the signal collapses to zero or detonates to infinity depending on whether the random scale was slightly too small or slightly too large. The boundary between "works" and "broken" is razor-thin.
+Khởi tạo chúng ngẫu nhiên từ một phân phối chuẩn tắc. Hoạt động cho 3 lớp. Ở 50 lớp, tín hiệu sụp về không hoặc nổ tới vô cực tùy thang đo ngẫu nhiên hơi quá nhỏ hay hơi quá lớn. Ranh giới giữa "hoạt động" và "hỏng" mỏng như lưỡi dao.
 
-Weight initialization is the most underrated decision in deep learning. Architecture gets papers. Optimizers get blog posts. Initialization gets a footnote. But get it wrong and nothing else matters -- your network is dead before training begins.
+Khởi tạo trọng số là quyết định bị đánh giá thấp nhất trong học sâu. Kiến trúc có các bài báo. Bộ tối ưu hóa có các bài blog. Khởi tạo có một chú thích chân trang. Nhưng làm sai và không gì khác còn quan trọng -- mạng của bạn chết trước khi huấn luyện bắt đầu.
 
 ## The Concept
 
 ### The Symmetry Problem
 
-Every neuron in a layer has the same structure: multiply inputs by weights, add bias, apply activation. If all weights start at the same value (zero is the extreme case), every neuron computes the same output. During backpropagation, every neuron receives the same gradient. During the update step, every neuron changes by the same amount.
+Mỗi nơ-ron trong một lớp có cùng cấu trúc: nhân các đầu vào với trọng số, cộng bias, áp dụng kích hoạt. Nếu tất cả các trọng số bắt đầu ở cùng giá trị (không là trường hợp cực đoan), mỗi nơ-ron tính cùng đầu ra. Trong lan truyền ngược, mỗi nơ-ron nhận cùng gradient. Trong bước cập nhật, mỗi nơ-ron thay đổi cùng một lượng.
 
-You're stuck. The network has hundreds of parameters, but they all move in lockstep. This is called symmetry, and random initialization is the brute-force way to break it. Each neuron starts at a different point in weight space, so each learns a different feature.
+Bạn bị kẹt. Mạng có hàng trăm tham số, nhưng tất cả di chuyển đồng bộ. Điều này được gọi là đối xứng, và khởi tạo ngẫu nhiên là cách vét cạn để phá vỡ nó. Mỗi nơ-ron bắt đầu tại một điểm khác nhau trong không gian trọng số, nên mỗi nơ-ron học một đặc trưng khác nhau.
 
-But "random" is not enough. The *scale* of the randomness determines whether the network trains.
+Nhưng "ngẫu nhiên" là chưa đủ. *Thang đo* của tính ngẫu nhiên quyết định mạng có huấn luyện được hay không.
 
 ### Variance Propagation Through Layers
 
-Consider a single layer with fan_in inputs:
+Xét một lớp đơn lẻ có fan_in đầu vào:
 
 ```
 z = w1*x1 + w2*x2 + ... + w_n*x_n
 ```
 
-If each weight wi is drawn from a distribution with variance Var(w) and each input xi has variance Var(x), the output variance is:
+Nếu mỗi trọng số wi được lấy từ một phân phối có phương sai Var(w) và mỗi đầu vào xi có phương sai Var(x), phương sai đầu ra là:
 
 ```
 Var(z) = fan_in * Var(w) * Var(x)
 ```
 
-If Var(w) = 1 and fan_in = 512, the output variance is 512x the input variance. After 10 layers: 512^10 = 1.2e27. Your signal has exploded.
+Nếu Var(w) = 1 và fan_in = 512, phương sai đầu ra gấp 512 lần phương sai đầu vào. Sau 10 lớp: 512^10 = 1.2e27. Tín hiệu của bạn đã bùng nổ.
 
-If Var(w) = 0.001, the output variance shrinks by 0.001 * 512 = 0.512 per layer. After 10 layers: 0.512^10 = 0.00013. Your signal has vanished.
+Nếu Var(w) = 0.001, phương sai đầu ra co lại theo hệ số 0.001 * 512 = 0.512 mỗi lớp. Sau 10 lớp: 0.512^10 = 0.00013. Tín hiệu của bạn đã tiêu biến.
 
-The goal: choose Var(w) so that Var(z) = Var(x). Signal magnitude stays constant across layers.
+Mục tiêu: chọn Var(w) sao cho Var(z) = Var(x). Độ lớn tín hiệu giữ nguyên qua các lớp.
 
 ### Xavier/Glorot Initialization
 
-Glorot and Bengio (2010) derived the solution for sigmoid and tanh activations. To keep variance constant in both the forward and backward pass:
+Glorot và Bengio (2010) suy ra nghiệm cho các kích hoạt sigmoid và tanh. Để giữ phương sai không đổi trong cả lượt truyền xuôi và lượt truyền ngược:
 
 ```
 Var(w) = 2 / (fan_in + fan_out)
 ```
 
-In practice, weights are drawn from:
+Trong thực tế, các trọng số được lấy từ:
 
 ```
 w ~ Uniform(-limit, limit)  where limit = sqrt(6 / (fan_in + fan_out))
 ```
 
-or:
+hoặc:
 
 ```
 w ~ Normal(0, sqrt(2 / (fan_in + fan_out)))
 ```
 
-This works because sigmoid and tanh are roughly linear near zero, where properly initialized activations live. The variance stays stable through dozens of layers.
+Điều này hoạt động vì sigmoid và tanh gần tuyến tính quanh không, nơi các kích hoạt được khởi tạo đúng nằm. Phương sai giữ ổn định qua hàng chục lớp.
 
 ### Kaiming/He Initialization
 
-ReLU kills half the outputs (everything negative becomes zero). The effective fan_in is halved because on average half the inputs are zeroed. Xavier init doesn't account for this -- it underestimates the variance needed.
+ReLU giết một nửa các đầu ra (mọi thứ âm trở thành không). fan_in hiệu dụng giảm một nửa vì trung bình một nửa đầu vào bị đưa về không. Khởi tạo Xavier không tính đến điều này -- nó đánh giá thấp phương sai cần thiết.
 
-He et al. (2015) adjusted the formula:
+He và cộng sự (2015) điều chỉnh công thức:
 
 ```
 Var(w) = 2 / fan_in
 ```
 
-Weights are drawn from:
+Các trọng số được lấy từ:
 
 ```
 w ~ Normal(0, sqrt(2 / fan_in))
 ```
 
-The factor of 2 compensates for ReLU zeroing half the activations. Without it, the signal shrinks by ~0.5x per layer. With 50 layers: 0.5^50 = 8.8e-16. Kaiming init prevents this.
+Hệ số 2 bù cho việc ReLU đưa một nửa các kích hoạt về không. Không có nó, tín hiệu co lại theo hệ số ~0.5 mỗi lớp. Với 50 lớp: 0.5^50 = 8.8e-16. Khởi tạo Kaiming ngăn điều này.
 
 ### Transformer Initialization
 
-GPT-2 introduced a different pattern. Residual connections add the output of each sub-layer to its input:
+GPT-2 giới thiệu một mẫu khác. Các kết nối phần dư cộng đầu ra mỗi lớp con vào đầu vào của nó:
 
 ```
 x = x + sublayer(x)
 ```
 
-Each addition increases variance. With N residual layers, variance grows proportionally to N. GPT-2 scales the weights of residual layers by 1/sqrt(2N), where N is the number of layers. This keeps the accumulated signal magnitude stable.
+Mỗi phép cộng tăng phương sai. Với N lớp phần dư, phương sai tăng tỷ lệ với N. GPT-2 co giãn các trọng số của các lớp phần dư theo 1/sqrt(2N), trong đó N là số lớp. Điều này giữ độ lớn tín hiệu tích lũy ổn định.
 
-Llama 3 (405B parameters, 126 layers) uses a similar scheme. Without this scaling, the residual stream would grow unbounded through 126 layers of attention and feedforward blocks.
+Llama 3 (405B tham số, 126 lớp) sử dụng một cơ chế tương tự. Không có phép co giãn này, luồng phần dư sẽ tăng không giới hạn qua 126 lớp khối attention và feedforward.
 
 ```mermaid
 flowchart TD
@@ -169,7 +169,7 @@ weight-init-variance
 
 ### Step 1: Initialization Strategies
 
-Four ways to initialize a weight matrix. Each returns a list of lists (a 2D matrix) with fan_in columns and fan_out rows.
+Bốn cách khởi tạo một ma trận trọng số. Mỗi cách trả về một danh sách các danh sách (một ma trận 2D) có fan_in cột và fan_out hàng.
 
 ```python
 import math
@@ -196,7 +196,7 @@ def kaiming_init(fan_in, fan_out):
 
 ### Step 2: Activation Functions
 
-We need sigmoid, tanh, and ReLU to test each init strategy with its intended activation.
+Chúng ta cần sigmoid, tanh và ReLU để kiểm thử mỗi chiến lược khởi tạo với kích hoạt dự định của nó.
 
 ```python
 def sigmoid(x):
@@ -214,7 +214,7 @@ def relu(x):
 
 ### Step 3: Forward Pass Through 50 Layers
 
-Pass random data through a deep network and measure mean activation magnitude at each layer.
+Truyền dữ liệu ngẫu nhiên qua một mạng sâu và đo độ lớn kích hoạt trung bình tại mỗi lớp.
 
 ```python
 def forward_deep(init_fn, activation_fn, n_layers=50, width=64, n_samples=100):
@@ -247,7 +247,7 @@ def forward_deep(init_fn, activation_fn, n_layers=50, width=64, n_samples=100):
 
 ### Step 4: The Experiment
 
-Run all combinations: zero init, random N(0,1), random N(0,0.01), Xavier with sigmoid, Xavier with tanh, Kaiming with ReLU. Print the magnitude at key layers.
+Chạy tất cả các tổ hợp: khởi tạo bằng không, ngẫu nhiên N(0,1), ngẫu nhiên N(0,0.01), Xavier với sigmoid, Xavier với tanh, Kaiming với ReLU. In độ lớn tại các lớp chính.
 
 ```python
 def run_experiment():
@@ -279,7 +279,7 @@ def run_experiment():
 
 ### Step 5: Symmetry Demonstration
 
-Show that zero init produces identical neurons.
+Cho thấy khởi tạo bằng không tạo ra các nơ-ron giống hệt nhau.
 
 ```python
 def symmetry_demo():
@@ -303,7 +303,7 @@ def symmetry_demo():
 
 ### Step 6: Layer-by-Layer Magnitude Report
 
-Print a visual bar chart of activation magnitudes through 50 layers.
+In một biểu đồ thanh trực quan của các độ lớn kích hoạt qua 50 lớp.
 
 ```python
 def magnitude_report(name, magnitudes):
@@ -322,7 +322,7 @@ def magnitude_report(name, magnitudes):
 
 ## Use It
 
-PyTorch provides these as built-in functions:
+PyTorch cung cấp những cách này dưới dạng các hàm tích hợp:
 
 ```python
 import torch
@@ -339,45 +339,45 @@ nn.init.kaiming_normal_(layer.weight, nonlinearity='relu')
 nn.init.zeros_(layer.bias)
 ```
 
-When you call `nn.Linear(512, 256)`, PyTorch defaults to Kaiming uniform initialization. That's why most simple networks "just work" -- PyTorch already made the right choice. But when you build custom architectures or go deeper than 20 layers, you need to understand what's happening and potentially override the default.
+Khi bạn gọi `nn.Linear(512, 256)`, PyTorch mặc định khởi tạo đều Kaiming. Đó là lý do hầu hết các mạng đơn giản "cứ hoạt động" -- PyTorch đã đưa ra lựa chọn đúng. Nhưng khi bạn xây dựng các kiến trúc tùy chỉnh hoặc đi sâu hơn 20 lớp, bạn cần hiểu điều gì đang xảy ra và có thể ghi đè mặc định.
 
-For transformers, HuggingFace models typically handle initialization in their `_init_weights` method. GPT-2's implementation scales residual projections by 1/sqrt(N). If you're building a transformer from scratch, you need to add this yourself.
+Với transformer, các mô hình HuggingFace thường xử lý khởi tạo trong phương thức `_init_weights` của chúng. Bản triển khai GPT-2 co giãn các phép chiếu phần dư theo 1/sqrt(N). Nếu bạn xây dựng một transformer từ đầu, bạn cần tự thêm điều này.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-init-strategy.md` -- a prompt that diagnoses weight initialization problems and recommends the right strategy
+Bài học này tạo ra:
+- `outputs/prompt-init-strategy.md` -- một prompt chẩn đoán các vấn đề khởi tạo trọng số và khuyến nghị chiến lược phù hợp
 
 ## Exercises
 
-1. Add LeCun initialization (Var = 1/fan_in, designed for SELU activation). Run the 50-layer experiment with LeCun init + tanh and compare to Xavier + tanh.
+1. Thêm khởi tạo LeCun (Var = 1/fan_in, được thiết kế cho kích hoạt SELU). Chạy thí nghiệm 50 lớp với khởi tạo LeCun + tanh và so sánh với Xavier + tanh.
 
-2. Implement the GPT-2 residual scaling: multiply the output of each layer by 1/sqrt(2*N) before adding to the residual stream. Run 50 layers with and without scaling, measure how fast the residual magnitude grows.
+2. Triển khai co giãn phần dư GPT-2: nhân đầu ra mỗi lớp với 1/sqrt(2*N) trước khi cộng vào luồng phần dư. Chạy 50 lớp có và không co giãn, đo độ lớn phần dư tăng nhanh đến mức nào.
 
-3. Create an "init health check" function that takes a network's layer dimensions and activation type, then recommends the correct initialization and warns if the current init will cause problems.
+3. Tạo một hàm "kiểm tra sức khỏe khởi tạo" nhận các kích thước lớp và loại kích hoạt của một mạng, rồi khuyến nghị khởi tạo đúng và cảnh báo nếu khởi tạo hiện tại sẽ gây vấn đề.
 
-4. Run the experiment with fan_in = 16 vs fan_in = 1024. Xavier and Kaiming adapt to fan_in, but random init doesn't. Show how the gap between "works" and "breaks" widens with larger layers.
+4. Chạy thí nghiệm với fan_in = 16 so với fan_in = 1024. Xavier và Kaiming thích nghi với fan_in, nhưng khởi tạo ngẫu nhiên thì không. Cho thấy khoảng cách giữa "hoạt động" và "hỏng" rộng ra như thế nào với các lớp lớn hơn.
 
-5. Implement orthogonal initialization (generate a random matrix, compute its SVD, use the orthogonal matrix U). Compare to Kaiming for ReLU networks at 50 layers.
+5. Triển khai khởi tạo trực giao (sinh một ma trận ngẫu nhiên, tính SVD của nó, sử dụng ma trận trực giao U). So sánh với Kaiming cho các mạng ReLU ở 50 lớp.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Weight initialization | "Set starting weights randomly" | The strategy for choosing initial weight values that determines whether a network can train at all |
-| Symmetry breaking | "Make neurons different" | Using random initialization to ensure neurons learn distinct features instead of computing identical functions |
-| Fan-in | "Number of inputs to a neuron" | The number of incoming connections, which determines how input variance accumulates in the weighted sum |
-| Fan-out | "Number of outputs from a neuron" | The number of outgoing connections, relevant for maintaining gradient variance during backpropagation |
-| Xavier/Glorot init | "The sigmoid initialization" | Var(w) = 2/(fan_in + fan_out), designed to preserve variance through sigmoid and tanh activations |
-| Kaiming/He init | "The ReLU initialization" | Var(w) = 2/fan_in, accounts for ReLU zeroing half the activations |
-| Variance propagation | "How signals grow or shrink through layers" | The mathematical analysis of how activation variance changes layer by layer based on weight scale |
-| Residual scaling | "GPT-2's init trick" | Scaling residual connection weights by 1/sqrt(2N) to prevent variance growth through N transformer layers |
-| Dead network | "Nothing trains" | A network where poor initialization causes all gradients to be zero or all activations to saturate |
-| Exploding activations | "Values go to infinity" | When weight variance is too high, causing activation magnitudes to grow exponentially through layers |
+| Weight initialization (Khởi tạo trọng số) | "Đặt các trọng số ban đầu ngẫu nhiên" | Chiến lược chọn các giá trị trọng số ban đầu quyết định liệu một mạng có thể huấn luyện được chút nào hay không |
+| Symmetry breaking (Phá vỡ đối xứng) | "Làm các nơ-ron khác nhau" | Sử dụng khởi tạo ngẫu nhiên để bảo đảm các nơ-ron học các đặc trưng riêng biệt thay vì tính các hàm giống hệt |
+| Fan-in | "Số đầu vào của một nơ-ron" | Số kết nối đi vào, quyết định phương sai đầu vào tích lũy như thế nào trong tổng có trọng số |
+| Fan-out | "Số đầu ra từ một nơ-ron" | Số kết nối đi ra, liên quan tới duy trì phương sai gradient trong lan truyền ngược |
+| Xavier/Glorot init (Khởi tạo Xavier/Glorot) | "Khởi tạo sigmoid" | Var(w) = 2/(fan_in + fan_out), được thiết kế để bảo toàn phương sai qua các kích hoạt sigmoid và tanh |
+| Kaiming/He init (Khởi tạo Kaiming/He) | "Khởi tạo ReLU" | Var(w) = 2/fan_in, tính đến việc ReLU đưa một nửa các kích hoạt về không |
+| Variance propagation (Lan truyền phương sai) | "Các tín hiệu tăng hoặc co lại qua các lớp như thế nào" | Phân tích toán học về cách phương sai kích hoạt thay đổi từng lớp dựa trên thang đo trọng số |
+| Residual scaling (Co giãn phần dư) | "Thủ thuật khởi tạo của GPT-2" | Co giãn các trọng số kết nối phần dư theo 1/sqrt(2N) để ngăn phương sai tăng qua N lớp transformer |
+| Dead network (Mạng chết) | "Không gì huấn luyện được" | Một mạng mà khởi tạo kém khiến tất cả các gradient bằng không hoặc tất cả các kích hoạt bão hòa |
+| Exploding activations (Kích hoạt bùng nổ) | "Các giá trị đi tới vô cực" | Khi phương sai trọng số quá cao, khiến các độ lớn kích hoạt tăng theo cấp số nhân qua các lớp |
 
 ## Further Reading
 
-- Glorot & Bengio, "Understanding the difficulty of training deep feedforward neural networks" (2010) -- the original Xavier initialization paper with variance analysis
-- He et al., "Delving Deep into Rectifiers" (2015) -- introduced Kaiming initialization for ReLU networks
-- Radford et al., "Language Models are Unsupervised Multitask Learners" (2019) -- GPT-2 paper with residual scaling initialization
-- Mishkin & Matas, "All You Need is a Good Init" (2016) -- layer-sequential unit-variance initialization, an empirical alternative to analytical formulas
+- Glorot & Bengio, "Understanding the difficulty of training deep feedforward neural networks" (2010) -- bài báo khởi tạo Xavier gốc với phân tích phương sai
+- He et al., "Delving Deep into Rectifiers" (2015) -- giới thiệu khởi tạo Kaiming cho các mạng ReLU
+- Radford et al., "Language Models are Unsupervised Multitask Learners" (2019) -- bài báo GPT-2 với khởi tạo co giãn phần dư
+- Mishkin & Matas, "All You Need is a Good Init" (2016) -- khởi tạo phương sai đơn vị tuần tự theo lớp, một phương án thực nghiệm thay cho các công thức giải tích
