@@ -1,6 +1,6 @@
 # MDPs, States, Actions & Rewards
 
-> A Markov Decision Process is five things: states, actions, transitions, rewards, a discount. Everything in RL — Q-learning, PPO, DPO, GRPO — optimizes over this shape. Learn it once, read the rest of reinforcement learning for free.
+> Một Quá trình quyết định Markov gồm năm thứ: trạng thái, hành động, chuyển tiếp, phần thưởng, một hệ số chiết khấu. Mọi thứ trong RL — Q-learning, PPO, DPO, GRPO — tối ưu trên cấu trúc này. Học nó một lần, đọc phần còn lại của học tăng cường miễn phí.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,34 +9,34 @@
 
 ## The Problem
 
-You are writing a chess bot. Or an inventory planner. Or a trading agent. Or the PPO loop that trains a reasoning model. Four different domains, one surprising fact: all four collapse to the same mathematical object.
+Bạn đang viết một bot cờ vua. Hoặc một bộ lập kế hoạch tồn kho. Hoặc một agent giao dịch. Hoặc vòng lặp PPO huấn luyện một mô hình suy luận. Bốn miền khác nhau, một sự thật bất ngờ: cả bốn đều quy về cùng một đối tượng toán học.
 
-Supervised learning gives you `(x, y)` pairs and asks you to fit a function. Reinforcement learning gives you no labels — only a stream of states, the actions you took, and a scalar reward. Did the move win the game? Did the restock decision save money? Did the trade make a profit? Did the token the LLM just produced lead to a higher reward from the judge?
+Học có giám sát cho bạn các cặp `(x, y)` và yêu cầu bạn khớp một hàm. Học tăng cường không cho bạn nhãn nào — chỉ một luồng trạng thái, các hành động bạn đã thực hiện, và một phần thưởng vô hướng. Nước đi đó có thắng ván đấu không? Quyết định bổ sung hàng có tiết kiệm tiền không? Giao dịch có tạo ra lợi nhuận không? Token LLM vừa tạo ra có dẫn đến phần thưởng cao hơn từ giám khảo không?
 
-You cannot learn from this stream until you formalize it. "What I saw," "what I did," "what happened next," "how good that was" — each has to become an object you can reason about. That formalization is a Markov Decision Process. Every RL algorithm in this phase, including the RLHF and GRPO loops at the end, optimizes over this shape.
+Bạn không thể học từ luồng này cho đến khi hình thức hóa nó. "Những gì tôi thấy," "những gì tôi làm," "những gì xảy ra tiếp theo," "điều đó tốt đến đâu" — mỗi thứ phải trở thành một đối tượng mà bạn có thể suy luận về. Sự hình thức hóa đó là một Quá trình quyết định Markov. Mọi thuật toán RL trong giai đoạn này, gồm các vòng lặp RLHF và GRPO ở cuối, đều tối ưu trên cấu trúc này.
 
 ## The Concept
 
 ![Markov decision process: states, actions, transitions, rewards, discount](../assets/mdp.svg)
 
-**The five objects.**
+**Năm đối tượng.**
 
-- **States** `S`. Everything the agent needs to decide. In GridWorld, the cell. In chess, the board. In an LLM, the context window plus any memory.
-- **Actions** `A`. The choices. Move up/down/left/right. Play a move. Emit a token.
-- **Transitions** `P(s' | s, a)`. Given state `s` and action `a`, the distribution over next state. Deterministic in chess, stochastic in inventory, almost-deterministic in LLM decoding.
-- **Rewards** `R(s, a, s')`. The scalar signal. Win = +1, loss = -1. Revenue minus cost. The log-likelihood ratio term in GRPO.
-- **Discount** `γ ∈ [0, 1)`. How much future reward counts vs present. `γ = 0.99` buys a horizon of ~100 steps; `γ = 0.9` buys ~10.
+- **Trạng thái** `S`. Mọi thứ agent cần để quyết định. Trong GridWorld, là ô. Trong cờ vua, là bàn cờ. Trong một LLM, là cửa sổ ngữ cảnh cộng với bất kỳ bộ nhớ nào.
+- **Hành động** `A`. Các lựa chọn. Di chuyển lên/xuống/trái/phải. Đi một nước cờ. Phát ra một token.
+- **Chuyển tiếp** `P(s' | s, a)`. Với trạng thái `s` và hành động `a`, phân phối trên trạng thái tiếp theo. Tất định trong cờ vua, ngẫu nhiên trong tồn kho, gần như tất định trong giải mã LLM.
+- **Phần thưởng** `R(s, a, s')`. Tín hiệu vô hướng. Thắng = +1, thua = -1. Doanh thu trừ chi phí. Hạng tử tỷ số log-likelihood trong GRPO.
+- **Chiết khấu** `γ ∈ [0, 1)`. Phần thưởng tương lai được tính bao nhiêu so với hiện tại. `γ = 0.99` cho một chân trời ~100 bước; `γ = 0.9` cho ~10.
 
-**The Markov property** `P(s_{t+1} | s_t, a_t) = P(s_{t+1} | s_0, a_0, …, s_t, a_t)`. The future depends only on the present state. If it does not, the state representation is incomplete — not a failure of the method, a failure of the state.
+**Tính chất Markov** `P(s_{t+1} | s_t, a_t) = P(s_{t+1} | s_0, a_0, …, s_t, a_t)`. Tương lai chỉ phụ thuộc trạng thái hiện tại. Nếu không, biểu diễn trạng thái chưa đầy đủ — không phải thất bại của phương pháp, mà là thất bại của trạng thái.
 
-**Policies and returns.** A policy `π(a | s)` maps states to action distributions. The return `G_t = r_t + γ r_{t+1} + γ² r_{t+2} + …` is the discounted sum of future rewards. The value `V^π(s) = E[G_t | s_t = s]` is the expected return starting from `s` under policy `π`. The Q-value `Q^π(s, a) = E[G_t | s_t = s, a_t = a]` is the expected return starting with a specific action. Every RL algorithm estimates one of these two, then improves `π` accordingly.
+**Chính sách và lợi tức.** Một chính sách `π(a | s)` ánh xạ trạng thái sang phân phối hành động. Lợi tức `G_t = r_t + γ r_{t+1} + γ² r_{t+2} + …` là tổng chiết khấu của các phần thưởng tương lai. Giá trị `V^π(s) = E[G_t | s_t = s]` là lợi tức kỳ vọng bắt đầu từ `s` theo chính sách `π`. Giá trị Q `Q^π(s, a) = E[G_t | s_t = s, a_t = a]` là lợi tức kỳ vọng bắt đầu với một hành động cụ thể. Mọi thuật toán RL ước lượng một trong hai thứ này, rồi cải thiện `π` tương ứng.
 
-**The Bellman equations.** The fixed-point equations that everything in this phase uses:
+**Các phương trình Bellman.** Các phương trình điểm bất động mà mọi thứ trong giai đoạn này dùng:
 
 `V^π(s) = Σ_a π(a|s) Σ_{s', r} P(s', r | s, a) [r + γ V^π(s')]`
 `Q^π(s, a) = Σ_{s', r} P(s', r | s, a) [r + γ Σ_{a'} π(a'|s') Q^π(s', a')]`
 
-These split expected return into "this step's reward" plus "discounted value of where you land." Recursive. Every algorithm in Phase 9 either iterates this equation to convergence (dynamic programming), samples from it (Monte Carlo), or bootstraps it one step (temporal difference).
+Chúng tách lợi tức kỳ vọng thành "phần thưởng của bước này" cộng với "giá trị chiết khấu của nơi bạn đến." Đệ quy. Mọi thuật toán trong Giai đoạn 9 hoặc lặp phương trình này đến hội tụ (quy hoạch động), lấy mẫu từ nó (Monte Carlo), hoặc bootstrap nó một bước (sai phân thời gian).
 
 ```figure
 discount-horizon
@@ -46,7 +46,7 @@ discount-horizon
 
 ### Step 1: a tiny deterministic MDP
 
-A 4×4 GridWorld. Agent starts top-left, terminal at bottom-right, reward of -1 per step, actions `{up, down, left, right}`. See `code/main.py`.
+Một GridWorld 4×4. Agent bắt đầu ở trên cùng bên trái, trạng thái kết thúc ở dưới cùng bên phải, phần thưởng -1 mỗi bước, các hành động `{up, down, left, right}`. Xem `code/main.py`.
 
 ```python
 GRID = 4
@@ -63,11 +63,11 @@ def step(state, action):
     return (nr, nc), -1.0, (nr, nc) == TERMINAL
 ```
 
-Five lines. That is the entire environment. Deterministic transitions, constant step penalty, absorbing terminal state.
+Năm dòng. Đó là toàn bộ môi trường. Chuyển tiếp tất định, phạt bước không đổi, trạng thái kết thúc hấp thụ.
 
 ### Step 2: roll out a policy
 
-A policy is a function from state to action distribution. The simplest: uniform random.
+Một chính sách là một hàm từ trạng thái sang phân phối hành động. Đơn giản nhất: ngẫu nhiên đều.
 
 ```python
 def uniform_policy(state):
@@ -85,11 +85,11 @@ def rollout(policy, max_steps=200):
     return total, steps
 ```
 
-Run the random policy 1000 times. Average return is around -60 to -80 for this 4×4 board. The optimal return is -6 (straight-line path down-right). Closing that gap is everything in Phase 9.
+Chạy chính sách ngẫu nhiên 1000 lần. Lợi tức trung bình khoảng -60 đến -80 cho bàn 4×4 này. Lợi tức tối ưu là -6 (đường đi thẳng xuống-phải). Thu hẹp khoảng cách đó là mọi thứ trong Giai đoạn 9.
 
 ### Step 3: compute `V^π` exactly via the Bellman equation
 
-For small MDPs the Bellman equation is a linear system. Enumerate states, apply the expectation, iterate until the values stop changing.
+Với các MDP nhỏ, phương trình Bellman là một hệ tuyến tính. Liệt kê trạng thái, áp dụng kỳ vọng, lặp cho đến khi các giá trị ngừng thay đổi.
 
 ```python
 def policy_evaluation(policy, gamma=0.99, tol=1e-6):
@@ -109,39 +109,39 @@ def policy_evaluation(policy, gamma=0.99, tol=1e-6):
             return V
 ```
 
-This is iterative policy evaluation. It is the first algorithm in Sutton & Barto and the theoretical foundation of every RL method that follows.
+Đây là đánh giá chính sách lặp. Nó là thuật toán đầu tiên trong Sutton & Barto và là nền tảng lý thuyết của mọi phương pháp RL tiếp theo.
 
 ### Step 4: `γ` is a hyperparameter with physical meaning
 
-Effective horizon is roughly `1 / (1 - γ)`. `γ = 0.9` → 10 steps. `γ = 0.99` → 100 steps. `γ = 0.999` → 1000 steps.
+Chân trời hiệu dụng xấp xỉ `1 / (1 - γ)`. `γ = 0.9` → 10 bước. `γ = 0.99` → 100 bước. `γ = 0.999` → 1000 bước.
 
-Too low and the agent acts myopically. Too high and credit assignment becomes noisy, because many early steps share responsibility for far-future reward. LLM RLHF typically uses `γ = 1` because episodes are short and bounded. Control tasks use `0.95–0.99`. Long-horizon strategy games use `0.999`.
+Quá thấp thì agent hành động thiển cận. Quá cao thì việc gán công trạng trở nên nhiều nhiễu, vì nhiều bước đầu chia sẻ trách nhiệm cho phần thưởng ở tương lai xa. RLHF cho LLM thường dùng `γ = 1` vì các episode ngắn và bị chặn. Các tác vụ điều khiển dùng `0.95–0.99`. Các trò chơi chiến thuật chân trời dài dùng `0.999`.
 
 ## Pitfalls
 
-- **Non-Markovian state.** If you need the last three observations to decide, the "state" is not just the current observation. Fix: stack frames (DQN on Atari stacks 4) or use a recurrent state (LSTM/GRU over observations).
-- **Sparse rewards.** Win-only rewards make learning nearly impossible in large state spaces. Shape rewards (intermediate signal) or bootstrap with imitation (Phase 9 · 09).
-- **Reward hacking.** Optimizing a proxy reward often produces pathological behavior. OpenAI's boat-racing agent spun in circles collecting powerups forever instead of finishing the race. Always define reward from the target outcome, not the proxy.
-- **Discount mis-spec.** `γ = 1` on an infinite-horizon task makes every value infinite. Always cap with either a finite horizon or `γ < 1`.
-- **Reward scale.** Rewards of {+100, -100} vs {+1, -1} give identical optimal policies but vastly different gradient magnitudes. Normalize to `[-1, 1]`-ish before plugging into PPO/DQN.
+- **Trạng thái phi Markov.** Nếu bạn cần ba quan sát gần nhất để quyết định, "trạng thái" không chỉ là quan sát hiện tại. Cách khắc phục: xếp chồng khung hình (DQN trên Atari xếp 4) hoặc dùng một trạng thái hồi tiếp (LSTM/GRU trên các quan sát).
+- **Phần thưởng thưa.** Phần thưởng chỉ khi thắng khiến việc học gần như không thể trong các không gian trạng thái lớn. Định hình phần thưởng (tín hiệu trung gian) hoặc bootstrap bằng bắt chước (Giai đoạn 9 · 09).
+- **Reward hacking.** Tối ưu một phần thưởng đại diện thường tạo ra hành vi bệnh lý. Agent đua thuyền của OpenAI xoay vòng thu thập vật phẩm tăng sức mạnh mãi mãi thay vì hoàn thành cuộc đua. Luôn định nghĩa phần thưởng từ kết quả mục tiêu, không phải đại diện.
+- **Đặc tả chiết khấu sai.** `γ = 1` trên một tác vụ chân trời vô hạn khiến mọi giá trị vô hạn. Luôn giới hạn bằng một chân trời hữu hạn hoặc `γ < 1`.
+- **Thang phần thưởng.** Phần thưởng {+100, -100} so với {+1, -1} cho các chính sách tối ưu giống hệt nhưng độ lớn gradient rất khác nhau. Chuẩn hóa về khoảng `[-1, 1]` trước khi đưa vào PPO/DQN.
 
 ## Use It
 
-The 2026 stack reduces every RL pipeline to an MDP before touching code:
+Bộ công cụ năm 2026 quy mọi pipeline RL về một MDP trước khi chạm vào mã:
 
-| Situation | State | Action | Reward | γ |
+| Tình huống | Trạng thái | Hành động | Phần thưởng | γ |
 |-----------|-------|--------|--------|---|
-| Control (locomotion, manipulation) | Joint angles + velocities | Continuous torques | Task-specific shaped | 0.99 |
-| Games (chess, Go, poker) | Board + history | Legal move | Win=+1 / loss=-1 | 1.0 (finite) |
-| Inventory / pricing | Stock + demand | Order qty | Revenue - cost | 0.95 |
-| RLHF for LLMs | Context tokens | Next token | Reward-model score at end | 1.0 (episode ~200 tokens) |
-| GRPO for reasoning | Prompt + partial response | Next token | Verifier 0/1 at end | 1.0 |
+| Điều khiển (di chuyển, thao tác) | Góc khớp + vận tốc | Mô-men xoắn liên tục | Được định hình riêng cho tác vụ | 0.99 |
+| Trò chơi (cờ vua, cờ vây, poker) | Bàn chơi + lịch sử | Nước đi hợp lệ | Thắng=+1 / thua=-1 | 1.0 (hữu hạn) |
+| Tồn kho / định giá | Hàng tồn + nhu cầu | Số lượng đặt | Doanh thu - chi phí | 0.95 |
+| RLHF cho LLM | Token ngữ cảnh | Token tiếp theo | Điểm mô hình phần thưởng ở cuối | 1.0 (episode ~200 token) |
+| GRPO cho suy luận | Prompt + phản hồi một phần | Token tiếp theo | Bộ xác minh 0/1 ở cuối | 1.0 |
 
-Write the five tuples before writing any training loop. Most "RL does not work" bug reports trace back to an MDP formulation that was broken on paper.
+Viết các bộ năm trước khi viết bất kỳ vòng lặp huấn luyện nào. Hầu hết báo cáo lỗi "RL không hoạt động" truy về một cách phát biểu MDP đã sai trên giấy.
 
 ## Ship It
 
-Save as `outputs/skill-mdp-modeler.md`:
+Lưu thành `outputs/skill-mdp-modeler.md`:
 
 ```markdown
 ---
@@ -166,27 +166,27 @@ Refuse to ship any MDP where the state is non-Markovian without explicit mention
 
 ## Exercises
 
-1. **Easy.** Implement the 4×4 GridWorld and random-policy rollout in `code/main.py`. Run 10,000 episodes. Report mean and std of return. Compare to the optimal return (-6).
-2. **Medium.** Run `policy_evaluation` with `γ ∈ {0.5, 0.9, 0.99}` for the uniform-random policy. Print `V` as a 4×4 grid for each. Explain why the state values near the terminal grow faster with larger `γ`.
-3. **Hard.** Turn the GridWorld stochastic: each action slips to an adjacent direction with probability `p = 0.1`. Re-evaluate the uniform policy. Does `V[start]` get better or worse? Why?
+1. **Dễ.** Triển khai GridWorld 4×4 và rollout chính sách ngẫu nhiên trong `code/main.py`. Chạy 10,000 episode. Báo cáo trung bình và độ lệch chuẩn của lợi tức. So sánh với lợi tức tối ưu (-6).
+2. **Trung bình.** Chạy `policy_evaluation` với `γ ∈ {0.5, 0.9, 0.99}` cho chính sách ngẫu nhiên đều. In `V` thành một lưới 4×4 cho mỗi trường hợp. Giải thích vì sao các giá trị trạng thái gần trạng thái kết thúc tăng nhanh hơn với `γ` lớn hơn.
+3. **Khó.** Biến GridWorld thành ngẫu nhiên: mỗi hành động trượt sang một hướng liền kề với xác suất `p = 0.1`. Đánh giá lại chính sách đều. `V[start]` tốt hơn hay tệ hơn? Vì sao?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| MDP | "Reinforcement learning setup" | Tuple `(S, A, P, R, γ)` satisfying the Markov property. |
-| State | "What the agent sees" | Sufficient statistic for future dynamics under the chosen policy class. |
-| Policy | "Agent's behavior" | Conditional distribution `π(a \| s)` or deterministic map `s → a`. |
-| Return | "Total reward" | Discounted sum `Σ γ^t r_t` from the current step. |
-| Value | "How good a state is" | Expected return under `π` starting from `s`. |
-| Q-value | "How good an action is" | Expected return under `π` starting from `s` with first action `a`. |
-| Bellman equation | "Dynamic programming recursion" | Fixed-point decomposition of value / Q into one-step reward plus discounted successor value. |
-| Discount `γ` | "Future vs present" | Geometric weight on far-future reward; effective horizon `~1/(1-γ)`. |
+| MDP | "Thiết lập học tăng cường" | Bộ `(S, A, P, R, γ)` thỏa mãn tính chất Markov. |
+| State (Trạng thái) | "Những gì agent thấy" | Thống kê đủ cho động lực học tương lai theo lớp chính sách đã chọn. |
+| Policy (Chính sách) | "Hành vi của agent" | Phân phối có điều kiện `π(a \| s)` hoặc ánh xạ tất định `s → a`. |
+| Return (Lợi tức) | "Tổng phần thưởng" | Tổng chiết khấu `Σ γ^t r_t` từ bước hiện tại. |
+| Value (Giá trị) | "Một trạng thái tốt đến đâu" | Lợi tức kỳ vọng theo `π` bắt đầu từ `s`. |
+| Q-value (Giá trị Q) | "Một hành động tốt đến đâu" | Lợi tức kỳ vọng theo `π` bắt đầu từ `s` với hành động đầu tiên `a`. |
+| Bellman equation (Phương trình Bellman) | "Đệ quy quy hoạch động" | Phân rã điểm bất động của giá trị / Q thành phần thưởng một bước cộng giá trị trạng thái kế tiếp được chiết khấu. |
+| Discount `γ` (Chiết khấu) | "Tương lai so với hiện tại" | Trọng số theo cấp số nhân trên phần thưởng tương lai xa; chân trời hiệu dụng `~1/(1-γ)`. |
 
 ## Further Reading
 
-- [Sutton & Barto (2018). Reinforcement Learning: An Introduction, 2nd ed.](http://incompleteideas.net/book/RLbook2020.pdf) — the textbook. Ch. 3 covers MDPs and Bellman equations; Ch. 1 motivates the reward hypothesis that underlies every subsequent lesson.
-- [Bellman (1957). Dynamic Programming](https://press.princeton.edu/books/paperback/9780691146683/dynamic-programming) — the origin of the Bellman equation.
-- [OpenAI Spinning Up — Part 1: Key Concepts](https://spinningup.openai.com/en/latest/spinningup/rl_intro.html) — concise MDP primer from a deep-RL angle.
-- [Puterman (2005). Markov Decision Processes](https://onlinelibrary.wiley.com/doi/book/10.1002/9780470316887) — the operations-research reference on MDPs and exact solution methods.
-- [Littman (1996). Algorithms for Sequential Decision Making (PhD thesis)](https://cs.brown.edu/media/filer_public/d1/a6/d1a6f66a-289a-4b81-9596-417114843489/littman.pdf) — the cleanest derivation of MDPs as a dynamic-programming specialization.
+- [Sutton & Barto (2018). Reinforcement Learning: An Introduction, 2nd ed.](http://incompleteideas.net/book/RLbook2020.pdf) — giáo trình. Chương 3 trình bày MDP và các phương trình Bellman; Chương 1 giải thích động cơ của giả thuyết phần thưởng làm nền tảng cho mọi bài học tiếp theo.
+- [Bellman (1957). Dynamic Programming](https://press.princeton.edu/books/paperback/9780691146683/dynamic-programming) — nguồn gốc của phương trình Bellman.
+- [OpenAI Spinning Up — Part 1: Key Concepts](https://spinningup.openai.com/en/latest/spinningup/rl_intro.html) — phần nhập môn MDP ngắn gọn từ góc nhìn deep-RL.
+- [Puterman (2005). Markov Decision Processes](https://onlinelibrary.wiley.com/doi/book/10.1002/9780470316887) — tài liệu tham chiếu nghiên cứu vận trù về MDP và các phương pháp giải chính xác.
+- [Littman (1996). Algorithms for Sequential Decision Making (PhD thesis)](https://cs.brown.edu/media/filer_public/d1/a6/d1a6f66a-289a-4b81-9596-417114843489/littman.pdf) — suy dẫn rõ ràng nhất về MDP như một chuyên biệt hóa quy hoạch động.
