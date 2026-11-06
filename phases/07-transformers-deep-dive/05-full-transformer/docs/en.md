@@ -1,6 +1,6 @@
 # The Full Transformer — Encoder + Decoder
 
-> Attention is the star. Everything else — residuals, normalization, feed-forward, cross-attention — is the scaffolding that lets you stack it deep.
+> Attention là ngôi sao. Mọi thứ khác — residual, chuẩn hóa, feed-forward, cross-attention — là giàn đỡ cho phép bạn xếp nó sâu.
 
 **Type:** Build
 **Languages:** Python
@@ -9,11 +9,11 @@
 
 ## The Problem
 
-A single attention layer is a feature extractor, not a model. One matmul per layer is not enough capacity for language. You need depth — and depth breaks without the right plumbing.
+Một tầng attention duy nhất là một bộ trích xuất đặc trưng, không phải một mô hình. Một phép nhân ma trận mỗi tầng không đủ năng lực cho ngôn ngữ. Bạn cần độ sâu — và độ sâu hỏng nếu thiếu kết nối đúng.
 
-The 2017 Vaswani paper packaged six design decisions that turned one attention layer into a stackable block. Every transformer since — encoder-only (BERT), decoder-only (GPT), encoder-decoder (T5) — inherits the same skeleton. In 2026 the blocks have been refined (RMSNorm, SwiGLU, pre-norm, RoPE) but the skeleton is identical.
+Bài báo Vaswani năm 2017 đóng gói sáu quyết định thiết kế biến một tầng attention thành một khối có thể xếp chồng. Mọi transformer từ đó — chỉ encoder (BERT), chỉ decoder (GPT), encoder-decoder (T5) — kế thừa cùng khung. Năm 2026 các khối đã được tinh chỉnh (RMSNorm, SwiGLU, pre-norm, RoPE) nhưng khung giống hệt.
 
-This lesson is the skeleton. Next lessons specialize it — 06 for encoders, 07 for decoders, 08 for encoder-decoder.
+Bài học này là khung. Các bài tiếp theo chuyên biệt hóa nó — 06 cho encoder, 07 cho decoder, 08 cho encoder-decoder.
 
 ## The Concept
 
@@ -21,14 +21,14 @@ This lesson is the skeleton. Next lessons specialize it — 06 for encoders, 07 
 
 ### The six pieces
 
-1. **Embedding + positional signal.** Tokens → vectors. Position injected via RoPE (modern) or sinusoidal (classic).
-2. **Self-attention.** Every position attends to every other. Masked in decoders.
-3. **Feed-forward network (FFN).** Position-wise two-layer MLP: `W_2 · activation(W_1 · x)`. Expansion ratio 4× by default.
-4. **Residual connection.** `x + sublayer(x)`. Without this, gradients vanish past ~6 layers.
-5. **Layer normalization.** `LayerNorm` or `RMSNorm` (modern). Stabilizes the residual stream.
-6. **Cross-attention (decoder only).** Queries come from the decoder, keys and values from the encoder output.
+1. **Embedding + tín hiệu vị trí.** Token → vector. Vị trí được đưa vào qua RoPE (hiện đại) hoặc hình sin (cổ điển).
+2. **Self-attention.** Mọi vị trí chú ý đến mọi vị trí khác. Được che trong decoder.
+3. **Mạng truyền xuôi (FFN).** MLP hai tầng theo vị trí: `W_2 · activation(W_1 · x)`. Tỷ lệ mở rộng mặc định 4×.
+4. **Kết nối residual.** `x + sublayer(x)`. Không có điều này, gradient tiêu biến sau ~6 tầng.
+5. **Chuẩn hóa tầng.** `LayerNorm` hoặc `RMSNorm` (hiện đại). Ổn định luồng residual.
+6. **Cross-attention (chỉ decoder).** Query đến từ decoder, key và value từ đầu ra encoder.
 
-Watch a vector flow through one block: attention mixes across positions, the residual carries it forward, the FFN transforms it, and norm keeps the stream stable.
+Quan sát một vector chảy qua một khối: attention trộn giữa các vị trí, residual mang nó về phía trước, FFN biến đổi nó và norm giữ luồng ổn định.
 
 ```figure
 transformer-block
@@ -43,7 +43,7 @@ x → LN → MHA(self) → + → LN → FFN → + → out
                      └── residual ──┘
 ```
 
-Encoder is bidirectional. No masking. All positions see all positions.
+Encoder là hai chiều. Không masking. Mọi vị trí thấy mọi vị trí.
 
 ### Decoder block (used by GPT, T5 decoder)
 
@@ -51,54 +51,54 @@ Encoder is bidirectional. No masking. All positions see all positions.
 x → LN → MHA(masked self) → + → LN → MHA(cross to encoder) → + → LN → FFN → + → out
 ```
 
-Decoder has three sublayers per block. The middle one — cross-attention — is the only place information flows from encoder to decoder. In a pure decoder-only architecture (GPT), cross-attention is omitted and you just have masked self-attention + FFN.
+Decoder có ba tầng con mỗi khối. Tầng giữa — cross-attention — là nơi duy nhất thông tin chảy từ encoder sang decoder. Trong một kiến trúc chỉ decoder thuần (GPT), cross-attention bị bỏ và bạn chỉ có self-attention được che + FFN.
 
 ### Pre-norm vs post-norm
 
-Original paper: `x + sublayer(LN(x))` vs `LN(x + sublayer(x))`. Post-norm lost favor around 2019 — it is harder to train deeply without careful warmup. Pre-norm (`LN` *before* sublayer) is the 2026 default: Llama, Qwen, GPT-3+, Mistral all use it.
+Bài báo gốc: `x + sublayer(LN(x))` so với `LN(x + sublayer(x))`. Post-norm mất ưu thế khoảng năm 2019 — nó khó huấn luyện sâu hơn nếu không warmup cẩn thận. Pre-norm (`LN` *trước* tầng con) là mặc định năm 2026: Llama, Qwen, GPT-3+, Mistral đều dùng nó.
 
 ### The 2026 modernized block
 
-Vaswani 2017 shipped LayerNorm + ReLU. Modern stacks replaced both. What production blocks actually look like:
+Vaswani 2017 phát hành LayerNorm + ReLU. Các ngăn xếp hiện đại thay cả hai. Các khối production thực sự trông như thế nào:
 
-| Component | 2017 | 2026 |
+| Thành phần | 2017 | 2026 |
 |-----------|------|------|
-| Normalization | LayerNorm | RMSNorm |
-| FFN activation | ReLU | SwiGLU |
-| FFN expansion | 4× | 2.6× (SwiGLU uses three matrices, total params match) |
-| Position | Sinusoidal absolute | RoPE |
-| Attention | Full MHA | GQA (or MLA) |
-| Bias terms | Yes | No |
+| Chuẩn hóa | LayerNorm | RMSNorm |
+| Kích hoạt FFN | ReLU | SwiGLU |
+| Mở rộng FFN | 4× | 2.6× (SwiGLU dùng ba ma trận, tổng tham số khớp) |
+| Vị trí | Hình sin tuyệt đối | RoPE |
+| Attention | MHA đầy đủ | GQA (hoặc MLA) |
+| Các số hạng bias | Có | Không |
 
-RMSNorm drops the mean-centering of LayerNorm (one fewer subtraction), which saves compute and is empirically at least as stable. SwiGLU (`Swish(W1 x) ⊙ W3 x`) consistently outperforms ReLU/GELU FFN by ~0.5 point ppl in the Llama, PaLM and Qwen papers.
+RMSNorm bỏ việc trừ trung bình của LayerNorm (ít hơn một phép trừ), tiết kiệm tính toán và thực nghiệm cho thấy ít nhất cũng ổn định tương đương. SwiGLU (`Swish(W1 x) ⊙ W3 x`) nhất quán vượt FFN ReLU/GELU ~0.5 điểm ppl trong các bài báo Llama, PaLM và Qwen.
 
 ### Parameter count
 
-For one block with `d_model = d` and FFN expansion `r`:
+Với một khối có `d_model = d` và mở rộng FFN `r`:
 
-- MHA: `4 · d²` (Q, K, V, O projections)
+- MHA: `4 · d²` (các phép chiếu Q, K, V, O)
 - FFN (SwiGLU): `3 · d · (r · d)` ≈ `3rd²`
-- Norms: negligible
+- Norm: không đáng kể
 
-At `d = 4096, r = 2.6, layers = 32` (roughly Llama 3 8B), total: `32 · (4·4096² + 3·2.6·4096²) ≈ 32 · (16 + 32) M = ~1.5B parameters per layer × 32 ≈ 7B` (plus embeddings and head). Matches published counts.
+Tại `d = 4096, r = 2.6, layers = 32` (xấp xỉ Llama 3 8B), tổng: `32 · (4·4096² + 3·2.6·4096²) ≈ 32 · (16 + 32) M = ~1.5B parameters per layer × 32 ≈ 7B` (cộng embedding và head). Khớp các số đếm đã công bố.
 
 ## Build It
 
 ### Step 1: the building blocks
 
-Using the tiny `Matrix` class from Lesson 03 (copied to this file for independence):
+Dùng lớp `Matrix` nhỏ từ Bài 03 (được sao chép vào file này để độc lập):
 
-- `layer_norm(x, eps=1e-5)` — subtract mean, divide by std.
-- `rms_norm(x, eps=1e-6)` — divide by RMS. No mean subtraction.
-- `gelu(x)` and `silu(x) * W3 x` (SwiGLU).
+- `layer_norm(x, eps=1e-5)` — trừ trung bình, chia cho độ lệch chuẩn.
+- `rms_norm(x, eps=1e-6)` — chia cho RMS. Không trừ trung bình.
+- `gelu(x)` và `silu(x) * W3 x` (SwiGLU).
 - `ffn_swiglu(x, W1, W2, W3)`.
-- `encoder_block(x, params)` and `decoder_block(x, enc_out, params)`.
+- `encoder_block(x, params)` và `decoder_block(x, enc_out, params)`.
 
-See `code/main.py` for the full wiring.
+Xem `code/main.py` để có kết nối đầy đủ.
 
 ### Step 2: wire a 2-layer encoder and a 2-layer decoder
 
-Stack them. Pass the encoder output into every decoder cross-attention. Add a final LN before the output projection.
+Xếp chúng. Truyền đầu ra encoder vào mọi cross-attention decoder. Thêm một LN cuối trước phép chiếu đầu ra.
 
 ```python
 def encode(tokens, params):
@@ -116,59 +116,59 @@ def decode(target_tokens, encoder_out, params):
 
 ### Step 3: run forward on a toy example
 
-Feed a 6-token source and a 5-token target through. Verify the output shape is `(5, vocab)`. No training — this lesson is about the architecture, not the loss.
+Đưa một nguồn 6 token và một đích 5 token qua. Xác minh hình dạng đầu ra là `(5, vocab)`. Không huấn luyện — bài học này về kiến trúc, không phải loss.
 
 ### Step 4: swap in RMSNorm + SwiGLU
 
-Replace LayerNorm and ReLU-FFN with RMSNorm and SwiGLU. Confirm shapes still match. This is the 2026 modernization with one function substitution.
+Thay LayerNorm và ReLU-FFN bằng RMSNorm và SwiGLU. Xác nhận các hình dạng vẫn khớp. Đây là hiện đại hóa năm 2026 bằng một lần thay hàm.
 
 ## Use It
 
-The PyTorch/TF reference implementations: `nn.TransformerEncoderLayer`, `nn.TransformerDecoderLayer`. But most 2026 production code rolls its own block because:
+Các triển khai tham chiếu PyTorch/TF: `nn.TransformerEncoderLayer`, `nn.TransformerDecoderLayer`. Nhưng hầu hết mã production năm 2026 tự xây dựng khối vì:
 
-- Flash Attention is called inside attention, not via `nn.MultiheadAttention`.
-- GQA / MLA are not in the stdlib reference.
-- RoPE, RMSNorm, SwiGLU are not the PyTorch defaults.
+- Flash Attention được gọi bên trong attention, không qua `nn.MultiheadAttention`.
+- GQA / MLA không có trong tham chiếu stdlib.
+- RoPE, RMSNorm, SwiGLU không phải các mặc định PyTorch.
 
-HF `transformers` has clean reference blocks you should read: `modeling_llama.py` is the canonical 2026 decoder-only block. It's ~500 lines and worth walking through once.
+`transformers` của HF có các khối tham chiếu rõ ràng bạn nên đọc: `modeling_llama.py` là khối chỉ decoder kinh điển năm 2026. Nó dài ~500 dòng và đáng đi qua một lần.
 
-**Encoder vs decoder vs encoder-decoder — when to pick:**
+**Encoder so với decoder so với encoder-decoder — khi nào chọn:**
 
-| Need | Pick | Example |
+| Nhu cầu | Chọn | Ví dụ |
 |------|------|---------|
-| Classification, embeddings, QA over text | Encoder-only | BERT, DeBERTa, ModernBERT |
-| Text generation, chat, code, reasoning | Decoder-only | GPT, Llama, Claude, Qwen |
-| Structured input → structured output (translation, summarization) | Encoder-decoder | T5, BART, Whisper |
+| Phân loại, embedding, QA trên văn bản | Chỉ encoder | BERT, DeBERTa, ModernBERT |
+| Sinh văn bản, trò chuyện, mã, suy luận | Chỉ decoder | GPT, Llama, Claude, Qwen |
+| Đầu vào có cấu trúc → đầu ra có cấu trúc (dịch, tóm tắt) | Encoder-decoder | T5, BART, Whisper |
 
-Decoder-only won language because it scales cleanest and handles both comprehension and generation. Encoder-decoder is still best when the input has a clear "source sequence" identity (translation, speech recognition, structured tasks).
+Chỉ decoder thắng ngôn ngữ vì nó mở rộng gọn nhất và xử lý cả hiểu lẫn sinh. Encoder-decoder vẫn tốt nhất khi đầu vào có bản sắc "chuỗi nguồn" rõ ràng (dịch, nhận dạng tiếng nói, các tác vụ có cấu trúc).
 
 ## Ship It
 
-See `outputs/skill-transformer-block-reviewer.md`. The skill reviews a new transformer block implementation against the 2026 defaults and flags missing pieces (pre-norm, RoPE, RMSNorm, GQA, FFN expansion ratio).
+Xem `outputs/skill-transformer-block-reviewer.md`. Skill rà soát một triển khai khối transformer mới theo các mặc định năm 2026 và đánh dấu các phần thiếu (pre-norm, RoPE, RMSNorm, GQA, tỷ lệ mở rộng FFN).
 
 ## Exercises
 
-1. **Easy.** Count the parameters in your encoder_block at `d_model=512, n_heads=8, ffn_expansion=4, swiglu=True`. Validate by implementing the block and using `sum(p.numel() for p in block.parameters())`.
-2. **Medium.** Switch from post-norm to pre-norm. Initialize both and measure the activation norm after 12 stacked layers on random input. Post-norm's activations should explode; pre-norm's should stay bounded.
-3. **Hard.** Implement a 4-layer encoder-decoder on a toy copy task (copy `x` reversed). Train 100 steps. Report loss. Swap in RMSNorm + SwiGLU + RoPE — does loss drop?
+1. **Dễ.** Đếm các tham số trong encoder_block của bạn tại `d_model=512, n_heads=8, ffn_expansion=4, swiglu=True`. Xác thực bằng cách triển khai khối và dùng `sum(p.numel() for p in block.parameters())`.
+2. **Trung bình.** Chuyển từ post-norm sang pre-norm. Khởi tạo cả hai và đo norm kích hoạt sau 12 tầng xếp chồng trên đầu vào ngẫu nhiên. Các kích hoạt của post-norm phải bùng nổ; của pre-norm phải giữ trong giới hạn.
+3. **Khó.** Triển khai một encoder-decoder 4 tầng trên một tác vụ sao chép đồ chơi (sao chép `x` đảo ngược). Huấn luyện 100 bước. Báo cáo loss. Thay bằng RMSNorm + SwiGLU + RoPE — loss có giảm không?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Block | "One transformer layer" | Stack of norm + attention + norm + FFN, wrapped in residual connections. |
-| Residual | "Skip connection" | `x + f(x)` output; enables gradient flow through deep stacks. |
-| Pre-norm | "Normalize before, not after" | Modern: `x + sublayer(LN(x))`. Trains deeper without warmup gymnastics. |
-| RMSNorm | "LayerNorm without the mean" | Divide by RMS; one less op, same empirical stability. |
-| SwiGLU | "The FFN everyone switched to" | `Swish(W1 x) ⊙ W3 x → W2`. Beats ReLU/GELU on LM ppl. |
-| Cross-attention | "How the decoder sees the encoder" | MHA with Q from decoder, K/V from encoder outputs. |
-| FFN expansion | "How wide the middle MLP is" | Ratio of hidden-size to d_model, usually 4 (LayerNorm) or 2.6 (SwiGLU). |
-| Bias-free | "Drop the +b terms" | Modern stacks omit biases in linear layers; slight ppl improvement, smaller model. |
+| Block (Khối) | "Một tầng transformer" | Chồng norm + attention + norm + FFN, được bọc trong các kết nối residual. |
+| Residual (Phần dư) | "Kết nối tắt" | Đầu ra `x + f(x)`; cho phép luồng gradient qua các chồng sâu. |
+| Pre-norm | "Chuẩn hóa trước, không phải sau" | Hiện đại: `x + sublayer(LN(x))`. Huấn luyện sâu hơn không cần xoay xở warmup. |
+| RMSNorm | "LayerNorm không trung bình" | Chia cho RMS; ít hơn một phép toán, cùng độ ổn định thực nghiệm. |
+| SwiGLU | "FFN mọi người chuyển sang" | `Swish(W1 x) ⊙ W3 x → W2`. Thắng ReLU/GELU về ppl LM. |
+| Cross-attention | "Cách decoder thấy encoder" | MHA với Q từ decoder, K/V từ các đầu ra encoder. |
+| FFN expansion (Mở rộng FFN) | "MLP giữa rộng bao nhiêu" | Tỷ lệ kích thước ẩn trên d_model, thường 4 (LayerNorm) hoặc 2.6 (SwiGLU). |
+| Bias-free (Không bias) | "Bỏ các số hạng +b" | Các ngăn xếp hiện đại bỏ bias trong các tầng tuyến tính; cải thiện ppl nhẹ, mô hình nhỏ hơn. |
 
 ## Further Reading
 
-- [Vaswani et al. (2017). Attention Is All You Need](https://arxiv.org/abs/1706.03762) — original block spec.
-- [Xiong et al. (2020). On Layer Normalization in the Transformer Architecture](https://arxiv.org/abs/2002.04745) — why pre-norm beats post-norm deeply.
+- [Vaswani et al. (2017). Attention Is All You Need](https://arxiv.org/abs/1706.03762) — đặc tả khối gốc.
+- [Xiong et al. (2020). On Layer Normalization in the Transformer Architecture](https://arxiv.org/abs/2002.04745) — vì sao pre-norm thắng post-norm ở độ sâu lớn.
 - [Zhang, Sennrich (2019). Root Mean Square Layer Normalization](https://arxiv.org/abs/1910.07467) — RMSNorm.
-- [Shazeer (2020). GLU Variants Improve Transformer](https://arxiv.org/abs/2002.05202) — the SwiGLU paper.
-- [HuggingFace `modeling_llama.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/models/llama/modeling_llama.py) — canonical 2026 decoder-only block.
+- [Shazeer (2020). GLU Variants Improve Transformer](https://arxiv.org/abs/2002.05202) — bài báo SwiGLU.
+- [HuggingFace `modeling_llama.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/models/llama/modeling_llama.py) — khối chỉ decoder kinh điển năm 2026.
