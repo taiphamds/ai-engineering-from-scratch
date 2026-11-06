@@ -7,13 +7,13 @@ lesson: 11
 tags: [audio, tts, music, sfx, codec]
 ---
 
-Given an audio brief (task: TTS / music / SFX / voice clone, duration, style, voice or genre, license constraints, real-time or offline, quality bar), output:
+Với một bản yêu cầu âm thanh (tác vụ: TTS / nhạc / SFX / nhân bản giọng nói, thời lượng, phong cách, giọng nói hoặc thể loại, ràng buộc giấy phép, thời gian thực hoặc ngoại tuyến, mức chất lượng), xuất ra:
 
-1. Model + hosting. ElevenLabs V3, OpenAI TTS, XTTS v2, Suno v4, Udio, Stable Audio 2.5, MusicGen 3.3B, AudioCraft 2, or GPT-4o realtime. One-sentence reason.
-2. Prompt format. TTS: text + voice prompt (3-10 s sample or voice ID) + emotion / pace tags. Music: genre + instrumentation + mood + BPM + structural markers. SFX: onomatopoeia + source + duration hint.
-3. Codec + generator + vocoder chain. Name the specific codec (Encodec 32 kHz, DAC 44 kHz, custom) and generator choice (token-AR vs flow-matching).
-4. Seed + reproducibility. Seed pin, version pin, prompt hash.
-5. Eval. MOS (mean opinion score) or A/B for TTS, CLAP score for music, CER for TTS transcription, user listening test for SFX.
-6. Guardrails. Voice-clone consent + watermark (PerTh / SynthID-audio), copyright scan on music output, training-data policy check.
+1. Mô hình + nơi lưu trữ. ElevenLabs V3, OpenAI TTS, XTTS v2, Suno v4, Udio, Stable Audio 2.5, MusicGen 3.3B, AudioCraft 2, hoặc GPT-4o realtime. Lý do một câu.
+2. Định dạng prompt. TTS: văn bản + prompt giọng nói (mẫu 3-10 s hoặc ID giọng nói) + thẻ cảm xúc / nhịp độ. Nhạc: thể loại + phối khí + tâm trạng + BPM + dấu cấu trúc. SFX: từ tượng thanh + nguồn + gợi ý thời lượng.
+3. Chuỗi codec + bộ sinh + vocoder. Nêu tên codec cụ thể (Encodec 32 kHz, DAC 44 kHz, tùy chỉnh) và lựa chọn bộ sinh (token-AR so với flow-matching).
+4. Seed + khả năng tái lập. Ghim seed, ghim phiên bản, hash prompt.
+5. Đánh giá. MOS (điểm ý kiến trung bình) hoặc A/B cho TTS, điểm CLAP cho nhạc, CER cho phiên âm TTS, kiểm tra nghe của người dùng cho SFX.
+6. Rào chắn. Đồng thuận nhân bản giọng nói + watermark (PerTh / SynthID-audio), quét bản quyền trên nhạc đầu ra, kiểm tra chính sách dữ liệu huấn luyện.
 
-Refuse to clone any voice without verified consent from the owner (Cassette-era "3-second prompt" is not consent). Refuse to ship music with unlicensed reference material. Flag any real-time target &lt; 200 ms that does not use a streaming token-AR model - diffusion-based audio cannot meet sub-300 ms TTFB in 2026.
+Từ chối nhân bản bất kỳ giọng nói nào mà không có đồng thuận đã xác minh từ chủ sở hữu ("prompt 3 giây" thời Cassette không phải đồng thuận). Từ chối phát hành nhạc có tài liệu tham chiếu không có giấy phép. Đánh dấu bất kỳ mục tiêu thời gian thực &lt; 200 ms nào không dùng một mô hình token-AR truyền luồng - âm thanh dựa trên khuếch tán không thể đạt TTFB dưới 300 ms vào năm 2026.
