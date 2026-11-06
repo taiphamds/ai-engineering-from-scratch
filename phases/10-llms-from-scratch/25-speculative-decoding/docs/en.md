@@ -1,6 +1,6 @@
 # Speculative Decoding and EAGLE
 
-> A frontier LLM generating one token requires a full forward pass over billions of parameters. That forward pass is massively over-provisioned: most of the time a much smaller model can guess the next 3-5 tokens correctly, and the big model only needs to *verify* the guess. When the guess is right you got 5 tokens for the price of one. Speculative decoding (Leviathan et al. 2023) made this exact, and EAGLE-3 (2025) pushed acceptance rates to ~4.5 tokens per verify — a 4-5x speedup at matched output distribution.
+> Một LLM tiên tiến nhất sinh một token cần một forward pass đầy đủ trên hàng tỷ tham số. Forward pass đó được cấp dư tài nguyên rất nhiều: phần lớn thời gian, một mô hình nhỏ hơn nhiều có thể đoán đúng 3-5 token tiếp theo, và mô hình lớn chỉ cần *xác minh* dự đoán. Khi dự đoán đúng, bạn nhận được 5 token với giá của một token. Speculative decoding (Leviathan và cộng sự 2023) khiến điều này chính xác, và EAGLE-3 (2025) đẩy tỷ lệ chấp nhận lên ~4.5 token mỗi lần xác minh — tăng tốc 4-5x với phân phối đầu ra khớp nhau.
 
 **Type:** Build
 **Languages:** Python (with numpy)
@@ -9,31 +9,31 @@
 
 ## The Problem
 
-Decode throughput for a 70B-class model on H100 is typically 40-80 tokens/second. Each token requires a full forward pass reading all model weights from HBM. You cannot make the model smaller without changing its output. You cannot increase batch size beyond memory. You're stuck — unless you can let the model output more than one token per forward pass.
+Thông lượng giải mã cho một mô hình loại 70B trên H100 thường là 40-80 token/giây. Mỗi token cần một forward pass đầy đủ đọc mọi trọng số mô hình từ HBM. Bạn không thể làm mô hình nhỏ hơn mà không thay đổi đầu ra của nó. Bạn không thể tăng batch size vượt quá bộ nhớ. Bạn bị kẹt — trừ khi có thể để mô hình xuất ra nhiều hơn một token mỗi forward pass.
 
-Autoregressive generation looks inherently serial: `x_{t+1} = sample(p(· | x_{1:t}))`. But there is a concurrency opportunity. If you had a cheap predictor that said "the next 4 tokens are probably [a, b, c, d]" you could verify all 5 positions in a **single forward pass of the big model** and accept the longest matching prefix.
+Sinh tự hồi quy có vẻ vốn có tính tuần tự: `x_{t+1} = sample(p(· | x_{1:t}))`. Nhưng có một cơ hội thực hiện đồng thời. Nếu bạn có một bộ dự đoán chi phí thấp nói rằng "4 token tiếp theo có lẽ là [a, b, c, d]", bạn có thể xác minh cả 5 vị trí trong **một forward pass duy nhất của mô hình lớn** và chấp nhận tiền tố khớp dài nhất.
 
-Leviathan, Kalai, Matias (2023, "Fast Inference from Transformers via Speculative Decoding") made this exact via a clever accept/reject rule that preserves the target model's sampling distribution. The same output distribution, 2-4× faster.
+Leviathan, Kalai, Matias (2023, "Fast Inference from Transformers via Speculative Decoding") khiến điều này chính xác thông qua một quy tắc chấp nhận/từ chối khéo léo bảo toàn phân phối lấy mẫu của mô hình đích. Cùng phân phối đầu ra, nhanh hơn 2-4×.
 
 ## The Concept
 
 ### The Two-Model Setup
 
-- **Target model** `M_p`: the big, slow, high-quality model you actually want samples from. Distribution: `p(x)`.
-- **Draft model** `M_q`: a small, fast, lower-quality model. Distribution: `q(x)`. 5-30× smaller.
+- **Mô hình đích** `M_p`: mô hình lớn, chậm, chất lượng cao mà bạn thực sự muốn lấy mẫu từ đó. Phân phối: `p(x)`.
+- **Mô hình dự thảo** `M_q`: một mô hình nhỏ, nhanh, chất lượng thấp hơn. Phân phối: `q(x)`. Nhỏ hơn 5-30×.
 
-Per step:
+Mỗi bước:
 
-1. Draft model proposes `K` tokens autoregressively: `x_1, x_2, ..., x_K ~ q`.
-2. Target model runs ONE forward pass over all `K+1` positions in parallel, producing `p(x_k)` for each proposed token.
-3. Accept/reject each token left-to-right via the modified rejection-sampling rule below. Accept the longest matching prefix.
-4. If any token is rejected, sample the replacement from the corrected distribution and stop. Otherwise sample one bonus token from `p(· | x_1...x_K)`.
+1. Mô hình dự thảo đề xuất `K` token theo cách tự hồi quy: `x_1, x_2, ..., x_K ~ q`.
+2. Mô hình đích chạy MỘT forward pass trên cả `K+1` vị trí song song, tạo `p(x_k)` cho mỗi token được đề xuất.
+3. Chấp nhận/từ chối từng token từ trái sang phải qua quy tắc lấy mẫu loại bỏ đã sửa đổi bên dưới. Chấp nhận tiền tố khớp dài nhất.
+4. Nếu bất kỳ token nào bị từ chối, lấy mẫu thay thế từ phân phối đã hiệu chỉnh và dừng. Nếu không, lấy mẫu thêm một token thưởng từ `p(· | x_1...x_K)`.
 
-If the draft matches the target perfectly, you get K+1 tokens per target-forward. If the draft is wrong at position 1, you get only 1 token.
+Nếu bản dự thảo khớp hoàn hảo với đích, bạn nhận K+1 token mỗi forward của đích. Nếu bản dự thảo sai ở vị trí 1, bạn chỉ nhận 1 token.
 
 ### The Exactness Rule
 
-Speculative decoding is **provably equivalent in distribution to sampling from p**. The rejection rule:
+Speculative decoding **được chứng minh là tương đương về phân phối với lấy mẫu từ p**. Quy tắc loại bỏ:
 
 ```
 For each drafted token x_t:
@@ -45,51 +45,51 @@ For each drafted token x_t:
         stop
 ```
 
-where `(p - q)+` denotes the positive part of the pointwise difference. When the draft and target agree (`p ≈ q`) acceptance is nearly 1. When they disagree, the residual distribution is constructed so that the overall sample is still exactly `p`.
+trong đó `(p - q)+` biểu thị phần dương của hiệu theo từng điểm. Khi bản dự thảo và đích đồng thuận (`p ≈ q`), tỷ lệ chấp nhận gần 1. Khi chúng bất đồng, phân phối phần dư được xây dựng sao cho mẫu tổng thể vẫn chính xác là `p`.
 
-**Greedy case.** For temperature=0 sampling just check `argmax(p) == x_t`. If yes, accept; if no, output `argmax(p)` and stop.
+**Trường hợp greedy.** Với lấy mẫu temperature=0, chỉ kiểm tra `argmax(p) == x_t`. Nếu đúng, chấp nhận; nếu không, xuất `argmax(p)` và dừng.
 
 ### Expected Speedup
 
-If the draft model's token-level acceptance rate is `α`, the expected tokens produced per target-forward pass is:
+Nếu tỷ lệ chấp nhận ở cấp token của mô hình dự thảo là `α`, số token kỳ vọng được tạo trên mỗi forward pass của đích là:
 
 ```
 E[tokens] = (1 - α^{K+1}) / (1 - α)        # K = draft length, α in [0, 1]
 ```
 
-At `α = 0.8, K = 4`: `(1 - 0.8^5)/(1 - 0.8) = 3.36` tokens per forward. A single target forward costs roughly `cost_q * K + cost_p` (K draft steps plus one target verify). If `cost_p >> cost_q * K` the speedup ratio is `3.36× / 1 = 3.36×` on throughput.
+Với `α = 0.8, K = 4`: `(1 - 0.8^5)/(1 - 0.8) = 3.36` token mỗi forward. Một forward của đích tốn khoảng `cost_q * K + cost_p` (K bước dự thảo cộng một lần xác minh của đích). Nếu `cost_p >> cost_q * K`, tỷ lệ tăng tốc là `3.36× / 1 = 3.36×` về thông lượng.
 
-The only real parameter is `α`, which depends entirely on the draft-target alignment. A good draft is everything.
+Tham số thực sự duy nhất là `α`, phụ thuộc hoàn toàn vào sự căn chỉnh dự thảo-đích. Một bản dự thảo tốt là tất cả.
 
 ### Training the Draft: Distillation
 
-A random small model makes a poor draft. The standard recipe is to distill from the target:
+Một mô hình nhỏ ngẫu nhiên làm bản dự thảo kém. Công thức tiêu chuẩn là chưng cất từ đích:
 
-1. Pick a small architecture (~1B for a 70B target, ~500M for a 7B target).
-2. Run the target model on a large text corpus; store its next-token distributions.
-3. Train the draft with KL divergence against the target's distribution (not against ground-truth tokens).
+1. Chọn một kiến trúc nhỏ (~1B cho đích 70B, ~500M cho đích 7B).
+2. Chạy mô hình đích trên một ngữ liệu văn bản lớn; lưu các phân phối token tiếp theo của nó.
+3. Huấn luyện bản dự thảo với KL divergence so với phân phối của đích (không phải so với các token nhãn thực).
 
-The result: `α` typically 0.6-0.8 on coding, 0.7-0.85 on natural-language chat. Speedups 2-3× in production.
+Kết quả: `α` thường là 0.6-0.8 trên lập trình, 0.7-0.85 trên chat ngôn ngữ tự nhiên. Mức tăng tốc 2-3× trong sản xuất.
 
 ### EAGLE: Tree Drafting + Feature Reuse
 
-Li, Wei, Zhang, Zhang (2024, "EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty") observed two inefficiencies in standard speculative decoding:
+Li, Wei, Zhang, Zhang (2024, "EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty") quan sát hai điểm kém hiệu quả trong speculative decoding tiêu chuẩn:
 
-1. The draft does K serial steps, each full-stack. But the draft could reuse the target's features (hidden states) from the most recent verify — the target already computed rich representations that the draft is re-deriving from scratch.
-2. The draft outputs a linear chain. If the draft could output a *tree* of candidates (each node multiple guesses), the target's single forward pass could verify multiple candidate paths in parallel via a tree attention mask, and pick the longest accepted branch.
+1. Bản dự thảo thực hiện K bước tuần tự, mỗi bước qua toàn bộ ngăn xếp. Nhưng bản dự thảo có thể tái sử dụng các đặc trưng (trạng thái ẩn) của đích từ lần xác minh gần nhất — đích đã tính các biểu diễn phong phú mà bản dự thảo đang suy ra lại từ đầu.
+2. Bản dự thảo xuất một chuỗi tuyến tính. Nếu bản dự thảo có thể xuất một *cây* ứng viên (mỗi node nhiều dự đoán), forward pass duy nhất của đích có thể xác minh nhiều đường ứng viên song song qua một tree attention mask, và chọn nhánh được chấp nhận dài nhất.
 
-EAGLE-1 changes:
-- Draft input = target's final hidden state at position t, not raw tokens.
-- Draft architecture = 1 transformer decoder layer (not a separate small model).
-- Output = tree of K = 4-8 candidates per depth, depth 4-6.
+Các thay đổi của EAGLE-1:
+- Đầu vào dự thảo = trạng thái ẩn cuối cùng của đích tại vị trí t, không phải token thô.
+- Kiến trúc dự thảo = 1 lớp transformer decoder (không phải một mô hình nhỏ riêng).
+- Đầu ra = cây K = 4-8 ứng viên mỗi độ sâu, độ sâu 4-6.
 
-EAGLE-2 (2024) adds dynamic tree topology: the tree grows wider where the draft is uncertain and stays narrow where it is confident. Raises `α_effective` without increasing verify cost.
+EAGLE-2 (2024) thêm cấu trúc liên kết cây động: cây mở rộng hơn ở nơi bản dự thảo không chắc chắn và giữ hẹp ở nơi nó tự tin. Tăng `α_effective` mà không tăng chi phí xác minh.
 
-EAGLE-3 (Li et al. 2025, "EAGLE-3: Scaling up Inference Acceleration of Large Language Models via Training-Time Test") removes the fixed top-layer feature dependency and trains the draft with a new "test-time simulation" loss — the draft is trained on outputs that match the target's test-time distribution rather than teacher-forced training distribution. Acceptance rate rises from 0.75 (EAGLE-2) to 0.82 (EAGLE-3), and mean tokens/verify from 3.0 to 4.5.
+EAGLE-3 (Li và cộng sự 2025, "EAGLE-3: Scaling up Inference Acceleration of Large Language Models via Training-Time Test") loại bỏ sự phụ thuộc cố định vào đặc trưng lớp trên cùng và huấn luyện bản dự thảo bằng một loss "mô phỏng lúc kiểm thử" mới — bản dự thảo được huấn luyện trên các đầu ra khớp với phân phối lúc kiểm thử của đích thay vì phân phối huấn luyện teacher-forced. Tỷ lệ chấp nhận tăng từ 0.75 (EAGLE-2) lên 0.82 (EAGLE-3), và số token trung bình mỗi lần xác minh từ 3.0 lên 4.5.
 
 ### Tree Attention Verification
 
-When the draft outputs a tree, the target model verifies it in a single forward pass using a **tree attention mask** — a causal mask that encodes the tree topology rather than a pure line. Each token attends only to its ancestors in the tree. The verify pass is still one forward, one matmul; the topological mask costs only a few extra KV entries.
+Khi bản dự thảo xuất một cây, mô hình đích xác minh nó trong một forward pass duy nhất bằng **tree attention mask** — một mặt nạ nhân quả mã hóa cấu trúc liên kết cây thay vì một đường thuần túy. Mỗi token chỉ attend đến các tổ tiên của nó trong cây. Lần xác minh vẫn là một forward, một matmul; mặt nạ cấu trúc liên kết chỉ tốn thêm vài mục KV.
 
 ```
         root
@@ -99,20 +99,20 @@ When the draft outputs a tree, the target model verifies it in a single forward 
     c  d   e   f
 ```
 
-If `a, b` are competing first-token candidates and `c, d, e, f` are second-token candidates, all six positions are verified in one forward pass. The output is the longest prefix along any accepted path.
+Nếu `a, b` là các ứng viên token đầu tiên cạnh tranh và `c, d, e, f` là các ứng viên token thứ hai, cả sáu vị trí được xác minh trong một forward pass. Đầu ra là tiền tố dài nhất dọc theo bất kỳ đường nào được chấp nhận.
 
 ### When It Wins, When It Doesn't
 
-**Wins:**
-- Chat / completion with predictable text (code, common English, structured output). `α` is high.
-- Settings with unused GPU compute during decode (memory-bound phase). Tree drafting uses the available FLOPs.
+**Có lợi:**
+- Chat / hoàn thành với văn bản có thể dự đoán (mã, tiếng Anh thông dụng, đầu ra có cấu trúc). `α` cao.
+- Các thiết lập có tính toán GPU chưa được sử dụng trong giải mã (giai đoạn bị giới hạn bởi bộ nhớ). Dự thảo cây dùng FLOPs sẵn có.
 
-**Loses / no win:**
-- Highly stochastic outputs (creative writing at high temperature). `α` drops toward `1/|vocab|`.
-- Batch serving with very high concurrency — batching already fills the FLOPs, little room for tree verification.
-- Very small target models where the draft isn't much smaller.
+**Bất lợi / không có lợi:**
+- Đầu ra có tính ngẫu nhiên cao (viết sáng tạo ở temperature cao). `α` giảm về phía `1/|vocab|`.
+- Phục vụ theo batch với mức đồng thời rất cao — batching đã lấp đầy FLOPs, còn ít chỗ cho xác minh cây.
+- Các mô hình đích rất nhỏ mà bản dự thảo không nhỏ hơn nhiều.
 
-Production shops typically report 2-3× wall-clock speedup on chat, 3-5× on code generation, and near-zero on creative writing.
+Các đơn vị sản xuất thường báo cáo tăng tốc thời gian thực 2-3× trên chat, 3-5× trên sinh mã và gần bằng không trên viết sáng tạo.
 
 ```figure
 speculative-decoding
@@ -122,10 +122,10 @@ speculative-decoding
 
 `code/main.py`:
 
-- A reference `speculative_decode(target, draft, prompt, K, temperature)` that implements the exact rejection rule and verifies it preserves the target's distribution (empirical KL < 0.01 vs plain target sampling).
-- An EAGLE-style tree drafter that builds a depth-K tree with top-p branching.
-- A tree attention mask builder that produces the right causal pattern for a verifier.
-- An acceptance-rate harness that runs both on a tiny LM (distill one GPT-2-small from a GPT-2-medium target).
+- Một `speculative_decode(target, draft, prompt, K, temperature)` tham chiếu triển khai quy tắc loại bỏ chính xác và xác minh nó bảo toàn phân phối của đích (KL thực nghiệm < 0.01 so với lấy mẫu đích thông thường).
+- Một bộ dự thảo cây kiểu EAGLE xây dựng cây độ sâu K với phân nhánh top-p.
+- Một bộ xây dựng tree attention mask tạo mẫu nhân quả đúng cho bộ xác minh.
+- Một bộ kiểm tra tỷ lệ chấp nhận chạy cả hai trên một LM nhỏ (chưng cất một GPT-2-small từ đích GPT-2-medium).
 
 ```python
 def speculative_step(p_target, q_draft, K, temperature=1.0):
@@ -162,49 +162,49 @@ def speculative_step(p_target, q_draft, K, temperature=1.0):
 
 ## Use It
 
-- **vLLM** and **SGLang** ship first-class speculative decoding. In vLLM, pass `--speculative-config` a JSON object with `method`, `model`, and `num_speculative_tokens`; EAGLE-3 is `"method": "eagle3"`.
-- **NVIDIA TensorRT-LLM** supports Medusa and EAGLE trees natively.
-- **Reference draft models**: `Qwen/Qwen3-0.6B` (drafts for Qwen3-32B), `meta-llama/Llama-3.2-1B-Instruct` (drafts for Llama 3.x 70B).
-- **Medusa heads** (Cai et al. 2024, "Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads"): instead of a draft model, add K parallel prediction heads to the target itself. Simpler to deploy, slightly lower acceptance than EAGLE.
+- **vLLM** và **SGLang** cung cấp speculative decoding với hỗ trợ hạng nhất. Trong vLLM, truyền cho `--speculative-config` một đối tượng JSON với `method`, `model` và `num_speculative_tokens`; EAGLE-3 là `"method": "eagle3"`.
+- **NVIDIA TensorRT-LLM** hỗ trợ Medusa và cây EAGLE nguyên bản.
+- **Các mô hình dự thảo tham chiếu**: `Qwen/Qwen3-0.6B` (dự thảo cho Qwen3-32B), `meta-llama/Llama-3.2-1B-Instruct` (dự thảo cho Llama 3.x 70B).
+- **Các head Medusa** (Cai và cộng sự 2024, "Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads"): thay vì một mô hình dự thảo, thêm K head dự đoán song song vào chính đích. Triển khai đơn giản hơn, tỷ lệ chấp nhận thấp hơn EAGLE một chút.
 
 ## Ship It
 
-This lesson produces `outputs/skill-speculative-tuning.md` — a skill that profiles a target model's workload and chooses: draft model, K (draft length), tree width, temperature, and when to fall back to plain decode.
+Bài học này tạo ra `outputs/skill-speculative-tuning.md` — một skill phân tích khối lượng công việc của mô hình đích và chọn: mô hình dự thảo, K (độ dài dự thảo), độ rộng cây, temperature và khi nào quay về giải mã thông thường.
 
 ## Exercises
 
-1. Implement the exact rejection rule and empirically verify it. Run 10K samples via `speculative_decode` and via plain target sampling; compute TV distance between the two output distributions. Should be < 0.01.
+1. Triển khai quy tắc loại bỏ chính xác và xác minh nó bằng thực nghiệm. Chạy 10K mẫu qua `speculative_decode` và qua lấy mẫu đích thông thường; tính khoảng cách TV giữa hai phân phối đầu ra. Phải < 0.01.
 
-2. Compute the speedup formula. Given fixed `α` and `K`, plot expected tokens per target-forward. Find the optimal K for α ∈ {0.5, 0.7, 0.9}.
+2. Tính công thức tăng tốc. Với `α` và `K` cố định, vẽ số token kỳ vọng mỗi forward của đích. Tìm K tối ưu cho α ∈ {0.5, 0.7, 0.9}.
 
-3. Train a tiny draft. Take a 124M GPT-2 target and distill a 30M GPT-2 draft on 100M tokens with KL loss. Measure `α` on held-out text. Expected: 0.6-0.7.
+3. Huấn luyện một bản dự thảo nhỏ. Lấy đích GPT-2 124M và chưng cất bản dự thảo GPT-2 30M trên 100M token với KL loss. Đo `α` trên văn bản giữ riêng. Kỳ vọng: 0.6-0.7.
 
-4. Implement EAGLE-style tree drafting. Instead of a chain, have the draft output top-3 branches at each depth. Build the tree attention mask. Verify the target accepts the longest correct branch.
+4. Triển khai dự thảo cây kiểu EAGLE. Thay vì một chuỗi, để bản dự thảo xuất các nhánh top-3 ở mỗi độ sâu. Xây dựng tree attention mask. Xác minh đích chấp nhận nhánh đúng dài nhất.
 
-5. Measure failure modes. Run speculative decode at temperature=1.5 (high stochasticity). Show α collapses and the algorithm is slower than plain decode due to draft overhead.
+5. Đo các dạng thất bại. Chạy speculative decode ở temperature=1.5 (tính ngẫu nhiên cao). Cho thấy α sụp đổ và thuật toán chậm hơn giải mã thông thường do chi phí dự thảo.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Target model | "The big model" | The slow, high-quality model you want samples from (p distribution) |
-| Draft model | "The speculator" | The small, fast predictor (q distribution); 5-30x smaller |
-| K / draft length | "Look-ahead" | Number of speculated tokens per verify pass |
-| α / acceptance rate | "Hit rate" | Per-token probability that the draft's proposal is accepted |
-| Exact rejection rule | "The accept test" | r < p/q compare that preserves target's distribution |
-| Residual distribution | "Corrected p-q" | (p - q)+ / ||(p - q)+||_1, the distribution to sample from on rejection |
-| Tree drafting | "Branching speculation" | Draft outputs a tree of candidates, verified in one pass with tree-structured attention mask |
-| Tree attention mask | "Topological mask" | Causal mask encoding the tree topology so each node attends only to its ancestors |
-| Medusa heads | "Parallel heads" | K extra prediction heads on the target itself; no separate draft model |
-| EAGLE feature reuse | "Hidden-state draft" | Draft input is target's last hidden state, not raw tokens, shrinking the draft |
-| Test-time simulation loss | "EAGLE-3 training" | Train draft on outputs matching target's test-time distribution, not teacher forcing |
+| Target model (Mô hình đích) | "Mô hình lớn" | Mô hình chậm, chất lượng cao mà bạn muốn lấy mẫu từ đó (phân phối p) |
+| Draft model (Mô hình dự thảo) | "Bộ suy đoán" | Bộ dự đoán nhỏ, nhanh (phân phối q); nhỏ hơn 5-30x |
+| K / draft length (K / độ dài dự thảo) | "Nhìn trước" | Số token được suy đoán mỗi lần xác minh |
+| α / acceptance rate (α / tỷ lệ chấp nhận) | "Tỷ lệ trúng" | Xác suất trên mỗi token mà đề xuất của bản dự thảo được chấp nhận |
+| Exact rejection rule (Quy tắc loại bỏ chính xác) | "Phép kiểm tra chấp nhận" | So sánh r < p/q bảo toàn phân phối của đích |
+| Residual distribution (Phân phối phần dư) | "p-q đã hiệu chỉnh" | (p - q)+ / ||(p - q)+||_1, phân phối để lấy mẫu khi từ chối |
+| Tree drafting (Dự thảo cây) | "Suy đoán phân nhánh" | Bản dự thảo xuất một cây ứng viên, được xác minh trong một lần với attention mask có cấu trúc cây |
+| Tree attention mask (Mặt nạ attention cây) | "Mặt nạ cấu trúc liên kết" | Mặt nạ nhân quả mã hóa cấu trúc liên kết cây để mỗi node chỉ attend đến các tổ tiên của nó |
+| Medusa heads (Các head Medusa) | "Các head song song" | K head dự đoán bổ sung trên chính đích; không có mô hình dự thảo riêng |
+| EAGLE feature reuse (Tái sử dụng đặc trưng EAGLE) | "Dự thảo trạng thái ẩn" | Đầu vào dự thảo là trạng thái ẩn cuối của đích, không phải token thô, thu nhỏ bản dự thảo |
+| Test-time simulation loss (Loss mô phỏng lúc kiểm thử) | "Huấn luyện EAGLE-3" | Huấn luyện bản dự thảo trên các đầu ra khớp với phân phối lúc kiểm thử của đích, không phải teacher forcing |
 
 ## Further Reading
 
-- [Leviathan, Kalai, Matias, 2023 — "Fast Inference from Transformers via Speculative Decoding"](https://arxiv.org/abs/2211.17192) — the exact rejection rule and the theoretical speedup analysis
-- [Chen, Borgeaud, Irving et al., 2023 — "Accelerating Large Language Model Decoding with Speculative Sampling"](https://arxiv.org/abs/2302.01318) — concurrent speculative-sampling paper at DeepMind
-- [Cai, Li, Geng, Wang, Wang, Zhu, Dao, 2024 — "Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads"](https://arxiv.org/abs/2401.10774) — parallel-heads alternative to a draft model
-- [Li, Wei, Zhang, Zhang, 2024 — "EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty"](https://arxiv.org/abs/2401.15077) — feature reuse and tree drafting
-- [Li et al., 2024 — "EAGLE-2: Faster Inference of Language Models with Dynamic Draft Trees"](https://arxiv.org/abs/2406.16858) — dynamic tree topology
-- [Li et al., 2025 — "EAGLE-3: Scaling up Inference Acceleration of Large Language Models via Training-Time Test"](https://arxiv.org/abs/2503.01840) — train-time test-time matching
-- [Fu, Haotian, Peng et al., 2024 — "Break the Sequential Dependency of LLM Inference Using Lookahead Decoding"](https://arxiv.org/abs/2402.02057) — Jacobi/lookahead decoding, a speculator-free alternative
+- [Leviathan, Kalai, Matias, 2023 — "Fast Inference from Transformers via Speculative Decoding"](https://arxiv.org/abs/2211.17192) — quy tắc loại bỏ chính xác và phân tích tăng tốc lý thuyết
+- [Chen, Borgeaud, Irving et al., 2023 — "Accelerating Large Language Model Decoding with Speculative Sampling"](https://arxiv.org/abs/2302.01318) — bài báo speculative sampling cùng thời điểm tại DeepMind
+- [Cai, Li, Geng, Wang, Wang, Zhu, Dao, 2024 — "Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads"](https://arxiv.org/abs/2401.10774) — phương án head song song thay cho mô hình dự thảo
+- [Li, Wei, Zhang, Zhang, 2024 — "EAGLE: Speculative Sampling Requires Rethinking Feature Uncertainty"](https://arxiv.org/abs/2401.15077) — tái sử dụng đặc trưng và dự thảo cây
+- [Li et al., 2024 — "EAGLE-2: Faster Inference of Language Models with Dynamic Draft Trees"](https://arxiv.org/abs/2406.16858) — cấu trúc liên kết cây động
+- [Li et al., 2025 — "EAGLE-3: Scaling up Inference Acceleration of Large Language Models via Training-Time Test"](https://arxiv.org/abs/2503.01840) — khớp thời điểm huấn luyện với thời điểm kiểm thử
+- [Fu, Haotian, Peng et al., 2024 — "Break the Sequential Dependency of LLM Inference Using Lookahead Decoding"](https://arxiv.org/abs/2402.02057) — giải mã Jacobi/lookahead, một phương án thay thế không cần bộ suy đoán

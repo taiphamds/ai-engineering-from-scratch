@@ -7,21 +7,21 @@ lesson: 25
 tags: [speculative-decoding, draft-model, alpha, throughput, inference, decode-latency]
 ---
 
-Given the target model (size, family, tokenizer), the workload telemetry (task mix, prompt-vs-decode token ratio, p50/p99 decode latency, accelerator and HBM headroom, average batch size, sampling temperature distribution), and the available draft checkpoints, output:
+Với mô hình đích (kích thước, họ, tokenizer), số liệu đo khối lượng công việc (hỗn hợp tác vụ, tỷ lệ token prompt so với decode, độ trễ giải mã p50/p99, dung lượng dư của bộ tăng tốc và HBM, batch size trung bình, phân phối temperature lấy mẫu) và các checkpoint dự thảo sẵn có, xuất:
 
-1. Draft choice. Pick from same-family small (Llama-3.2-1B for Llama-70B), a distilled draft trained on the target's outputs, Medusa heads bolted on the target, or "no spec decode" if no draft is closer than 30 percent FLOP cost ratio. Confirm tokenizer match against the target byte-for-byte; refuse a mismatched tokenizer.
-2. Draft length K. Argmax of E[tokens] / (1 + K x c) where c is the draft-to-target cost ratio. Show the work for K in 2, 3, 4, 5, 6 using the measured alpha from a calibration run on 5_000 tokens of in-distribution data. Default K=4 for chat, K=6 for code, K=2 for high-temperature creative writing.
-3. Temperature gate. Set a temperature threshold above which spec decode is disabled. Default 0.8; lower to 0.6 if the calibration shows alpha collapsing earlier. Reject any temperature gate that depends on per-request inspection that adds more than 50 microseconds.
-4. Tree budget. If the serving stack supports tree drafting, pick a small fixed tree (depth 2, branch 3-2) for batch under 8; flat chain for batch over 32. State the verifier's KV scratch size in bytes and confirm it fits in HBM headroom.
-5. Fallback policy. Name the metric (sliding-window measured alpha over the last 1_000 verifies) and the threshold (alpha under 0.4) at which the server drops back to plain autoregressive decode for that request stream. Include the per-request lifetime of the fallback decision.
+1. Lựa chọn bản dự thảo. Chọn từ mô hình nhỏ cùng họ (Llama-3.2-1B cho Llama-70B), bản dự thảo chưng cất được huấn luyện trên đầu ra của đích, các head Medusa gắn thêm vào đích, hoặc "không spec decode" nếu không có bản dự thảo nào gần hơn tỷ lệ chi phí FLOP 30 phần trăm. Xác nhận tokenizer khớp với đích từng byte; từ chối tokenizer không khớp.
+2. Độ dài dự thảo K. Argmax của E[tokens] / (1 + K x c) trong đó c là tỷ lệ chi phí dự thảo trên đích. Trình bày phép tính cho K thuộc 2, 3, 4, 5, 6 bằng alpha đo được từ một lượt hiệu chuẩn trên 5_000 token dữ liệu trong phân phối. Mặc định K=4 cho chat, K=6 cho mã, K=2 cho viết sáng tạo temperature cao.
+3. Ngưỡng temperature. Đặt một ngưỡng temperature mà trên đó spec decode bị tắt. Mặc định 0.8; giảm xuống 0.6 nếu hiệu chuẩn cho thấy alpha sụp đổ sớm hơn. Loại bỏ bất kỳ ngưỡng temperature nào phụ thuộc vào việc kiểm tra từng yêu cầu làm tăng hơn 50 micro giây.
+4. Ngân sách cây. Nếu ngăn xếp phục vụ hỗ trợ dự thảo cây, chọn một cây cố định nhỏ (độ sâu 2, nhánh 3-2) cho batch dưới 8; chuỗi phẳng cho batch trên 32. Nêu kích thước vùng KV tạm của bộ xác minh tính bằng byte và xác nhận nó vừa phần HBM còn dư.
+5. Chính sách dự phòng. Nêu tên chỉ số (alpha đo theo cửa sổ trượt trên 1_000 lần xác minh gần nhất) và ngưỡng (alpha dưới 0.4) mà tại đó máy chủ quay về giải mã tự hồi quy thông thường cho luồng yêu cầu đó. Gồm thời hạn của quyết định dự phòng trên mỗi yêu cầu.
 
-Refuse spec decode at batch size above the point where the verifier is compute-bound. Above that point the unused FLOPs the speculator is meant to soak up no longer exist; throughput drops. Refuse spec decode for any task family with measured alpha under 0.4; the draft overhead dominates and wall-clock latency gets worse. Refuse a draft that has not been validated on a held-out 1_000-token sample against the target: an unvalidated draft is a silent KL drift.
+Từ chối spec decode ở batch size cao hơn điểm mà bộ xác minh bị giới hạn bởi tính toán. Trên điểm đó, FLOPs chưa được sử dụng mà bộ suy đoán được kỳ vọng tận dụng không còn tồn tại; thông lượng giảm. Từ chối spec decode cho bất kỳ họ tác vụ nào có alpha đo được dưới 0.4; chi phí dự thảo chiếm ưu thế và độ trễ thời gian thực tệ hơn. Từ chối bản dự thảo chưa được xác thực trên mẫu 1_000 token giữ riêng so với đích: một bản dự thảo chưa xác thực là sự trôi KL âm thầm.
 
-Example input: "Llama-3.3-70B on 8xH100, chat workload, batch 16, p50 decode 28 ms, p99 60 ms, temperature distribution mean 0.4 / max 1.2, calibration shows alpha 0.78 on chat, 0.61 on code."
+Đầu vào ví dụ: "Llama-3.3-70B trên 8xH100, khối lượng công việc chat, batch 16, giải mã p50 28 ms, p99 60 ms, phân phối temperature trung bình 0.4 / tối đa 1.2, hiệu chuẩn cho thấy alpha 0.78 trên chat, 0.61 trên mã."
 
-Example output:
-- Draft: Llama-3.2-1B-Instruct. Same tokenizer, same family, ratio c approx 0.03.
-- K: 4. E[tokens/verify] = 3.4 chat, 2.5 code. K=5 gains 0.1 token chat and pays 0.03 extra c; reject.
-- Temperature gate: 0.8. Above 0.8 alpha drops below 0.45 on the calibration set.
-- Tree budget: depth 2 branch (3, 2). KV scratch 480 MB at batch 16 fits.
-- Fallback: sliding-window alpha over last 1_000 verifies under 0.40 disables spec decode for that stream for 30 s, then probes again.
+Đầu ra ví dụ:
+- Bản dự thảo: Llama-3.2-1B-Instruct. Cùng tokenizer, cùng họ, tỷ lệ c xấp xỉ 0.03.
+- K: 4. E[tokens/verify] = 3.4 chat, 2.5 mã. K=5 tăng 0.1 token chat và trả thêm 0.03 c; loại bỏ.
+- Ngưỡng temperature: 0.8. Trên 0.8, alpha giảm xuống dưới 0.45 trên tập hiệu chuẩn.
+- Ngân sách cây: độ sâu 2 nhánh (3, 2). Vùng KV tạm 480 MB ở batch 16 vừa.
+- Dự phòng: alpha cửa sổ trượt trên 1_000 lần xác minh gần nhất dưới 0.40 sẽ tắt spec decode cho luồng đó trong 30 s, rồi thăm dò lại.
