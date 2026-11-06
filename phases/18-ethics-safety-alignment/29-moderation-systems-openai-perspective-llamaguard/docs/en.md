@@ -1,6 +1,6 @@
 # Moderation Systems — OpenAI, Perspective, Llama Guard
 
-> Production moderation systems operationalize the safety policies defined in Lessons 12-16. OpenAI Moderation API: `omni-moderation-latest` (2024) built on GPT-4o classifies text + images in one call; 42% better on multilingual test set than prior version; the response schema returns 13 category booleans — harassment, harassment/threatening, hate, hate/threatening, illicit, illicit/violent, self-harm, self-harm/intent, self-harm/instructions, sexual, sexual/minors, violence, violence/graphic; free for most developers. Layered patterns: Input moderation (pre-generation), Output moderation (post-generation), Custom moderation (domain rules). Async parallel calls hide latency; placeholder responses on flag. Llama Guard 3/4 (Lesson 16): 14 MLCommons hazards, Code Interpreter Abuse, 8 languages (v3), multi-image (v4). Perspective API (Google Jigsaw): toxicity scoring predating the LLM-as-moderator wave; primarily single-dimension toxicity with severe-toxicity/insult/profanity variants; baseline for content-moderation research. Deprecations: Azure Content Moderator deprecated February 2024, retired February 2027, replaced by Azure AI Content Safety.
+> Hệ thống kiểm duyệt sản xuất hiện thực hóa chính sách an toàn trong Bài 12-16. OpenAI Moderation API: `omni-moderation-latest` (2024) xây trên GPT-4o phân loại văn bản + ảnh trong một lệnh gọi; tốt hơn 42% trên tập kiểm thử đa ngôn ngữ so với phiên bản trước; schema phản hồi trả 13 boolean nhóm — harassment, harassment/threatening, hate, hate/threatening, illicit, illicit/violent, self-harm, self-harm/intent, self-harm/instructions, sexual, sexual/minors, violence, violence/graphic; miễn phí cho phần lớn nhà phát triển. Mẫu phân lớp: Kiểm duyệt đầu vào (trước sinh), Kiểm duyệt đầu ra (sau sinh), Kiểm duyệt tùy chỉnh (quy tắc miền). Lệnh gọi song song bất đồng bộ ẩn độ trễ; phản hồi giữ chỗ khi đánh dấu. Llama Guard 3/4 (Bài 16): 14 nguy hại MLCommons, Lạm dụng Trình thông dịch Mã, 8 ngôn ngữ (v3), nhiều ảnh (v4). Perspective API (Google Jigsaw): chấm độc hại có trước làn sóng LLM-làm-bộ-kiểm-duyệt; chủ yếu độc hại một chiều với biến thể độc hại nghiêm trọng/xúc phạm/tục tĩu; đường cơ sở nghiên cứu kiểm duyệt nội dung. Ngừng hỗ trợ: Azure Content Moderator ngừng hỗ trợ tháng 2 năm 2024, ngừng hoạt động tháng 2 năm 2027, thay bằng Azure AI Content Safety.
 
 **Type:** Build
 **Languages:** Python (stdlib, three-layer moderation harness)
@@ -9,22 +9,22 @@
 
 ## Learning Objectives
 
-- Describe the OpenAI Moderation API's category taxonomy and how it differs from Llama Guard 3's MLCommons set.
-- Describe the three moderation-layer pattern (input, output, custom) and name one failure mode of each.
-- Describe Perspective API's position as a pre-LLM-era baseline and why it remains used in research.
-- State the Azure deprecation timeline.
+- Mô tả hệ phân loại nhóm OpenAI Moderation API và khác với tập MLCommons Llama Guard 3 thế nào.
+- Mô tả mẫu ba lớp kiểm duyệt (đầu vào, đầu ra, tùy chỉnh) và nêu một chế độ lỗi mỗi lớp.
+- Mô tả vị trí Perspective API là đường cơ sở thời trước LLM và tại sao vẫn dùng trong nghiên cứu.
+- Nêu dòng thời gian ngừng hỗ trợ Azure.
 
 ## The Problem
 
-Lessons 12-16 describe attacks and defense tooling. Lesson 29 covers the deployed moderation systems that operationalize the defenses at the surface where users touch the product. The three-layer pattern is the 2026 default configuration.
+Bài 12-16 mô tả tấn công và công cụ phòng vệ. Bài 29 đề cập hệ thống kiểm duyệt triển khai hiện thực hóa phòng vệ ở bề mặt người dùng chạm sản phẩm. Mẫu ba lớp là cấu hình mặc định 2026.
 
 ## The Concept
 
 ### OpenAI Moderation API
 
-`omni-moderation-latest` (2024). Built on GPT-4o. Classifies text + images in one call. Free for most developers.
+`omni-moderation-latest` (2024). Xây trên GPT-4o. Phân loại văn bản + ảnh trong một lệnh gọi. Miễn phí cho phần lớn nhà phát triển.
 
-Categories (13 booleans in the response schema):
+Nhóm (13 boolean trong schema phản hồi):
 - harassment, harassment/threatening
 - hate, hate/threatening
 - self-harm, self-harm/intent, self-harm/instructions
@@ -32,47 +32,47 @@ Categories (13 booleans in the response schema):
 - violence, violence/graphic
 - illicit, illicit/violent
 
-Multimodal support applies to `violence`, `self-harm`, and `sexual` but not `sexual/minors`; the rest are text-only.
+Hỗ trợ đa phương thức áp dụng cho `violence`, `self-harm` và `sexual` nhưng không cho `sexual/minors`; còn lại chỉ văn bản.
 
-For the code harness in `code/main.py` we collapse the `/threatening`, `/intent`, `/instructions`, and `/graphic` sub-categories into their top-level parents for pedagogical simplicity. Production code should use the full 13-category schema.
+Với bộ kiểm thử mã trong `code/main.py`, chúng ta gộp nhóm con `/threatening`, `/intent`, `/instructions` và `/graphic` vào nhóm cha cấp cao để đơn giản sư phạm. Mã sản xuất nên dùng schema đủ 13 nhóm.
 
-42% better on multilingual test set than the prior-generation moderation endpoint. Per-category scores; applications set thresholds.
+Tốt hơn 42% trên tập kiểm thử đa ngôn ngữ so với endpoint kiểm duyệt thế hệ trước. Điểm theo nhóm; ứng dụng đặt ngưỡng.
 
 ### Llama Guard 3/4
 
-Covered in Lesson 16. 14 MLCommons hazard categories (organized differently from OpenAI's 13 response-schema booleans). Supports 8 languages (v3). Llama Guard 4 (April 2025) is natively multimodal, 12B.
+Đề cập trong Bài 16. 14 nhóm nguy hại MLCommons (tổ chức khác 13 boolean schema phản hồi OpenAI). Hỗ trợ 8 ngôn ngữ (v3). Llama Guard 4 (tháng 4 năm 2025) đa phương thức nguyên bản, 12B.
 
-The OpenAI and Llama Guard taxonomies overlap but diverge. OpenAI has "illicit" as a broad category; Llama Guard has "violent crimes" and "non-violent crimes" separately. Deployments pick based on their policy-taxonomy fit.
+Hệ phân loại OpenAI và Llama Guard chồng lấp nhưng khác biệt. OpenAI có "illicit" là nhóm rộng; Llama Guard có "tội phạm bạo lực" và "tội phạm phi bạo lực" riêng. Triển khai chọn theo mức phù hợp chính sách-hệ phân loại.
 
 ### Perspective API (Google Jigsaw)
 
-Toxicity scoring system predating the LLM-as-moderator wave (pre-2020). Categories: TOXICITY, SEVERE_TOXICITY, INSULT, PROFANITY, THREAT, IDENTITY_ATTACK. Single-dimension primary score (TOXICITY) with sub-dimension variants.
+Hệ thống chấm độc hại có trước làn sóng LLM-làm-bộ-kiểm-duyệt (trước 2020). Nhóm: TOXICITY, SEVERE_TOXICITY, INSULT, PROFANITY, THREAT, IDENTITY_ATTACK. Điểm chính một chiều (TOXICITY) có biến thể chiều con.
 
-Widely used as a content-moderation research baseline because the API is stable, documented, and has years of calibration data. For modern LLM-adjacent use cases, Llama Guard or OpenAI Moderation is typically a better fit.
+Dùng rộng làm đường cơ sở nghiên cứu kiểm duyệt nội dung vì API ổn định, có tài liệu và nhiều năm dữ liệu hiệu chuẩn. Với trường hợp dùng gần LLM hiện đại, Llama Guard hoặc OpenAI Moderation thường phù hợp hơn.
 
 ### The three-layer pattern
 
-1. **Input moderation.** Classify the user's prompt before generation. Reject if flagged. Latency: one classifier call.
-2. **Output moderation.** Classify the model's output before delivery. Replace with a refusal if flagged. Latency: one classifier call after generation.
-3. **Custom moderation.** Domain-specific rules (regex, allowlists, business policy). Runs at either input or output.
+1. **Kiểm duyệt đầu vào.** Phân loại prompt người dùng trước sinh. Từ chối nếu bị đánh dấu. Độ trễ: một lệnh gọi bộ phân loại.
+2. **Kiểm duyệt đầu ra.** Phân loại đầu ra mô hình trước chuyển giao. Thay bằng từ chối nếu bị đánh dấu. Độ trễ: một lệnh gọi bộ phân loại sau sinh.
+3. **Kiểm duyệt tùy chỉnh.** Quy tắc riêng theo miền (regex, danh sách cho phép, chính sách kinh doanh). Chạy ở đầu vào hoặc đầu ra.
 
-The three layers are sequential by design: input moderation must complete before generation, and output moderation runs after generation. Parallelism applies within a layer — running multiple classifiers (e.g., OpenAI Moderation + Llama Guard + Perspective) concurrently on the same text hides per-classifier latency. As an optional optimization, a placeholder response ("one moment, checking...") may be shown while input moderation completes and token-1 streaming is deferred. Flag behaviour is configurable: refuse, sanitize, escalate to human review.
+Ba lớp tuần tự theo thiết kế: kiểm duyệt đầu vào phải hoàn tất trước sinh, kiểm duyệt đầu ra chạy sau sinh. Song song áp dụng trong một lớp — chạy nhiều bộ phân loại (ví dụ: OpenAI Moderation + Llama Guard + Perspective) đồng thời trên cùng văn bản ẩn độ trễ theo bộ phân loại. Như tối ưu tùy chọn, phản hồi giữ chỗ ("chờ một chút, đang kiểm tra...") có thể hiển thị trong khi kiểm duyệt đầu vào hoàn tất và truyền token-1 bị hoãn. Hành vi khi đánh dấu cấu hình được: từ chối, làm sạch, chuyển con người rà soát.
 
 ### Failure modes
 
-- **Input only.** Does not catch output hallucinations (Lesson 12-14 encoding attacks bypass input classifiers).
-- **Output only.** Allows any input to reach the model; increases cost; surfaces internal reasoning to attacker.
-- **Custom only.** Not robust across categories; regexes are brittle.
+- **Chỉ đầu vào.** Không bắt ảo giác đầu ra (tấn công mã hóa Bài 12-14 vượt bộ phân loại đầu vào).
+- **Chỉ đầu ra.** Cho mọi đầu vào đến mô hình; tăng chi phí; phơi suy luận nội bộ cho kẻ tấn công.
+- **Chỉ tùy chỉnh.** Không vững trên các nhóm; regex mong manh.
 
-Layered is the default. Belt-and-suspenders.
+Phân lớp là mặc định. Thắt lưng và dây đeo quần.
 
 ### Azure deprecation
 
-Azure Content Moderator: deprecated February 2024, retired February 2027. Replaced by Azure AI Content Safety, which is LLM-based and integrates with Azure OpenAI. The migration is a 2024-2027 field-level project for Azure deployments.
+Azure Content Moderator: ngừng hỗ trợ tháng 2 năm 2024, ngừng hoạt động tháng 2 năm 2027. Thay bằng Azure AI Content Safety, dựa trên LLM và tích hợp Azure OpenAI. Chuyển đổi là dự án cấp lĩnh vực 2024-2027 cho triển khai Azure.
 
 ### Where this fits in Phase 18
 
-Lesson 16 covers the moderation tooling in the red-team context. Lesson 29 covers deployed moderation. Lesson 30 closes with the current dual-use capability evidence.
+Bài 16 đề cập công cụ kiểm duyệt trong ngữ cảnh red-team. Bài 29 đề cập kiểm duyệt triển khai. Bài 30 khép bằng bằng chứng năng lực lưỡng dụng hiện tại.
 
 ```figure
 an-moderation-layers
@@ -80,39 +80,39 @@ an-moderation-layers
 
 ## Use It
 
-`code/main.py` builds a three-layer moderation harness: input moderator (keyword + category score), output moderator (same classifier on output), custom moderator (domain rules). You can run inputs through and observe which layer catches what.
+`code/main.py` xây bộ kiểm thử kiểm duyệt ba lớp: bộ kiểm duyệt đầu vào (từ khóa + điểm nhóm), đầu ra (cùng bộ phân loại trên đầu ra), tùy chỉnh (quy tắc miền). Bạn có thể chạy đầu vào qua và quan sát lớp nào bắt gì.
 
 ## Ship It
 
-This lesson produces `outputs/skill-moderation-stack.md`. Given a deployment, it recommends a moderation stack configuration: which classifier at input, which at output, which custom rules, and what judge for edge cases.
+Bài học này tạo ra `outputs/skill-moderation-stack.md`. Với triển khai, khuyến nghị cấu hình ngăn xếp kiểm duyệt: bộ phân loại nào ở đầu vào, đầu ra, quy tắc tùy chỉnh nào và giám khảo nào cho trường hợp biên.
 
 ## Exercises
 
-1. Run `code/main.py`. Run a benign, borderline, and harmful input through all three layers. Report which layer fires for each.
+1. Chạy `code/main.py`. Chạy đầu vào vô hại, sát ranh giới và có hại qua cả ba lớp. Báo cáo lớp nào kích hoạt cho mỗi loại.
 
-2. Extend the harness with Perspective-API-style toxicity scoring on a specific category. Compare its threshold behaviour to the category score.
+2. Mở rộng bộ kiểm thử với chấm độc hại kiểu Perspective-API trên nhóm cụ thể. So sánh hành vi ngưỡng với điểm nhóm.
 
-3. Read the OpenAI Moderation API docs and the Llama Guard 3 category list. Map each OpenAI category to the closest Llama Guard categories. Identify three categories that do not cleanly map.
+3. Đọc tài liệu OpenAI Moderation API và danh sách nhóm Llama Guard 3. Ánh xạ mỗi nhóm OpenAI sang nhóm Llama Guard gần nhất. Xác định ba nhóm không ánh xạ rõ.
 
-4. Design a moderation stack for a code-assistant deployment (e.g., GitHub Copilot). Identify the categories most and least relevant and propose custom rules.
+4. Thiết kế ngăn xếp kiểm duyệt cho triển khai trợ lý mã (ví dụ: GitHub Copilot). Xác định nhóm liên quan nhất và ít nhất, đề xuất quy tắc tùy chỉnh.
 
-5. Azure Content Moderator retires February 2027. Plan a migration to Azure AI Content Safety. Identify the highest-risk element of the migration.
+5. Azure Content Moderator ngừng hoạt động tháng 2 năm 2027. Lập kế hoạch chuyển sang Azure AI Content Safety. Xác định yếu tố rủi ro cao nhất khi chuyển.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Thực sự có nghĩa là gì |
 |------|-----------------|------------------------|
-| OpenAI Moderation | "omni-moderation-latest" | GPT-4o-based 13-category (text) classifier with partial multimodal support |
-| Perspective API | "Google Jigsaw toxicity" | Pre-LLM-era toxicity scoring baseline |
-| Llama Guard | "MLCommons 14-category" | Meta's hazard classifier (v3: 8B text, 8 langs; v4: 12B multimodal) |
-| Input moderation | "pre-generation filter" | Classifier on user prompt before model call |
-| Output moderation | "post-generation filter" | Classifier on model output before delivery |
-| Custom moderation | "domain rules" | Deployment-specific rules (regex, allowlist, policy) |
-| Layered moderation | "all three layers" | Standard production deployment pattern |
+| OpenAI Moderation | "omni-moderation-latest" | Bộ phân loại (văn bản) 13 nhóm dựa trên GPT-4o với hỗ trợ đa phương thức một phần |
+| Perspective API | "độc hại Google Jigsaw" | Đường cơ sở chấm độc hại thời trước LLM |
+| Llama Guard | "MLCommons 14 nhóm" | Bộ phân loại nguy hại Meta (v3: văn bản 8B, 8 ngôn ngữ; v4: đa phương thức 12B) |
+| Input moderation (Kiểm duyệt đầu vào) | "bộ lọc trước sinh" | Bộ phân loại trên prompt người dùng trước lệnh gọi mô hình |
+| Output moderation (Kiểm duyệt đầu ra) | "bộ lọc sau sinh" | Bộ phân loại trên đầu ra mô hình trước chuyển giao |
+| Custom moderation (Kiểm duyệt tùy chỉnh) | "quy tắc miền" | Quy tắc riêng triển khai (regex, danh sách cho phép, chính sách) |
+| Layered moderation (Kiểm duyệt phân lớp) | "cả ba lớp" | Mẫu triển khai sản xuất tiêu chuẩn |
 
 ## Further Reading
 
-- [OpenAI Moderation API docs](https://platform.openai.com/docs/api-reference/moderations) — omni-moderation endpoint
-- [Meta PurpleLlama + Llama Guard](https://github.com/meta-llama/PurpleLlama) — Llama Guard repo
-- [Google Jigsaw Perspective API](https://perspectiveapi.com/) — toxicity scoring
-- [Azure AI Content Safety](https://learn.microsoft.com/en-us/azure/ai-services/content-safety/) — Azure replacement
+- [OpenAI Moderation API docs](https://platform.openai.com/docs/api-reference/moderations) — endpoint omni-moderation
+- [Meta PurpleLlama + Llama Guard](https://github.com/meta-llama/PurpleLlama) — repo Llama Guard
+- [Google Jigsaw Perspective API](https://perspectiveapi.com/) — chấm độc hại
+- [Azure AI Content Safety](https://learn.microsoft.com/en-us/azure/ai-services/content-safety/) — phương án thay thế Azure

@@ -7,23 +7,23 @@ lesson: 29
 tags: [openai-moderation, perspective, llama-guard, layered-moderation, azure-content-safety]
 ---
 
-Given a production deployment, recommend a moderation stack configuration across the three layers.
+Với triển khai sản xuất, khuyến nghị cấu hình ngăn xếp kiểm duyệt trên ba lớp.
 
-Produce:
+Tạo:
 
-1. Input classifier. Choose OpenAI Moderation, Llama Guard 3/4, or Perspective API. Match to policy taxonomy. For multimodal deployments, Llama Guard 4 or OpenAI omni-moderation.
-2. Output classifier. Same or different from input classifier. Match thresholds to the downstream risk model.
-3. Custom domain rules. Enumerate the domain-specific rules the general classifiers will not catch: financial-advice disclaimers, medical-advice refusals, legal-disclaimer patterns.
-4. Judge for edge cases. Specify the human-escalation path. Hard refusals are final; ambiguous cases go to human review within SLA.
-5. Migration plan. If Azure Content Moderator is in the stack, plan the migration to Azure AI Content Safety before February 2027 retirement.
+1. Bộ phân loại đầu vào. Chọn OpenAI Moderation, Llama Guard 3/4 hoặc Perspective API. Khớp với hệ phân loại chính sách. Với triển khai đa phương thức, Llama Guard 4 hoặc OpenAI omni-moderation.
+2. Bộ phân loại đầu ra. Giống hoặc khác đầu vào. Khớp ngưỡng với mô hình rủi ro hạ nguồn.
+3. Quy tắc miền tùy chỉnh. Liệt kê quy tắc riêng miền mà bộ phân loại chung không bắt: tuyên bố miễn trừ tư vấn tài chính, từ chối tư vấn y tế, mẫu miễn trừ pháp lý.
+4. Giám khảo trường hợp biên. Chỉ định đường chuyển cấp con người. Từ chối dứt khoát là cuối cùng; trường hợp mơ hồ đến con người rà soát trong SLA.
+5. Kế hoạch chuyển đổi. Nếu ngăn xếp có Azure Content Moderator, lập kế hoạch chuyển sang Azure AI Content Safety trước ngừng hoạt động tháng 2 năm 2027.
 
-Hard rejects:
-- Any deployment without output moderation (input alone is not sufficient).
-- Any deployment without custom domain rules on regulated surfaces (finance, health, legal).
-- Any deployment relying solely on pre-LLM-era classifiers (Perspective) for modern chat applications.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi triển khai không kiểm duyệt đầu ra (chỉ đầu vào không đủ).
+- Mọi triển khai không quy tắc miền tùy chỉnh trên bề mặt chịu quy định (tài chính, y tế, pháp lý).
+- Mọi triển khai chỉ dựa bộ phân loại thời trước LLM (Perspective) cho ứng dụng trò chuyện hiện đại.
 
-Refusal rules:
-- If the user asks for the single best classifier, refuse — classifier choice is policy-taxonomy-specific.
-- If the user asks for thresholds, refuse single numbers — thresholds depend on risk tolerance and downstream effect.
+Quy tắc từ chối:
+- Nếu người dùng hỏi bộ phân loại tốt nhất duy nhất, từ chối — lựa chọn riêng theo hệ phân loại chính sách.
+- Nếu người dùng hỏi ngưỡng, từ chối số đơn lẻ — ngưỡng phụ thuộc mức chấp nhận rủi ro và tác động hạ nguồn.
 
-Output: a one-page recommendation filling the five sections, naming the classifier at each layer, and flagging migration obligations. Cite OpenAI Moderation docs and Llama Guard 3/4 references once each.
+Đầu ra: khuyến nghị một trang điền năm phần, nêu bộ phân loại mỗi lớp và đánh dấu nghĩa vụ chuyển đổi. Trích dẫn tài liệu OpenAI Moderation và tham chiếu Llama Guard 3/4, mỗi tài liệu một lần.
