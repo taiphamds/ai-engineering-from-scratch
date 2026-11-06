@@ -1,6 +1,6 @@
 # CNNs and RNNs for Text
 
-> Convolutions learn n-grams. Recurrences remember. Both are superseded by attention. Both still matter on constrained hardware.
+> Tích chập học n-gram. Truy hồi ghi nhớ. Cả hai bị attention thay thế. Cả hai vẫn quan trọng trên phần cứng hạn chế.
 
 **Type:** Build
 **Languages:** Python
@@ -9,27 +9,27 @@
 
 ## The Problem
 
-TF-IDF and Word2Vec produced flat vectors that ignored word order. A classifier built on them could not tell `dog bites man` from `man bites dog`. Word order sometimes carries the signal.
+TF-IDF và Word2Vec tạo ra các vector phẳng bỏ qua thứ tự từ. Một bộ phân loại được xây dựng trên chúng không thể phân biệt `dog bites man` với `man bites dog`. Thứ tự từ đôi khi mang tín hiệu.
 
-Two families of architectures filled that gap before transformers arrived.
+Hai họ kiến trúc lấp khoảng trống đó trước khi transformer xuất hiện.
 
-**Convolutional nets for text (TextCNN).** Apply 1D convolutions over sequences of word embeddings. A filter of width 3 is a learnable trigram detector: it spans three words and outputs a score. Stack different widths (2, 3, 4, 5) to detect multi-scale patterns. Max-pool to a fixed-size representation. Flat, parallel, fast.
+**Các mạng tích chập cho văn bản (TextCNN).** Áp dụng tích chập 1D trên các chuỗi embedding từ. Một bộ lọc có độ rộng 3 là một bộ phát hiện trigram có thể học: nó trải trên ba từ và xuất một điểm số. Xếp chồng các độ rộng khác nhau (2, 3, 4, 5) để phát hiện các mẫu đa tỷ lệ. Max-pool thành một biểu diễn kích thước cố định. Phẳng, song song, nhanh.
 
-**Recurrent nets (RNN, LSTM, GRU).** Process tokens one at a time, maintaining a hidden state that carries information forward. Sequential, memory-bearing, flexible input lengths. Dominated sequence modeling from 2014 to 2017, then attention happened.
+**Các mạng truy hồi (RNN, LSTM, GRU).** Xử lý từng token một, duy trì một trạng thái ẩn mang thông tin về phía trước. Tuần tự, mang bộ nhớ, độ dài đầu vào linh hoạt. Thống trị mô hình hóa chuỗi từ 2014 đến 2017, rồi attention xuất hiện.
 
-This lesson builds both, then names the failure that motivated attention.
+Bài học này xây dựng cả hai, rồi nêu tên lỗi thúc đẩy attention.
 
 ## The Concept
 
-**TextCNN** (Kim, 2014). Tokens get embedded. A width-`k` 1D convolution slides a filter over consecutive `k`-grams of embeddings, producing a feature map. Global max-pooling over that map picks the strongest activation. Concatenate max-pooled outputs from several filter widths. Feed to a classifier head.
+**TextCNN** (Kim, 2014). Các token được embedding. Một tích chập 1D độ rộng `k` trượt một bộ lọc trên các `k`-gram embedding liên tiếp, tạo một bản đồ đặc trưng. Global max-pooling trên bản đồ đó chọn kích hoạt mạnh nhất. Nối các đầu ra max-pooling từ vài độ rộng bộ lọc. Đưa vào một head phân loại.
 
-Why it works. A filter is a learnable n-gram. Max-pooling is position-invariant, so "not good" fires the same feature at the start or middle of a review. Three filter widths with 100 filters each gives you 300 learned n-gram detectors. Training is parallel; no sequential dependency.
+Vì sao nó hoạt động. Một bộ lọc là một n-gram có thể học. Max-pooling bất biến vị trí, nên "không tốt" kích hoạt cùng một đặc trưng ở đầu hoặc giữa một đánh giá. Ba độ rộng bộ lọc với mỗi độ rộng 100 bộ lọc cho bạn 300 bộ phát hiện n-gram được học. Huấn luyện song song; không có phụ thuộc tuần tự.
 
-**RNN.** At each time step `t`, the hidden state `h_t = f(W * x_t + U * h_{t-1} + b)`. Share `W`, `U`, `b` across time. The hidden state at time `T` is a summary of the entire prefix. For classification, pool across `h_1 ... h_T` (max, mean, or last).
+**RNN.** Ở mỗi bước thời gian `t`, trạng thái ẩn `h_t = f(W * x_t + U * h_{t-1} + b)`. Dùng chung `W`, `U`, `b` qua thời gian. Trạng thái ẩn tại thời gian `T` là một bản tóm tắt toàn bộ tiền tố. Đối với phân loại, pooling trên `h_1 ... h_T` (cực đại, trung bình hoặc cuối).
 
-Plain RNNs suffer vanishing gradients. The **LSTM** adds gates that decide what to forget, what to store, and what to output, stabilizing gradients through long sequences. The **GRU** simplifies LSTM to two gates; performs similarly with fewer parameters.
+Các RNN thuần chịu tiêu biến gradient. **LSTM** thêm các cổng quyết định quên gì, lưu gì và xuất gì, ổn định gradient qua các chuỗi dài. **GRU** đơn giản hóa LSTM thành hai cổng; hoạt động tương tự với ít tham số hơn.
 
-**Bidirectional RNNs** run one RNN forward and another backward, concatenating hidden states. Every token's representation sees both left and right context. Essential for tagging tasks.
+**Các RNN hai chiều** chạy một RNN xuôi và một RNN khác ngược, nối các trạng thái ẩn. Biểu diễn của mỗi token thấy cả ngữ cảnh trái và phải. Thiết yếu cho các tác vụ gán nhãn.
 
 ```figure
 rnn-unroll
@@ -67,7 +67,7 @@ class TextCNN(nn.Module):
         return self.fc(self.dropout(h))
 ```
 
-The `transpose(1, 2)` reshapes `[batch, seq_len, embed_dim]` to `[batch, embed_dim, seq_len]` because `nn.Conv1d` treats the middle axis as channels. The pooled output is fixed-size regardless of input length.
+`transpose(1, 2)` đổi hình dạng `[batch, seq_len, embed_dim]` thành `[batch, embed_dim, seq_len]` vì `nn.Conv1d` coi trục giữa là các kênh. Đầu ra được pooling có kích thước cố định bất kể độ dài đầu vào.
 
 ### Step 2: LSTM classifier
 
@@ -88,11 +88,11 @@ class LSTMClassifier(nn.Module):
         return self.fc(self.dropout(pooled))
 ```
 
-Max-pool over the sequence, not last-state pool. For classification, max-pooling usually beats taking the last hidden state because information at the end of a long sequence tends to dominate the last state.
+Max-pool trên chuỗi, không phải pooling trạng thái cuối. Với phân loại, max-pooling thường thắng việc lấy trạng thái ẩn cuối vì thông tin ở cuối một chuỗi dài có xu hướng chi phối trạng thái cuối.
 
 ### Step 3: the vanishing gradient demo (intuition)
 
-A plain RNN without gating cannot learn long-range dependencies. Consider a toy task: predict whether token `A` appeared anywhere in a sequence. If `A` is at position 1 and the sequence is 100 tokens long, the gradient from the loss has to flow back through 99 multiplications of the recurrent weight. If the weight is less than 1, the gradient vanishes. If more than 1, it explodes.
+Một RNN thuần không có cổng không thể học các phụ thuộc xa. Xét một tác vụ đồ chơi: dự đoán token `A` có xuất hiện ở bất kỳ đâu trong một chuỗi không. Nếu `A` ở vị trí 1 và chuỗi dài 100 token, gradient từ loss phải truyền ngược qua 99 phép nhân của trọng số truy hồi. Nếu trọng số nhỏ hơn 1, gradient tiêu biến. Nếu lớn hơn 1, nó bùng nổ.
 
 ```python
 def vanishing_gradient_sim(seq_len, recurrent_weight=0.9):
@@ -105,23 +105,23 @@ def vanishing_gradient_sim(seq_len, recurrent_weight=0.9):
 # The gradient from step 100 to step 1 is effectively zero.
 ```
 
-LSTMs fix this with a **cell state** that runs through the network with only additive interactions (the forget gate scales it multiplicatively, but gradients still flow along the "highway"). GRUs do something similar with fewer parameters. Both give you stable training through 100+ step sequences.
+LSTM sửa điều này bằng một **trạng thái ô** chạy qua mạng với chỉ các tương tác cộng (cổng quên co giãn nó bằng phép nhân, nhưng gradient vẫn truyền dọc "đường cao tốc"). GRU làm điều tương tự với ít tham số hơn. Cả hai cho bạn huấn luyện ổn định qua các chuỗi 100+ bước.
 
 ### Step 4: why this still was not enough
 
-Three problems persisted even with LSTMs.
+Ba vấn đề vẫn tồn tại ngay cả với LSTM.
 
-1. **Sequential bottleneck.** Training an RNN on a sequence of length 1000 requires 1000 serial forward/backward steps. Cannot parallelize across time.
-2. **Fixed-size context vector in encoder-decoder setups.** The decoder sees only the final hidden state of the encoder, compressed over the entire input. Long inputs lose detail. Lesson 09 covers this directly.
-3. **Distant-dependency accuracy ceiling.** LSTMs outperform plain RNNs but still struggle to propagate specific information across 200+ steps.
+1. **Nút thắt tuần tự.** Huấn luyện một RNN trên một chuỗi dài 1000 đòi hỏi 1000 bước xuôi/ngược nối tiếp. Không thể song song hóa qua thời gian.
+2. **Vector ngữ cảnh kích thước cố định trong các thiết lập encoder-decoder.** Decoder chỉ thấy trạng thái ẩn cuối của encoder, được nén trên toàn bộ đầu vào. Các đầu vào dài mất chi tiết. Bài 09 đề cập trực tiếp điều này.
+3. **Trần accuracy phụ thuộc xa.** LSTM vượt RNN thuần nhưng vẫn chật vật truyền thông tin cụ thể qua 200+ bước.
 
-Attention solved all three. Transformers dropped recurrence entirely. Lesson 10 is the pivot.
+Attention giải quyết cả ba. Transformer bỏ hoàn toàn truy hồi. Bài 10 là bước ngoặt.
 
 ## Use It
 
-PyTorch's `nn.LSTM`, `nn.GRU`, and `nn.Conv1d` are production-ready. Training code is standard.
+`nn.LSTM`, `nn.GRU` và `nn.Conv1d` của PyTorch sẵn sàng cho production. Mã huấn luyện là tiêu chuẩn.
 
-Hugging Face ships pretrained embeddings you plug in as the input layer:
+Hugging Face cung cấp các embedding được tiền huấn luyện mà bạn cắm vào làm tầng đầu vào:
 
 ```python
 from transformers import AutoModel
@@ -146,18 +146,18 @@ class BertCNN(nn.Module):
         return self.fc(torch.cat(pooled, dim=1))
 ```
 
-Use-when-it-fits-the-constraint checklist.
+Danh sách kiểm tra dùng khi phù hợp với ràng buộc.
 
-- **Edge / on-device inference.** TextCNN with GloVe embeddings is 10-100x smaller than a transformer. If your deploy target is a phone, this is the stack.
-- **Streaming / online classification.** RNN processes one token at a time; transformers need the full sequence. For real-time incoming text, LSTMs still win.
-- **Tiny models for baselines.** Fast iteration on a new task. Train a TextCNN in 5 minutes on a CPU.
-- **Sequence labeling with limited data.** BiLSTM-CRF (lesson 06) is still a production-grade NER architecture for 1k-10k labeled sentences.
+- **Suy luận biên / trên thiết bị.** TextCNN với embedding GloVe nhỏ hơn một transformer 10-100 lần. Nếu đích triển khai là điện thoại, đây là ngăn xếp.
+- **Phân loại luồng / trực tuyến.** RNN xử lý từng token một; transformer cần toàn bộ chuỗi. Với văn bản đến theo thời gian thực, LSTM vẫn thắng.
+- **Các mô hình tí hon làm baseline.** Lặp nhanh trên một tác vụ mới. Huấn luyện một TextCNN trong 5 phút trên CPU.
+- **Gán nhãn chuỗi với dữ liệu hạn chế.** BiLSTM-CRF (bài 06) vẫn là một kiến trúc NER cấp production cho 1k-10k câu có nhãn.
 
-Everything else goes to a transformer.
+Mọi thứ khác dùng transformer.
 
 ## Ship It
 
-Save as `outputs/prompt-text-encoder-picker.md`:
+Lưu thành `outputs/prompt-text-encoder-picker.md`:
 
 ```markdown
 ---
@@ -179,23 +179,23 @@ Refuse to recommend fine-tuning a transformer when data is under ~500 labeled ex
 
 ## Exercises
 
-1. **Easy.** Train a TextCNN on a 3-class toy dataset (you invent the data). Verify that filter widths (2, 3, 4) outperform a single width (3) on average F1.
-2. **Medium.** Implement max-pool, mean-pool, and last-state pooling for the LSTM classifier. Compare on a small dataset; document which pooling wins and hypothesize why.
-3. **Hard.** Build a BiLSTM-CRF NER tagger (combine lesson 06 and this one). Train on CoNLL-2003. Compare to the CRF-alone baseline from lesson 06 and to a BERT fine-tune. Report training time, memory, and F1.
+1. **Dễ.** Huấn luyện một TextCNN trên một tập dữ liệu đồ chơi 3 lớp (bạn tự tạo dữ liệu). Xác minh rằng các độ rộng bộ lọc (2, 3, 4) vượt một độ rộng duy nhất (3) về F1 trung bình.
+2. **Trung bình.** Triển khai pooling cực đại, trung bình và trạng thái cuối cho bộ phân loại LSTM. So sánh trên một tập dữ liệu nhỏ; ghi lại cách pooling nào thắng và đưa giả thuyết tại sao.
+3. **Khó.** Xây dựng một bộ gán nhãn NER BiLSTM-CRF (kết hợp bài 06 và bài này). Huấn luyện trên CoNLL-2003. So sánh với baseline chỉ CRF từ bài 06 và với một BERT fine-tune. Báo cáo thời gian huấn luyện, bộ nhớ và F1.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| TextCNN | CNN for text | Stack of 1D convolutions over word embeddings with global max-pool. Kim (2014). |
-| RNN | Recurrent net | Hidden state updated at each time step: `h_t = f(W x_t + U h_{t-1})`. |
-| LSTM | Gated RNN | Adds input / forget / output gates + a cell state. Trains stably through long sequences. |
-| GRU | Simpler LSTM | Two gates instead of three. Similar accuracy, fewer parameters. |
-| Bidirectional | Both directions | Forward + backward RNN concatenated. Every token sees both sides of its context. |
-| Vanishing gradient | Training signal dies | Repeated multiplication by <1 weights in plain RNNs makes early-step gradients effectively zero. |
+| TextCNN | CNN cho văn bản | Chồng tích chập 1D trên các embedding từ với global max-pool. Kim (2014). |
+| RNN | Mạng truy hồi | Trạng thái ẩn được cập nhật ở mỗi bước thời gian: `h_t = f(W x_t + U h_{t-1})`. |
+| LSTM | RNN có cổng | Thêm các cổng đầu vào / quên / đầu ra + một trạng thái ô. Huấn luyện ổn định qua các chuỗi dài. |
+| GRU | LSTM đơn giản hơn | Hai cổng thay vì ba. Accuracy tương tự, ít tham số hơn. |
+| Bidirectional (Hai chiều) | Cả hai hướng | RNN xuôi + ngược được nối lại. Mỗi token thấy cả hai phía ngữ cảnh của nó. |
+| Vanishing gradient (Tiêu biến gradient) | Tín hiệu huấn luyện chết | Nhân lặp lại với các trọng số <1 trong RNN thuần khiến gradient của các bước đầu gần như bằng không. |
 
 ## Further Reading
 
-- [Kim, Y. (2014). Convolutional Neural Networks for Sentence Classification](https://arxiv.org/abs/1408.5882) — the TextCNN paper. Eight pages. Readable.
-- [Hochreiter, S. and Schmidhuber, J. (1997). Long Short-Term Memory](https://www.bioinf.jku.at/publications/older/2604.pdf) — the LSTM paper. Unexpectedly lucid.
-- [Olah, C. (2015). Understanding LSTM Networks](https://colah.github.io/posts/2015-08-Understanding-LSTMs/) — the diagrams that made LSTMs accessible to everyone.
+- [Kim, Y. (2014). Convolutional Neural Networks for Sentence Classification](https://arxiv.org/abs/1408.5882) — bài báo TextCNN. Tám trang. Dễ đọc.
+- [Hochreiter, S. and Schmidhuber, J. (1997). Long Short-Term Memory](https://www.bioinf.jku.at/publications/older/2604.pdf) — bài báo LSTM. Rõ ràng bất ngờ.
+- [Olah, C. (2015). Understanding LSTM Networks](https://colah.github.io/posts/2015-08-Understanding-LSTMs/) — các sơ đồ khiến LSTM trở nên dễ tiếp cận với mọi người.
