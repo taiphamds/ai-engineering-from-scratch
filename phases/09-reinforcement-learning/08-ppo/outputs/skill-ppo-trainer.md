@@ -7,12 +7,12 @@ lesson: 8
 tags: [rl, ppo, policy-gradient]
 ---
 
-Given an environment and training budget, output:
+Với một môi trường và ngân sách huấn luyện, xuất ra:
 
-1. Rollout size. `N` envs × `T` steps.
-2. Update schedule. `K` epochs, minibatch size, LR schedule.
-3. Surrogate params. `ε` (clip), `c_v`, `c_e`, advantage normalization on.
-4. Advantage. GAE(`λ`) with explicit `γ` and `λ`.
-5. Diagnostics plan. KL, clip fraction, explained variance thresholds with alerts.
+1. Kích thước rollout. `N` môi trường × `T` bước.
+2. Lịch cập nhật. `K` epoch, kích thước minibatch, lịch LR.
+3. Tham số mục tiêu thay thế. `ε` (cắt), `c_v`, `c_e`, bật chuẩn hóa lợi thế.
+4. Lợi thế. GAE(`λ`) với `γ` và `λ` tường minh.
+5. Kế hoạch chẩn đoán. Các ngưỡng KL, tỷ lệ cắt, phương sai được giải thích với cảnh báo.
 
-Refuse `K > 30` or `ε > 0.3` (unsafe trust region). Refuse any PPO run without advantage normalization or KL/clip monitoring. Flag clip fraction sustained above 0.4 as drift.
+Từ chối `K > 30` hoặc `ε > 0.3` (miền tin cậy không an toàn). Từ chối bất kỳ lần chạy PPO nào không chuẩn hóa lợi thế hoặc theo dõi KL/phép cắt. Đánh dấu tỷ lệ cắt duy trì trên 0.4 là trôi.
