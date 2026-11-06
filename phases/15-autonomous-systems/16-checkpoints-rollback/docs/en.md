@@ -1,6 +1,6 @@
 # Checkpoints and Rollback
 
-> Every graph-state transition persists. When a worker crashes, its lease expires and another worker picks up at the latest checkpoint. Cloudflare Durable Objects hold state across hours or weeks. Propose-then-commit (Lesson 15) defines a rollback plan per action. Post-action verification closes the loop. EU AI Act Article 14 makes effective human oversight mandatory for high-risk systems — in practice this means checkpoints must be queryable, rollbacks must be rehearsed, and the audit trail must survive a deploy. The sharp failure mode: without idempotency keys and precondition checks, a retry after a transient failure can double-execute an already-approved action. Post-action verification is what catches it.
+> Mọi chuyển trạng thái đồ thị đều được lưu bền vững. Khi một worker gặp sự cố, lease của nó hết hạn và một worker khác tiếp quản tại checkpoint mới nhất. Cloudflare Durable Objects giữ trạng thái qua hàng giờ hoặc hàng tuần. Đề xuất rồi cam kết (Bài 15) định nghĩa một kế hoạch hoàn tác cho mỗi hành động. Xác minh sau hành động khép vòng lặp. Điều 14 EU AI Act bắt buộc giám sát hiệu quả của con người đối với các hệ thống rủi ro cao — trong thực tế điều này có nghĩa là các checkpoint phải có thể truy vấn, các lần hoàn tác phải được diễn tập, và dấu vết kiểm toán phải tồn tại qua một lần triển khai. Chế độ lỗi nghiêm trọng: không có các khóa lũy đẳng và kiểm tra tiền điều kiện, một lần thử lại sau lỗi thoáng qua có thể thực thi hai lần một hành động đã được phê duyệt. Xác minh sau hành động là thứ bắt được nó.
 
 **Type:** Learn
 **Languages:** Python (stdlib, checkpoint and rollback state machine)
@@ -9,78 +9,78 @@
 
 ## The Problem
 
-Durable execution (Lesson 12) makes a crashed agent resumable. Propose-then-commit (Lesson 15) makes an approved action auditable. This lesson joins them: what happens when an approved action executes partially, crashes, and resumes? When does the rollback run, and against what state?
+Thực thi bền vững (Bài 12) làm cho một agent đã gặp sự cố có thể tiếp tục. Đề xuất rồi cam kết (Bài 15) làm cho một hành động đã được phê duyệt có thể kiểm toán. Bài này kết hợp chúng: điều gì xảy ra khi một hành động đã được phê duyệt thực thi một phần, gặp sự cố, và tiếp tục? Khi nào hoàn tác chạy, và trên trạng thái nào?
 
-Real systems wire this up differently:
+Các hệ thống thực kết nối điều này theo các cách khác nhau:
 
-- **LangGraph** checkpoints every graph-state transition to PostgreSQL. On worker crash, the lease releases and another worker resumes at the latest checkpoint. Workflows pause on `interrupt()`, which itself persists.
-- **Cloudflare Durable Objects** hold per-key state across hours or weeks. Co-locate the computation with the storage for the approved action.
-- **Microsoft Agent Framework** exposes `Checkpoint` primitives in the workflow API; replay plus idempotency covers retries.
+- **LangGraph** tạo checkpoint cho mọi chuyển trạng thái đồ thị vào PostgreSQL. Khi worker gặp sự cố, lease được giải phóng và một worker khác tiếp tục tại checkpoint mới nhất. Các quy trình tạm dừng trên `interrupt()`, vốn tự nó được lưu bền vững.
+- **Cloudflare Durable Objects** giữ trạng thái theo từng khóa qua hàng giờ hoặc hàng tuần. Đặt tính toán cùng chỗ với lưu trữ cho hành động đã được phê duyệt.
+- **Microsoft Agent Framework** cung cấp các nguyên thủy `Checkpoint` trong API quy trình; phát lại cộng với tính lũy đẳng bao phủ các lần thử lại.
 
-In every case, the combination that actually works is: idempotency key (prevents double-execute) + precondition check (state is still what we approved against) + post-action verify (the side effect actually happened) + rollback on verify-fail.
+Trong mọi trường hợp, sự kết hợp thực sự hoạt động là: khóa lũy đẳng (ngăn thực thi hai lần) + kiểm tra tiền điều kiện (trạng thái vẫn là điều chúng ta đã dựa vào để phê duyệt) + xác minh sau hành động (tác dụng phụ thực sự xảy ra) + hoàn tác khi xác minh thất bại.
 
 ## The Concept
 
 ### Every transition persists
 
-A graph-state transition is any step that moves the workflow from one named state to another. Naive implementations persist only at specific commit points; production implementations persist every transition. The cost (a few extra writes) is small relative to the reliability gain (replay lands anywhere, lease recovery is precise).
+Một chuyển trạng thái đồ thị là bất kỳ bước nào chuyển quy trình từ một trạng thái có tên sang trạng thái khác. Các triển khai ngây thơ chỉ lưu bền vững tại các điểm cam kết cụ thể; các triển khai sản xuất lưu bền vững mọi lần chuyển. Chi phí (thêm vài lần ghi) nhỏ so với mức tăng độ tin cậy (phát lại đến được bất cứ đâu, phục hồi lease chính xác).
 
 ### Lease recovery
 
-When a worker crashes, the workflow is not lost; the lease (a short-lived claim that this worker is executing this run) simply expires. Another worker picks up the latest checkpoint and resumes. The lease mechanism is what lets production systems survive rolling deploys without losing in-flight work.
+Khi một worker gặp sự cố, quy trình không bị mất; lease (một quyền nhận việc ngắn hạn rằng worker này đang thực thi lần chạy này) đơn giản hết hạn. Một worker khác tiếp quản checkpoint mới nhất và tiếp tục. Cơ chế lease là điều cho phép các hệ thống sản xuất tồn tại qua các lần triển khai cuốn chiếu mà không mất công việc đang diễn ra.
 
 ### Idempotency plus preconditions
 
-Idempotency alone is not enough. Consider: a workflow is approved to "transfer $100 from A to B when balance > $1000." The workflow is committed, crashes mid-execution, and resumes. If only the idempotency key is checked, and the execution resumes, the transfer runs once (correct). But consider that between crash and resume, A's balance drops to $500 via a different workflow. The idempotency check still passes; the precondition does not. Without a precondition check, we ship an overdraft.
+Chỉ tính lũy đẳng là không đủ. Xét: một quy trình được phê duyệt để “chuyển $100 từ A sang B khi số dư > $1000.” Quy trình được cam kết, gặp sự cố giữa lúc thực thi, và tiếp tục. Nếu chỉ khóa lũy đẳng được kiểm tra, và việc thực thi tiếp tục, việc chuyển chạy một lần (đúng). Nhưng xét rằng giữa sự cố và tiếp tục, số dư của A giảm xuống $500 thông qua một quy trình khác. Kiểm tra tính lũy đẳng vẫn vượt qua; tiền điều kiện thì không. Không có kiểm tra tiền điều kiện, chúng ta đưa ra một khoản thấu chi.
 
-Every consequential action needs both:
+Mọi hành động có hệ quả đều cần cả hai:
 
-- **Idempotency key**: prevents double-execute.
-- **Precondition check**: confirms the state is still consistent with what was approved.
+- **Khóa lũy đẳng**: ngăn thực thi hai lần.
+- **Kiểm tra tiền điều kiện**: xác nhận trạng thái vẫn nhất quán với những gì đã được phê duyệt.
 
 ### Post-action verification
 
-"The tool returned 200" is not verification. Real verification re-reads the target state and confirms the side effect actually happened. Patterns:
+“Công cụ trả về 200” không phải là xác minh. Xác minh thực đọc lại trạng thái đích và xác nhận tác dụng phụ thực sự xảy ra. Các mẫu:
 
-- Database update: `UPDATE ... RETURNING *` then assert the returned row matches intended state.
-- Email send: check sent-folder for the message ID after submission.
-- File write: read the file back and hash it.
-- API call: follow-up `GET` on the target resource.
+- Cập nhật cơ sở dữ liệu: `UPDATE ... RETURNING *` rồi khẳng định hàng trả về khớp trạng thái dự định.
+- Gửi email: kiểm tra thư mục đã gửi tìm ID thư sau khi gửi.
+- Ghi file: đọc lại file và băm nó.
+- Lệnh gọi API: `GET` tiếp theo trên tài nguyên đích.
 
-If verify fails, the workflow is in a known-bad state. Rollback engages.
+Nếu xác minh thất bại, quy trình ở trong một trạng thái xấu đã biết. Hoàn tác được kích hoạt.
 
 ### Rollback plans
 
-Every consequential action in propose-then-commit (Lesson 15) carries a rollback plan. Types:
+Mọi hành động có hệ quả trong đề xuất rồi cam kết (Bài 15) mang theo một kế hoạch hoàn tác. Các loại:
 
-- **In-band rollback**: reverse the side effect directly (`DELETE` after `INSERT`, `Send-correction-email` after send).
-- **Compensating transaction**: a new action that neutralizes the original (standard SAGA pattern).
-- **Out-of-band rollback**: alert a human, pause the workflow, leave the bad state for investigation.
+- **Hoàn tác trong băng**: đảo ngược trực tiếp tác dụng phụ (`DELETE` sau `INSERT`, `Send-correction-email` sau gửi).
+- **Giao dịch bù trừ**: một hành động mới trung hòa hành động gốc (mẫu SAGA chuẩn).
+- **Hoàn tác ngoài băng**: cảnh báo một người, tạm dừng quy trình, để lại trạng thái xấu cho điều tra.
 
-No-op rollback ("we cannot undo this") must be named in the proposal. Actions with no rollback require stronger HITL at commit time (Lesson 15 challenge-and-response).
+Hoàn tác không làm gì (“chúng tôi không thể đảo ngược điều này”) phải được nêu trong đề xuất. Các hành động không có hoàn tác yêu cầu HITL mạnh hơn tại thời điểm cam kết (thách thức và đáp ứng Bài 15).
 
 ### EU AI Act Article 14 operational reading
 
-Article 14 requires "effective human oversight" for high-risk systems. In operational terms, implementers read it as:
+Điều 14 yêu cầu “giám sát hiệu quả của con người” đối với các hệ thống rủi ro cao. Theo thuật ngữ vận hành, những người triển khai đọc nó là:
 
-- Checkpoints are queryable by an auditor.
-- Rollbacks are rehearsed (tested end-to-end at least once).
-- The audit trail survives a deploy (checkpoint backend is not ephemeral).
-- Failed verifications are alerted on, not silently logged.
+- Các checkpoint có thể được truy vấn bởi một kiểm toán viên.
+- Các lần hoàn tác được diễn tập (được kiểm thử đầu cuối ít nhất một lần).
+- Dấu vết kiểm toán tồn tại qua một lần triển khai (backend checkpoint không tạm thời).
+- Các xác minh thất bại được cảnh báo, không âm thầm ghi nhật ký.
 
-A workflow that crashes mid-commit, resumes, and completes the side effect without a verify + rollback pathway does not survive the Article 14 test.
+Một quy trình gặp sự cố giữa cam kết, tiếp tục, và hoàn thành tác dụng phụ mà không có đường xác minh + hoàn tác không vượt qua phép kiểm tra Điều 14.
 
 ### The sharp failure mode: the double-execute
 
-The most common production incident in this space:
+Sự cố sản xuất phổ biến nhất trong lĩnh vực này:
 
-1. Action approved, idempotency key k.
-2. Commit starts, executes, returns 200.
-3. Workflow crashes before persisting the "committed" status.
-4. Workflow resumes; sees "approved but not committed"; re-executes.
-5. Side effect fires twice.
+1. Hành động được phê duyệt, khóa lũy đẳng k.
+2. Cam kết bắt đầu, thực thi, trả về 200.
+3. Quy trình gặp sự cố trước khi lưu bền vững trạng thái “đã cam kết”.
+4. Quy trình tiếp tục; thấy “đã phê duyệt nhưng chưa cam kết”; thực thi lại.
+5. Tác dụng phụ kích hoạt hai lần.
 
-Mitigation: persist an "in-flight" intent before execution, execute with an idempotency key, then mark "committed" only after post-action verification succeeds. If the action fires and the status write fails, you know to verify and (if necessary) re-fire. If the status write succeeds and the action fails, you verify and fire exactly once via the recovery path.
+Biện pháp giảm thiểu: lưu bền vững một ý định “đang diễn ra” trước thực thi, thực thi với một khóa lũy đẳng, rồi đánh dấu “đã cam kết” chỉ sau khi xác minh sau hành động thành công. Nếu hành động kích hoạt và việc ghi trạng thái thất bại, bạn biết cần xác minh và (nếu cần) kích hoạt lại. Nếu việc ghi trạng thái thành công và hành động thất bại, bạn xác minh và kích hoạt đúng một lần thông qua đường phục hồi.
 
 ```figure
 checkpoint-replay
@@ -88,41 +88,41 @@ checkpoint-replay
 
 ## Use It
 
-`code/main.py` implements a checkpointed workflow with idempotency, preconditions, verify, and rollback. The driver simulates four scenarios: clean run, retry after crash (idempotency catches), precondition fail (workflow aborts without firing), verify fail (rollback fires).
+`code/main.py` triển khai một quy trình có checkpoint với tính lũy đẳng, tiền điều kiện, xác minh, và hoàn tác. Trình điều khiển mô phỏng bốn kịch bản: lần chạy sạch, thử lại sau sự cố (tính lũy đẳng bắt được), tiền điều kiện thất bại (quy trình hủy mà không kích hoạt), xác minh thất bại (hoàn tác kích hoạt).
 
 ## Ship It
 
-`outputs/skill-rollback-rehearsal.md` designs a rollback-rehearsal test for a proposed workflow and audits the checkpoint backend for audit-trail persistence.
+`outputs/skill-rollback-rehearsal.md` thiết kế một kiểm thử diễn tập hoàn tác cho một quy trình được đề xuất và kiểm toán backend checkpoint về tính bền vững của dấu vết kiểm toán.
 
 ## Exercises
 
-1. Run `code/main.py`. Verify the four scenarios. For the crash-during-commit case, confirm the action fires exactly once across retries.
+1. Chạy `code/main.py`. Xác minh bốn kịch bản. Với trường hợp gặp sự cố trong lúc cam kết, xác nhận hành động kích hoạt đúng một lần qua các lần thử lại.
 
-2. Modify the "mark as done first, then do it" pattern so the status write fires after the action. Rerun the crash scenario. Measure how many duplicate actions fire.
+2. Sửa mẫu “đánh dấu là xong trước, rồi làm nó” để việc ghi trạng thái kích hoạt sau hành động. Chạy lại kịch bản sự cố. Đo có bao nhiêu hành động trùng lặp kích hoạt.
 
-3. Design a rollback plan for a specific production action (e.g., "post to a Slack channel"). Classify as in-band, compensating, or out-of-band. Justify the choice.
+3. Thiết kế một kế hoạch hoàn tác cho một hành động sản xuất cụ thể (ví dụ: “đăng lên một kênh Slack”). Phân loại là trong băng, bù trừ, hoặc ngoài băng. Giải thích lựa chọn.
 
-4. Take one workflow you know. Identify every state transition. Mark each with a durability requirement (persist / do not persist). Count the ones you are currently not persisting.
+4. Lấy một quy trình bạn biết. Xác định mọi chuyển trạng thái. Đánh dấu mỗi chuyển với một yêu cầu tính bền vững (lưu bền vững / không lưu bền vững). Đếm những chuyển bạn hiện chưa lưu bền vững.
 
-5. Rehearsed-rollback test: design an end-to-end test that runs a real workflow, crashes it, and confirms the rollback path fires. What does the test assert?
+5. Kiểm thử hoàn tác được diễn tập: thiết kế một kiểm thử đầu cuối chạy một quy trình thực, làm nó gặp sự cố, và xác nhận đường hoàn tác kích hoạt. Kiểm thử khẳng định điều gì?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |---|---|---|
-| Checkpoint | "Save point" | Every graph-state transition persists to a durable store |
-| Lease | "Worker claim" | Short-lived claim that a worker is executing a run; expires on crash |
-| Precondition | "State gate" | Assertion that the state is still consistent with the approved action |
-| Post-action verify | "Re-read check" | Confirm the side effect actually happened in the target system |
-| In-band rollback | "Direct undo" | Reverse the side effect with the inverse operation |
-| Compensating transaction | "SAGA undo" | A new action that neutralizes the original |
-| Mark-as-done-first | "Status write order" | Persist the committed status before returning from commit |
-| Article 14 | "EU AI Act human oversight" | Operational: queryable checkpoints, rehearsed rollbacks, auditable trail |
+| Checkpoint (Điểm kiểm tra) | “Điểm lưu” | Mọi chuyển trạng thái đồ thị lưu bền vững vào một kho lưu trữ bền vững |
+| Lease (Quyền thuê) | “Quyền nhận việc của worker” | Quyền nhận việc ngắn hạn rằng một worker đang thực thi một lần chạy; hết hạn khi gặp sự cố |
+| Precondition (Tiền điều kiện) | “Cổng trạng thái” | Khẳng định rằng trạng thái vẫn nhất quán với hành động đã được phê duyệt |
+| Post-action verify (Xác minh sau hành động) | “Kiểm tra đọc lại” | Xác nhận tác dụng phụ thực sự xảy ra trong hệ thống đích |
+| In-band rollback (Hoàn tác trong băng) | “Đảo ngược trực tiếp” | Đảo ngược tác dụng phụ bằng thao tác nghịch đảo |
+| Compensating transaction (Giao dịch bù trừ) | “Đảo ngược SAGA” | Một hành động mới trung hòa hành động gốc |
+| Mark-as-done-first (Đánh dấu là xong trước) | “Thứ tự ghi trạng thái” | Lưu bền vững trạng thái đã cam kết trước khi trả về từ cam kết |
+| Article 14 (Điều 14) | “Giám sát của con người theo EU AI Act” | Vận hành: các checkpoint có thể truy vấn, các lần hoàn tác được diễn tập, dấu vết có thể kiểm toán |
 
 ## Further Reading
 
-- [Microsoft Agent Framework — Checkpointing and HITL](https://learn.microsoft.com/en-us/agent-framework/workflows/human-in-the-loop) — checkpoint primitives and lease recovery.
-- [Cloudflare Agents — Human in the loop](https://developers.cloudflare.com/agents/concepts/human-in-the-loop/) — Durable Objects as a state substrate.
-- [EU AI Act — Article 14: Human oversight](https://artificialintelligenceact.eu/article/14/) — regulatory baseline.
-- [Anthropic — Measuring agent autonomy in practice](https://www.anthropic.com/research/measuring-agent-autonomy) — reliability framing for long-horizon workflows.
-- [Anthropic — Claude Code Agent SDK: agent loop](https://code.claude.com/docs/en/agent-sdk/agent-loop) — workflow shape for Claude Code Routines.
+- [Microsoft Agent Framework — Checkpointing and HITL](https://learn.microsoft.com/en-us/agent-framework/workflows/human-in-the-loop) — các nguyên thủy checkpoint và phục hồi lease.
+- [Cloudflare Agents — Human in the loop](https://developers.cloudflare.com/agents/concepts/human-in-the-loop/) — Durable Objects như một nền tảng trạng thái.
+- [EU AI Act — Article 14: Human oversight](https://artificialintelligenceact.eu/article/14/) — đường cơ sở quy định.
+- [Anthropic — Measuring agent autonomy in practice](https://www.anthropic.com/research/measuring-agent-autonomy) — cách định hình độ tin cậy cho các quy trình có tầm thời gian dài.
+- [Anthropic — Claude Code Agent SDK: agent loop](https://code.claude.com/docs/en/agent-sdk/agent-loop) — hình dạng quy trình cho Claude Code Routines.
