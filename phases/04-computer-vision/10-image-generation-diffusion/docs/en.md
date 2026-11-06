@@ -1,6 +1,6 @@
 # Image Generation — Diffusion Models
 
-> A diffusion model learns to denoise. Train it to remove a tiny bit of noise from a noisy image, repeat that backwards a thousand times, and you have an image generator.
+> Một mô hình khuếch tán học khử nhiễu. Huấn luyện nó loại bỏ một chút nhiễu khỏi một hình ảnh nhiễu, lặp lại theo chiều ngược một nghìn lần và bạn có một bộ sinh hình ảnh.
 
 **Type:** Build
 **Languages:** Python
@@ -9,34 +9,34 @@
 
 ## Learning Objectives
 
-- Derive the forward noising process `x_0 -> x_1 -> ... -> x_T` and explain why the closed-form `q(x_t | x_0)` holds for any t
-- Implement a DDPM-style training objective that regresses the noise added at each step, and a sampler that walks back from pure noise to an image
-- Build a time-conditioned U-Net (small enough to train on CPU) that predicts the noise for any timestep
-- Explain the difference between DDPM and DDIM sampling, and when each is appropriate (Lesson 23 covers flow matching and rectified flow in depth)
+- Suy ra quá trình thêm nhiễu xuôi `x_0 -> x_1 -> ... -> x_T` và giải thích tại sao dạng đóng `q(x_t | x_0)` đúng với mọi t
+- Triển khai một mục tiêu huấn luyện kiểu DDPM hồi quy nhiễu được thêm ở mỗi bước và một bộ lấy mẫu đi ngược từ nhiễu thuần tới hình ảnh
+- Xây một U-Net có điều kiện thời gian (đủ nhỏ để huấn luyện trên CPU) dự đoán nhiễu cho mọi bước thời gian
+- Giải thích khác biệt giữa lấy mẫu DDPM và DDIM và khi nào mỗi cách phù hợp (Bài 23 đề cập sâu flow matching và rectified flow)
 
 ## The Problem
 
-GANs generate one-shot: noise in, image out, one forward pass. They are fast and hard to train. Diffusion models generate iteratively: start from pure noise, denoise in small steps, image emerges. They are slow and easy to train. For the last five years the latter property has dominated: any small team can train a diffusion model and get reasonable samples; GAN training is a craft you learn over years of failed runs.
+GAN sinh một lần: nhiễu vào, hình ảnh ra, một lượt truyền xuôi. Chúng nhanh và khó huấn luyện. Mô hình khuếch tán sinh lặp: bắt đầu từ nhiễu thuần, khử nhiễu theo các bước nhỏ, hình ảnh xuất hiện. Chúng chậm và dễ huấn luyện. Trong năm năm qua thuộc tính sau chiếm ưu thế: bất kỳ nhóm nhỏ nào cũng có thể huấn luyện một mô hình khuếch tán và có các mẫu hợp lý; huấn luyện GAN là một nghề bạn học qua nhiều năm chạy thất bại.
 
-Beyond training stability, diffusion's iterative structure is what unlocks everything modern image generation does: text conditioning, inpainting, image editing, super-resolution, controllable style. Each step of the sampling loop is a place to inject a new constraint. That hook is why Stable Diffusion, Imagen, DALL-E 3, Midjourney, and every controllable image model you will use are all diffusion-based.
+Ngoài ổn định huấn luyện, cấu trúc lặp của khuếch tán là điều mở khóa mọi thứ sinh hình ảnh hiện đại làm: điều kiện hóa văn bản, điền ảnh, chỉnh sửa hình ảnh, siêu phân giải, phong cách có thể điều khiển. Mỗi bước vòng lặp lấy mẫu là nơi đưa vào một ràng buộc mới. Điểm móc đó là lý do Stable Diffusion, Imagen, DALL-E 3, Midjourney và mọi mô hình hình ảnh có thể điều khiển bạn sẽ sử dụng đều dựa trên khuếch tán.
 
-This lesson builds the minimal DDPM: forward noising, backward denoising, training loop. The next lesson (Stable Diffusion) wires it into a production system with a VAE, a text encoder, and classifier-free guidance.
+Bài này xây DDPM tối giản: thêm nhiễu xuôi, khử nhiễu ngược, vòng lặp huấn luyện. Bài tiếp theo (Stable Diffusion) nối nó thành một hệ thống production với một VAE, một encoder văn bản và classifier-free guidance.
 
 ## The Concept
 
 ### The forward process
 
-Take an image `x_0`. Add a tiny amount of Gaussian noise to get `x_1`. Add a tiny amount more to get `x_2`. Keep going for T steps until `x_T` is nearly indistinguishable from pure Gaussian noise.
+Lấy một hình ảnh `x_0`. Thêm một lượng nhiễu Gaussian rất nhỏ để có `x_1`. Thêm một chút nữa để có `x_2`. Tiếp tục T bước tới khi `x_T` gần như không thể phân biệt với nhiễu Gaussian thuần.
 
 ```
 q(x_t | x_{t-1}) = N(x_t; sqrt(1 - beta_t) * x_{t-1},  beta_t * I)
 ```
 
-`beta_t` is a small variance schedule, typically linear from 0.0001 to 0.02 over T=1000 steps. Each step slightly shrinks the signal and injects fresh noise.
+`beta_t` là một lịch phương sai nhỏ, thường tuyến tính từ 0.0001 tới 0.02 qua T=1000 bước. Mỗi bước làm tín hiệu co nhẹ và đưa vào nhiễu mới.
 
 ### The closed-form jump
 
-Adding noise one step at a time is a Markov chain, but the math folds: you can sample `x_t` directly from `x_0` in one step.
+Thêm nhiễu từng bước là một chuỗi Markov, nhưng toán học gộp lại được: bạn có thể lấy mẫu `x_t` trực tiếp từ `x_0` trong một bước.
 
 ```
 Define alpha_t = 1 - beta_t
@@ -50,11 +50,11 @@ Equivalently:
   where epsilon ~ N(0, I)
 ```
 
-This single equation is the whole reason diffusion is practical. During training you pick a random `t`, sample `x_t` directly from `x_0`, and train in one step — no simulation of the full Markov chain needed.
+Một phương trình này là toàn bộ lý do khuếch tán thực tiễn. Trong huấn luyện bạn chọn một `t` ngẫu nhiên, lấy mẫu `x_t` trực tiếp từ `x_0` và huấn luyện trong một bước — không cần mô phỏng toàn bộ chuỗi Markov.
 
 ### The reverse process
 
-The forward process is fixed. The reverse process `p(x_{t-1} | x_t)` is what the neural network learns. Diffusion models do not predict `x_{t-1}` directly; they predict the noise `epsilon` added at step t, and the math derives `x_{t-1}` from it.
+Quá trình xuôi cố định. Quá trình ngược `p(x_{t-1} | x_t)` là thứ mạng nơ-ron học. Các mô hình khuếch tán không dự đoán `x_{t-1}` trực tiếp; chúng dự đoán nhiễu `epsilon` được thêm ở bước t, và toán học suy ra `x_{t-1}` từ đó.
 
 ```mermaid
 flowchart LR
@@ -76,20 +76,20 @@ flowchart LR
 
 ### The training loss
 
-For every training step:
+Với mỗi bước huấn luyện:
 
-1. Sample a real image `x_0`.
-2. Sample a timestep `t` uniformly from [1, T].
-3. Sample noise `epsilon ~ N(0, I)`.
-4. Compute `x_t = sqrt(alpha_bar_t) * x_0 + sqrt(1 - alpha_bar_t) * epsilon`.
-5. Predict `epsilon_theta(x_t, t)` with the network.
-6. Minimise `|| epsilon - epsilon_theta(x_t, t) ||^2`.
+1. Lấy mẫu một hình ảnh thật `x_0`.
+2. Lấy mẫu một bước thời gian `t` đồng đều từ [1, T].
+3. Lấy mẫu nhiễu `epsilon ~ N(0, I)`.
+4. Tính `x_t = sqrt(alpha_bar_t) * x_0 + sqrt(1 - alpha_bar_t) * epsilon`.
+5. Dự đoán `epsilon_theta(x_t, t)` bằng mạng.
+6. Tối thiểu hóa `|| epsilon - epsilon_theta(x_t, t) ||^2`.
 
-That is it. The neural network learns to predict the noise at any timestep. The loss is MSE. There is no adversarial game, no collapse, no oscillation.
+Chỉ vậy thôi. Mạng nơ-ron học dự đoán nhiễu tại mọi bước thời gian. Mất mát là MSE. Không trò chơi đối kháng, không sụp đổ, không dao động.
 
 ### The sampler (DDPM)
 
-To generate: start from `x_T ~ N(0, I)` and walk backwards one step at a time.
+Để sinh: bắt đầu từ `x_T ~ N(0, I)` và đi ngược từng bước một.
 
 ```
 for t = T, T-1, ..., 1:
@@ -99,26 +99,26 @@ for t = T, T-1, ..., 1:
 return x_0
 ```
 
-The key is that even though the reverse conditional is not known in closed form in general, for this specific Gaussian forward process it is. The ugly-looking coefficients are what Bayes' rule gives you.
+Điểm then chốt là dù phân phối có điều kiện ngược nói chung không được biết ở dạng đóng, với quá trình xuôi Gaussian cụ thể này thì có. Các hệ số trông xấu là những gì quy tắc Bayes cho bạn.
 
 ### Why 1000 steps
 
-The forward noise schedule is chosen so each step adds just enough noise that the reverse step is nearly Gaussian. Too few steps and the reverse step is far from Gaussian, the network cannot model it well. Too many steps and sampling becomes expensive with diminishing gain. T=1000 with a linear schedule is the DDPM default.
+Lịch nhiễu xuôi được chọn để mỗi bước thêm vừa đủ nhiễu khiến bước ngược gần Gaussian. Quá ít bước và bước ngược xa Gaussian, mạng không thể mô hình hóa tốt. Quá nhiều bước và lấy mẫu trở nên tốn kém với lợi ích giảm dần. T=1000 với lịch tuyến tính là mặc định DDPM.
 
 ### DDIM: 20x faster sampling
 
-Training is the same. Sampling changes. DDIM (Song et al., 2020) defines a deterministic reverse process that skips timesteps without retraining. Sampling in 50 steps with DDIM gives near-1000-step DDPM quality. Every production system uses DDIM or an even faster variant (DPM-Solver, Euler ancestral).
+Huấn luyện giống nhau. Lấy mẫu thay đổi. DDIM (Song et al., 2020) định nghĩa một quá trình ngược tất định bỏ qua các bước thời gian mà không huấn luyện lại. Lấy mẫu 50 bước với DDIM cho chất lượng gần DDPM 1000 bước. Mọi hệ thống production sử dụng DDIM hoặc một biến thể còn nhanh hơn (DPM-Solver, Euler ancestral).
 
 ### Time conditioning
 
-The network `epsilon_theta(x_t, t)` needs to know which timestep it is denoising. Modern diffusion models inject `t` via sinusoidal time embeddings (same idea as positional encoding in transformers) that get added to feature maps at every U-Net level.
+Mạng `epsilon_theta(x_t, t)` cần biết nó đang khử nhiễu bước thời gian nào. Các mô hình khuếch tán hiện đại đưa `t` vào qua các embedding thời gian hình sin (cùng ý tưởng như mã hóa vị trí trong transformer) được cộng vào các bản đồ đặc trưng ở mọi mức U-Net.
 
 ```
 t_embedding = sinusoidal(t)
 feature_map += MLP(t_embedding)
 ```
 
-Without time conditioning the network has to guess the noise level from the image itself, which works but is much less sample-efficient.
+Không điều kiện hóa thời gian, mạng phải đoán mức nhiễu từ chính hình ảnh, cách này hoạt động nhưng kém hiệu quả mẫu hơn nhiều.
 
 ```figure
 cv-diffusion-image
@@ -150,7 +150,7 @@ def precompute_schedule(betas):
 schedule = precompute_schedule(linear_beta_schedule(T=1000))
 ```
 
-Precompute once, gather by index during training and sampling.
+Tính trước một lần, lấy theo chỉ số trong huấn luyện và lấy mẫu.
 
 ### Step 2: Forward diffusion (q_sample)
 
@@ -161,7 +161,7 @@ def q_sample(x0, t, noise, schedule):
     return sqrt_a * x0 + sqrt_one_minus_a * noise
 ```
 
-One-line closed form. `t` is a batch of timesteps, one per image in the batch.
+Dạng đóng một dòng. `t` là một batch các bước thời gian, mỗi hình ảnh trong batch một bước.
 
 ### Step 3: A tiny time-conditioned U-Net
 
@@ -207,7 +207,7 @@ class TinyUNet(nn.Module):
         return self.dec2(d2)
 ```
 
-Two-level U-Net with time conditioning injected at the bottleneck. Scale up the depth and width for real images.
+U-Net hai mức với điều kiện hóa thời gian đưa vào tại bottleneck. Tăng độ sâu và độ rộng cho hình ảnh thật.
 
 ### Step 4: Training loop
 
@@ -227,7 +227,7 @@ def train_step(model, x0, schedule, optimizer, device, T=1000):
     return loss.item()
 ```
 
-That is the entire training loop. No GAN game, no specialised loss, one MSE call.
+Đó là toàn bộ vòng lặp huấn luyện. Không trò chơi GAN, không mất mát chuyên biệt, một lời gọi MSE.
 
 ### Step 5: Sampler (DDPM)
 
@@ -252,7 +252,7 @@ def sample(model, schedule, shape, T=1000, device="cpu"):
     return x
 ```
 
-1000 forward passes to produce one batch of samples. In real code you would swap this for a DDIM 50-step sampler.
+1000 lượt truyền xuôi để tạo một batch mẫu. Trong mã thực tế bạn sẽ đổi nó thành bộ lấy mẫu DDIM 50 bước.
 
 ### Step 6: DDIM sampler (deterministic, ~20x faster)
 
@@ -279,11 +279,11 @@ def sample_ddim(model, schedule, shape, steps=50, T=1000, device="cpu", eta=0.0)
     return x
 ```
 
-`eta=0` is fully deterministic (same noise input always produces the same output). `eta=1` recovers DDPM.
+`eta=0` hoàn toàn tất định (cùng đầu vào nhiễu luôn tạo cùng đầu ra). `eta=1` khôi phục DDPM.
 
 ## Use It
 
-For production work, use `diffusers`:
+Cho công việc production, sử dụng `diffusers`:
 
 ```python
 from diffusers import DDPMScheduler, UNet2DModel
@@ -292,39 +292,39 @@ unet = UNet2DModel(sample_size=32, in_channels=3, out_channels=3, layers_per_blo
 scheduler = DDPMScheduler(num_train_timesteps=1000)
 ```
 
-The library ships ready-made schedulers (DDPM, DDIM, DPM-Solver, Euler, Heun), configurable U-Nets, pipelines for text-to-image and image-to-image, and LoRA fine-tuning helpers.
+Thư viện cung cấp các bộ lập lịch có sẵn (DDPM, DDIM, DPM-Solver, Euler, Heun), U-Net có thể cấu hình, các pipeline văn bản-sang-ảnh và ảnh-sang-ảnh, cùng các hàm hỗ trợ tinh chỉnh LoRA.
 
-For research, `k-diffusion` (Katherine Crowson) has the most faithful reference implementations and the best sampling variants.
+Cho nghiên cứu, `k-diffusion` (Katherine Crowson) có các bản triển khai tham chiếu trung thành nhất và các biến thể lấy mẫu tốt nhất.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-diffusion-sampler-picker.md` — a prompt that picks DDPM / DDIM / DPM-Solver / Euler based on quality target, latency budget, and conditioning type.
-- `outputs/skill-noise-schedule-designer.md` — a skill that produces a linear, cosine, or sigmoid beta schedule given T and target corruption level, plus diagnostic plots of signal-to-noise ratio over time.
+- `outputs/prompt-diffusion-sampler-picker.md` — một prompt chọn DDPM / DDIM / DPM-Solver / Euler dựa trên mục tiêu chất lượng, ngân sách độ trễ và loại điều kiện hóa.
+- `outputs/skill-noise-schedule-designer.md` — một skill tạo một lịch beta tuyến tính, cosine hoặc sigmoid với T và mức làm hỏng đích cho trước, cộng các đồ thị chẩn đoán tỷ số tín hiệu trên nhiễu theo thời gian.
 
 ## Exercises
 
-1. **(Easy)** Visualise the forward process: take one image and plot `x_t` at `t in [0, 100, 250, 500, 750, 1000]`. Verify that `x_1000` looks like pure Gaussian noise.
-2. **(Medium)** Train the TinyUNet on the synthetic-circles dataset for 20 epochs and sample 16 circles. Compare DDPM (1000 steps) and DDIM (50 steps) sampling — do they produce similar images from the same noise seed?
-3. **(Hard)** Implement a cosine noise schedule (Nichol & Dhariwal, 2021): `alpha_bar_t = cos^2((t/T + s) / (1 + s) * pi / 2)`. Train the same model with linear and cosine schedules and show that cosine gives better samples at low step counts.
+1. **(Dễ)** Trực quan hóa quá trình xuôi: lấy một hình ảnh và vẽ `x_t` tại `t in [0, 100, 250, 500, 750, 1000]`. Xác minh `x_1000` trông như nhiễu Gaussian thuần.
+2. **(Vừa)** Huấn luyện TinyUNet trên tập dữ liệu hình tròn tổng hợp trong 20 epoch và lấy mẫu 16 hình tròn. So sánh lấy mẫu DDPM (1000 bước) và DDIM (50 bước) — chúng có tạo các hình ảnh tương tự từ cùng seed nhiễu không?
+3. **(Khó)** Triển khai một lịch nhiễu cosine (Nichol & Dhariwal, 2021): `alpha_bar_t = cos^2((t/T + s) / (1 + s) * pi / 2)`. Huấn luyện cùng mô hình với lịch tuyến tính và cosine, và cho thấy cosine cho các mẫu tốt hơn ở số bước thấp.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Forward process | "Add noise over time" | Fixed Markov chain that corrupts an image into Gaussian noise over T steps |
-| Reverse process | "Denoise step by step" | Learned distribution that walks back from noise to image |
-| Epsilon prediction | "Predict the noise" | The training target: `epsilon_theta(x_t, t)` predicts the noise added at step t |
-| Beta schedule | "Noise amounts" | Sequence of T small variances that define how much noise enters per step |
-| alpha_bar_t | "Cumulative retain factor" | Product of (1 - beta_s) up to time t; bigger t means less signal left |
-| DDPM sampler | "Ancestral, stochastic" | Samples each x_{t-1} from its conditional Gaussian; 1000 steps |
-| DDIM sampler | "Deterministic, fast" | Rewrites sampling as a deterministic ODE; 20-100 steps with similar quality |
-| Time conditioning | "Tell the model which t" | Sinusoidal embedding of t injected into the U-Net so it knows the noise level |
+| Forward process (Quá trình xuôi) | "Thêm nhiễu theo thời gian" | Chuỗi Markov cố định làm hỏng một hình ảnh thành nhiễu Gaussian qua T bước |
+| Reverse process (Quá trình ngược) | "Khử nhiễu từng bước" | Phân phối được học đi ngược từ nhiễu tới hình ảnh |
+| Epsilon prediction (Dự đoán epsilon) | "Dự đoán nhiễu" | Mục tiêu huấn luyện: `epsilon_theta(x_t, t)` dự đoán nhiễu thêm ở bước t |
+| Beta schedule (Lịch beta) | "Các lượng nhiễu" | Chuỗi T phương sai nhỏ xác định lượng nhiễu đi vào mỗi bước |
+| alpha_bar_t | "Hệ số giữ tích lũy" | Tích của (1 - beta_s) tới thời điểm t; t lớn hơn nghĩa là còn ít tín hiệu hơn |
+| DDPM sampler (Bộ lấy mẫu DDPM) | "Ancestral, ngẫu nhiên" | Lấy mẫu mỗi x_{t-1} từ Gaussian có điều kiện của nó; 1000 bước |
+| DDIM sampler (Bộ lấy mẫu DDIM) | "Tất định, nhanh" | Viết lại lấy mẫu thành một ODE tất định; 20-100 bước với chất lượng tương tự |
+| Time conditioning (Điều kiện hóa thời gian) | "Cho mô hình biết t nào" | Embedding hình sin của t được đưa vào U-Net để nó biết mức nhiễu |
 
 ## Further Reading
 
-- [Denoising Diffusion Probabilistic Models (Ho et al., 2020)](https://arxiv.org/abs/2006.11239) — the paper that made diffusion practical and beat GANs on FID
-- [Improved DDPM (Nichol & Dhariwal, 2021)](https://arxiv.org/abs/2102.09672) — cosine schedule and v-parameterisation
-- [DDIM (Song, Meng, Ermon, 2020)](https://arxiv.org/abs/2010.02502) — the deterministic sampler that made real-time inference possible
-- [Elucidating the Design Space of Diffusion (Karras et al., 2022)](https://arxiv.org/abs/2206.00364) — a unified view of every diffusion design choice; current best reference
+- [Denoising Diffusion Probabilistic Models (Ho et al., 2020)](https://arxiv.org/abs/2006.11239) — bài báo khiến khuếch tán thực tiễn và đánh bại GAN về FID
+- [Improved DDPM (Nichol & Dhariwal, 2021)](https://arxiv.org/abs/2102.09672) — lịch cosine và tham số hóa v
+- [DDIM (Song, Meng, Ermon, 2020)](https://arxiv.org/abs/2010.02502) — bộ lấy mẫu tất định khiến suy luận thời gian thực khả thi
+- [Elucidating the Design Space of Diffusion (Karras et al., 2022)](https://arxiv.org/abs/2206.00364) — một cái nhìn thống nhất về mọi lựa chọn thiết kế khuếch tán; tài liệu tham khảo tốt nhất hiện tại
