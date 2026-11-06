@@ -7,12 +7,12 @@ lesson: 4
 tags: [transformers, positional-encoding, rope, alibi]
 ---
 
-Given a transformer spec (target context length at inference, trained context length, extrapolation requirement, fine-tune budget in tokens), output:
+Với một đặc tả transformer (độ dài ngữ cảnh đích khi suy luận, độ dài ngữ cảnh được huấn luyện, yêu cầu ngoại suy, ngân sách fine-tune tính bằng token), xuất ra:
 
-1. Base encoding. One of: RoPE, ALiBi, sinusoidal, learned-absolute. One-sentence reason.
-2. Hyperparameters. If RoPE: `base` value, `d_head` requirement for even split. If ALiBi: slope formula. If sinusoidal: `max_len`.
-3. Extension strategy. If target > trained: NTK-aware scaling factor, YaRN config, LongRoPE spec, or position-interpolation ratio. State the fine-tune token budget.
-4. Test plan. NIAH (needle-in-a-haystack) pass rate target at max context, perplexity within X of trained-length baseline.
-5. Fallback. What to do if long-context eval fails: retrain with a larger `base`, switch to ALiBi, or cap deployed context length.
+1. Mã hóa cơ sở. Một trong: RoPE, ALiBi, hình sin, tuyệt đối được học. Lý do trong một câu.
+2. Các siêu tham số. Nếu RoPE: giá trị `base`, yêu cầu `d_head` để chia chẵn. Nếu ALiBi: công thức độ dốc. Nếu hình sin: `max_len`.
+3. Chiến lược mở rộng. Nếu đích > được huấn luyện: hệ số co giãn nhận biết NTK, cấu hình YaRN, đặc tả LongRoPE hoặc tỷ lệ nội suy vị trí. Nêu ngân sách token fine-tune.
+4. Kế hoạch kiểm thử. Mục tiêu tỷ lệ đạt NIAH (kim trong đống cỏ) ở ngữ cảnh tối đa, perplexity trong X so với baseline độ dài huấn luyện.
+5. Dự phòng. Làm gì nếu đánh giá ngữ cảnh dài thất bại: huấn luyện lại với `base` lớn hơn, chuyển sang ALiBi hoặc giới hạn độ dài ngữ cảnh được triển khai.
 
-Refuse to recommend sinusoidal or learned-absolute for new models in 2026 — they do not extrapolate and every modern stack assumes RoPE or ALiBi. Refuse to scale RoPE beyond 8× trained length without a fine-tune stage. Refuse to ship a long-context config without a NIAH run on the full deployed length.
+Từ chối khuyến nghị hình sin hoặc tuyệt đối được học cho các mô hình mới năm 2026 — chúng không ngoại suy và mọi ngăn xếp hiện đại giả định RoPE hoặc ALiBi. Từ chối co giãn RoPE vượt 8× độ dài huấn luyện mà không có giai đoạn fine-tune. Từ chối phát hành một cấu hình ngữ cảnh dài mà không có một lượt NIAH trên toàn bộ độ dài được triển khai.

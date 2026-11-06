@@ -1,6 +1,6 @@
 # Positional Encoding — Sinusoidal, RoPE, ALiBi
 
-> Attention is permutation-invariant. "The cat sat on the mat" and "mat the on sat cat the" produce the same output without positional signal. Three algorithms fix it — each with a different bet on what "position" means.
+> Attention bất biến hoán vị. "Con mèo ngồi trên tấm thảm" và "thảm tấm trên ngồi mèo con" tạo cùng đầu ra khi không có tín hiệu vị trí. Ba thuật toán sửa điều đó — mỗi thuật toán có một đặt cược khác nhau về "vị trí" nghĩa là gì.
 
 **Type:** Build
 **Languages:** Python
@@ -9,17 +9,17 @@
 
 ## The Problem
 
-Scaled dot-product attention is order-blind. The attention matrix `softmax(Q K^T / √d) V` is computed from pairwise similarities. Shuffle the rows of `X`, get the rows of the output shuffled the same way. Nothing inside attention cares about position.
+Scaled dot-product attention mù thứ tự. Ma trận attention `softmax(Q K^T / √d) V` được tính từ các độ tương đồng từng cặp. Xáo các hàng của `X`, nhận các hàng đầu ra bị xáo theo cùng cách. Không có gì bên trong attention quan tâm vị trí.
 
-That is not a bug in a bag-of-words model. For language, code, audio, video — anything where order carries meaning — it is fatal.
+Đó không phải lỗi trong một mô hình bag-of-words. Với ngôn ngữ, mã, âm thanh, video — bất kỳ thứ gì mà thứ tự mang ý nghĩa — nó là chí mạng.
 
-The fix is to inject position into the embeddings somehow. Three eras of answers:
+Cách sửa là đưa vị trí vào các embedding bằng cách nào đó. Ba thời kỳ câu trả lời:
 
-1. **Absolute sinusoidal** (Vaswani 2017). Add `sin/cos` of position to the embedding. Simple, learnable-free, extrapolates poorly beyond trained lengths.
-2. **RoPE — Rotary Position Embeddings** (Su 2021). Rotate Q and K vectors by an angle proportional to position. Encodes *relative* position directly in the dot product. Dominant in 2026.
-3. **ALiBi — Attention with Linear Biases** (Press 2022). Skip embeddings entirely; add a per-head linear penalty to attention scores based on distance. Excellent length extrapolation.
+1. **Hình sin tuyệt đối** (Vaswani 2017). Thêm `sin/cos` của vị trí vào embedding. Đơn giản, không tham số có thể học, ngoại suy kém vượt các độ dài được huấn luyện.
+2. **RoPE — Rotary Position Embeddings** (Su 2021). Xoay các vector Q và K theo một góc tỷ lệ với vị trí. Mã hóa vị trí *tương đối* trực tiếp trong tích vô hướng. Chủ đạo năm 2026.
+3. **ALiBi — Attention with Linear Biases** (Press 2022). Bỏ hoàn toàn embedding; thêm một phạt tuyến tính theo head vào các điểm attention dựa trên khoảng cách. Ngoại suy độ dài xuất sắc.
 
-As of 2026, essentially every frontier open model uses RoPE: Llama 2/3/4, Qwen 2/3, Mistral, Mixtral, DeepSeek-V3, Kimi. A handful of long-context models use ALiBi or its modern variants. Absolute sinusoidal is historical.
+Tính đến năm 2026, về cơ bản mọi mô hình mở tiên phong dùng RoPE: Llama 2/3/4, Qwen 2/3, Mistral, Mixtral, DeepSeek-V3, Kimi. Một số ít mô hình ngữ cảnh dài dùng ALiBi hoặc các biến thể hiện đại của nó. Hình sin tuyệt đối thuộc lịch sử.
 
 ## The Concept
 
@@ -27,18 +27,18 @@ As of 2026, essentially every frontier open model uses RoPE: Llama 2/3/4, Qwen 2
 
 ### Absolute sinusoidal
 
-Pre-compute a fixed matrix `PE` of shape `(max_len, d_model)`:
+Tính trước một ma trận cố định `PE` có hình dạng `(max_len, d_model)`:
 
 ```
 PE[pos, 2i]   = sin(pos / 10000^(2i / d_model))
 PE[pos, 2i+1] = cos(pos / 10000^(2i / d_model))
 ```
 
-Then `X' = X + PE[:N]` before attention. Each dimension is a sinusoid at a different frequency. The model learns to read position from the phase pattern. Fails beyond `max_len`: nothing told the model what happens at position 2048 when it only saw positions 0–2047.
+Rồi `X' = X + PE[:N]` trước attention. Mỗi chiều là một hình sin ở một tần số khác nhau. Mô hình học đọc vị trí từ mẫu pha. Thất bại vượt `max_len`: không có gì cho mô hình biết điều gì xảy ra ở vị trí 2048 khi nó chỉ thấy các vị trí 0–2047.
 
 ### RoPE
 
-Rotate the Q and K vectors (not embeddings). For a pair of dimensions `(2i, 2i+1)`:
+Xoay các vector Q và K (không phải embedding). Với một cặp chiều `(2i, 2i+1)`:
 
 ```
 [q'_2i    ]   [ cos(pos·θ_i)  -sin(pos·θ_i) ] [q_2i   ]
@@ -47,31 +47,31 @@ Rotate the Q and K vectors (not embeddings). For a pair of dimensions `(2i, 2i+1
 θ_i = base^(-2i / d_head),  base = 10000 by default
 ```
 
-Apply the same rotation to keys with position `pos_k`. The dot product `q'_m · k'_n` becomes a function of `(m - n)` alone. That is: **the attention score depends only on the relative distance**, even though the rotation was keyed off absolute positions. Beautiful trick.
+Áp dụng cùng phép xoay cho key với vị trí `pos_k`. Tích vô hướng `q'_m · k'_n` trở thành một hàm chỉ của `(m - n)`. Nghĩa là: **điểm attention chỉ phụ thuộc khoảng cách tương đối**, dù phép xoay được xác định từ các vị trí tuyệt đối. Thủ thuật đẹp.
 
-Extending RoPE: `base` can be scaled (NTK-aware, YaRN, LongRoPE) to extrapolate to longer contexts without retraining. Llama 3 extended from 8K to 128K context this way.
+Mở rộng RoPE: `base` có thể được co giãn (NTK-aware, YaRN, LongRoPE) để ngoại suy đến các ngữ cảnh dài hơn không cần huấn luyện lại. Llama 3 mở rộng từ ngữ cảnh 8K lên 128K theo cách này.
 
 ### ALiBi
 
-Skip the embedding trick. Bias the attention scores directly:
+Bỏ thủ thuật embedding. Tạo bias trực tiếp cho các điểm attention:
 
 ```
 attn_score[i, j] = (q_i · k_j) / √d  -  m_h · |i - j|
 ```
 
-Where `m_h` is a head-specific slope (e.g. `1 / 2^(8·h/H)`). Closer tokens get boosted; far tokens get penalized. No training-time cost. The paper shows length extrapolation beats sinusoidal and matches RoPE on its original trained length.
+Trong đó `m_h` là một độ dốc riêng theo head (ví dụ `1 / 2^(8·h/H)`). Các token gần hơn được tăng; các token xa bị phạt. Không có chi phí khi huấn luyện. Bài báo cho thấy ngoại suy độ dài thắng hình sin và ngang RoPE trên độ dài được huấn luyện gốc.
 
 ### What to pick in 2026
 
-| Variant | Extrapolation | Training cost | Used by |
+| Biến thể | Ngoại suy | Chi phí huấn luyện | Được dùng bởi |
 |---------|---------------|---------------|---------|
-| Absolute sinusoidal | poor | free | original transformer, early BERT |
-| Learned absolute | none | tiny | GPT-2, GPT-3 |
-| RoPE | good with scaling | free | Llama 2/3/4, Qwen 2/3, Mistral, DeepSeek-V3, Kimi |
-| RoPE + YaRN | excellent | fine-tune stage | Qwen2-1M, Llama 3.1 128K |
-| ALiBi | excellent | free | BLOOM, MPT, Baichuan |
+| Hình sin tuyệt đối | kém | miễn phí | transformer gốc, BERT ban đầu |
+| Tuyệt đối được học | không | rất nhỏ | GPT-2, GPT-3 |
+| RoPE | tốt với co giãn | miễn phí | Llama 2/3/4, Qwen 2/3, Mistral, DeepSeek-V3, Kimi |
+| RoPE + YaRN | xuất sắc | giai đoạn fine-tune | Qwen2-1M, Llama 3.1 128K |
+| ALiBi | xuất sắc | miễn phí | BLOOM, MPT, Baichuan |
 
-RoPE won because it slots into attention without changing the architecture, encodes relative position, and its `base` hyperparameter gives a clean knob for long-context fine-tuning.
+RoPE thắng vì nó lắp vào attention mà không thay đổi kiến trúc, mã hóa vị trí tương đối và siêu tham số `base` cho một nút điều chỉnh gọn để fine-tuning ngữ cảnh dài.
 
 ```figure
 rope-explorer
@@ -81,7 +81,7 @@ rope-explorer
 
 ### Step 1: sinusoidal encoding
 
-See `code/main.py`. A 4-line computation:
+Xem `code/main.py`. Một phép tính 4 dòng:
 
 ```python
 def sinusoidal(N, d):
@@ -94,11 +94,11 @@ def sinusoidal(N, d):
     return pe
 ```
 
-Add this to the embedding matrix before the first attention layer.
+Thêm thứ này vào ma trận embedding trước tầng attention đầu tiên.
 
 ### Step 2: RoPE applied to Q, K
 
-RoPE operates in-place on Q and K. For each pair of dims:
+RoPE thao tác tại chỗ trên Q và K. Với mỗi cặp chiều:
 
 ```python
 def apply_rope(x, pos, base=10000):
@@ -113,7 +113,7 @@ def apply_rope(x, pos, base=10000):
     return out
 ```
 
-Crucial: apply the same function to Q at position `m` and K at position `n`. Their dot product picks up a `cos((m-n)·θ_i)` factor on every coordinate pair. Attention learns relative position for free.
+Quan trọng: áp dụng cùng hàm cho Q ở vị trí `m` và K ở vị trí `n`. Tích vô hướng của chúng nhận một hệ số `cos((m-n)·θ_i)` trên mỗi cặp tọa độ. Attention học vị trí tương đối miễn phí.
 
 ### Step 3: ALiBi slopes and bias
 
@@ -128,15 +128,15 @@ def alibi_bias(n_heads, seq_len):
     return bias  # add to attention scores before softmax
 ```
 
-Add `bias[h]` to the `(seq_len, seq_len)` attention score matrix of head `h`, then softmax.
+Thêm `bias[h]` vào ma trận điểm attention `(seq_len, seq_len)` của head `h`, rồi softmax.
 
 ### Step 4: verify relative-distance property of RoPE
 
-Pick two random vectors `a, b`. Rotate by `(pos_a, pos_b)`. Then by `(pos_a + k, pos_b + k)`. Both dot products must match within floating-point error. That property is the whole point of RoPE — it is invariant to the absolute offset, only the relative gap matters.
+Chọn hai vector ngẫu nhiên `a, b`. Xoay theo `(pos_a, pos_b)`. Rồi theo `(pos_a + k, pos_b + k)`. Cả hai tích vô hướng phải khớp trong sai số dấu phẩy động. Thuộc tính đó là toàn bộ điểm chính của RoPE — nó bất biến với độ lệch tuyệt đối, chỉ khoảng cách tương đối quan trọng.
 
 ## Use It
 
-PyTorch 2.5+ ships RoPE utilities in `torch.nn.functional`. Most production code uses `flash_attn` or `xformers` where RoPE is applied inside the attention kernel.
+PyTorch 2.5+ cung cấp các tiện ích RoPE trong `torch.nn.functional`. Hầu hết mã production dùng `flash_attn` hoặc `xformers` nơi RoPE được áp dụng bên trong kernel attention.
 
 ```python
 from transformers import AutoModel
@@ -144,42 +144,42 @@ model = AutoModel.from_pretrained("meta-llama/Llama-3.2-3B")
 # model.config.rope_scaling → {"type": "yarn", "factor": 32.0, "original_max_position_embeddings": 8192}
 ```
 
-**Long-context tricks in 2026:**
+**Các thủ thuật ngữ cảnh dài năm 2026:**
 
-- **NTK-aware interpolation.** Rescale `base` to `base * (scale_factor)^(d/(d-2))` when extending from 4K to 16K+.
-- **YaRN.** Smarter interpolation that preserves attention entropy on long contexts. Llama 3.1 128K uses it.
-- **LongRoPE.** Microsoft's 2024 method that uses evolutionary search to pick per-dimension scale factors. Phi-3-Long uses it.
-- **Position interpolation + fine-tuning.** Just shrink positions by the extension factor and fine-tune for 1–5B tokens. Surprisingly effective.
+- **Nội suy nhận biết NTK.** Co giãn `base` thành `base * (scale_factor)^(d/(d-2))` khi mở rộng từ 4K lên 16K+.
+- **YaRN.** Nội suy thông minh hơn giữ entropy attention trên các ngữ cảnh dài. Llama 3.1 128K dùng nó.
+- **LongRoPE.** Phương pháp năm 2024 của Microsoft dùng tìm kiếm tiến hóa để chọn các hệ số co giãn theo chiều. Phi-3-Long dùng nó.
+- **Nội suy vị trí + fine-tuning.** Chỉ cần thu nhỏ các vị trí theo hệ số mở rộng và fine-tune trong 1–5B token. Hiệu quả đến ngạc nhiên.
 
 ## Ship It
 
-See `outputs/skill-positional-encoding-picker.md`. The skill picks an encoding strategy for a new model given target context length, extrapolation needs, and training budget.
+Xem `outputs/skill-positional-encoding-picker.md`. Skill chọn một chiến lược mã hóa cho một mô hình mới với độ dài ngữ cảnh đích, nhu cầu ngoại suy và ngân sách huấn luyện.
 
 ## Exercises
 
-1. **Easy.** Plot the sinusoidal `PE` matrix as a heatmap for `max_len=512, d=128`. Confirm the "stripes get wider as dimension index grows" pattern.
-2. **Medium.** Implement NTK-aware RoPE scaling. Train a tiny LM on sequences of length 256, then test on length 1024 with and without scaling. Measure perplexity.
-3. **Hard.** Implement ALiBi and RoPE in the same attention module. Train a 4-layer transformer on a copy task with sequences of length 512. Extrapolate to 2048 at test time. Compare degradation.
+1. **Dễ.** Vẽ ma trận hình sin `PE` thành một bản đồ nhiệt với `max_len=512, d=128`. Xác nhận mẫu "các sọc rộng hơn khi chỉ số chiều tăng".
+2. **Trung bình.** Triển khai co giãn RoPE nhận biết NTK. Huấn luyện một LM tí hon trên các chuỗi độ dài 256, rồi kiểm thử trên độ dài 1024 có và không co giãn. Đo perplexity.
+3. **Khó.** Triển khai ALiBi và RoPE trong cùng mô-đun attention. Huấn luyện một transformer 4 tầng trên một tác vụ sao chép với các chuỗi độ dài 512. Ngoại suy đến 2048 khi kiểm thử. So sánh suy giảm.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Positional encoding | "Tells attention about order" | Any signal added to embeddings or attention that encodes position. |
-| Sinusoidal | "The original one" | `sin/cos` at geometric frequencies added to embeddings; doesn't extrapolate. |
-| RoPE | "Rotary embeddings" | Rotate Q, K by position-dependent angle; dot product encodes relative distance. |
-| ALiBi | "Linear bias trick" | Add `-m·\|i-j\|` to attention scores; no embedding needed, great extrapolation. |
-| base | "RoPE's knob" | The frequency scaler in RoPE; increase to extend context at inference. |
-| NTK-aware | "A RoPE scaling trick" | Rescale `base` so high-frequency dims aren't squeezed when context expands. |
-| YaRN | "The fancy one" | Per-dimension interpolation+extrapolation that preserves attention entropy. |
-| Extrapolation | "Works beyond trained length" | Can the position scheme serve correct output past `max_len` seen in training? |
+| Positional encoding (Mã hóa vị trí) | "Cho attention biết thứ tự" | Bất kỳ tín hiệu nào được thêm vào embedding hoặc attention mã hóa vị trí. |
+| Sinusoidal (Hình sin) | "Loại gốc" | `sin/cos` ở các tần số hình học được thêm vào embedding; không ngoại suy. |
+| RoPE | "Embedding xoay" | Xoay Q, K theo góc phụ thuộc vị trí; tích vô hướng mã hóa khoảng cách tương đối. |
+| ALiBi | "Thủ thuật bias tuyến tính" | Thêm `-m·\|i-j\|` vào các điểm attention; không cần embedding, ngoại suy tuyệt vời. |
+| base | "Nút điều chỉnh của RoPE" | Hệ số co giãn tần số trong RoPE; tăng để mở rộng ngữ cảnh khi suy luận. |
+| NTK-aware | "Một thủ thuật co giãn RoPE" | Co giãn `base` để các chiều tần số cao không bị ép khi ngữ cảnh mở rộng. |
+| YaRN | "Loại cầu kỳ" | Nội suy+ngoại suy theo chiều giữ entropy attention. |
+| Extrapolation (Ngoại suy) | "Hoạt động vượt độ dài huấn luyện" | Hệ vị trí có thể phục vụ đầu ra đúng vượt `max_len` đã thấy khi huấn luyện không? |
 
 ## Further Reading
 
-- [Vaswani et al. (2017). Attention Is All You Need §3.5](https://arxiv.org/abs/1706.03762) — original sinusoidal.
-- [Su et al. (2021). RoFormer: Enhanced Transformer with Rotary Position Embedding](https://arxiv.org/abs/2104.09864) — RoPE paper.
+- [Vaswani et al. (2017). Attention Is All You Need §3.5](https://arxiv.org/abs/1706.03762) — hình sin gốc.
+- [Su et al. (2021). RoFormer: Enhanced Transformer with Rotary Position Embedding](https://arxiv.org/abs/2104.09864) — bài báo RoPE.
 - [Press, Smith, Lewis (2021). Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation](https://arxiv.org/abs/2108.12409) — ALiBi.
-- [Peng et al. (2023). YaRN: Efficient Context Window Extension of Large Language Models](https://arxiv.org/abs/2309.00071) — state of the art RoPE scaling.
-- [Chen et al. (2023). Extending Context Window of Large Language Models via Positional Interpolation](https://arxiv.org/abs/2306.15595) — Meta's Llama 2 long-context paper.
-- [Ding et al. (2024). LongRoPE: Extending LLM Context Window Beyond 2 Million Tokens](https://arxiv.org/abs/2402.13753) — the Microsoft method used by Phi-3-Long and cited in the Use It section.
-- [HuggingFace Transformers — `modeling_rope_utils.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/modeling_rope_utils.py) — production-grade implementations of every RoPE scaling scheme (default, linear, dynamic, YaRN, LongRoPE, Llama-3).
+- [Peng et al. (2023). YaRN: Efficient Context Window Extension of Large Language Models](https://arxiv.org/abs/2309.00071) — co giãn RoPE tiên tiến nhất.
+- [Chen et al. (2023). Extending Context Window of Large Language Models via Positional Interpolation](https://arxiv.org/abs/2306.15595) — bài báo ngữ cảnh dài Llama 2 của Meta.
+- [Ding et al. (2024). LongRoPE: Extending LLM Context Window Beyond 2 Million Tokens](https://arxiv.org/abs/2402.13753) — phương pháp Microsoft được Phi-3-Long dùng và được trích dẫn trong phần Use It.
+- [HuggingFace Transformers — `modeling_rope_utils.py`](https://github.com/huggingface/transformers/blob/main/src/transformers/modeling_rope_utils.py) — các triển khai cấp production của mọi hệ co giãn RoPE (mặc định, tuyến tính, động, YaRN, LongRoPE, Llama-3).
