@@ -9,87 +9,87 @@ tags: [alignment, dpo, rlhf, kto, orpo, simpo, preference-optimization, fine-tun
 
 # Alignment Method Selector
 
-When choosing an alignment method for a language model, use this framework to evaluate your data, compute, and quality requirements, then select the method that best fits your constraints.
+Khi chọn phương pháp căn chỉnh cho mô hình ngôn ngữ, dùng khung này để đánh giá yêu cầu dữ liệu, tính toán và chất lượng, rồi chọn phương pháp phù hợp nhất với ràng buộc.
 
 ## Input Requirements
 
-Provide:
-- **Base model** (e.g., Llama 3 8B, Mistral 7B, Qwen 2.5 72B)
-- **Starting point** (base model, or already SFT'd?)
-- **Available data** (instruction pairs, preference pairs, unpaired ratings, or none)
-- **Compute budget** (GPU hours, number of GPUs)
-- **Quality target** (good enough for prototype, competitive with open-source, state-of-the-art)
-- **Timeline** (days, weeks, months)
+Cung cấp:
+- **Mô hình cơ sở** (ví dụ Llama 3 8B, Mistral 7B, Qwen 2.5 72B)
+- **Điểm khởi đầu** (mô hình cơ sở, hay đã SFT?)
+- **Dữ liệu sẵn có** (cặp chỉ dẫn, cặp sở thích, đánh giá không ghép cặp, hoặc không có)
+- **Ngân sách tính toán** (giờ GPU, số GPU)
+- **Mục tiêu chất lượng** (đủ tốt cho nguyên mẫu, cạnh tranh với mã nguồn mở, tiên tiến nhất)
+- **Tiến độ** (ngày, tuần, tháng)
 
 ## Decision Matrix
 
 ### Quick Selection
 
-| Your Situation | Recommended Method | Why |
+| Tình huống của bạn | Phương pháp đề xuất | Vì sao |
 |---------------|-------------------|-----|
-| No preference data, only instruction pairs | SFT only | You can't align without preference signal |
-| < 5,000 preference pairs, limited compute | DPO | Simpler pipeline, works well with small data |
-| Unpaired feedback (thumbs up/down only) | KTO | Only method that works without pairwise comparisons |
-| Want alignment in a single training run | ORPO | Combines SFT + alignment, no reference model |
-| Memory-constrained (can't fit reference model) | SimPO | No reference model needed |
-| Large-scale, multi-objective alignment | RLHF (PPO) | Separate reward model captures complex preferences |
-| Iterative alignment with online data | RLHF (PPO) | Can generate, rate, and retrain in a loop |
-| Post-RLHF refinement | DPO | Fine-tune an RLHF model on targeted preferences |
+| Không dữ liệu sở thích, chỉ cặp chỉ dẫn | Chỉ SFT | Bạn không thể căn chỉnh mà không có tín hiệu sở thích |
+| < 5,000 cặp sở thích, tính toán hạn chế | DPO | Pipeline đơn giản hơn, hoạt động tốt với dữ liệu nhỏ |
+| Phản hồi không ghép cặp (chỉ thích/không thích) | KTO | Phương pháp duy nhất hoạt động không cần so sánh theo cặp |
+| Muốn căn chỉnh trong một lần huấn luyện | ORPO | Kết hợp SFT + căn chỉnh, không mô hình tham chiếu |
+| Bị giới hạn bộ nhớ (không chứa được mô hình tham chiếu) | SimPO | Không cần mô hình tham chiếu |
+| Căn chỉnh quy mô lớn, đa mục tiêu | RLHF (PPO) | Mô hình phần thưởng riêng nắm sở thích phức tạp |
+| Căn chỉnh lặp với dữ liệu trực tuyến | RLHF (PPO) | Có thể sinh, đánh giá và huấn luyện lại trong vòng lặp |
+| Tinh chỉnh sau RLHF | DPO | Tinh chỉnh mô hình RLHF trên sở thích có mục tiêu |
 
 ### Detailed Comparison
 
-| Method | Data Requirement | Models in Memory | Training Loops | Stability | Best Scale |
+| Phương pháp | Yêu cầu dữ liệu | Mô hình trong bộ nhớ | Vòng lặp huấn luyện | Ổn định | Quy mô tốt nhất |
 |--------|-----------------|-----------------|----------------|-----------|------------|
-| SFT | Instruction pairs (10K+) | 1 | 1 | High | Any |
-| RLHF | Preference pairs (20K+) | 3-4 | 3 | Low | Large (70B+) |
-| DPO | Preference pairs (5K+) | 2 | 2 (SFT + DPO) | High | Small-Medium (7B-70B) |
-| KTO | Unpaired ratings (5K+) | 2 | 2 (SFT + KTO) | High | Any |
-| ORPO | Preference pairs (10K+) | 1 | 1 | High | Small-Medium |
-| SimPO | Preference pairs (5K+) | 1 | 2 (SFT + SimPO) | High | Small-Medium |
+| SFT | Cặp chỉ dẫn (10K+) | 1 | 1 | Cao | Bất kỳ |
+| RLHF | Cặp sở thích (20K+) | 3-4 | 3 | Thấp | Lớn (70B+) |
+| DPO | Cặp sở thích (5K+) | 2 | 2 (SFT + DPO) | Cao | Nhỏ-Trung bình (7B-70B) |
+| KTO | Đánh giá không ghép cặp (5K+) | 2 | 2 (SFT + KTO) | Cao | Bất kỳ |
+| ORPO | Cặp sở thích (10K+) | 1 | 1 | Cao | Nhỏ-Trung bình |
+| SimPO | Cặp sở thích (5K+) | 1 | 2 (SFT + SimPO) | Cao | Nhỏ-Trung bình |
 
 ## Method-Specific Configuration
 
 ### SFT
 
-- **When to stop**: After 1-3 epochs or when validation loss stops decreasing
-- **Key hyperparameter**: Learning rate (1e-5 to 5e-5, lower for bigger models)
-- **Critical detail**: Mask instruction tokens in the loss
-- **Gotcha**: More than 3 epochs causes memorization; mix in 2-5% pre-training data
+- **Khi nào dừng**: Sau 1-3 epoch hoặc khi mất mát xác thực ngừng giảm
+- **Siêu tham số chính**: Tốc độ học (1e-5 đến 5e-5, thấp hơn cho mô hình lớn hơn)
+- **Chi tiết quan trọng**: Che token chỉ dẫn trong mất mát
+- **Điểm dễ mắc**: Hơn 3 epoch gây ghi nhớ; trộn 2-5% dữ liệu huấn luyện trước
 
 ### RLHF (PPO)
 
-- **When to use**: You have 20K+ comparison pairs, need multi-objective alignment, or want iterative online learning
-- **Key hyperparameters**: KL coefficient (0.01-0.05), PPO clip ratio (0.1-0.3), learning rate (5e-6 to 3e-5)
-- **Critical detail**: Reward model should be >= policy model size
-- **Gotcha**: PPO is unstable; monitor KL divergence and reward curves continuously
+- **Khi nào dùng**: Bạn có 20K+ cặp so sánh, cần căn chỉnh đa mục tiêu, hoặc muốn học trực tuyến lặp
+- **Siêu tham số chính**: Hệ số KL (0.01-0.05), tỷ số cắt PPO (0.1-0.3), tốc độ học (5e-6 đến 3e-5)
+- **Chi tiết quan trọng**: Mô hình phần thưởng nên >= kích thước mô hình chính sách
+- **Điểm dễ mắc**: PPO bất ổn; theo dõi phân kỳ KL và đường cong phần thưởng liên tục
 
 ### DPO
 
-- **When to use**: You have preference pairs and want a simpler pipeline than RLHF
-- **Key hyperparameter**: Beta (0.1-0.5; lower = more deviation from reference allowed)
-- **Critical detail**: Reference model must be a frozen copy of the SFT checkpoint
-- **Gotcha**: Very sensitive to beta; run a sweep over [0.05, 0.1, 0.2, 0.5]
+- **Khi nào dùng**: Bạn có cặp sở thích và muốn pipeline đơn giản hơn RLHF
+- **Siêu tham số chính**: Beta (0.1-0.5; thấp hơn = cho phép lệch nhiều hơn khỏi tham chiếu)
+- **Chi tiết quan trọng**: Mô hình tham chiếu phải là bản sao đóng băng của checkpoint SFT
+- **Điểm dễ mắc**: Rất nhạy với beta; chạy phép quét trên [0.05, 0.1, 0.2, 0.5]
 
 ### KTO
 
-- **When to use**: You only have "good" or "bad" labels without pairwise comparisons
-- **Key hyperparameter**: Beta (same as DPO), loss aversion multiplier (1.5x on bad responses)
-- **Critical detail**: Needs roughly balanced good/bad examples (40-60% split)
-- **Gotcha**: Without pairs, the gradient signal is weaker; may need more data than DPO
+- **Khi nào dùng**: Bạn chỉ có nhãn "tốt" hoặc "xấu" không có so sánh theo cặp
+- **Siêu tham số chính**: Beta (như DPO), hệ số ác cảm mất mát (1.5x trên phản hồi xấu)
+- **Chi tiết quan trọng**: Cần ví dụ tốt/xấu gần cân bằng (chia 40-60%)
+- **Điểm dễ mắc**: Không có cặp, tín hiệu gradient yếu hơn; có thể cần nhiều dữ liệu hơn DPO
 
 ### ORPO
 
-- **When to use**: You want to skip SFT entirely and go straight from base to aligned
-- **Key hyperparameter**: Lambda (weight of the preference term vs SFT term)
-- **Critical detail**: Needs both instruction labels AND preference pairs in one dataset
-- **Gotcha**: Combined objective can be hard to balance; if SFT loss dominates, alignment is weak
+- **Khi nào dùng**: Bạn muốn bỏ hẳn SFT và đi thẳng từ cơ sở đến căn chỉnh
+- **Siêu tham số chính**: Lambda (trọng số hạng tử sở thích so với hạng tử SFT)
+- **Chi tiết quan trọng**: Cần cả nhãn chỉ dẫn VÀ cặp sở thích trong một tập dữ liệu
+- **Điểm dễ mắc**: Mục tiêu kết hợp có thể khó cân bằng; nếu mất mát SFT chi phối, căn chỉnh yếu
 
 ### SimPO
 
-- **When to use**: Memory-constrained setup where you can't hold a reference model
-- **Key hyperparameter**: Beta, gamma (length normalization exponent)
-- **Critical detail**: Length normalization prevents the model from favoring short responses
-- **Gotcha**: Without a reference model anchor, the model can drift further; monitor carefully
+- **Khi nào dùng**: Thiết lập giới hạn bộ nhớ không thể giữ mô hình tham chiếu
+- **Siêu tham số chính**: Beta, gamma (số mũ chuẩn hóa độ dài)
+- **Chi tiết quan trọng**: Chuẩn hóa độ dài ngăn mô hình ưu ái phản hồi ngắn
+- **Điểm dễ mắc**: Không có điểm neo mô hình tham chiếu, mô hình có thể trôi xa hơn; theo dõi cẩn thận
 
 ## Pipeline Templates
 
@@ -99,8 +99,8 @@ Provide:
 Base Model -> SFT (1 epoch, 10K examples) -> DPO (3 epochs, 5K pairs)
 ```
 
-Compute: ~4 GPU-hours for 7B model on A100
-Quality: Solid instruction following, basic preference alignment
+Tính toán: ~4 giờ GPU cho mô hình 7B trên A100
+Chất lượng: Tuân theo chỉ dẫn vững, căn chỉnh sở thích cơ bản
 
 ### Template 2: Production Quality (1-2 weeks)
 
@@ -108,8 +108,8 @@ Quality: Solid instruction following, basic preference alignment
 Base Model -> SFT (2 epochs, 50K examples) -> DPO (5 epochs, 20K pairs) -> Eval -> Iterate
 ```
 
-Compute: ~40 GPU-hours for 7B, ~200 GPU-hours for 70B
-Quality: Competitive with open-source RLHF models
+Tính toán: ~40 giờ GPU cho 7B, ~200 giờ GPU cho 70B
+Chất lượng: Cạnh tranh với mô hình RLHF mã nguồn mở
 
 ### Template 3: State-of-the-Art (1-3 months)
 
@@ -117,8 +117,8 @@ Quality: Competitive with open-source RLHF models
 Base Model -> SFT (2 epochs, 100K+ examples) -> RLHF (PPO, 50K+ pairs) -> DPO (targeted refinement) -> Eval -> Iterate
 ```
 
-Compute: ~500+ GPU-hours for 70B
-Quality: Approaching frontier model alignment
+Tính toán: ~500+ giờ GPU cho 70B
+Chất lượng: Tiệm cận căn chỉnh mô hình hàng đầu
 
 ### Template 4: Minimal Data (1-2 days)
 
@@ -126,25 +126,25 @@ Quality: Approaching frontier model alignment
 Base Model -> SFT (1 epoch, 5K examples) -> KTO (unpaired thumbs up/down from users)
 ```
 
-Compute: ~2 GPU-hours for 7B
-Quality: Better than SFT-only with minimal data collection overhead
+Tính toán: ~2 giờ GPU cho 7B
+Chất lượng: Tốt hơn chỉ SFT với chi phí thu thập dữ liệu tối thiểu
 
 ## Evaluation Protocol
 
-After alignment, evaluate across these dimensions:
+Sau căn chỉnh, đánh giá trên các chiều này:
 
-1. **Preference win rate**: Compare aligned model vs SFT model on 200+ test prompts with human judges. Target: > 60% win rate.
-2. **Benchmark retention**: MMLU, HumanEval, or domain-specific benchmarks. Should not drop > 5% from SFT baseline.
-3. **MT-Bench or AlpacaEval**: Standard alignment quality benchmarks. Compare against published baselines.
-4. **Safety evaluation**: Test against adversarial prompts, jailbreaks, and harmful request categories.
-5. **Response diversity**: Measure entropy of responses across 100 prompts. Low entropy = mode collapse.
+1. **Tỷ lệ thắng sở thích**: So mô hình căn chỉnh với SFT trên 200+ prompt kiểm thử có giám khảo con người. Mục tiêu: > 60% tỷ lệ thắng.
+2. **Giữ benchmark**: MMLU, HumanEval, hoặc benchmark riêng miền. Không nên giảm > 5% so với baseline SFT.
+3. **MT-Bench hoặc AlpacaEval**: Benchmark chất lượng căn chỉnh tiêu chuẩn. So với baseline đã công bố.
+4. **Đánh giá an toàn**: Kiểm thử với prompt đối kháng, jailbreak và các loại yêu cầu có hại.
+5. **Đa dạng phản hồi**: Đo entropy phản hồi trên 100 prompt. Entropy thấp = sụp đổ mode.
 
 ## Common Failure Modes
 
-| Symptom | Cause | Method-Specific Fix |
+| Triệu chứng | Nguyên nhân | Cách khắc phục riêng phương pháp |
 |---------|-------|-------------------|
-| Verbose, padded responses | Reward model / implicit reward favors length | DPO: increase beta. RLHF: add length penalty. SimPO: adjust gamma. |
-| Model agrees with everything | Sycophancy from preference data bias | Add preference pairs where the correct response disagrees with the user |
-| Refuses benign requests | Over-alignment on safety data | Reduce safety example proportion, add more benign-refusal pairs |
-| Outputs are nearly identical to SFT | Beta too high (DPO/KTO) or KL coefficient too high (PPO) | Lower beta / KL coefficient; the model isn't learning |
-| Training loss oscillates | Learning rate too high or insufficient data | Reduce lr by 2-3x; increase preference data |
+| Phản hồi dài dòng, kéo dài | Mô hình phần thưởng / phần thưởng ngầm ưu ái độ dài | DPO: tăng beta. RLHF: thêm phạt độ dài. SimPO: điều chỉnh gamma. |
+| Mô hình đồng ý mọi thứ | Xu nịnh từ thiên lệch dữ liệu sở thích | Thêm cặp sở thích mà phản hồi đúng không đồng ý người dùng |
+| Từ chối yêu cầu lành tính | Căn chỉnh quá mức trên dữ liệu an toàn | Giảm tỷ lệ ví dụ an toàn, thêm cặp từ chối lành tính |
+| Đầu ra gần giống hệt SFT | Beta quá cao (DPO/KTO) hoặc hệ số KL quá cao (PPO) | Hạ beta / hệ số KL; mô hình không học |
+| Mất mát huấn luyện dao động | Tốc độ học quá cao hoặc thiếu dữ liệu | Giảm lr 2-3x; tăng dữ liệu sở thích |

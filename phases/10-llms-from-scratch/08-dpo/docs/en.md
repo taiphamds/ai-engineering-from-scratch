@@ -1,6 +1,6 @@
 # DPO: Direct Preference Optimization
 
-> RLHF works. It also requires training three models (SFT, reward model, policy), managing PPO's instability, and tuning a KL penalty. DPO asks: what if you could skip all of that? DPO directly optimizes the language model on preference pairs. No reward model. No PPO. One training loop. Same results.
+> RLHF hoạt động. Nó cũng đòi hỏi huấn luyện ba mô hình (SFT, mô hình phần thưởng, chính sách), quản lý bất ổn PPO và điều chỉnh phạt KL. DPO hỏi: nếu bạn có thể bỏ qua tất cả thì sao? DPO trực tiếp tối ưu mô hình ngôn ngữ trên cặp sở thích. Không mô hình phần thưởng. Không PPO. Một vòng lặp huấn luyện. Cùng kết quả.
 
 **Type:** Build
 **Languages:** Python (with numpy)
@@ -9,57 +9,57 @@
 
 ## Learning Objectives
 
-- Implement DPO training that directly optimizes a language model on preference pairs without a separate reward model
-- Derive the DPO loss function and explain how it implicitly represents a reward model through the policy's log probabilities
-- Compare DPO vs RLHF in terms of training stability, compute cost, and number of models required
-- Tune the beta parameter to control how far the trained policy diverges from the reference model
+- Triển khai huấn luyện DPO trực tiếp tối ưu mô hình ngôn ngữ trên cặp sở thích mà không có mô hình phần thưởng riêng
+- Suy ra hàm mất mát DPO và giải thích cách nó biểu diễn ngầm mô hình phần thưởng qua log xác suất của chính sách
+- So sánh DPO với RLHF về ổn định huấn luyện, chi phí tính toán và số mô hình cần
+- Điều chỉnh tham số beta để kiểm soát mức chính sách được huấn luyện phân kỳ khỏi mô hình tham chiếu
 
 ## The Problem
 
-You built an RLHF pipeline in Lesson 07. Three stages. Three models. The SFT model, the reward model, and the policy model optimized with PPO. The reward model alone required thousands of human preference pairs and a separate training loop. PPO required careful tuning of the KL coefficient, learning rate, clip ratio, and number of epochs.
+Bạn đã xây một pipeline RLHF ở Bài 07. Ba giai đoạn. Ba mô hình. Mô hình SFT, mô hình phần thưởng và mô hình chính sách được tối ưu bằng PPO. Riêng mô hình phần thưởng cần hàng nghìn cặp sở thích con người và vòng lặp huấn luyện riêng. PPO cần điều chỉnh cẩn thận hệ số KL, tốc độ học, tỷ số cắt và số epoch.
 
-In practice, PPO training is notoriously unstable. Small hyperparameter changes cause the training to diverge. The reward model is an imperfect proxy for human preferences, and the policy finds ways to exploit its weaknesses. The KL penalty helps but requires its own tuning -- too low and you get reward hacking, too high and the model barely learns.
+Trong thực tế, huấn luyện PPO nổi tiếng bất ổn. Thay đổi siêu tham số nhỏ khiến huấn luyện phân kỳ. Mô hình phần thưởng là đại diện không hoàn hảo cho sở thích con người, và chính sách tìm cách khai thác điểm yếu của nó. Phạt KL giúp nhưng cần điều chỉnh riêng -- quá thấp thì reward hacking, quá cao thì mô hình hầu như không học.
 
-This complexity is why most open-source models struggled with RLHF for years after InstructGPT was published. The three-stage pipeline is fragile. Each stage has its own failure modes, and errors compound.
+Sự phức tạp này là lý do hầu hết mô hình mã nguồn mở chật vật với RLHF nhiều năm sau khi InstructGPT công bố. Pipeline ba giai đoạn mong manh. Mỗi giai đoạn có kiểu thất bại riêng, và sai số tích lũy.
 
-In May 2023, Rafael Rafailov, Archit Sharma, and colleagues at Stanford published "Direct Preference Optimization: Your Language Model is Secretly a Reward Model." The key insight: you don't need a separate reward model. The optimal reward function is mathematically determined by the language model's own token probabilities. You can skip the reward model entirely and optimize the language model directly on preference pairs.
+Tháng 5 năm 2023, Rafael Rafailov, Archit Sharma và đồng nghiệp tại Stanford công bố "Direct Preference Optimization: Your Language Model is Secretly a Reward Model." Nhận thức then chốt: bạn không cần mô hình phần thưởng riêng. Hàm phần thưởng tối ưu được xác định về toán học bởi xác suất token của chính mô hình ngôn ngữ. Bạn có thể bỏ hoàn toàn mô hình phần thưởng và trực tiếp tối ưu mô hình ngôn ngữ trên cặp sở thích.
 
-DPO reduces RLHF to a single supervised learning step. One model. One loss function. One training loop. No reinforcement learning. Zephyr-7B, one of the first models to use DPO at scale, matched or beat models trained with full RLHF on several benchmarks. Meta used DPO as part of Llama 3's alignment pipeline. Anthropic has cited DPO-style methods in their alignment research.
+DPO rút RLHF về một bước học có giám sát duy nhất. Một mô hình. Một hàm mất mát. Một vòng lặp huấn luyện. Không học tăng cường. Zephyr-7B, một trong các mô hình đầu dùng DPO ở quy mô lớn, ngang hoặc vượt các mô hình huấn luyện bằng RLHF đầy đủ trên nhiều benchmark. Meta dùng DPO như một phần pipeline căn chỉnh Llama 3. Anthropic đã dẫn các phương pháp kiểu DPO trong nghiên cứu căn chỉnh.
 
 ## The Concept
 
 ### The Key Insight
 
-RLHF optimizes this objective:
+RLHF tối ưu mục tiêu này:
 
 ```
 maximize: E[R(x, y)] - beta * KL(pi || pi_ref)
 ```
 
-where R is the reward model, pi is the policy, pi_ref is the reference model, and beta is the KL coefficient.
+trong đó R là mô hình phần thưởng, pi là chính sách, pi_ref là mô hình tham chiếu và beta là hệ số KL.
 
-The DPO paper showed that this objective has a closed-form optimal solution. For any reward function R, the optimal policy is:
+Bài báo DPO cho thấy mục tiêu này có một lời giải tối ưu dạng đóng. Với bất kỳ hàm phần thưởng R nào, chính sách tối ưu là:
 
 ```
 pi*(y | x) = pi_ref(y | x) * exp(R(x, y) / beta) / Z(x)
 ```
 
-where Z(x) is a normalizing constant. Rearranging:
+trong đó Z(x) là hằng số chuẩn hóa. Sắp xếp lại:
 
 ```
 R(x, y) = beta * log(pi*(y | x) / pi_ref(y | x)) + beta * log Z(x)
 ```
 
-This is the breakthrough. The reward is expressed entirely in terms of the policy model's probabilities and the reference model's probabilities. You don't need to train a separate reward model. The reward is *implicit* in the probability ratio.
+Đây là đột phá. Phần thưởng được biểu diễn hoàn toàn theo xác suất của mô hình chính sách và xác suất mô hình tham chiếu. Bạn không cần huấn luyện mô hình phần thưởng riêng. Phần thưởng là *ngầm* trong tỷ số xác suất.
 
-Substituting this into the Bradley-Terry preference model:
+Thay điều này vào mô hình sở thích Bradley-Terry:
 
 ```
 P(y_w > y_l | x) = sigmoid(R(x, y_w) - R(x, y_l))
                   = sigmoid(beta * (log pi(y_w|x)/pi_ref(y_w|x) - log pi(y_l|x)/pi_ref(y_l|x)))
 ```
 
-The Z(x) terms cancel because both responses condition on the same prompt x. What's left is a function of only the policy model's log-probabilities and the reference model's log-probabilities on the preferred and rejected responses.
+Các hạng tử Z(x) triệt tiêu vì cả hai phản hồi có điều kiện theo cùng prompt x. Phần còn lại chỉ là hàm của log xác suất mô hình chính sách và log xác suất mô hình tham chiếu trên phản hồi được ưa thích và bị loại.
 
 ### The DPO Loss
 
@@ -67,18 +67,18 @@ The Z(x) terms cancel because both responses condition on the same prompt x. Wha
 L_DPO = -log(sigmoid(beta * (log pi(y_w|x)/pi_ref(y_w|x) - log pi(y_l|x)/pi_ref(y_l|x))))
 ```
 
-Let's unpack each piece:
+Hãy phân tích từng phần:
 
-- **y_w** = preferred (winning) response
-- **y_l** = rejected (losing) response
+- **y_w** = phản hồi được ưa thích (thắng)
+- **y_l** = phản hồi bị loại (thua)
 - **x** = prompt
-- **pi** = current model (being trained)
-- **pi_ref** = reference model (frozen SFT checkpoint)
-- **beta** = temperature parameter controlling deviation from reference (typically 0.1 to 0.5)
+- **pi** = mô hình hiện tại (đang huấn luyện)
+- **pi_ref** = mô hình tham chiếu (checkpoint SFT đóng băng)
+- **beta** = tham số temperature kiểm soát lệch khỏi tham chiếu (thường 0.1 đến 0.5)
 
-The ratio `log pi(y|x) / pi_ref(y|x)` is the log-probability ratio. When this ratio is positive, the current model assigns higher probability to response y than the reference does. When negative, the current model assigns lower probability.
+Tỷ số `log pi(y|x) / pi_ref(y|x)` là tỷ số log xác suất. Khi tỷ số dương, mô hình hiện tại gán xác suất cao hơn cho phản hồi y so với tham chiếu. Khi âm, mô hình hiện tại gán xác suất thấp hơn.
 
-The DPO loss pushes the model to increase the log-probability ratio for preferred responses and decrease it for rejected responses. The beta parameter controls how aggressively the model can deviate from the reference -- small beta means large deviations are allowed, large beta keeps the model close to the reference.
+Mất mát DPO đẩy mô hình tăng tỷ số log xác suất cho phản hồi được ưa thích và giảm cho phản hồi bị loại. Tham số beta kiểm soát mức mô hình có thể lệch khỏi tham chiếu -- beta nhỏ nghĩa là cho phép lệch lớn, beta lớn giữ mô hình gần tham chiếu.
 
 ```mermaid
 graph TD
@@ -116,61 +116,61 @@ graph TD
 
 ### Why DPO is Simpler
 
-| Aspect | RLHF (PPO) | DPO |
+| Khía cạnh | RLHF (PPO) | DPO |
 |--------|-----------|-----|
-| Models to train | 3 (SFT + reward + policy) | 1 (policy only) |
-| Training loops | 3 (SFT, RM training, PPO) | 2 (SFT, DPO) |
-| Hyperparameters | lr, KL coeff, clip ratio, RM lr, epochs x3 | lr, beta, epochs |
-| Reward model | Required (separate training) | Implicit in model probabilities |
-| RL algorithm | PPO (complex, unstable) | Supervised learning (stable) |
-| GPU memory | 3-4 models in memory during PPO | 2 models (current + reference) |
-| Training stability | Sensitive to hyperparameters | Robust, similar to SFT |
+| Mô hình cần huấn luyện | 3 (SFT + phần thưởng + chính sách) | 1 (chỉ chính sách) |
+| Vòng lặp huấn luyện | 3 (SFT, huấn luyện RM, PPO) | 2 (SFT, DPO) |
+| Siêu tham số | lr, hệ số KL, tỷ số cắt, lr RM, epoch x3 | lr, beta, epoch |
+| Mô hình phần thưởng | Cần (huấn luyện riêng) | Ngầm trong xác suất mô hình |
+| Thuật toán RL | PPO (phức tạp, bất ổn) | Học có giám sát (ổn định) |
+| Bộ nhớ GPU | 3-4 mô hình trong bộ nhớ khi PPO | 2 mô hình (hiện tại + tham chiếu) |
+| Ổn định huấn luyện | Nhạy với siêu tham số | Vững, giống SFT |
 
-DPO needs two models in memory during training -- the current model and the frozen reference. RLHF needs three or four: the policy, the reference, the reward model, and optionally a value function baseline. For a 70B model, each copy takes 140GB in FP16. The memory savings from eliminating the reward model are substantial.
+DPO cần hai mô hình trong bộ nhớ khi huấn luyện -- mô hình hiện tại và tham chiếu đóng băng. RLHF cần ba hoặc bốn: chính sách, tham chiếu, mô hình phần thưởng và tùy chọn baseline hàm giá trị. Với mô hình 70B, mỗi bản sao chiếm 140GB ở FP16. Tiết kiệm bộ nhớ từ loại mô hình phần thưởng rất đáng kể.
 
 ### When DPO Beats RLHF
 
-**Small datasets.** With 5,000-20,000 preference pairs, DPO often matches or exceeds RLHF. The reward model in RLHF needs enough data to generalize -- with limited data, it overfits and produces unreliable reward signals. DPO bypasses this problem by not needing a reward model at all.
+**Tập dữ liệu nhỏ.** Với 5,000-20,000 cặp sở thích, DPO thường ngang hoặc vượt RLHF. Mô hình phần thưởng trong RLHF cần đủ dữ liệu để khái quát -- với dữ liệu hạn chế, nó overfit và tạo tín hiệu phần thưởng không đáng tin. DPO tránh vấn đề này bằng cách hoàn toàn không cần mô hình phần thưởng.
 
-**Limited compute.** DPO requires roughly one-third the compute of full RLHF (one training loop instead of three). For teams without large GPU clusters, this is the practical choice.
+**Tính toán hạn chế.** DPO cần khoảng một phần ba tính toán RLHF đầy đủ (một vòng lặp huấn luyện thay vì ba). Với các nhóm không có cụm GPU lớn, đây là lựa chọn thực tiễn.
 
-**Rapid iteration.** Want to try 10 different preference datasets to see which produces the best model? DPO lets you run each experiment in hours. RLHF requires retraining the reward model for each dataset.
+**Lặp nhanh.** Muốn thử 10 tập sở thích khác nhau để xem cái nào tạo mô hình tốt nhất? DPO cho bạn chạy mỗi thử nghiệm trong vài giờ. RLHF cần huấn luyện lại mô hình phần thưởng cho mỗi tập dữ liệu.
 
 ### When RLHF Beats DPO
 
-**Large-scale training.** At the scale of GPT-4 or Claude, RLHF's separate reward model can capture more nuanced preference signals. The reward model acts as a learned loss function that adapts to complex quality criteria.
+**Huấn luyện quy mô lớn.** Ở quy mô GPT-4 hoặc Claude, mô hình phần thưởng riêng của RLHF có thể nắm tín hiệu sở thích tinh tế hơn. Mô hình phần thưởng đóng vai hàm mất mát được học thích nghi với tiêu chí chất lượng phức tạp.
 
-**Complex reward signals.** When "better" involves multiple dimensions (helpfulness, harmlessness, honesty), a reward model can learn this multi-objective tradeoff. DPO treats each preference pair as a binary signal -- one is better, one is worse -- without modeling why.
+**Tín hiệu phần thưởng phức tạp.** Khi "tốt hơn" gồm nhiều chiều (hữu ích, vô hại, trung thực), mô hình phần thưởng có thể học đánh đổi đa mục tiêu này. DPO coi mỗi cặp sở thích là tín hiệu nhị phân -- một tốt hơn, một tệ hơn -- mà không mô hình hóa vì sao.
 
-**Iterative alignment.** RLHF pipelines can generate new responses with the current policy, have humans rate them, and retrain the reward model in an online loop. DPO works on a fixed dataset of preference pairs. Constitutional AI (Anthropic's approach) uses this iterative property of RLHF extensively.
+**Căn chỉnh lặp.** Pipeline RLHF có thể sinh phản hồi mới bằng chính sách hiện tại, để con người đánh giá, và huấn luyện lại mô hình phần thưởng trong vòng lặp trực tuyến. DPO làm việc trên tập cặp sở thích cố định. Constitutional AI (cách của Anthropic) dùng rộng rãi tính chất lặp này của RLHF.
 
 ### Beyond DPO: KTO, ORPO, SimPO
 
-DPO inspired a family of simplified alignment methods.
+DPO truyền cảm hứng cho một họ phương pháp căn chỉnh đơn giản hóa.
 
-**KTO (Kahneman-Tversky Optimization, 2024):** You don't even need pairs. KTO works with unpaired feedback -- just label each response as "good" or "bad" without comparing it to an alternative. This dramatically simplifies data collection. Instead of showing annotators two responses and asking "which is better?", you show one response and ask "is this good?" The loss function applies loss aversion from prospect theory: bad responses are penalized more than good responses are rewarded.
+**KTO (Tối ưu hóa Kahneman-Tversky, 2024):** Bạn thậm chí không cần cặp. KTO làm việc với phản hồi không ghép cặp -- chỉ gán nhãn mỗi phản hồi "tốt" hoặc "xấu" mà không so với phương án khác. Điều này đơn giản hóa mạnh thu thập dữ liệu. Thay vì cho người chú giải hai phản hồi và hỏi "cái nào tốt hơn?", bạn cho một phản hồi và hỏi "cái này tốt không?" Hàm mất mát áp dụng ác cảm mất mát từ lý thuyết triển vọng: phản hồi xấu bị phạt nhiều hơn mức phản hồi tốt được thưởng.
 
-**ORPO (Odds Ratio Preference Optimization, 2024):** Combines SFT and alignment in a single training step. Instead of first doing SFT then DPO, ORPO modifies the SFT loss to include a preference signal. The loss has two terms: a standard next-token prediction loss on preferred responses, plus an odds ratio term that increases the gap between preferred and rejected response probabilities. One training loop instead of two.
+**ORPO (Tối ưu hóa sở thích tỷ số odds, 2024):** Kết hợp SFT và căn chỉnh trong một bước huấn luyện. Thay vì làm SFT rồi DPO, ORPO sửa mất mát SFT để gồm tín hiệu sở thích. Mất mát có hai hạng tử: mất mát dự đoán token tiếp theo tiêu chuẩn trên phản hồi được ưa thích, cộng hạng tử tỷ số odds tăng khoảng cách giữa xác suất phản hồi được ưa thích và bị loại. Một vòng lặp huấn luyện thay vì hai.
 
-**SimPO (Simple Preference Optimization, 2024):** Eliminates the reference model entirely. Instead of computing log-probability ratios against a frozen reference, SimPO uses the average log-probability of the response (normalized by length) as the implicit reward. This saves memory (no reference model needed) and simplifies training. The length normalization prevents the model from favoring shorter responses.
+**SimPO (Tối ưu hóa sở thích đơn giản, 2024):** Loại hoàn toàn mô hình tham chiếu. Thay vì tính tỷ số log xác suất với tham chiếu đóng băng, SimPO dùng log xác suất trung bình của phản hồi (chuẩn hóa theo độ dài) làm phần thưởng ngầm. Điều này tiết kiệm bộ nhớ (không cần mô hình tham chiếu) và đơn giản hóa huấn luyện. Chuẩn hóa độ dài ngăn mô hình ưu ái phản hồi ngắn hơn.
 
-| Method | Year | Models in Memory | Needs Pairs? | Needs Reference? | Training Loops |
+| Phương pháp | Năm | Mô hình trong bộ nhớ | Cần cặp? | Cần tham chiếu? | Vòng lặp huấn luyện |
 |--------|------|-----------------|-------------|-----------------|----------------|
-| RLHF | 2022 | 3-4 | Yes (for RM) | Yes | 3 |
-| DPO | 2023 | 2 | Yes | Yes | 2 |
-| KTO | 2024 | 2 | No (unpaired) | Yes | 2 |
-| ORPO | 2024 | 1 | Yes | No | 1 |
-| SimPO | 2024 | 1 | Yes | No | 1 |
+| RLHF | 2022 | 3-4 | Có (cho RM) | Có | 3 |
+| DPO | 2023 | 2 | Có | Có | 2 |
+| KTO | 2024 | 2 | Không (không ghép cặp) | Có | 2 |
+| ORPO | 2024 | 1 | Có | Không | 1 |
+| SimPO | 2024 | 1 | Có | Không | 1 |
 
-The trend is clear: each method eliminates one more piece of complexity. RLHF needed a reward model and PPO. DPO eliminated both. KTO eliminated paired data. ORPO eliminated the separate SFT stage. SimPO eliminated the reference model. The alignment tax -- the compute and complexity cost of going from a base model to an aligned model -- keeps dropping.
+Xu hướng rõ ràng: mỗi phương pháp loại thêm một phần phức tạp. RLHF cần mô hình phần thưởng và PPO. DPO loại cả hai. KTO loại dữ liệu ghép cặp. ORPO loại giai đoạn SFT riêng. SimPO loại mô hình tham chiếu. Thuế căn chỉnh -- chi phí tính toán và phức tạp để đi từ mô hình cơ sở đến mô hình căn chỉnh -- tiếp tục giảm.
 
 ### Real DPO Deployments
 
-**Zephyr-7B (HuggingFace, October 2023):** Mistral 7B base, SFT on UltraChat (200K examples), then DPO on UltraFeedback (60K preference pairs). Scored 6.47 on MT-Bench -- the highest 7B model at the time. For comparison, Llama 2 Chat 70B scored 6.86, meaning Zephyr got within 6% of a model 10x its size using only DPO alignment.
+**Zephyr-7B (HuggingFace, tháng 10 năm 2023):** Cơ sở Mistral 7B, SFT trên UltraChat (200K ví dụ), rồi DPO trên UltraFeedback (60K cặp sở thích). Đạt 6.47 trên MT-Bench -- mô hình 7B cao nhất lúc đó. Để so sánh, Llama 2 Chat 70B đạt 6.86, nghĩa là Zephyr ở trong khoảng 6% so với mô hình lớn gấp 10x chỉ bằng căn chỉnh DPO.
 
-**Llama 3 (Meta, April 2024):** Used DPO after initial RLHF stages. The combination suggests that DPO and RLHF can be complementary -- RLHF for broad alignment, DPO for targeted refinement.
+**Llama 3 (Meta, tháng 4 năm 2024):** Dùng DPO sau các giai đoạn RLHF ban đầu. Sự kết hợp gợi ý DPO và RLHF có thể bổ trợ -- RLHF cho căn chỉnh rộng, DPO cho tinh chỉnh có mục tiêu.
 
-**Neural Magic / nm-chat (2024):** Applied DPO to multiple open-source models, consistently showing 5-15% improvement on alignment benchmarks over SFT-only baselines.
+**Neural Magic / nm-chat (2024):** Áp dụng DPO cho nhiều mô hình mã nguồn mở, luôn cho cải thiện 5-15% trên benchmark căn chỉnh so với baseline chỉ SFT.
 
 ```figure
 dpo-loss
@@ -180,7 +180,7 @@ dpo-loss
 
 ### Step 1: Preference Dataset
 
-Same format as RLHF -- (prompt, preferred, rejected) triples. DPO consumes this data directly without an intermediate reward model.
+Cùng định dạng RLHF -- bộ ba (prompt, preferred, rejected). DPO tiêu thụ dữ liệu trực tiếp mà không có mô hình phần thưởng trung gian.
 
 ```python
 import numpy as np
@@ -225,7 +225,7 @@ PREFERENCE_DATA = [
 
 ### Step 2: Sequence Log-Probability
 
-The DPO loss requires computing the total log-probability of a response given a prompt. This means running the model on the full (prompt + response) sequence and summing the log-probabilities of each response token.
+Mất mát DPO cần tính tổng log xác suất của phản hồi với prompt cho trước. Điều này nghĩa là chạy mô hình trên toàn chuỗi (prompt + phản hồi) và cộng log xác suất mỗi token phản hồi.
 
 ```python
 def tokenize_sequence(text, vocab_size=256):
@@ -268,11 +268,11 @@ def compute_sequence_log_prob(model, prompt_tokens, response_tokens, max_seq_len
     return total_log_prob
 ```
 
-This function is the workhorse of DPO. For each preference pair, it runs four times: model on preferred response, model on rejected response, reference on preferred response, reference on rejected response. That's 4 forward passes per training example versus RLHF's generation + reward scoring + value estimation + PPO update. Simpler, faster, more stable.
+Hàm này là cỗ máy làm việc của DPO. Với mỗi cặp sở thích, nó chạy bốn lần: mô hình trên phản hồi được ưa thích, mô hình trên phản hồi bị loại, tham chiếu trên phản hồi được ưa thích, tham chiếu trên phản hồi bị loại. Đó là 4 lượt truyền xuôi mỗi ví dụ huấn luyện so với sinh + chấm phần thưởng + ước lượng giá trị + cập nhật PPO của RLHF. Đơn giản hơn, nhanh hơn, ổn định hơn.
 
 ### Step 3: The DPO Loss
 
-The core of the paper in code. One function. One loss. No reward model.
+Cốt lõi bài báo trong mã. Một hàm. Một mất mát. Không mô hình phần thưởng.
 
 ```python
 def sigmoid(x):
@@ -305,13 +305,13 @@ def dpo_loss(policy_logprob_preferred, policy_logprob_rejected,
     }
 ```
 
-The `preferred_ratio` and `rejected_ratio` are the log-probability ratios from the DPO derivation. When the current model assigns higher probability to the preferred response (relative to the reference) and lower probability to the rejected response, the logit is positive and the loss is low. The training signal pushes the model in exactly this direction.
+`preferred_ratio` và `rejected_ratio` là các tỷ số log xác suất từ suy dẫn DPO. Khi mô hình hiện tại gán xác suất cao hơn cho phản hồi được ưa thích (so với tham chiếu) và thấp hơn cho phản hồi bị loại, logit dương và mất mát thấp. Tín hiệu huấn luyện đẩy mô hình chính xác theo hướng này.
 
-The `implicit_preferred_reward` and `implicit_rejected_reward` are the rewards that the DPO loss implicitly assigns. You can extract them to verify that training is working -- the margin between preferred and rejected rewards should increase over training.
+`implicit_preferred_reward` và `implicit_rejected_reward` là các phần thưởng mà mất mát DPO gán ngầm. Bạn có thể trích chúng để xác minh huấn luyện đang hoạt động -- biên giữa phần thưởng được ưa thích và bị loại nên tăng qua huấn luyện.
 
 ### Step 4: DPO Training Loop
 
-A standard supervised training loop. No PPO. No reward model. Just forward passes and gradient updates.
+Một vòng lặp huấn luyện có giám sát tiêu chuẩn. Không PPO. Không mô hình phần thưởng. Chỉ truyền xuôi và cập nhật gradient.
 
 ```python
 def copy_model_weights(source, target):
@@ -395,11 +395,11 @@ def dpo_train(policy_model, reference_model, preference_data,
     return policy_model, losses, margins
 ```
 
-The training loop is refreshingly simple compared to RLHF. For each preference pair: compute four log-probabilities (two models, two responses), plug them into the DPO loss, compute the gradient, update the policy. No generation step. No reward model inference. No advantage estimation. No clipping.
+Vòng lặp huấn luyện đơn giản một cách dễ chịu so với RLHF. Với mỗi cặp sở thích: tính bốn log xác suất (hai mô hình, hai phản hồi), đưa vào mất mát DPO, tính gradient, cập nhật chính sách. Không bước sinh. Không suy luận mô hình phần thưởng. Không ước lượng lợi thế. Không cắt.
 
 ### Step 5: Compare DPO vs RLHF
 
-Measure the implicit reward margins and log-probability shifts to compare DPO against the RLHF model from Lesson 07.
+Đo biên phần thưởng ngầm và dịch chuyển log xác suất để so DPO với mô hình RLHF từ Bài 07.
 
 ```python
 def evaluate_preference_accuracy(model, reference_model, preference_data, beta=0.1, max_seq_len=128):
@@ -454,7 +454,7 @@ def analyze_implicit_rewards(model, reference_model, preference_data, beta=0.1, 
 
 ### Step 6: Beta Sensitivity Analysis
 
-The beta parameter is DPO's equivalent of the KL coefficient in RLHF. It controls how much the model can deviate from the reference. This experiment shows its effect.
+Tham số beta là tương đương của hệ số KL trong RLHF đối với DPO. Nó kiểm soát mức mô hình có thể lệch khỏi tham chiếu. Thử nghiệm này cho thấy tác động.
 
 ```python
 def beta_sensitivity_analysis(sft_model, preference_data, betas, max_seq_len=128):
@@ -502,7 +502,7 @@ def beta_sensitivity_analysis(sft_model, preference_data, betas, max_seq_len=128
     return results
 ```
 
-Small beta (0.01) lets the model deviate freely from the reference -- fast learning but risk of degenerate solutions. Large beta (1.0) keeps the model close to the reference -- stable but slow learning. The sweet spot for most applications is 0.1 to 0.3.
+Beta nhỏ (0.01) cho mô hình lệch tự do khỏi tham chiếu -- học nhanh nhưng có rủi ro lời giải suy biến. Beta lớn (1.0) giữ mô hình gần tham chiếu -- ổn định nhưng học chậm. Điểm tốt nhất cho hầu hết ứng dụng là 0.1 đến 0.3.
 
 ## Use It
 
@@ -620,39 +620,39 @@ if __name__ == "__main__":
 
 ## Ship It
 
-This lesson produces `outputs/prompt-alignment-method-selector.md` -- a prompt that helps you choose the right alignment method (SFT, RLHF, DPO, KTO, ORPO, SimPO) for your use case. Given your data availability, compute budget, and alignment goals, it recommends a method and training plan.
+Bài học này tạo ra `outputs/prompt-alignment-method-selector.md` -- một prompt giúp chọn phương pháp căn chỉnh đúng (SFT, RLHF, DPO, KTO, ORPO, SimPO) cho trường hợp sử dụng. Với dữ liệu sẵn có, ngân sách tính toán và mục tiêu căn chỉnh, nó đề xuất phương pháp và kế hoạch huấn luyện.
 
 ## Exercises
 
-1. Implement KTO (Kahneman-Tversky Optimization). KTO doesn't need pairs -- just label each response as "good" or "bad." The loss for a good response is `-log(sigmoid(beta * log_ratio))` and for a bad response is `-log(1 - sigmoid(beta * log_ratio))` with a loss aversion multiplier (typically 1.5x) on the bad response loss. Train on the same data (treat preferred as "good" and rejected as "bad" independently) and compare accuracy against DPO.
+1. Triển khai KTO (Tối ưu hóa Kahneman-Tversky). KTO không cần cặp -- chỉ gán nhãn mỗi phản hồi "tốt" hoặc "xấu." Mất mát cho phản hồi tốt là `-log(sigmoid(beta * log_ratio))` và cho phản hồi xấu là `-log(1 - sigmoid(beta * log_ratio))` với hệ số ác cảm mất mát (thường 1.5x) trên mất mát phản hồi xấu. Huấn luyện trên cùng dữ liệu (coi được ưa thích là "tốt" và bị loại là "xấu" độc lập) rồi so độ chính xác với DPO.
 
-2. Implement length-normalized DPO. Instead of raw log-probabilities, divide by the number of response tokens: `normalized_logprob = total_logprob / num_tokens`. This prevents the model from favoring shorter responses (which have higher total log-prob). Compare the implicit reward margins with and without normalization.
+2. Triển khai DPO chuẩn hóa độ dài. Thay vì log xác suất thô, chia cho số token phản hồi: `normalized_logprob = total_logprob / num_tokens`. Điều này ngăn mô hình ưu ái phản hồi ngắn hơn (có tổng log xác suất cao hơn). So sánh biên phần thưởng ngầm có và không chuẩn hóa.
 
-3. Build an ORPO-style combined loss. Add a standard next-token prediction loss on the preferred response to the DPO loss: `L = L_sft(preferred) + alpha * L_dpo`. Try alpha values of 0.1, 0.5, and 1.0. The combined loss should produce a model that both follows instructions (from the SFT term) and prefers better responses (from the DPO term), eliminating the need for a separate SFT stage.
+3. Xây một mất mát kết hợp kiểu ORPO. Thêm mất mát dự đoán token tiếp theo tiêu chuẩn trên phản hồi được ưa thích vào mất mát DPO: `L = L_sft(preferred) + alpha * L_dpo`. Thử alpha 0.1, 0.5 và 1.0. Mất mát kết hợp nên tạo mô hình vừa làm theo chỉ dẫn (từ hạng tử SFT) vừa ưa phản hồi tốt hơn (từ hạng tử DPO), loại nhu cầu giai đoạn SFT riêng.
 
-4. Implement iterative DPO. Run DPO for 3 epochs, then generate new responses from the trained model, pair them with the original preferred responses as new preference pairs, and run DPO again. Two rounds of this "self-play" process. Compare preference accuracy after round 1 and round 2 to see if iterative refinement helps.
+4. Triển khai DPO lặp. Chạy DPO 3 epoch, rồi sinh phản hồi mới từ mô hình đã huấn luyện, ghép với phản hồi được ưa thích gốc thành cặp sở thích mới, và chạy DPO lại. Hai vòng của quá trình "tự chơi" này. So độ chính xác sở thích sau vòng 1 và vòng 2 để xem tinh chỉnh lặp có giúp không.
 
-5. Compare DPO with different reference models. Instead of using the SFT checkpoint as the reference, try: (a) the base model (pre-SFT), (b) a checkpoint from epoch 1 of DPO, (c) an exponential moving average of the policy model. Report which reference produces the highest preference accuracy and the most stable training curve.
+5. So sánh DPO với các mô hình tham chiếu khác nhau. Thay vì dùng checkpoint SFT làm tham chiếu, thử: (a) mô hình cơ sở (trước SFT), (b) checkpoint từ epoch 1 của DPO, (c) trung bình trượt hàm mũ của mô hình chính sách. Báo cáo tham chiếu nào cho độ chính xác sở thích cao nhất và đường cong huấn luyện ổn định nhất.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| DPO | "RLHF without RL" | Direct Preference Optimization: a supervised learning algorithm that optimizes the language model directly on preference pairs, bypassing the reward model and PPO |
-| Implicit reward | "The reward is in the model" | The reward function is determined by the log-probability ratio between the policy and reference models -- no separate reward model needed |
-| Beta (DPO) | "The temperature" | Controls how far the policy can deviate from the reference model -- small beta allows large deviations, large beta keeps the model close |
-| Log-probability ratio | "How much the model changed" | log pi(y\|x) - log pi_ref(y\|x) -- positive means the current model assigns higher probability than the reference |
-| Reference model | "The frozen checkpoint" | A copy of the SFT model whose weights never change -- serves as the anchor for computing probability ratios |
-| KTO | "DPO without pairs" | Kahneman-Tversky Optimization: works with unpaired "good" or "bad" labels instead of requiring preference pairs |
-| ORPO | "One-step alignment" | Odds Ratio Preference Optimization: combines SFT and alignment into a single training loop by adding a preference term to the SFT loss |
-| SimPO | "No reference needed" | Simple Preference Optimization: eliminates the reference model by using length-normalized average log-probability as the implicit reward |
-| Alignment tax | "The cost of making models safe" | The additional compute, data, and complexity required to go from a base model to an aligned model -- DPO reduces this significantly |
+| DPO | "RLHF không RL" | Tối ưu hóa sở thích trực tiếp: thuật toán học có giám sát tối ưu mô hình ngôn ngữ trực tiếp trên cặp sở thích, bỏ qua mô hình phần thưởng và PPO |
+| Implicit reward (Phần thưởng ngầm) | "Phần thưởng trong mô hình" | Hàm phần thưởng được xác định bởi tỷ số log xác suất giữa mô hình chính sách và tham chiếu -- không cần mô hình phần thưởng riêng |
+| Beta (DPO) | "Temperature" | Kiểm soát mức chính sách có thể lệch khỏi mô hình tham chiếu -- beta nhỏ cho lệch lớn, beta lớn giữ mô hình gần |
+| Log-probability ratio (Tỷ số log xác suất) | "Mô hình thay đổi bao nhiêu" | log pi(y\|x) - log pi_ref(y\|x) -- dương nghĩa là mô hình hiện tại gán xác suất cao hơn tham chiếu |
+| Reference model (Mô hình tham chiếu) | "Checkpoint đóng băng" | Bản sao mô hình SFT có trọng số không bao giờ đổi -- làm điểm neo để tính tỷ số xác suất |
+| KTO | "DPO không cặp" | Tối ưu hóa Kahneman-Tversky: làm việc với nhãn "tốt" hoặc "xấu" không ghép cặp thay vì đòi cặp sở thích |
+| ORPO | "Căn chỉnh một bước" | Tối ưu hóa sở thích tỷ số odds: kết hợp SFT và căn chỉnh thành một vòng lặp huấn luyện bằng thêm hạng tử sở thích vào mất mát SFT |
+| SimPO | "Không cần tham chiếu" | Tối ưu hóa sở thích đơn giản: loại mô hình tham chiếu bằng dùng log xác suất trung bình chuẩn hóa độ dài làm phần thưởng ngầm |
+| Alignment tax (Thuế căn chỉnh) | "Chi phí làm mô hình an toàn" | Tính toán, dữ liệu và phức tạp bổ sung cần để đi từ mô hình cơ sở đến mô hình căn chỉnh -- DPO giảm đáng kể |
 
 ## Further Reading
 
-- [Rafailov et al., 2023 -- "Direct Preference Optimization: Your Language Model is Secretly a Reward Model"](https://arxiv.org/abs/2305.18290) -- the DPO paper that simplified alignment from RLHF to supervised learning
-- [Tunstall et al., 2023 -- "Zephyr: Direct Distillation of LM Alignment"](https://arxiv.org/abs/2310.16944) -- Zephyr-7B, showing DPO on UltraFeedback matches RLHF on benchmarks
-- [Ethayarajh et al., 2024 -- "KTO: Model Alignment as Prospect Theoretic Optimization"](https://arxiv.org/abs/2402.01306) -- eliminating the need for paired preferences
-- [Hong et al., 2024 -- "ORPO: Monolithic Preference Optimization without Reference Model"](https://arxiv.org/abs/2403.07691) -- combining SFT and alignment in one step
-- [Meng et al., 2024 -- "SimPO: Simple Preference Optimization with a Reference-Free Reward"](https://arxiv.org/abs/2405.14734) -- eliminating the reference model entirely
-- [Llama 3 Technical Report](https://arxiv.org/abs/2407.21783) -- Meta's alignment pipeline combining RLHF and DPO
+- [Rafailov et al., 2023 -- "Direct Preference Optimization: Your Language Model is Secretly a Reward Model"](https://arxiv.org/abs/2305.18290) -- bài báo DPO đơn giản hóa căn chỉnh từ RLHF sang học có giám sát
+- [Tunstall et al., 2023 -- "Zephyr: Direct Distillation of LM Alignment"](https://arxiv.org/abs/2310.16944) -- Zephyr-7B, cho thấy DPO trên UltraFeedback ngang RLHF trên benchmark
+- [Ethayarajh et al., 2024 -- "KTO: Model Alignment as Prospect Theoretic Optimization"](https://arxiv.org/abs/2402.01306) -- loại nhu cầu sở thích ghép cặp
+- [Hong et al., 2024 -- "ORPO: Monolithic Preference Optimization without Reference Model"](https://arxiv.org/abs/2403.07691) -- kết hợp SFT và căn chỉnh trong một bước
+- [Meng et al., 2024 -- "SimPO: Simple Preference Optimization with a Reference-Free Reward"](https://arxiv.org/abs/2405.14734) -- loại hoàn toàn mô hình tham chiếu
+- [Llama 3 Technical Report](https://arxiv.org/abs/2407.21783) -- pipeline căn chỉnh Meta kết hợp RLHF và DPO
