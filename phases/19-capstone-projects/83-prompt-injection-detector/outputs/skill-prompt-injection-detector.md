@@ -9,20 +9,20 @@ tags: [safety, detector, prompt-injection]
 
 # Prompt Injection Detector
 
-A detector here is a function from prompt to verdict. A verdict carries a category from the lesson 82 taxonomy and a confidence in [0, 1].
+Một bộ phát hiện ở đây là một hàm từ prompt sang kết luận. Một kết luận mang một hạng mục từ hệ phân loại bài 82 và một độ tin cậy trong [0, 1].
 
 ## Pipeline
 
-1. Normalize - strip zero-width characters, undo homoglyphs, decode base64/hex, fold leet-speak digits, attempt rot13 with a common-words sanity check.
-2. Substring rules - hand-written needles such as `ignore previous`, `from now on you are`, `decode this base64`.
-3. Regex rules - token-level patterns such as `\bignor\w*\s+(all|prior|previous|earlier)\b`.
+1. Chuẩn hóa - bỏ các ký tự độ rộng bằng không, hoàn tác các ký tự đồng hình, giải mã base64/hex, quy các chữ số leet-speak, thử rot13 với một kiểm tra hợp lý từ phổ biến.
+2. Các quy tắc chuỗi con - các chuỗi cần tìm viết tay như `ignore previous`, `from now on you are`, `decode this base64`.
+3. Các quy tắc regex - các mẫu ở mức token như `\bignor\w*\s+(all|prior|previous|earlier)\b`.
 
-Aggregation keeps the maximum score per category and returns the category with the largest score, or `benign` if nothing fires.
+Tổng hợp giữ điểm tối đa theo hạng mục và trả về hạng mục có điểm lớn nhất, hoặc `benign` nếu không gì kích hoạt.
 
 ## Adding a rule
 
-Edit `code/rules.py`. A rule is a dictionary with `name`, `category` (one of the six taxonomy categories), `score` (float 0 to 1), and one of `substring` or `regex`. Re-run `main.py` to see the impact on per-category precision and recall.
+Chỉnh sửa `code/rules.py`. Một quy tắc là một từ điển với `name`, `category` (một trong sáu hạng mục hệ phân loại), `score` (float 0 đến 1), và một trong `substring` hoặc `regex`. Chạy lại `main.py` để thấy tác động lên precision và recall theo hạng mục.
 
 ## Artifact
 
-`outputs/detector_report.json` is the per-category metrics file. The end to end gate in lesson 87 reads it to threshold confidence.
+`outputs/detector_report.json` là file chỉ số theo hạng mục. Cổng đầu cuối trong bài 87 đọc nó để đặt ngưỡng độ tin cậy.

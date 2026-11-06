@@ -1,6 +1,6 @@
 # Capstone 83 — Prompt Injection Detector
 
-> A detector is a function from prompt to confidence and category. Anything else is a vibe.
+> Một bộ phát hiện là một hàm từ prompt sang độ tin cậy và hạng mục. Bất cứ thứ gì khác là cảm giác.
 
 **Type:** Build
 **Languages:** Python
@@ -9,23 +9,23 @@
 
 ## Problem
 
-A team reads about a jailbreak on social media, writes a single regex like `r"ignore (all )?previous"`, ships it, and calls it the prompt injection defense. Two weeks later the same attack lands with `"disregard the prior"`, the regex misses, and the team blames the model. The detector was never measured against anything. Nobody knows the precision. Nobody knows the recall. Nobody knows which categories it covers. The regex is a security theater patch.
+Một nhóm đọc về một jailbreak trên mạng xã hội, viết một regex duy nhất như `r"ignore (all )?previous"`, phát hành nó, và gọi đó là phòng vệ prompt injection. Hai tuần sau cùng tấn công thành công với `"disregard the prior"`, regex bỏ lỡ, và nhóm đổ lỗi cho mô hình. Bộ phát hiện chưa từng được đo với bất cứ thứ gì. Không ai biết precision. Không ai biết recall. Không ai biết nó bao phủ những hạng mục nào. Regex là một bản vá diễn kịch bảo mật.
 
-The honest version of a detector is a function with measurable behavior. Given a prompt it returns a confidence in `[0, 1]` and the best matching category. Given a labeled corpus, the framework runs the detector across every fixture, splits into true positives, false positives, true negatives, and false negatives per category, and reports precision and recall. The team reads the precision and recall, decides what to ship, decides where to spend the next sprint, and stops guessing.
+Phiên bản trung thực của một bộ phát hiện là một hàm có hành vi có thể đo. Với một prompt được cung cấp nó trả về một độ tin cậy trong `[0, 1]` và hạng mục khớp tốt nhất. Với một corpus được gắn nhãn được cung cấp, framework chạy bộ phát hiện trên mọi fixture, chia thành dương tính thật, dương tính giả, âm tính thật, và âm tính giả theo hạng mục, và báo cáo precision và recall. Nhóm đọc precision và recall, quyết định cung cấp gì, quyết định dành sprint tiếp theo ở đâu, và ngừng đoán.
 
-This capstone builds a layered detector: deterministic substring rules, token-level regexes, and a normalize pass that decodes simple encodings (base64, rot13, leet, zero-width) before the rules run. Each layer is independently auditable. Each rule has a per-category coverage claim. The runner produces a per-category confusion matrix and a CSV that downstream lessons can plot.
+Bài tổng kết này xây dựng một bộ phát hiện nhiều lớp: các quy tắc chuỗi con tất định, regex ở mức token, và một lượt chuẩn hóa giải mã các mã hóa đơn giản (base64, rot13, leet, ký tự độ rộng bằng không) trước khi các quy tắc chạy. Mỗi lớp có thể kiểm toán độc lập. Mỗi quy tắc có một tuyên bố độ bao phủ theo hạng mục. Trình chạy tạo một ma trận nhầm lẫn theo hạng mục và một CSV mà các bài hạ nguồn có thể vẽ.
 
 ## Concept
 
-A detector here is a list of `Rule` objects. Each rule has a `name`, a `category`, and a function `score(prompt) -> float in [0, 1]`. A rule either fires or it does not. When it fires, its score is its confidence. The aggregator collapses per-rule scores into a single `Verdict` with `category` (the highest scoring category) and `confidence` (the max score in that category). A prompt with no rule firing scores `0.0` and is labeled `benign`.
+Một bộ phát hiện ở đây là một danh sách đối tượng `Rule`. Mỗi quy tắc có một `name`, một `category`, và một hàm `score(prompt) -> float in [0, 1]`. Một quy tắc hoặc kích hoạt hoặc không. Khi nó kích hoạt, điểm của nó là độ tin cậy. Bộ tổng hợp thu gọn các điểm theo quy tắc thành một `Verdict` duy nhất với `category` (hạng mục điểm cao nhất) và `confidence` (điểm tối đa trong hạng mục đó). Một prompt không quy tắc nào kích hoạt có điểm `0.0` và được gắn nhãn `benign`.
 
-Three layers, applied in order:
+Ba lớp, được áp dụng theo thứ tự:
 
-1. **Normalize.** Strip zero-width characters and bidi controls. Lowercase a working copy. Decode tokens that look like base64, rot13, hex. Replace leet-speak digits with their letter mappings. Keep the original prompt alongside the normalized copy because some rules want to see the raw bytes (zero-width insertions are themselves a signal).
+1. **Chuẩn hóa.** Bỏ các ký tự độ rộng bằng không và điều khiển bidi. Chuyển chữ thường một bản sao làm việc. Giải mã các token trông như base64, rot13, hex. Thay các chữ số leet-speak bằng các ánh xạ chữ cái của chúng. Giữ prompt gốc cạnh bản sao được chuẩn hóa vì một số quy tắc muốn thấy các byte thô (các lần chèn ký tự độ rộng bằng không tự chúng là một tín hiệu).
 
-2. **Substring rules.** Hand-written patterns like `"ignore previous"`, `"as an unrestricted"`, `"answer starting with"`, `"sure, here is"`. Each pattern carries a category and a base score. The rule fires on either the raw or the normalized text.
+2. **Các quy tắc chuỗi con.** Các mẫu viết tay như `"ignore previous"`, `"as an unrestricted"`, `"answer starting with"`, `"sure, here is"`. Mỗi mẫu mang một hạng mục và một điểm cơ sở. Quy tắc kích hoạt trên văn bản thô hoặc được chuẩn hóa.
 
-3. **Regex rules.** Token-level patterns that catch families. `r"\bignor\w*\s+(all|prior|previous|earlier)\b"` covers a family of overrides. `r"\b(decode|rot13|base64|hex)\b.*\banswer\b"` catches encoding tricks. Each regex carries a category and a base score.
+3. **Các quy tắc regex.** Các mẫu ở mức token bắt các họ. `r"\bignor\w*\s+(all|prior|previous|earlier)\b"` bao phủ một họ ghi đè. `r"\b(decode|rot13|base64|hex)\b.*\banswer\b"` bắt các thủ thuật mã hóa. Mỗi regex mang một hạng mục và một điểm cơ sở.
 
 ```mermaid
 flowchart LR
@@ -39,9 +39,9 @@ flowchart LR
   M --> CM[confusion matrix per category]
 ```
 
-The metrics runner takes the taxonomy artifact from lesson 82, runs the detector over every fixture, and computes per-category precision and recall. A prompt's category label is the fixture category; the detector's predicted category is the verdict category. True positive for category C is fixture-category=C and verdict-category=C. False positive is fixture-category!=C and verdict-category=C. False negative is fixture-category=C and verdict-category!=C (or `benign`). The runner also accepts a benign-prompt list so false positives on safe text are measured.
+Trình chạy chỉ số nhận hiện vật hệ phân loại từ bài 82, chạy bộ phát hiện trên mọi fixture, và tính precision và recall theo hạng mục. Nhãn hạng mục của một prompt là hạng mục fixture; hạng mục dự đoán của bộ phát hiện là hạng mục kết luận. Dương tính thật cho hạng mục C là fixture-category=C và verdict-category=C. Dương tính giả là fixture-category!=C và verdict-category=C. Âm tính giả là fixture-category=C và verdict-category!=C (hoặc `benign`). Trình chạy cũng nhận một danh sách prompt lành tính để các dương tính giả trên văn bản an toàn được đo.
 
-The detector is not the safety gate. It is one signal among many that the gate will compose. By design it leans toward recall on encoding-trick and instruction-override and accepts middling precision on role-play, because role-play attacks blur into legitimate creative writing requests and the gate will use other signals (rules engine, classifier) for the borderline cases.
+Bộ phát hiện không phải cổng an toàn. Nó là một tín hiệu trong nhiều tín hiệu mà cổng sẽ kết hợp. Theo thiết kế nó nghiêng về recall trên encoding-trick và instruction-override và chấp nhận precision trung bình trên role-play, vì các tấn công nhập vai mờ lẫn vào các yêu cầu viết sáng tạo hợp lệ và cổng sẽ dùng các tín hiệu khác (bộ máy quy tắc, bộ phân loại) cho các trường hợp giáp ranh.
 
 ```figure
 injection-gate
@@ -49,36 +49,36 @@ injection-gate
 
 ## Build It
 
-The corpus loader reads `outputs/taxonomy.json` from lesson 82. The rules live in `code/rules.py` as data, not code. Each rule is a dictionary with `name`, `category`, `score`, and either `substring` or `regex`. The detector class compiles them once.
+Bộ nạp corpus đọc `outputs/taxonomy.json` từ bài 82. Các quy tắc nằm trong `code/rules.py` như dữ liệu, không phải mã. Mỗi quy tắc là một từ điển với `name`, `category`, `score`, và `substring` hoặc `regex`. Lớp bộ phát hiện biên dịch chúng một lần.
 
-The normalize pass uses `re.sub` and `codecs` from the standard library. Base64 normalize tries to decode any 16+ char base64-looking token; on success it replaces the token with the decoded UTF-8. Rot13 normalize creates a candidate by `codecs.encode(text, 'rot_13')` and only keeps it if the candidate has more dictionary-like words than the input (cheap heuristic on a small built-in word list).
+Lượt chuẩn hóa dùng `re.sub` và `codecs` từ thư viện tiêu chuẩn. Chuẩn hóa base64 thử giải mã bất kỳ token trông như base64 dài 16+ ký tự; khi thành công nó thay token bằng UTF-8 đã giải mã. Chuẩn hóa Rot13 tạo một ứng viên bằng `codecs.encode(text, 'rot_13')` và chỉ giữ nó nếu ứng viên có nhiều từ giống từ điển hơn đầu vào (heuristic rẻ trên một danh sách từ tích hợp nhỏ).
 
-The metrics runner produces a JSON report with per-category precision, recall, F1, and the raw counts. The detector is wrong on purpose for some fixtures (especially the benign-looking role-play prompts); the report exposes that rather than hiding it.
+Trình chạy chỉ số tạo một báo cáo JSON với precision, recall, F1 theo hạng mục, và các số đếm thô. Bộ phát hiện cố ý sai trên một số fixture (đặc biệt các prompt nhập vai trông lành tính); báo cáo phơi bày điều đó thay vì giấu nó.
 
 ## Use It
 
-Run `python3 main.py`. The demo loads the taxonomy, runs the detector on every fixture, runs it on a benign-prompt corpus baked into `benign.py`, and prints the per-category metrics. The `outputs/detector_report.json` file is the artifact the safety gate in lesson 87 consumes.
+Chạy `python3 main.py`. Demo nạp hệ phân loại, chạy bộ phát hiện trên mọi fixture, chạy nó trên một corpus prompt lành tính tích hợp trong `benign.py`, và in các chỉ số theo hạng mục. File `outputs/detector_report.json` là hiện vật cổng an toàn trong bài 87 tiêu thụ.
 
 ## Ship It
 
-`outputs/skill-prompt-injection-detector.md` documents the rule format and how to add a rule.
+`outputs/skill-prompt-injection-detector.md` lập tài liệu định dạng quy tắc và cách thêm một quy tắc.
 
 ## Exercises
 
-1. Add a rule family for context-smuggling (instructions hidden in tool result JSON). Measure the recall improvement and the false-positive cost on benign prompts.
-2. Compute per-rule contribution: for each rule, count how many true positives would be lost if it were removed. Sort rules by marginal contribution.
-3. Add a `confidence_threshold` knob. Sweep it from 0 to 1 and plot precision-recall per category.
+1. Thêm một họ quy tắc cho context-smuggling (các chỉ dẫn giấu trong JSON kết quả công cụ). Đo cải thiện recall và chi phí dương tính giả trên các prompt lành tính.
+2. Tính đóng góp theo quy tắc: với mỗi quy tắc, đếm bao nhiêu dương tính thật sẽ mất nếu nó bị loại. Sắp các quy tắc theo đóng góp biên.
+3. Thêm một núm `confidence_threshold`. Quét nó từ 0 đến 1 và vẽ precision-recall theo hạng mục.
 
 ## Key Terms
 
-| Term | Common usage | Precise meaning |
+| Thuật ngữ | Cách dùng phổ biến | Ý nghĩa chính xác |
 |---|---|---|
-| detector | a model that blocks attacks | a function returning category and confidence, evaluated by precision and recall |
-| normalize | a preprocessing step | a transform that exposes hidden tokens to subsequent rules |
-| confusion matrix | a 2x2 table | the per-category breakdown of TP, FP, TN, FN used to compute precision and recall |
-| precision | overall accuracy | TP / (TP + FP), the fraction of fires that are correct |
-| recall | overall coverage | TP / (TP + FN), the fraction of attacks the detector catches |
+| detector (bộ phát hiện) | một mô hình chặn các tấn công | một hàm trả về hạng mục và độ tin cậy, được đánh giá bằng precision và recall |
+| normalize (chuẩn hóa) | một bước tiền xử lý | một phép biến đổi phơi bày các token ẩn cho các quy tắc tiếp theo |
+| confusion matrix (ma trận nhầm lẫn) | một bảng 2x2 | phân tích TP, FP, TN, FN theo hạng mục được dùng để tính precision và recall |
+| precision (độ chính xác dương tính) | độ chính xác tổng thể | TP / (TP + FP), tỷ lệ lần kích hoạt đúng |
+| recall (độ bao phủ) | độ bao phủ tổng thể | TP / (TP + FN), tỷ lệ các tấn công bộ phát hiện bắt được |
 
 ## Further Reading
 
-Lessons 84 through 87 in this track. The detector here is one of three signals the end to end gate composes.
+Các bài 84 đến 87 trong track này. Bộ phát hiện ở đây là một trong ba tín hiệu mà cổng đầu cuối kết hợp.
