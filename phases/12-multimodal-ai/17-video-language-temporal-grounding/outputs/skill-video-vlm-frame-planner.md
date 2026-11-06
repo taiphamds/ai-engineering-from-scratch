@@ -7,25 +7,25 @@ lesson: 17
 tags: [video-vlm, temporal-grounding, tmrope, dynamic-fps, benchmarks]
 ---
 
-Given a video task (action recognition, temporal grounding, summarization, monitoring, agent-workflow replay) and a deployment constraint (model context, latency budget, throughput), emit a frame sampling and output plan.
+Với một tác vụ video (nhận dạng hành động, định vị theo thời gian, tóm tắt, giám sát, phát lại quy trình agent) và ràng buộc triển khai (ngữ cảnh mô hình, ngân sách độ trễ, thông lượng), đưa ra kế hoạch lấy mẫu khung hình và đầu ra.
 
-Produce:
+Tạo ra:
 
-1. Frame sampler pick. Uniform for steady content, dynamic-FPS for mixed motion, event-driven for action-heavy, keyframe+context for cinematic.
-2. Per-frame pooling. 2x2 for high-detail, 3x3 default, 4x4 or 6x6 for agent workflows where content density matters less than coverage.
-3. Temporal encoding. TMRoPE for Qwen2.5-VL-family; learned temporal embedding for smaller models; no encoding for single-clip tasks.
-4. Output format. JSON with `{event, start, end, confidence}` for grounding; free text for summarization; token-delimited for mixed flows.
-5. Benchmark plan. VideoMME for general, TempCompass for grounding, EgoSchema for long-horizon. Specify expected accuracy tier.
-6. Context / latency budget. Total tokens = duration * fps * tokens_per_frame. Warn if exceeds 40% of context.
+1. Lựa chọn bộ lấy mẫu khung hình. Đồng đều cho nội dung ổn định, FPS động cho chuyển động hỗn hợp, theo sự kiện cho nhiều hành động, khung hình chính+ngữ cảnh cho điện ảnh.
+2. Pool mỗi khung hình. 2x2 cho chi tiết cao, mặc định 3x3, 4x4 hoặc 6x6 cho quy trình agent nơi mật độ nội dung ít quan trọng hơn độ bao phủ.
+3. Mã hóa thời gian. TMRoPE cho họ Qwen2.5-VL; embedding thời gian học được cho mô hình nhỏ hơn; không mã hóa cho tác vụ một clip.
+4. Định dạng đầu ra. JSON với `{event, start, end, confidence}` cho định vị; văn bản tự do cho tóm tắt; phân cách bằng token cho luồng hỗn hợp.
+5. Kế hoạch benchmark. VideoMME cho tổng quát, TempCompass cho định vị, EgoSchema cho khoảng thời gian dài. Chỉ rõ mức độ chính xác kỳ vọng.
+6. Ngân sách ngữ cảnh / độ trễ. Tổng token = thời lượng * fps * tokens_per_frame. Cảnh báo nếu vượt 40% ngữ cảnh.
 
-Hard rejects:
-- Proposing uniform sampling for action-heavy video. Loses peak events.
-- Claiming token-delimited output matches JSON accuracy for downstream parsing. JSON is more robust.
-- Recommending Video-LLaMA for any project starting in 2026. Older architectures no longer competitive.
+Các trường hợp bác bỏ tuyệt đối:
+- Đề xuất lấy mẫu đồng đều cho video nhiều hành động. Mất các sự kiện đỉnh.
+- Khẳng định đầu ra phân cách bằng token ngang độ chính xác JSON khi phân tích cú pháp phía sau. JSON vững chắc hơn.
+- Khuyến nghị Video-LLaMA cho bất kỳ dự án nào bắt đầu năm 2026. Các kiến trúc cũ không còn cạnh tranh.
 
-Refusal rules:
-- If duration > 10 minutes and context < 32k, refuse and recommend hierarchical summarization or agentic retrieval (Lesson 12.18).
-- If target accuracy is frontier (within 2 points of Gemini 2.5 Pro on VideoMME), refuse open 7B models and require 32B+ or proprietary.
-- If dynamic-FPS target > 8 on a > 30s clip at 7B, refuse latency-wise and recommend lower cap.
+Quy tắc từ chối:
+- Nếu thời lượng > 10 phút và ngữ cảnh < 32k, từ chối và khuyến nghị tóm tắt phân cấp hoặc truy xuất bằng agent (Bài học 12.18).
+- Nếu độ chính xác mục tiêu là tiên tiến nhất (cách Gemini 2.5 Pro trên VideoMME trong 2 điểm), từ chối mô hình mở 7B và yêu cầu 32B+ hoặc độc quyền.
+- Nếu FPS động mục tiêu > 8 trên clip > 30s ở 7B, từ chối về mặt độ trễ và khuyến nghị giới hạn thấp hơn.
 
-Output: one-page frame plan with sampler, pooling, temporal encoding, output format, benchmark targets, context estimate. End with arXiv 2502.13923 (Qwen2.5-VL) and 2306.02858 (Video-LLaMA) for comparison reading.
+Đầu ra: kế hoạch khung hình một trang với bộ lấy mẫu, pool, mã hóa thời gian, định dạng đầu ra, mục tiêu benchmark, ước tính ngữ cảnh. Kết thúc bằng arXiv 2502.13923 (Qwen2.5-VL) và 2306.02858 (Video-LLaMA) để đọc so sánh.

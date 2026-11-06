@@ -1,6 +1,6 @@
 # Video-Language Models: Temporal Tokens and Grounding
 
-> Video is not a stack of photos. A 5-second clip has causal ordering, action verbs, and event timing that an image model cannot represent. Video-LLaMA (Zhang et al., June 2023) shipped the first open video-LLM with audio-visual grounding. VideoChat and Video-LLaVA scaled the pattern. By 2025 Qwen2.5-VL's TMRoPE closed the gap with frontier proprietary models. Each system solved temporal tokens differently — Q-former per clip, concat-pool per frame, TMRoPE per token. This lesson reads the patterns, builds a uniform-vs-dynamic frame sampler, and evaluates on temporal grounding tasks.
+> Video không phải chồng ảnh. Một đoạn clip 5 giây có thứ tự nhân quả, động từ hành động và thời điểm sự kiện mà mô hình ảnh không thể biểu diễn. Video-LLaMA (Zhang và cộng sự, tháng 6 năm 2023) phát hành video-LLM mở đầu tiên với khả năng neo nghe-nhìn. VideoChat và Video-LLaVA mở rộng mẫu này. Đến năm 2025, TMRoPE của Qwen2.5-VL thu hẹp khoảng cách với các mô hình độc quyền tiên tiến. Mỗi hệ thống giải quyết token thời gian theo cách khác nhau — Q-former cho mỗi clip, ghép-pool cho mỗi khung hình, TMRoPE cho mỗi token. Bài học này đọc các mẫu, xây dựng bộ lấy mẫu khung hình đồng đều so với động và đánh giá trên các tác vụ định vị theo thời gian.
 
 **Type:** Build
 **Languages:** Python (stdlib, frame sampler + temporal-grounding evaluator)
@@ -9,101 +9,101 @@
 
 ## Learning Objectives
 
-- Explain why temporal positional encoding changes video VLM performance independently of the vision encoder.
-- Compare uniform, dynamic-FPS, and event-driven frame sampling on tokens-per-second vs grounding accuracy.
-- Describe Q-former-per-clip (Video-LLaMA) vs pooled-per-frame (Video-LLaVA) vs M-RoPE-per-token (Qwen2.5-VL) designs.
-- Name the four video benchmarks: VideoMME, TempCompass, EgoSchema, Video-MMMU.
+- Giải thích tại sao mã hóa vị trí thời gian thay đổi hiệu năng VLM video độc lập với bộ mã hóa thị giác.
+- So sánh lấy mẫu khung hình đồng đều, FPS động và theo sự kiện về token mỗi giây so với độ chính xác định vị.
+- Mô tả các thiết kế Q-former-mỗi-clip (Video-LLaMA) so với pool-mỗi-khung-hình (Video-LLaVA) so với M-RoPE-mỗi-token (Qwen2.5-VL).
+- Nêu tên bốn benchmark video: VideoMME, TempCompass, EgoSchema, Video-MMMU.
 
 ## The Problem
 
-A 1-minute video at 30 FPS is 1800 frames. At 196 visual tokens per frame (ViT-B at 224), that is 352k tokens — larger than any 2024-era LLM context.
+Một video 1 phút ở 30 FPS là 1800 khung hình. Ở 196 token thị giác mỗi khung hình (ViT-B ở 224), đó là 352k token — lớn hơn ngữ cảnh của bất kỳ LLM thời 2024 nào.
 
-Three reduction strategies exist:
+Có ba chiến lược giảm:
 
-1. Subsample frames (1-8 FPS depending on content).
-2. Pool each frame's patch tokens aggressively (3x3 or 4x4 bilinear pool).
-3. Compress via a Q-former that takes a 16-frame clip and outputs 64 tokens.
+1. Lấy mẫu thưa khung hình (1-8 FPS tùy nội dung).
+2. Pool mạnh các token patch của mỗi khung hình (pool song tuyến tính 3x3 hoặc 4x4).
+3. Nén qua Q-former nhận clip 16 khung hình và xuất 64 token.
 
-Each trade-off is different. Subsampling loses temporal detail. Pooling loses spatial detail. Q-former loses both a little but saves tokens.
+Mỗi đánh đổi khác nhau. Lấy mẫu thưa mất chi tiết thời gian. Pool mất chi tiết không gian. Q-former mất một chút cả hai nhưng tiết kiệm token.
 
-Temporal position encoding is the other axis: how does the model know frame 5 came before frame 6? Options include simple 1D temporal RoPE (Video-LLaMA), learned temporal embeddings (Video-LLaVA), and TMRoPE (Qwen2.5-VL, full 3D).
+Mã hóa vị trí thời gian là trục còn lại: mô hình biết khung hình 5 đến trước khung hình 6 bằng cách nào? Các lựa chọn gồm RoPE thời gian 1D đơn giản (Video-LLaMA), embedding thời gian học được (Video-LLaVA) và TMRoPE (Qwen2.5-VL, 3D đầy đủ).
 
 ## The Concept
 
 ### Video-LLaMA: Q-former per clip + audio branch
 
-Video-LLaMA (2023) was the first open video-LLM. Architecture:
+Video-LLaMA (2023) là video-LLM mở đầu tiên. Kiến trúc:
 
-- 16-frame clips at 2 FPS (so 8 seconds).
-- Per-frame ViT features -> Video Q-former that cross-attends over all 16 frames -> 32 learned queries -> LLM.
-- Parallel audio branch: waveform -> ImageBind audio encoder -> Audio Q-former -> 32 queries -> LLM.
+- Clip 16 khung hình ở 2 FPS (tức 8 giây).
+- Đặc trưng ViT mỗi khung hình -> Video Q-former thực hiện cross-attention trên cả 16 khung hình -> 32 truy vấn học được -> LLM.
+- Nhánh âm thanh song song: dạng sóng -> bộ mã hóa âm thanh ImageBind -> Audio Q-former -> 32 truy vấn -> LLM.
 
-Strength: audio-visual joint reasoning. Weakness: fixed clip length, no arbitrary time grounding.
+Điểm mạnh: suy luận nghe-nhìn chung. Điểm yếu: độ dài clip cố định, không định vị thời gian tùy ý.
 
 ### VideoChat and Video-LLaVA
 
-VideoChat kept the Video-LLaMA idea but dropped audio and simplified. Video-LLaVA (Lin et al., 2023) trained a single visual encoder on both images and video frames ("alignment before projection"), giving a unified representation. Both are frozen-CLIP-encoder + MLP + LLM.
+VideoChat giữ ý tưởng Video-LLaMA nhưng bỏ âm thanh và đơn giản hóa. Video-LLaVA (Lin và cộng sự, 2023) huấn luyện một bộ mã hóa thị giác duy nhất trên cả ảnh lẫn khung hình video ("căn chỉnh trước phép chiếu"), tạo biểu diễn thống nhất. Cả hai là bộ mã hóa CLIP đóng băng + MLP + LLM.
 
-Neither handles long video. Both are 8-16 frame systems.
+Không mô hình nào xử lý video dài. Cả hai là hệ thống 8-16 khung hình.
 
 ### Qwen2.5-VL and TMRoPE
 
-Qwen2.5-VL introduced TMRoPE — Temporal-Modality Rotary Position Embedding. Each patch token carries an (t, h, w) position where t is the actual timestamp (not frame index).
+Qwen2.5-VL giới thiệu TMRoPE — Embedding vị trí quay thời gian-phương thức. Mỗi token patch mang vị trí (t, h, w), trong đó t là dấu thời gian thực (không phải chỉ số khung hình).
 
-Key differences from simple temporal embedding:
+Khác biệt then chốt so với embedding thời gian đơn giản:
 
-- Absolute time, not index. The model sees "at 4.2 seconds" not "at frame 15."
-- Per-token rotation, not per-clip. Each visual token rotates independently by its timestamp.
-- Compatible with dynamic FPS. If you sample at 2 FPS here and 4 FPS there, TMRoPE handles the uneven spacing natively.
+- Thời gian tuyệt đối, không phải chỉ số. Mô hình thấy "ở 4.2 giây", không phải "ở khung hình 15."
+- Phép quay mỗi token, không phải mỗi clip. Mỗi token thị giác quay độc lập theo dấu thời gian của nó.
+- Tương thích FPS động. Nếu bạn lấy mẫu ở 2 FPS chỗ này và 4 FPS chỗ kia, TMRoPE xử lý khoảng cách không đều một cách nguyên bản.
 
-TMRoPE enables "at what second does the cat jump?" queries. The model can output "at 4.2 seconds." Video-LLaMA could only say "early in the clip."
+TMRoPE cho phép truy vấn "ở giây nào con mèo nhảy?". Mô hình có thể xuất "ở 4.2 giây." Video-LLaMA chỉ có thể nói "ở đầu clip."
 
 ### Frame sampling strategies
 
-Uniform: sample N frames evenly over duration. Simple, loses motion peaks.
+Đồng đều: lấy mẫu N khung hình đều trên thời lượng. Đơn giản, mất các đỉnh chuyển động.
 
-Dynamic FPS: sample adaptively based on motion intensity. Optical flow or frame differencing picks high-motion segments for denser sampling. Qwen2.5-VL trains on this.
+FPS động: lấy mẫu thích ứng theo cường độ chuyển động. Luồng quang học hoặc sai khác khung hình chọn các đoạn chuyển động mạnh để lấy mẫu dày hơn. Qwen2.5-VL huấn luyện trên cách này.
 
-Event-driven: run a lightweight detector, sample more where action happens. Used by VideoAgent.
+Theo sự kiện: chạy bộ phát hiện nhẹ, lấy mẫu nhiều hơn nơi hành động diễn ra. Được VideoAgent sử dụng.
 
-Keyframe + context: sample at shot boundaries + a few adjacent frames. Used for cinematic content.
+Khung hình chính + ngữ cảnh: lấy mẫu tại ranh giới cảnh quay + vài khung hình liền kề. Dùng cho nội dung điện ảnh.
 
 ### Pooling per frame
 
-At 1 FPS and 576 tokens per frame, a 5-minute clip is 172,800 tokens. Doable with Qwen2.5-VL-72B's 128k context but expensive.
+Ở 1 FPS và 576 token mỗi khung hình, clip 5 phút là 172,800 token. Khả thi với ngữ cảnh 128k của Qwen2.5-VL-72B nhưng tốn kém.
 
-3x3 bilinear pool reduces to 64 tokens per frame -> 19,200 tokens for 5 minutes. Sweet spot for most tasks.
+Pool song tuyến tính 3x3 giảm còn 64 token mỗi khung hình -> 19,200 token cho 5 phút. Điểm cân bằng cho phần lớn tác vụ.
 
-Pool more aggressively (6x6 -> 16 tokens per frame) for agent workflows where spatial detail matters less.
+Pool mạnh hơn (6x6 -> 16 token mỗi khung hình) cho quy trình agent nơi chi tiết không gian ít quan trọng hơn.
 
 ### The four video benchmarks
 
-- VideoMME: comprehensive video understanding, short + medium + long.
-- TempCompass: fine-grained temporal reasoning, "before" / "after" questions.
-- EgoSchema: long-horizon first-person video.
-- Video-MMMU: multimodal multi-discipline video questions.
+- VideoMME: hiểu video toàn diện, ngắn + trung bình + dài.
+- TempCompass: suy luận thời gian tinh mịn, câu hỏi "trước" / "sau".
+- EgoSchema: video góc nhìn thứ nhất với khoảng thời gian dài.
+- Video-MMMU: câu hỏi video đa phương thức đa lĩnh vực.
 
-A full video-VLM evaluation hits all four. They stress different axes — TempCompass is all about ordering, EgoSchema is about 3+ minute reasoning, VideoMME spans durations.
+Đánh giá VLM video đầy đủ bao phủ cả bốn. Chúng gây áp lực lên các trục khác nhau — TempCompass hoàn toàn về thứ tự, EgoSchema về suy luận 3+ phút, VideoMME trải trên nhiều thời lượng.
 
 ### Grounding output formats
 
-Output formats for temporal grounding:
+Định dạng đầu ra cho định vị theo thời gian:
 
-- Free text: "The cat jumps around the 4-second mark." Easy to parse but imprecise.
-- Structured JSON: `{"event": "jump", "start": 4.1, "end": 4.3}`. Qwen2.5-VL trains this.
-- Token-based: special `<time>4.1</time>` tokens interleaved with the answer. Qwen2.5-VL's internal format.
+- Văn bản tự do: "Con mèo nhảy vào khoảng mốc 4 giây." Dễ phân tích cú pháp nhưng thiếu chính xác.
+- JSON có cấu trúc: `{"event": "jump", "start": 4.1, "end": 4.3}`. Qwen2.5-VL huấn luyện điều này.
+- Dựa trên token: token đặc biệt `<time>4.1</time>` xen kẽ với câu trả lời. Định dạng nội bộ của Qwen2.5-VL.
 
-Token-based is most accurate for downstream use. Qwen2.5-VL's JSON output format parses directly.
+Dựa trên token là chính xác nhất cho sử dụng phía sau. Định dạng đầu ra JSON của Qwen2.5-VL được phân tích cú pháp trực tiếp.
 
 ### 2026 best practice
 
-For video VLMs in 2026:
+Đối với VLM video năm 2026:
 
-- Encoder: SigLIP 2 with M-RoPE or TMRoPE (Qwen2.5-VL).
-- Frame sampling: dynamic FPS (1-4 depending on motion) with max-frame cap.
-- Per-frame pooling: 3x3 bilinear.
-- Output: structured JSON with time + event fields.
-- Benchmarks: VideoMME + TempCompass for general; EgoSchema for long-horizon.
+- Bộ mã hóa: SigLIP 2 với M-RoPE hoặc TMRoPE (Qwen2.5-VL).
+- Lấy mẫu khung hình: FPS động (1-4 tùy chuyển động) với giới hạn số khung hình tối đa.
+- Pool mỗi khung hình: song tuyến tính 3x3.
+- Đầu ra: JSON có cấu trúc với các trường thời gian + sự kiện.
+- Benchmark: VideoMME + TempCompass cho tổng quát; EgoSchema cho khoảng thời gian dài.
 
 ```figure
 video-temporal-patches
@@ -111,38 +111,38 @@ video-temporal-patches
 
 ## Use It
 
-`code/main.py` includes:
+`code/main.py` gồm:
 
-- Uniform and dynamic-FPS frame samplers.
-- A toy temporal-grounding evaluator: given a "ground truth" event at time T and a model output, score accuracy with tolerance.
-- A comparison across Video-LLaMA (16 frames, Q-former), Video-LLaVA (8 frames, MLP), Qwen2.5-VL (dynamic FPS + TMRoPE).
+- Bộ lấy mẫu khung hình đồng đều và FPS động.
+- Bộ đánh giá định vị theo thời gian đơn giản: với một sự kiện "chuẩn thực tế" tại thời điểm T và đầu ra mô hình, chấm độ chính xác với dung sai.
+- So sánh giữa Video-LLaMA (16 khung hình, Q-former), Video-LLaVA (8 khung hình, MLP), Qwen2.5-VL (FPS động + TMRoPE).
 
 ## Ship It
 
-This lesson produces `outputs/skill-video-vlm-frame-planner.md`. Given a video task (monitoring, action recognition, temporal grounding, summarization), it picks the frame sampler, pooling factor, output format, and expected accuracy tier.
+Bài học này tạo ra `outputs/skill-video-vlm-frame-planner.md`. Với một tác vụ video (giám sát, nhận dạng hành động, định vị theo thời gian, tóm tắt), nó chọn bộ lấy mẫu khung hình, hệ số pool, định dạng đầu ra và mức độ chính xác kỳ vọng.
 
 ## Exercises
 
-1. For a 3-minute cooking demo, pick uniform vs dynamic FPS. Justify with a token count.
+1. Với một video trình diễn nấu ăn 3 phút, chọn FPS đồng đều so với động. Biện minh bằng số token.
 
-2. TMRoPE adds what specifically that a simple temporal embedding table cannot do?
+2. TMRoPE bổ sung cụ thể điều gì mà bảng embedding thời gian đơn giản không làm được?
 
-3. Write a JSON schema for temporal grounding that a VLM can learn to emit. Include error cases.
+3. Viết lược đồ JSON cho định vị theo thời gian mà VLM có thể học phát ra. Bao gồm các trường hợp lỗi.
 
-4. Read Video-LLaVA's Section 3 on "Alignment Before Projection." Why is this better than training separate image and video encoders?
+4. Đọc Mục 3 của Video-LLaVA về "Alignment Before Projection." Tại sao cách này tốt hơn huấn luyện bộ mã hóa ảnh và video riêng?
 
-5. Given the VideoMME leaderboard, what is the gap between the top open model and the top proprietary model as of 2026? How much of that gap is attributable to temporal encoding vs base LLM scale?
+5. Với bảng xếp hạng VideoMME, khoảng cách giữa mô hình mở đứng đầu và mô hình độc quyền đứng đầu tính đến năm 2026 là bao nhiêu? Bao nhiêu phần khoảng cách đó do mã hóa thời gian so với quy mô LLM nền?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| Temporal grounding | "Time-localized answers" | VLM outputs a specific timestamp range for when an event happens |
-| TMRoPE | "Time-Multimodal RoPE" | 3D rotary position with absolute timestamps, used by Qwen2.5-VL |
-| Dynamic FPS | "Motion-aware sampling" | Sample more frames in high-motion segments, fewer in static ones |
-| Frame pooling | "Spatial compress per frame" | Reduce patches per frame with bilinear interpolation before the LLM |
-| Video Q-former | "Clip compressor" | Cross-attention bottleneck mapping N frames to K learned queries |
-| VideoMME | "Video bench" | Comprehensive short/medium/long video benchmark, 2500+ samples |
+| Temporal grounding (Định vị theo thời gian) | "Câu trả lời được định vị thời gian" | VLM xuất khoảng dấu thời gian cụ thể khi sự kiện xảy ra |
+| TMRoPE | "RoPE thời gian-đa phương thức" | Vị trí quay 3D với dấu thời gian tuyệt đối, được Qwen2.5-VL sử dụng |
+| Dynamic FPS (FPS động) | "Lấy mẫu nhận biết chuyển động" | Lấy mẫu nhiều khung hình hơn ở đoạn chuyển động mạnh, ít hơn ở đoạn tĩnh |
+| Frame pooling (Pool khung hình) | "Nén không gian mỗi khung hình" | Giảm patch mỗi khung hình bằng nội suy song tuyến tính trước LLM |
+| Video Q-former | "Bộ nén clip" | Nút thắt cross-attention ánh xạ N khung hình thành K truy vấn học được |
+| VideoMME | "Benchmark video" | Benchmark video ngắn/trung bình/dài toàn diện, 2500+ mẫu |
 
 ## Further Reading
 
