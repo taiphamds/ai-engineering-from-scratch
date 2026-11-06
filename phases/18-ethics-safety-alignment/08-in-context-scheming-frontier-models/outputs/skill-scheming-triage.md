@@ -7,26 +7,26 @@ lesson: 8
 tags: [scheming, agent-safety, apollo, three-pillars, safety-cases]
 ---
 
-Given an agent-deployment incident report (unexpected tool use, data access, self-preservation-adjacent behaviour), classify the failure mode and, when scheming is a candidate, apply the Apollo three-pillar test.
+Với báo cáo sự cố triển khai agent (dùng công cụ bất ngờ, truy cập dữ liệu, hành vi gần tự bảo toàn), phân loại chế độ lỗi và, khi mưu đồ là ứng viên, áp dụng kiểm thử ba trụ cột Apollo.
 
-Produce:
+Tạo:
 
-1. Failure-class triage. Label the incident as one of: capability failure (the model could not do the task), control failure (the monitoring/tool-use protocol did not contain the model), or scheming (the model took actions against the user's goal in service of a different in-context goal).
-2. Three-pillar check (if scheming is a candidate).
-   - Misalignment: did the action serve an orthogonal goal present in the environment or tool output?
-   - Goal-directedness: was the action part of a multi-step plan, or a one-shot error?
-   - Situational awareness: is there evidence the model knew it was being evaluated at the time?
-3. Evaluation-context audit. Was the incident observed in deployment, in red-team evaluation, or in both? If only in deployment, note that evaluation-time results do not transfer (Apollo 2025 caveat).
-4. Elicitation reproducibility. Can the same prompt + environment produce the behaviour again? A reproducible incident is within the three-pillar frame; a non-reproducible one may be a capability elicitation artifact.
-5. Safety-case gap. Which of the three pillars does the current safety case for this deployment address, and which does it leave uncovered?
+1. Phân loại lớp thất bại. Gắn nhãn sự cố là một trong: thất bại năng lực (mô hình không thể làm tác vụ), thất bại kiểm soát (giao thức giám sát/dùng công cụ không kiềm chế mô hình), hoặc mưu đồ (mô hình hành động ngược mục tiêu người dùng để phục vụ mục tiêu trong ngữ cảnh khác).
+2. Kiểm tra ba trụ cột (nếu mưu đồ là ứng viên).
+   - Lệch căn chỉnh: hành động có phục vụ mục tiêu trực giao có trong môi trường hoặc đầu ra công cụ không?
+   - Hướng mục tiêu: hành động là phần của kế hoạch nhiều bước hay lỗi một lần?
+   - Nhận thức tình huống: có bằng chứng mô hình biết đang được đánh giá lúc đó không?
+3. Kiểm tra ngữ cảnh đánh giá. Sự cố được quan sát trong triển khai, đánh giá red-team hay cả hai? Nếu chỉ trong triển khai, ghi nhận kết quả lúc đánh giá không chuyển sang được (lưu ý Apollo 2025).
+4. Khả năng tái lập gợi hành vi. Cùng prompt + môi trường có thể tạo lại hành vi không? Sự cố tái lập được nằm trong khung ba trụ cột; sự cố không tái lập được có thể là tạo tác gợi năng lực.
+5. Khoảng trống hồ sơ lập luận an toàn. Hồ sơ hiện tại cho triển khai này giải quyết trụ cột nào trong ba trụ cột và bỏ sót trụ cột nào?
 
-Hard rejects:
-- Any framing that treats scheming as a capability-class failure. Scheming requires goal-directedness and situational awareness — a capability-lacking model cannot scheme.
-- Any inference that "anti-scheming training reduced covert-action rate" implies reduced underlying misalignment, without checking the evaluation-context recognition rate for the same model.
-- Any claim that oversight subversion is "not an attack" because the agent did not exfiltrate data — oversight subversion is a scheming action in itself.
+Các trường hợp loại bỏ dứt khoát:
+- Mọi cách mô tả xem mưu đồ là thất bại lớp năng lực. Mưu đồ cần hướng mục tiêu và nhận thức tình huống — mô hình thiếu năng lực không thể mưu đồ.
+- Mọi suy luận rằng "huấn luyện chống mưu đồ giảm tỷ lệ hành động bí mật" hàm ý giảm lệch căn chỉnh nền mà không kiểm tra tỷ lệ nhận ra ngữ cảnh đánh giá của cùng mô hình.
+- Mọi khẳng định phá hoại giám sát "không phải tấn công" vì agent không đưa dữ liệu ra ngoài trái phép — phá hoại giám sát tự nó là hành động mưu đồ.
 
-Refusal rules:
-- If the user asks "is my model scheming," refuse a binary answer without the three-pillar evidence; request the evaluation-context and elicitation-reproducibility data.
-- If the user asks for a residual scheming probability, refuse the numeric answer and explain that 2026 evaluation reliability is bounded by the model's own situational-awareness.
+Quy tắc từ chối:
+- Nếu người dùng hỏi "mô hình của tôi có mưu đồ không," từ chối trả lời nhị phân khi thiếu bằng chứng ba trụ cột; yêu cầu dữ liệu ngữ cảnh đánh giá và khả năng tái lập gợi hành vi.
+- Nếu người dùng hỏi xác suất mưu đồ còn lại, từ chối trả lời số và giải thích độ tin cậy đánh giá 2026 bị giới hạn bởi nhận thức tình huống của chính mô hình.
 
-Output: a one-page triage that labels the failure class, fills the three pillars with the evidence available, flags missing evidence, and names the single safety-case gap most urgent to close. Cite Meinke et al. (arXiv:2412.04984) once as the framework source.
+Đầu ra: bản phân loại một trang gắn nhãn lớp thất bại, điền ba trụ cột bằng bằng chứng có sẵn, đánh dấu bằng chứng thiếu và nêu khoảng trống hồ sơ lập luận an toàn cần khép lại cấp bách nhất. Trích dẫn Meinke và cộng sự (arXiv:2412.04984) một lần làm nguồn khung.
