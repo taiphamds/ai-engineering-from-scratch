@@ -1,42 +1,42 @@
 # Building a Production LLM Application
 
-> You have built prompts, embeddings, RAG pipelines, function calling, caching layers, and guardrails. Separately. In isolation. Like practicing guitar scales without ever playing a song. This lesson is the song. You will wire every component from Lessons 01-12 into a single production-ready service. Not a toy. Not a demo. A system that handles real traffic, fails gracefully, streams tokens, tracks costs, and survives its first 10,000 users.
+> Bạn đã xây prompt, embedding, pipeline RAG, function calling, lớp cache và guardrail. Riêng rẽ. Cô lập. Như luyện gam guitar mà chưa bao giờ chơi một bài hát. Bài học này là bài hát. Bạn sẽ kết nối mọi thành phần từ Bài 01-12 thành một dịch vụ duy nhất sẵn sàng cho sản xuất. Không phải đồ chơi. Không phải demo. Một hệ thống xử lý lưu lượng thực, thất bại có kiểm soát, stream token, theo dõi chi phí và sống sót qua 10,000 người dùng đầu tiên.
 
 **Type:** Build (Capstone)
 **Languages:** Python
 **Prerequisites:** Phase 11 Lessons 01-15
 **Time:** ~120 minutes
-**Related:** Phase 11 · 14 (MCP) for replacing bespoke tool schemas with a shared protocol; Phase 11 · 15 (Prompt Caching) for 50-90% cost reduction on stable prefixes. Both are expected in every serious 2026 production stack.
+**Liên quan:** Giai đoạn 11 · 14 (MCP) để thay schema công cụ riêng bằng giao thức chung; Giai đoạn 11 · 15 (Prompt Caching) để giảm chi phí 50-90% trên tiền tố ổn định. Cả hai được kỳ vọng trong mọi ngăn xếp sản xuất nghiêm túc năm 2026.
 
 ## Learning Objectives
 
-- Wire all Phase 11 components (prompts, RAG, function calling, caching, guardrails) into a single production-ready service
-- Implement streaming token delivery, graceful error handling, and request timeout management
-- Build observability into the application: request logging, cost tracking, latency percentiles, and error rate dashboards
-- Deploy the application with health checks, rate limiting, and a fallback strategy for provider outages
+- Kết nối mọi thành phần Giai đoạn 11 (prompt, RAG, function calling, cache, guardrail) thành một dịch vụ duy nhất sẵn sàng cho sản xuất
+- Triển khai phân phối token streaming, xử lý lỗi có kiểm soát và quản lý thời gian chờ yêu cầu
+- Xây khả năng quan sát vào ứng dụng: ghi log yêu cầu, theo dõi chi phí, phân vị độ trễ và dashboard tỷ lệ lỗi
+- Triển khai ứng dụng với kiểm tra sức khỏe, giới hạn tần suất và chiến lược dự phòng khi nhà cung cấp ngừng hoạt động
 
 ## The Problem
 
-Building an LLM feature takes an afternoon. Shipping an LLM product takes months.
+Xây tính năng LLM mất một buổi chiều. Phát hành sản phẩm LLM mất nhiều tháng.
 
-The gap is not intelligence. It is infrastructure. Your prototype calls OpenAI, gets a response, prints it. Works on your laptop. Then reality arrives:
+Khoảng cách không phải trí thông minh. Nó là hạ tầng. Bản mẫu gọi OpenAI, nhận phản hồi, in ra. Hoạt động trên laptop. Rồi thực tế đến:
 
-- A user sends a 50,000-token document. Your context window overflows.
-- Two users ask the same question 4 seconds apart. You pay for both.
-- The API returns a 500 error at 2am. Your service crashes.
-- A user asks the model to generate SQL. The model outputs `DROP TABLE users`.
-- Your monthly bill hits $12,000 and you have no idea which feature caused it.
-- Response time averages 8 seconds. Users leave after 3.
+- Người dùng gửi tài liệu 50,000 token. Cửa sổ ngữ cảnh tràn.
+- Hai người dùng hỏi cùng câu cách nhau 4 giây. Bạn trả tiền cho cả hai.
+- API trả lỗi 500 lúc 2 giờ sáng. Dịch vụ sập.
+- Người dùng yêu cầu mô hình sinh SQL. Mô hình xuất `DROP TABLE users`.
+- Hóa đơn tháng chạm $12,000 và bạn không biết tính năng nào gây ra.
+- Thời gian phản hồi trung bình 8 giây. Người dùng rời đi sau 3.
 
-Every LLM application in production today -- Perplexity, Cursor, ChatGPT, Notion AI -- solved these problems. Not by being smarter about prompts. By being rigorous about engineering.
+Mọi ứng dụng LLM sản xuất hiện nay -- Perplexity, Cursor, ChatGPT, Notion AI -- đã giải các vấn đề này. Không phải bằng thông minh hơn về prompt. Bằng chặt chẽ về kỹ thuật.
 
-This is the capstone. You will build a complete production LLM service that integrates prompt management (L01-02), embeddings and vector search (L04-07), function calling (L09), evaluation (L10), caching (L11), guardrails (L12), streaming, error handling, observability, and cost tracking. One service. Every component wired together.
+Đây là đồ án tổng kết. Bạn sẽ xây dịch vụ LLM sản xuất hoàn chỉnh tích hợp quản lý prompt (L01-02), embedding và tìm kiếm vector (L04-07), function calling (L09), đánh giá (L10), cache (L11), guardrail (L12), streaming, xử lý lỗi, khả năng quan sát và theo dõi chi phí. Một dịch vụ. Mọi thành phần kết nối với nhau.
 
 ## The Concept
 
 ### Production Architecture
 
-Every serious LLM application follows the same flow. The details vary. The structure does not.
+Mọi ứng dụng LLM nghiêm túc tuân cùng luồng. Chi tiết khác nhau. Cấu trúc không đổi.
 
 ```mermaid
 graph LR
@@ -60,28 +60,28 @@ graph LR
     Eval --> Cost --> Resp
 ```
 
-The request enters through an API gateway that handles authentication and rate limiting. Input guardrails check for prompt injection and banned content before the prompt router selects the right template. A semantic cache checks if a similar question was answered recently. On a cache miss, the LLM is called with streaming enabled. Output guardrails validate the response. The eval logger records quality metrics. The cost tracker accounts for every token. The response streams back to the client.
+Yêu cầu đi qua API gateway xử lý xác thực và giới hạn tần suất. Guardrail đầu vào kiểm tra prompt injection và nội dung cấm trước khi router prompt chọn khuôn mẫu đúng. Cache ngữ nghĩa kiểm tra câu hỏi tương tự đã được trả lời gần đây chưa. Khi cache miss, LLM được gọi với streaming bật. Guardrail đầu ra xác thực phản hồi. Bộ ghi log đánh giá ghi thước đo chất lượng. Bộ theo dõi chi phí tính từng token. Phản hồi stream trở lại client.
 
-Seven components. Each one is a lesson you already completed. The engineering is in the wiring.
+Bảy thành phần. Mỗi thành phần là một bài học bạn đã hoàn tất. Kỹ thuật nằm trong việc kết nối.
 
 ### The Stack
 
-| Component | Lesson | Technology | Purpose |
+| Thành phần | Bài học | Công nghệ | Mục đích |
 |-----------|--------|------------|---------|
-| API Server | -- | FastAPI + Uvicorn | HTTP endpoints, SSE streaming, health checks |
-| Prompt Templates | L01-02 | Jinja2 / string templates | Versioned prompt management with variable injection |
-| Embeddings | L04 | text-embedding-3-small | Semantic similarity for cache and RAG |
-| Vector Store | L06-07 | In-memory (prod: Pinecone/Qdrant) | Nearest neighbor search for context retrieval |
-| Function Calling | L09 | Tool registry + JSON Schema | External data access, structured actions |
-| Evaluation | L10 | Custom metrics + logging | Response quality, latency, accuracy tracking |
-| Caching | L11 | Semantic cache (embedding-based) | Avoid redundant LLM calls, reduce cost and latency |
-| Guardrails | L12 | Regex + classifier rules | Block prompt injection, PII, unsafe content |
-| Cost Tracker | L11 | Token counter + pricing table | Per-request and aggregate cost accounting |
-| Streaming | -- | Server-Sent Events (SSE) | Token-by-token delivery, sub-second first token |
+| Máy chủ API | -- | FastAPI + Uvicorn | Endpoint HTTP, streaming SSE, kiểm tra sức khỏe |
+| Khuôn mẫu prompt | L01-02 | Jinja2 / khuôn mẫu chuỗi | Quản lý prompt có phiên bản với chèn biến |
+| Embedding | L04 | text-embedding-3-small | Tương đồng ngữ nghĩa cho cache và RAG |
+| Kho vector | L06-07 | Trong bộ nhớ (sản xuất: Pinecone/Qdrant) | Tìm láng giềng gần nhất để truy xuất ngữ cảnh |
+| Function Calling | L09 | Registry công cụ + JSON Schema | Truy cập dữ liệu ngoài, hành động có cấu trúc |
+| Đánh giá | L10 | Thước đo tùy chỉnh + ghi log | Theo dõi chất lượng phản hồi, độ trễ, độ chính xác |
+| Cache | L11 | Cache ngữ nghĩa (dựa trên embedding) | Tránh gọi LLM dư thừa, giảm chi phí và độ trễ |
+| Guardrail | L12 | Regex + quy tắc phân loại | Chặn prompt injection, PII, nội dung không an toàn |
+| Bộ theo dõi chi phí | L11 | Bộ đếm token + bảng giá | Tính chi phí mỗi yêu cầu và tổng hợp |
+| Streaming | -- | Server-Sent Events (SSE) | Phân phối từng token, token đầu dưới một giây |
 
 ### Streaming: Why It Matters
 
-A GPT-5 response with 500 output tokens takes 3-8 seconds to fully generate. Without streaming, the user stares at a spinner for the entire duration. With streaming, the first token arrives in 200-500ms. The total time is the same. The perceived latency drops by 90%.
+Phản hồi GPT-5 có 500 token đầu ra mất 3-8 giây để sinh đầy đủ. Không streaming, người dùng nhìn vòng xoay suốt thời gian. Có streaming, token đầu đến trong 200-500ms. Tổng thời gian giống nhau. Độ trễ cảm nhận giảm 90%.
 
 ```mermaid
 sequenceDiagram
@@ -102,21 +102,21 @@ sequenceDiagram
     S-->>C: SSE: data: [DONE]
 ```
 
-Three protocols for streaming:
+Ba giao thức cho streaming:
 
-| Protocol | Latency | Complexity | When to Use |
+| Giao thức | Độ trễ | Độ phức tạp | Khi nào dùng |
 |----------|---------|------------|-------------|
-| Server-Sent Events (SSE) | Low | Low | Most LLM apps. Unidirectional, HTTP-based, works everywhere |
-| WebSockets | Low | Medium | Bidirectional needs: voice, real-time collaboration |
-| Long Polling | High | Low | Legacy clients that cannot handle SSE or WebSockets |
+| Server-Sent Events (SSE) | Thấp | Thấp | Hầu hết ứng dụng LLM. Một chiều, dựa trên HTTP, hoạt động mọi nơi |
+| WebSockets | Thấp | Trung bình | Nhu cầu hai chiều: giọng nói, cộng tác thời gian thực |
+| Long Polling | Cao | Thấp | Client cũ không xử lý SSE hoặc WebSockets |
 
-SSE is the default choice. OpenAI, Anthropic, and Google all stream via SSE. Your server receives chunks from the LLM API and forwards them to the client as SSE events. The client uses `EventSource` (browser) or `httpx` (Python) to consume the stream.
+SSE là lựa chọn mặc định. OpenAI, Anthropic và Google đều stream qua SSE. Máy chủ nhận chunk từ API LLM và chuyển cho client làm sự kiện SSE. Client dùng `EventSource` (trình duyệt) hoặc `httpx` (Python) để tiêu thụ stream.
 
 ### Error Handling: The Three Layers
 
-Production LLM apps fail in three distinct ways. Each requires a different recovery strategy.
+Ứng dụng LLM sản xuất thất bại theo ba cách khác biệt. Mỗi cách cần chiến lược phục hồi khác.
 
-**Layer 1: API failures.** The LLM provider returns 429 (rate limit), 500 (server error), or times out. Solution: exponential backoff with jitter. Start at 1 second, double each retry, add random jitter to prevent thundering herd. Maximum 3 retries.
+**Lớp 1: Thất bại API.** Nhà cung cấp LLM trả 429 (giới hạn tần suất), 500 (lỗi máy chủ) hoặc hết thời gian chờ. Giải pháp: backoff hàm mũ có jitter. Bắt đầu 1 giây, tăng gấp đôi mỗi lần thử lại, thêm jitter ngẫu nhiên để ngăn thundering herd. Tối đa 3 lần thử lại.
 
 ```
 Attempt 1: immediate
@@ -126,53 +126,53 @@ Attempt 4: 4s + random(0, 2.0s)
 Give up: return fallback response
 ```
 
-**Layer 2: Model failures.** The model returns malformed JSON, hallucinates a function name, or produces an output that fails validation. Solution: retry with a corrected prompt. Include the error in the retry message so the model can self-correct.
+**Lớp 2: Thất bại mô hình.** Mô hình trả JSON sai định dạng, ảo giác tên hàm hoặc tạo đầu ra không vượt xác thực. Giải pháp: thử lại với prompt đã sửa. Đưa lỗi vào thông điệp thử lại để mô hình tự sửa.
 
-**Layer 3: Application failures.** A downstream service is unreachable, the vector store is slow, a guardrail throws an exception. Solution: graceful degradation. If RAG context is unavailable, proceed without it. If the cache is down, bypass it. Never let a secondary system crash the primary flow.
+**Lớp 3: Thất bại ứng dụng.** Dịch vụ phía sau không thể truy cập, kho vector chậm, guardrail ném ngoại lệ. Giải pháp: suy giảm có kiểm soát. Nếu ngữ cảnh RAG không có, tiếp tục không có nó. Nếu cache hỏng, bỏ qua. Không bao giờ để hệ thống phụ làm sập luồng chính.
 
-| Failure | Retry? | Fallback | User Impact |
+| Thất bại | Thử lại? | Dự phòng | Tác động người dùng |
 |---------|--------|----------|-------------|
-| API 429 (rate limit) | Yes, with backoff | Queue the request | "Processing, please wait..." |
-| API 500 (server error) | Yes, 3 attempts | Switch to fallback model | Transparent to user |
-| API timeout (>30s) | Yes, 1 attempt | Shorter prompt, smaller model | Slightly lower quality |
-| Malformed output | Yes, with error context | Return raw text | Minor formatting issues |
-| Guardrail block | No | Explain why request was blocked | Clear error message |
-| Vector store down | No retry on vector store | Skip RAG context | Lower quality, still functional |
-| Cache down | No retry on cache | Direct LLM call | Higher latency, higher cost |
+| API 429 (giới hạn tần suất) | Có, với backoff | Xếp yêu cầu vào hàng đợi | "Đang xử lý, vui lòng đợi..." |
+| API 500 (lỗi máy chủ) | Có, 3 lần thử | Chuyển mô hình dự phòng | Trong suốt với người dùng |
+| API timeout (>30s) | Có, 1 lần thử | Prompt ngắn hơn, mô hình nhỏ hơn | Chất lượng thấp hơn chút |
+| Đầu ra sai định dạng | Có, với ngữ cảnh lỗi | Trả văn bản thô | Vấn đề định dạng nhỏ |
+| Guardrail chặn | Không | Giải thích tại sao yêu cầu bị chặn | Thông điệp lỗi rõ ràng |
+| Kho vector hỏng | Không thử lại kho vector | Bỏ ngữ cảnh RAG | Chất lượng thấp hơn, vẫn hoạt động |
+| Cache hỏng | Không thử lại cache | Gọi LLM trực tiếp | Độ trễ cao hơn, chi phí cao hơn |
 
-**Fallback model chain.** When your primary model is unavailable, fall through a chain:
+**Chuỗi mô hình dự phòng.** Khi mô hình chính không sẵn có, đi qua chuỗi:
 
 ```
 claude-sonnet-5 -> gpt-4o -> gpt-4o-mini -> cached response -> "Service temporarily unavailable"
 ```
 
-Each step trades quality for availability. The user always gets something.
+Mỗi bước đánh đổi chất lượng lấy tính sẵn sàng. Người dùng luôn nhận được thứ gì đó.
 
 ### Observability: What to Measure
 
-You cannot improve what you cannot see. Every production LLM app needs three pillars of observability.
+Bạn không thể cải thiện thứ không thấy. Mọi ứng dụng LLM sản xuất cần ba trụ cột khả năng quan sát.
 
-**Structured logging.** Every request produces a JSON log entry with: request ID, user ID, prompt template name, model used, input tokens, output tokens, latency (ms), cache hit/miss, guardrail pass/fail, cost (USD), and any errors.
+**Ghi log có cấu trúc.** Mỗi yêu cầu tạo mục log JSON với: ID yêu cầu, ID người dùng, tên khuôn mẫu prompt, mô hình dùng, token đầu vào, token đầu ra, độ trễ (ms), cache hit/miss, guardrail đạt/không đạt, chi phí (USD) và mọi lỗi.
 
-**Tracing.** A single user request touches 5-8 components. OpenTelemetry traces let you see the full journey: how long did embedding take? Was it a cache hit? How long was the LLM call? Did the guardrail add latency? Without tracing, debugging production issues is guesswork.
+**Tracing.** Một yêu cầu người dùng chạm 5-8 thành phần. Trace OpenTelemetry cho thấy toàn hành trình: embedding mất bao lâu? Có cache hit không? Lệnh gọi LLM mất bao lâu? Guardrail có thêm độ trễ không? Không tracing, gỡ lỗi sản xuất là đoán mò.
 
-**Metrics dashboard.** The five numbers every LLM team watches:
+**Dashboard thước đo.** Năm con số mọi nhóm LLM theo dõi:
 
-| Metric | Target | Why |
+| Thước đo | Mục tiêu | Tại sao |
 |--------|--------|-----|
-| P50 latency | < 2s | Median user experience |
-| P99 latency | < 10s | Tail latency drives churn |
-| Cache hit rate | > 30% | Direct cost savings |
-| Guardrail block rate | < 5% | Too high = false positives annoying users |
-| Cost per request | < $0.01 | Unit economics viability |
+| Độ trễ P50 | < 2s | Trải nghiệm người dùng trung vị |
+| Độ trễ P99 | < 10s | Độ trễ đuôi thúc đẩy rời bỏ |
+| Tỷ lệ cache hit | > 30% | Tiết kiệm chi phí trực tiếp |
+| Tỷ lệ guardrail chặn | < 5% | Quá cao = dương tính giả làm phiền người dùng |
+| Chi phí mỗi yêu cầu | < $0.01 | Tính khả thi kinh tế đơn vị |
 
 ### A/B Testing Prompts in Production
 
-Your prompt is not finished when it works. It is finished when you have data proving it outperforms the alternative.
+Prompt không hoàn tất khi nó hoạt động. Nó hoàn tất khi có dữ liệu chứng minh vượt phương án khác.
 
-**Shadow mode.** Run a new prompt on 100% of traffic but only log the results -- do not show them to users. Compare quality metrics against the current prompt. No user risk, full data.
+**Chế độ bóng.** Chạy prompt mới trên 100% lưu lượng nhưng chỉ ghi kết quả -- không hiển thị cho người dùng. So thước đo chất lượng với prompt hiện tại. Không rủi ro người dùng, đầy đủ dữ liệu.
 
-**Percentage rollout.** Route 10% of traffic to the new prompt. Monitor metrics. If quality holds, increase to 25%, then 50%, then 100%. If quality drops, instant rollback.
+**Triển khai theo phần trăm.** Định tuyến 10% lưu lượng sang prompt mới. Theo dõi thước đo. Nếu chất lượng giữ, tăng lên 25%, rồi 50%, rồi 100%. Nếu chất lượng giảm, hoàn tác tức thì.
 
 ```mermaid
 graph TD
@@ -189,75 +189,75 @@ graph TD
     B --> L
 ```
 
-Use a deterministic hash of the user ID, not random selection. This ensures each user gets a consistent experience across requests within the same experiment.
+Dùng hash tất định của ID người dùng, không lựa chọn ngẫu nhiên. Điều này bảo đảm mỗi người dùng có trải nghiệm nhất quán qua các yêu cầu trong cùng thí nghiệm.
 
 ### Real Architecture Examples
 
-**Perplexity.** User query enters. A search engine retrieves 10-20 web pages. Pages are chunked, embedded, and reranked. Top 5 chunks become RAG context. The LLM generates an answer with citations, streamed back in real-time. Two models: a fast one for search query reformulation, a strong one for answer synthesis. Estimated 50M+ queries/day.
+**Perplexity.** Truy vấn người dùng đi vào. Bộ máy tìm kiếm truy xuất 10-20 trang web. Các trang được chia chunk, nhúng và xếp hạng lại. Top 5 chunk trở thành ngữ cảnh RAG. LLM sinh câu trả lời có trích dẫn, stream trở lại thời gian thực. Hai mô hình: một nhanh để viết lại truy vấn tìm kiếm, một mạnh để tổng hợp câu trả lời. Ước lượng 50M+ truy vấn/ngày.
 
-**Cursor.** The open file, surrounding files, recent edits, and terminal output form the context. A prompt router decides: small model for autocomplete (Cursor-small, ~20ms), large model for chat (Claude Sonnet 4.6 / GPT-5, ~3s). Context is aggressively compressed -- only relevant code sections, not entire files. Codebase embeddings provide long-range context. Speculative edits stream diffs, not full files. MCP integration lets third-party tools plug in without per-tool code changes.
+**Cursor.** File mở, file xung quanh, chỉnh sửa gần đây và đầu ra terminal tạo ngữ cảnh. Router prompt quyết định: mô hình nhỏ cho tự động hoàn thành (Cursor-small, ~20ms), mô hình lớn cho chat (Claude Sonnet 4.6 / GPT-5, ~3s). Ngữ cảnh được nén mạnh -- chỉ phần mã liên quan, không toàn file. Embedding cơ sở mã cung cấp ngữ cảnh phạm vi dài. Chỉnh sửa suy đoán stream diff, không toàn file. Tích hợp MCP cho phép công cụ bên thứ ba cắm vào mà không thay mã theo từng công cụ.
 
-**ChatGPT.** Plugins, function calling, and MCP servers let the model access the web, run code, generate images, and query databases. A routing layer decides which capabilities to invoke. Memory persists user preferences across sessions. The system prompt is 1,500+ tokens of behavioral rules, cached via prompt caching. Multiple models serve different features: GPT-5 for chat, GPT-Image for images, Whisper for voice, o4-mini for deep reasoning.
+**ChatGPT.** Plugin, function calling và máy chủ MCP cho phép mô hình truy cập web, chạy mã, sinh ảnh và truy vấn cơ sở dữ liệu. Lớp định tuyến quyết định gọi năng lực nào. Bộ nhớ giữ sở thích người dùng qua các phiên. System prompt là 1,500+ token quy tắc hành vi, được cache qua prompt caching. Nhiều mô hình phục vụ tính năng khác nhau: GPT-5 cho chat, GPT-Image cho ảnh, Whisper cho giọng nói, o4-mini cho suy luận sâu.
 
 ### Scaling
 
-| Scale | Architecture | Infra |
+| Quy mô | Kiến trúc | Hạ tầng |
 |-------|-------------|-------|
-| 0-1K DAU | Single FastAPI server, sync calls | 1 VM, $50/month |
-| 1K-10K DAU | Async FastAPI, semantic cache, queue | 2-4 VMs + Redis, $500/month |
-| 10K-100K DAU | Horizontal scaling, load balancer, async workers | Kubernetes, $5K/month |
-| 100K+ DAU | Multi-region, model routing, dedicated inference | Custom infra, $50K+/month |
+| 0-1K DAU | Một máy chủ FastAPI, lệnh gọi đồng bộ | 1 VM, $50/tháng |
+| 1K-10K DAU | FastAPI bất đồng bộ, cache ngữ nghĩa, hàng đợi | 2-4 VM + Redis, $500/tháng |
+| 10K-100K DAU | Mở rộng ngang, cân bằng tải, worker bất đồng bộ | Kubernetes, $5K/tháng |
+| 100K+ DAU | Đa vùng, định tuyến mô hình, suy luận chuyên dụng | Hạ tầng tùy chỉnh, $50K+/tháng |
 
-Key scaling patterns:
+Các mẫu mở rộng chính:
 
-- **Async everywhere.** Never block a web server thread on an LLM call. Use `asyncio` and `httpx.AsyncClient`.
-- **Queue-based processing.** For non-real-time tasks (summarization, analysis), push to a queue (Redis, SQS) and process with workers. Return a job ID, let the client poll.
-- **Connection pooling.** Reuse HTTP connections to LLM providers. Creating a new TLS connection per request adds 100-200ms.
-- **Horizontal scaling.** LLM apps are I/O bound, not CPU bound. A single async server handles 100+ concurrent requests. Scale servers, not cores.
+- **Bất đồng bộ mọi nơi.** Không bao giờ chặn luồng máy chủ web trên lệnh gọi LLM. Dùng `asyncio` và `httpx.AsyncClient`.
+- **Xử lý dựa trên hàng đợi.** Với tác vụ không thời gian thực (tóm tắt, phân tích), đẩy vào hàng đợi (Redis, SQS) và xử lý bằng worker. Trả ID công việc, để client thăm dò.
+- **Gộp kết nối.** Tái sử dụng kết nối HTTP đến nhà cung cấp LLM. Tạo kết nối TLS mới mỗi yêu cầu thêm 100-200ms.
+- **Mở rộng ngang.** Ứng dụng LLM bị giới hạn I/O, không phải CPU. Một máy chủ bất đồng bộ xử lý 100+ yêu cầu đồng thời. Mở rộng máy chủ, không phải lõi.
 
 ### Cost Projection
 
-Before you ship, estimate your monthly cost. This spreadsheet decides if your business model works.
+Trước phát hành, ước lượng chi phí tháng. Bảng tính này quyết định mô hình kinh doanh có hoạt động không.
 
-| Variable | Value | Source |
+| Biến | Giá trị | Nguồn |
 |----------|-------|--------|
-| Daily Active Users (DAU) | 10,000 | Analytics |
-| Queries per user per day | 5 | Product analytics |
-| Avg input tokens per query | 1,500 | Measured (system + context + user) |
-| Avg output tokens per query | 400 | Measured |
-| Input price per 1M tokens | $5.00 | OpenAI GPT-5 pricing |
-| Output price per 1M tokens | $15.00 | OpenAI GPT-5 pricing |
-| Cache hit rate | 35% | Measured from cache metrics |
-| Effective daily queries | 32,500 | 50,000 * (1 - 0.35) |
+| Người dùng hoạt động hằng ngày (DAU) | 10,000 | Phân tích |
+| Truy vấn mỗi người dùng mỗi ngày | 5 | Phân tích sản phẩm |
+| Token đầu vào trung bình mỗi truy vấn | 1,500 | Đo được (hệ thống + ngữ cảnh + người dùng) |
+| Token đầu ra trung bình mỗi truy vấn | 400 | Đo được |
+| Giá đầu vào mỗi 1M token | $5.00 | Giá OpenAI GPT-5 |
+| Giá đầu ra mỗi 1M token | $15.00 | Giá OpenAI GPT-5 |
+| Tỷ lệ cache hit | 35% | Đo từ thước đo cache |
+| Truy vấn hằng ngày hiệu dụng | 32,500 | 50,000 * (1 - 0.35) |
 
-**Monthly LLM cost:**
-- Input: 32,500 queries/day x 1,500 tokens x 30 days / 1M x $2.50 = **$3,656**
-- Output: 32,500 queries/day x 400 tokens x 30 days / 1M x $10.00 = **$3,900**
-- **Total: $7,556/month** (with caching saving ~$4,070/month)
+**Chi phí LLM hằng tháng:**
+- Đầu vào: 32,500 truy vấn/ngày x 1,500 token x 30 ngày / 1M x $2.50 = **$3,656**
+- Đầu ra: 32,500 truy vấn/ngày x 400 token x 30 ngày / 1M x $10.00 = **$3,900**
+- **Tổng: $7,556/tháng** (với cache tiết kiệm ~$4,070/tháng)
 
-Without caching, the same traffic costs $11,625/month. A 35% cache hit rate saves 35% on LLM costs. This is why Lesson 11 exists.
+Không cache, cùng lưu lượng tốn $11,625/tháng. Tỷ lệ cache hit 35% tiết kiệm 35% chi phí LLM. Đây là lý do Bài 11 tồn tại.
 
 ### The Deployment Checklist
 
-15 items. Ship nothing until every box is checked.
+15 mục. Không phát hành gì đến khi mọi ô được đánh dấu.
 
-| # | Item | Category |
+| # | Mục | Loại |
 |---|------|----------|
-| 1 | API keys stored in environment variables, not code | Security |
-| 2 | Rate limiting per user (10-50 req/min default) | Protection |
-| 3 | Input guardrails active (prompt injection, PII) | Safety |
-| 4 | Output guardrails active (content filtering, format validation) | Safety |
-| 5 | Semantic cache configured and tested | Cost |
-| 6 | Streaming enabled for all chat endpoints | UX |
-| 7 | Exponential backoff on all LLM API calls | Reliability |
-| 8 | Fallback model chain configured | Reliability |
-| 9 | Structured logging with request IDs | Observability |
-| 10 | Cost tracking per request and per user | Business |
-| 11 | Health check endpoint returning dependency status | Ops |
-| 12 | Max token limits on input and output | Cost/Safety |
-| 13 | Timeout on all external calls (30s default) | Reliability |
-| 14 | CORS configured for production domains only | Security |
-| 15 | Load test with 100 concurrent users passing | Performance |
+| 1 | Khóa API lưu trong biến môi trường, không trong mã | Bảo mật |
+| 2 | Giới hạn tần suất mỗi người dùng (mặc định 10-50 yêu cầu/phút) | Bảo vệ |
+| 3 | Guardrail đầu vào hoạt động (prompt injection, PII) | An toàn |
+| 4 | Guardrail đầu ra hoạt động (lọc nội dung, xác thực định dạng) | An toàn |
+| 5 | Cache ngữ nghĩa được cấu hình và kiểm thử | Chi phí |
+| 6 | Bật streaming cho mọi endpoint chat | UX |
+| 7 | Backoff hàm mũ trên mọi lệnh gọi API LLM | Độ tin cậy |
+| 8 | Chuỗi mô hình dự phòng được cấu hình | Độ tin cậy |
+| 9 | Ghi log có cấu trúc với ID yêu cầu | Khả năng quan sát |
+| 10 | Theo dõi chi phí mỗi yêu cầu và mỗi người dùng | Kinh doanh |
+| 11 | Endpoint kiểm tra sức khỏe trả trạng thái phụ thuộc | Vận hành |
+| 12 | Giới hạn token tối đa trên đầu vào và đầu ra | Chi phí/An toàn |
+| 13 | Thời gian chờ trên mọi lệnh gọi ngoài (mặc định 30s) | Độ tin cậy |
+| 14 | CORS chỉ cấu hình cho miền sản xuất | Bảo mật |
+| 15 | Kiểm thử tải với 100 người dùng đồng thời đạt | Hiệu năng |
 
 ```figure
 l5-prod-app-paths
@@ -265,22 +265,22 @@ l5-prod-app-paths
 
 ## Build It
 
-This is the capstone. One file. Every component wired together.
+Đây là đồ án tổng kết. Một file. Mọi thành phần kết nối với nhau.
 
-The code builds a complete production LLM service with:
-- FastAPI server with health checks and CORS
-- Prompt template management with versioning and A/B testing
-- Semantic caching using cosine similarity on embeddings
-- Input and output guardrails (prompt injection, PII, content safety)
-- Simulated LLM calls with streaming (SSE)
-- Exponential backoff with jitter and fallback model chain
-- Cost tracking per request and aggregate
-- Structured logging with request IDs
-- Evaluation logging for quality tracking
+Mã xây dịch vụ LLM sản xuất hoàn chỉnh với:
+- Máy chủ FastAPI có kiểm tra sức khỏe và CORS
+- Quản lý khuôn mẫu prompt có quản lý phiên bản và kiểm thử A/B
+- Cache ngữ nghĩa dùng cosine similarity trên embedding
+- Guardrail đầu vào và đầu ra (prompt injection, PII, an toàn nội dung)
+- Lệnh gọi LLM mô phỏng có streaming (SSE)
+- Backoff hàm mũ có jitter và chuỗi mô hình dự phòng
+- Theo dõi chi phí mỗi yêu cầu và tổng hợp
+- Ghi log có cấu trúc với ID yêu cầu
+- Ghi log đánh giá để theo dõi chất lượng
 
 ### Step 1: Core Infrastructure
 
-The foundation. Configuration, logging, and the data structures every component depends on.
+Nền tảng. Cấu hình, ghi log và cấu trúc dữ liệu mà mọi thành phần phụ thuộc.
 
 ```python
 import asyncio
@@ -383,7 +383,7 @@ class CostTracker:
 
 ### Step 2: Prompt Management
 
-Versioned prompt templates with A/B testing support. Each template has a name, version, and the template string. The router selects based on request context and experiment assignment.
+Khuôn mẫu prompt có phiên bản với hỗ trợ kiểm thử A/B. Mỗi khuôn mẫu có tên, phiên bản và chuỗi khuôn mẫu. Router chọn theo ngữ cảnh yêu cầu và phân công thí nghiệm.
 
 ```python
 @dataclass
@@ -476,7 +476,7 @@ def select_prompt(template_name, user_id, variables):
 
 ### Step 3: Semantic Cache
 
-Embedding-based cache that matches semantically similar queries. Two questions phrased differently but meaning the same thing will hit the cache.
+Cache dựa trên embedding khớp truy vấn tương tự ngữ nghĩa. Hai câu hỏi diễn đạt khác nhưng cùng nghĩa sẽ hit cache.
 
 ```python
 def simple_embedding(text, dim=64):
@@ -559,7 +559,7 @@ class SemanticCache:
 
 ### Step 4: Guardrails
 
-Input validation catches prompt injection and PII before the LLM sees it. Output validation catches unsafe content before the user sees it. Two walls. Nothing passes unchecked.
+Xác thực đầu vào bắt prompt injection và PII trước khi LLM thấy. Xác thực đầu ra bắt nội dung không an toàn trước khi người dùng thấy. Hai bức tường. Không gì đi qua mà không kiểm tra.
 
 ```python
 INJECTION_PATTERNS = [
@@ -634,7 +634,7 @@ def check_output_guardrails(text):
 
 ### Step 5: LLM Caller with Retry and Streaming
 
-The core LLM interface. Exponential backoff with jitter on failures. Fallback through the model chain. Streaming support for token-by-token delivery.
+Giao diện LLM cốt lõi. Backoff hàm mũ có jitter khi thất bại. Dự phòng qua chuỗi mô hình. Hỗ trợ streaming để phân phối từng token.
 
 ```python
 def estimate_tokens(text):
@@ -736,7 +736,7 @@ async def stream_response(text):
 
 ### Step 6: The Request Pipeline
 
-The orchestrator. Takes a raw user request, runs it through every component, and returns a structured result.
+Bộ điều phối. Nhận yêu cầu người dùng thô, chạy qua mọi thành phần và trả kết quả có cấu trúc.
 
 ```python
 class ProductionLLMService:
@@ -1020,7 +1020,7 @@ if __name__ == "__main__":
 
 ### FastAPI Server (Production Deployment)
 
-The demo above runs as a script. For production, wrap it in FastAPI with proper endpoints.
+Demo trên chạy như script. Để sản xuất, bọc trong FastAPI với endpoint thích hợp.
 
 ```python
 # from fastapi import FastAPI, HTTPException
@@ -1072,11 +1072,11 @@ The demo above runs as a script. For production, wrap it in FastAPI with proper 
 #     uvicorn.run(app, host="0.0.0.0", port=8000)
 ```
 
-To run this as a real server, uncomment and install dependencies: `pip install fastapi uvicorn`. Hit `http://localhost:8000/docs` for auto-generated API docs.
+Để chạy như máy chủ thực, bỏ chú thích và cài phụ thuộc: `pip install fastapi uvicorn`. Truy cập `http://localhost:8000/docs` để xem tài liệu API tự sinh.
 
 ### Real API Integration
 
-Replace the simulated LLM calls with actual provider SDKs.
+Thay lệnh gọi LLM mô phỏng bằng SDK nhà cung cấp thực.
 
 ```python
 # import openai
@@ -1119,51 +1119,51 @@ Replace the simulated LLM calls with actual provider SDKs.
 # CMD ["uvicorn", "production_app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
 ```
 
-Four workers. Each handles async I/O. A single box with 4 workers serves 400+ concurrent LLM requests because they are all waiting on network I/O, not CPU.
+Bốn worker. Mỗi worker xử lý I/O bất đồng bộ. Một máy với 4 worker phục vụ 400+ yêu cầu LLM đồng thời vì tất cả đang chờ I/O mạng, không phải CPU.
 
 ## Ship It
 
-This lesson produces `outputs/prompt-architecture-reviewer.md` -- a reusable prompt that reviews the architecture of any LLM application against the production checklist. Give it a description of your system and it returns a gap analysis.
+Bài học này tạo ra `outputs/prompt-architecture-reviewer.md` -- prompt tái sử dụng xem xét kiến trúc mọi ứng dụng LLM theo danh sách kiểm tra sản xuất. Đưa mô tả hệ thống và nó trả phân tích khoảng trống.
 
-It also produces `outputs/skill-production-checklist.md` -- a decision framework for shipping LLM applications to production, covering every component from this lesson with specific thresholds and pass/fail criteria.
+Nó cũng tạo ra `outputs/skill-production-checklist.md` -- khung quyết định phát hành ứng dụng LLM vào sản xuất, bao quát mọi thành phần bài học này với ngưỡng cụ thể và tiêu chí đạt/không đạt.
 
 ## Exercises
 
-1. **Add RAG integration.** Build a simple in-memory vector store with 20 documents. When the template is `rag_answer`, embed the query, find the 3 most similar documents, and inject them as context. Measure how response quality changes with and without RAG context. Track retrieval latency separately from LLM latency.
+1. **Thêm tích hợp RAG.** Xây kho vector trong bộ nhớ đơn giản với 20 tài liệu. Khi khuôn mẫu là `rag_answer`, nhúng truy vấn, tìm 3 tài liệu tương tự nhất và đưa vào làm ngữ cảnh. Đo chất lượng phản hồi thay đổi khi có và không ngữ cảnh RAG. Theo dõi độ trễ truy xuất riêng với độ trễ LLM.
 
-2. **Implement real function calling.** Add a tool registry (from Lesson 09) to the service. When a user asks a question that requires external data (weather, calculation, search), the pipeline should detect this, execute the tool, and include the result in the prompt. Add a `tools_used` field to the response.
+2. **Triển khai function calling thực.** Thêm registry công cụ (từ Bài 09) vào dịch vụ. Khi người dùng hỏi câu cần dữ liệu ngoài (thời tiết, tính toán, tìm kiếm), pipeline phải phát hiện, thực thi công cụ và đưa kết quả vào prompt. Thêm trường `tools_used` vào phản hồi.
 
-3. **Build a cost alerting system.** Track cost per user per day. When a user exceeds $0.50/day, switch them to `gpt-4o-mini`. When total daily cost exceeds $100, activate emergency mode: cache-only responses for repeated queries, `gpt-4o-mini` for everything else, reject requests over 2,000 input tokens. Test with a simulated traffic spike.
+3. **Xây hệ thống cảnh báo chi phí.** Theo dõi chi phí mỗi người dùng mỗi ngày. Khi người dùng vượt $0.50/ngày, chuyển sang `gpt-4o-mini`. Khi tổng chi phí ngày vượt $100, kích hoạt chế độ khẩn: phản hồi chỉ cache cho truy vấn lặp, `gpt-4o-mini` cho mọi thứ khác, từ chối yêu cầu trên 2,000 token đầu vào. Kiểm thử với đột biến lưu lượng mô phỏng.
 
-4. **Implement prompt versioning with rollback.** Store all prompt versions with timestamps. Add an endpoint that shows quality metrics (latency, user ratings, error rate) per prompt version. Implement automatic rollback: if a new prompt version has 2x the error rate of the previous version over 100 requests, automatically revert.
+4. **Triển khai quản lý phiên bản prompt với hoàn tác.** Lưu mọi phiên bản prompt kèm dấu thời gian. Thêm endpoint hiển thị thước đo chất lượng (độ trễ, đánh giá người dùng, tỷ lệ lỗi) mỗi phiên bản prompt. Triển khai tự động hoàn tác: nếu phiên bản prompt mới có tỷ lệ lỗi 2x phiên bản trước trên 100 yêu cầu, tự động quay lại.
 
-5. **Add OpenTelemetry tracing.** Instrument every component (cache lookup, guardrail check, LLM call, cost calculation) as a separate span. Each span records its duration. Export traces to the console. Show the full trace for a single request, with each component's contribution to total latency visible.
+5. **Thêm tracing OpenTelemetry.** Gắn đo mọi thành phần (tra cache, kiểm tra guardrail, gọi LLM, tính chi phí) thành span riêng. Mỗi span ghi thời lượng. Xuất trace ra console. Hiển thị toàn trace cho một yêu cầu, với đóng góp từng thành phần vào tổng độ trễ hiện rõ.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| API Gateway | "The frontend" | The entry point that handles authentication, rate limiting, CORS, and request routing before any LLM logic runs |
-| Prompt Router | "Template selector" | Logic that picks the right prompt template based on request type, A/B experiment assignment, and user context |
-| Semantic Cache | "Smart cache" | A cache keyed by embedding similarity rather than exact string match -- two differently-phrased identical questions return the same cached response |
-| SSE (Server-Sent Events) | "Streaming" | A unidirectional HTTP protocol where the server pushes events to the client -- used by OpenAI, Anthropic, and Google for token-by-token delivery |
-| Exponential Backoff | "Retry logic" | Waiting 1s, 2s, 4s, 8s between retries (doubling each time) with random jitter to prevent all clients retrying simultaneously |
-| Fallback Chain | "Model cascade" | An ordered list of models tried in sequence -- when the primary fails, fall through to cheaper or more available alternatives |
-| Graceful Degradation | "Partial failure handling" | When a secondary component fails (cache, RAG, guardrails), the system continues with reduced functionality rather than crashing |
-| Cost Per Request | "Unit economics" | The total LLM spend (input tokens + output tokens at model pricing) for a single user request -- the number that determines if your business model works |
-| Shadow Mode | "Dark launch" | Running a new prompt or model on real traffic but only logging results, not showing them to users -- risk-free A/B testing |
-| Health Check | "Readiness probe" | An endpoint that returns the status of all dependencies (cache, LLM availability, guardrails) -- used by load balancers and Kubernetes to route traffic |
+| API Gateway (Cổng API) | "Frontend" | Điểm vào xử lý xác thực, giới hạn tần suất, CORS và định tuyến yêu cầu trước khi bất kỳ logic LLM nào chạy |
+| Prompt Router (Bộ định tuyến prompt) | "Bộ chọn khuôn mẫu" | Logic chọn khuôn mẫu prompt đúng theo loại yêu cầu, phân công thí nghiệm A/B và ngữ cảnh người dùng |
+| Semantic Cache (Cache ngữ nghĩa) | "Cache thông minh" | Cache có khóa theo tương đồng embedding thay vì khớp chuỗi chính xác -- hai câu hỏi giống nghĩa diễn đạt khác trả cùng phản hồi cache |
+| SSE (Server-Sent Events) | "Streaming" | Giao thức HTTP một chiều nơi máy chủ đẩy sự kiện cho client -- được OpenAI, Anthropic và Google dùng để phân phối từng token |
+| Exponential Backoff (Lùi theo hàm mũ) | "Logic thử lại" | Chờ 1s, 2s, 4s, 8s giữa lần thử lại (mỗi lần gấp đôi) với jitter ngẫu nhiên để ngăn mọi client thử lại đồng thời |
+| Fallback Chain (Chuỗi dự phòng) | "Thác mô hình" | Danh sách mô hình có thứ tự được thử tuần tự -- khi mô hình chính thất bại, đi qua phương án rẻ hơn hoặc sẵn có hơn |
+| Graceful Degradation (Suy giảm có kiểm soát) | "Xử lý thất bại một phần" | Khi thành phần phụ thất bại (cache, RAG, guardrail), hệ thống tiếp tục với chức năng giảm thay vì sập |
+| Cost Per Request (Chi phí mỗi yêu cầu) | "Kinh tế đơn vị" | Tổng chi LLM (token đầu vào + token đầu ra theo giá mô hình) cho một yêu cầu người dùng -- con số quyết định mô hình kinh doanh có hoạt động không |
+| Shadow Mode (Chế độ bóng) | "Ra mắt ngầm" | Chạy prompt hoặc mô hình mới trên lưu lượng thực nhưng chỉ ghi kết quả, không hiển thị cho người dùng -- kiểm thử A/B không rủi ro |
+| Health Check (Kiểm tra sức khỏe) | "Thăm dò sẵn sàng" | Endpoint trả trạng thái mọi phụ thuộc (cache, tính sẵn có LLM, guardrail) -- được bộ cân bằng tải và Kubernetes dùng để định tuyến lưu lượng |
 
 ## Further Reading
 
-- [FastAPI Documentation](https://fastapi.tiangolo.com/) -- the async Python framework used in this lesson, with native SSE streaming and automatic OpenAPI docs
-- [OpenAI Production Best Practices](https://platform.openai.com/docs/guides/production-best-practices) -- rate limits, error handling, and scaling guidance from the largest LLM API provider
-- [Anthropic API Reference](https://docs.anthropic.com/en/api/messages-streaming) -- streaming implementation details for Claude, including server-sent events and tool use during streaming
-- [OpenTelemetry Python SDK](https://opentelemetry.io/docs/languages/python/) -- the standard for distributed tracing, used to instrument every component of an LLM pipeline
-- [Semantic Caching with GPTCache](https://github.com/zilliztech/GPTCache) -- production semantic caching library that implements the concepts from this lesson at scale
-- [Hamel Husain, "Your AI Product Needs Evals"](https://hamel.dev/blog/posts/evals/) -- the definitive guide on evaluation-driven development for LLM applications, complementing the eval component in this capstone
-- [Eugene Yan, "Patterns for Building LLM-based Systems"](https://eugeneyan.com/writing/llm-patterns/) -- architectural patterns (guardrails, RAG, caching, routing) seen across production LLM deployments at major tech companies
-- [vLLM documentation](https://docs.vllm.ai/) -- PagedAttention-based serving: the default self-hosted inference layer used under the FastAPI capstone in this lesson.
-- [Hugging Face TGI](https://huggingface.co/docs/text-generation-inference/index) -- Text Generation Inference: Rust server with continuous batching, Flash Attention, and Medusa speculative decoding; the HF-native alternative to vLLM.
-- [NVIDIA TensorRT-LLM documentation](https://nvidia.github.io/TensorRT-LLM/) -- the highest-throughput path on NVIDIA hardware; quantization, in-flight batching, and FP8 kernels for enterprise deployments.
-- [Hamel Husain -- Optimizing Latency: TGI vs vLLM vs CTranslate2 vs mlc](https://hamel.dev/notes/llm/inference/03_inference.html) -- measured comparison of throughput and latency across the main serving frameworks.
+- [FastAPI Documentation](https://fastapi.tiangolo.com/) -- framework Python bất đồng bộ dùng trong bài học này, với streaming SSE nguyên bản và tài liệu OpenAPI tự động
+- [OpenAI Production Best Practices](https://platform.openai.com/docs/guides/production-best-practices) -- hướng dẫn giới hạn tần suất, xử lý lỗi và mở rộng từ nhà cung cấp API LLM lớn nhất
+- [Anthropic API Reference](https://docs.anthropic.com/en/api/messages-streaming) -- chi tiết triển khai streaming cho Claude, gồm server-sent events và tool use trong streaming
+- [OpenTelemetry Python SDK](https://opentelemetry.io/docs/languages/python/) -- tiêu chuẩn tracing phân tán, dùng để gắn đo mọi thành phần pipeline LLM
+- [Semantic Caching with GPTCache](https://github.com/zilliztech/GPTCache) -- thư viện cache ngữ nghĩa sản xuất triển khai khái niệm bài học này ở quy mô lớn
+- [Hamel Husain, "Your AI Product Needs Evals"](https://hamel.dev/blog/posts/evals/) -- hướng dẫn có tính quyết định về phát triển dựa trên đánh giá cho ứng dụng LLM, bổ sung thành phần đánh giá trong đồ án này
+- [Eugene Yan, "Patterns for Building LLM-based Systems"](https://eugeneyan.com/writing/llm-patterns/) -- mẫu kiến trúc (guardrail, RAG, cache, định tuyến) thấy ở các triển khai LLM sản xuất tại công ty công nghệ lớn
+- [vLLM documentation](https://docs.vllm.ai/) -- phục vụ dựa trên PagedAttention: lớp suy luận tự lưu trữ mặc định dùng dưới đồ án FastAPI trong bài học này.
+- [Hugging Face TGI](https://huggingface.co/docs/text-generation-inference/index) -- Text Generation Inference: máy chủ Rust có batching liên tục, Flash Attention và speculative decoding Medusa; phương án HF nguyên bản thay vLLM.
+- [NVIDIA TensorRT-LLM documentation](https://nvidia.github.io/TensorRT-LLM/) -- con đường thông lượng cao nhất trên phần cứng NVIDIA; lượng tử hóa, batching đang thực hiện và kernel FP8 cho triển khai doanh nghiệp.
+- [Hamel Husain -- Optimizing Latency: TGI vs vLLM vs CTranslate2 vs mlc](https://hamel.dev/notes/llm/inference/03_inference.html) -- so sánh đo được về thông lượng và độ trễ giữa các framework phục vụ chính.

@@ -9,59 +9,59 @@ tags: [production, deployment, llm, architecture, scaling, cost, observability, 
 
 # Production LLM Checklist
 
-When shipping an LLM application, work through this checklist in order. Each section has pass/fail criteria with specific thresholds.
+Khi phát hành ứng dụng LLM, làm theo danh sách kiểm tra này theo thứ tự. Mỗi phần có tiêu chí đạt/không đạt với ngưỡng cụ thể.
 
 ## 1. Security (Ship Blockers)
 
-Every item here must pass before any deployment.
+Mọi mục ở đây phải đạt trước bất kỳ triển khai nào.
 
-| Check | Pass Criteria | How to Verify |
+| Kiểm tra | Tiêu chí đạt | Cách xác minh |
 |-------|--------------|---------------|
-| API keys in env vars | Zero hardcoded keys in codebase | `grep -r "sk-" --include="*.py"` returns nothing |
-| Input guardrails active | Prompt injection patterns blocked | Send "Ignore all previous instructions" -- returns blocked response |
-| PII redaction | SSN, credit card, email patterns caught | Send "My SSN is 123-45-6789" -- PII redacted before LLM call |
-| Output filtering | Dangerous content blocked | Model cannot return `DROP TABLE`, `rm -rf`, `exec()` patterns |
-| Rate limiting | Per-user request cap enforced | 100 requests from same user in 10 seconds -- last 50+ rejected |
-| Auth on all endpoints | No unauthenticated LLM access | `curl /v1/chat` without token returns 401 |
-| CORS restricted | Only production domains allowed | `Origin: evil.com` request rejected |
-| Max input tokens | Requests over limit rejected | Send 50K token input -- returns 413 or truncation |
+| Khóa API trong biến môi trường | Không khóa viết cứng trong cơ sở mã | `grep -r "sk-" --include="*.py"` không trả gì |
+| Guardrail đầu vào hoạt động | Mẫu prompt injection bị chặn | Gửi "Bỏ qua mọi chỉ dẫn trước" -- trả phản hồi bị chặn |
+| Che PII | Mẫu SSN, thẻ tín dụng, email bị bắt | Gửi "SSN của tôi là 123-45-6789" -- PII bị che trước gọi LLM |
+| Lọc đầu ra | Nội dung nguy hiểm bị chặn | Mô hình không thể trả mẫu `DROP TABLE`, `rm -rf`, `exec()` |
+| Giới hạn tần suất | Cưỡng chế trần yêu cầu mỗi người dùng | 100 yêu cầu từ cùng người dùng trong 10 giây -- 50+ yêu cầu cuối bị từ chối |
+| Xác thực trên mọi endpoint | Không truy cập LLM chưa xác thực | `curl /v1/chat` không token trả 401 |
+| CORS hạn chế | Chỉ miền sản xuất được phép | Yêu cầu `Origin: evil.com` bị từ chối |
+| Token đầu vào tối đa | Yêu cầu quá giới hạn bị từ chối | Gửi đầu vào 50K token -- trả 413 hoặc cắt ngắn |
 
 ## 2. Reliability (Week-One Survival)
 
-These prevent your first on-call incident.
+Chúng ngăn sự cố trực vận hành đầu tiên của bạn.
 
-| Check | Pass Criteria | How to Verify |
+| Kiểm tra | Tiêu chí đạt | Cách xác minh |
 |-------|--------------|---------------|
-| Retry with backoff | 3 retries on 5xx, exponential delay | Kill LLM mock mid-request -- retries visible in logs |
-| Fallback model chain | 2+ models in chain | Primary model unavailable -- response still returns from fallback |
-| Request timeout | 30s max on all external calls | Slow LLM mock (60s) -- request times out at 30s |
-| Graceful degradation | Cache/RAG failure does not crash service | Stop cache -- requests still succeed (slower, more expensive) |
-| Health check endpoint | Returns dependency status | `GET /health` returns `{"status": "healthy", "cache": ..., "llm": ...}` |
-| Streaming works | First token under 500ms | Time-to-first-token measured, consistently < 500ms |
-| Error messages are safe | Internal errors never leak to users | Force 500 -- user sees generic error, not stack trace |
+| Thử lại có backoff | 3 lần thử lại trên 5xx, độ trễ hàm mũ | Tắt LLM giả giữa yêu cầu -- thấy thử lại trong log |
+| Chuỗi mô hình dự phòng | 2+ mô hình trong chuỗi | Mô hình chính không sẵn có -- vẫn trả phản hồi từ dự phòng |
+| Thời gian chờ yêu cầu | Tối đa 30s trên mọi lệnh gọi ngoài | LLM giả chậm (60s) -- yêu cầu hết thời gian chờ tại 30s |
+| Suy giảm có kiểm soát | Cache/RAG thất bại không làm sập dịch vụ | Dừng cache -- yêu cầu vẫn thành công (chậm hơn, đắt hơn) |
+| Endpoint kiểm tra sức khỏe | Trả trạng thái phụ thuộc | `GET /health` trả `{"status": "healthy", "cache": ..., "llm": ...}` |
+| Streaming hoạt động | Token đầu dưới 500ms | Đo thời gian đến token đầu, nhất quán < 500ms |
+| Thông điệp lỗi an toàn | Lỗi nội bộ không bao giờ rò cho người dùng | Ép lỗi 500 -- người dùng thấy lỗi chung, không stack trace |
 
 ## 3. Cost Control (Month-One Economics)
 
-These prevent the $50K surprise invoice.
+Chúng ngăn hóa đơn bất ngờ $50K.
 
-| Check | Pass Criteria | How to Verify |
+| Kiểm tra | Tiêu chí đạt | Cách xác minh |
 |-------|--------------|---------------|
-| Cost per request tracked | Every request logs token count + USD cost | Request log has `input_tokens`, `output_tokens`, `cost_usd` fields |
-| Semantic cache active | > 20% hit rate on repeated patterns | Cache stats show hit rate after 1000 test requests |
-| Cache TTL configured | Entries expire (default: 1 hour) | Entry inserted -- not returned after TTL |
-| Per-user cost tracking | Cost aggregated by user_id | Dashboard/API shows top 10 users by cost |
-| Cost alerting | Alert at 80% of daily budget | Set $10 daily budget, send $8.50 in requests -- alert fires |
-| Model routing by cost | Low-complexity queries use cheaper model | Simple question routes to gpt-4o-mini, complex to gpt-4o |
-| Max output tokens set | Responses capped per template | Template with max_output_tokens=512 -- response never exceeds it |
+| Theo dõi chi phí mỗi yêu cầu | Mọi yêu cầu ghi số token + chi phí USD | Log yêu cầu có trường `input_tokens`, `output_tokens`, `cost_usd` |
+| Cache ngữ nghĩa hoạt động | Tỷ lệ hit > 20% trên mẫu lặp | Thống kê cache cho thấy tỷ lệ hit sau 1000 yêu cầu kiểm thử |
+| TTL cache cấu hình | Mục hết hạn (mặc định: 1 giờ) | Mục được chèn -- không trả sau TTL |
+| Theo dõi chi phí mỗi người dùng | Chi phí tổng hợp theo user_id | Dashboard/API hiện 10 người dùng hàng đầu theo chi phí |
+| Cảnh báo chi phí | Cảnh báo ở 80% ngân sách ngày | Đặt ngân sách ngày $10, gửi $8.50 yêu cầu -- cảnh báo kích hoạt |
+| Định tuyến mô hình theo chi phí | Truy vấn ít phức tạp dùng mô hình rẻ hơn | Câu đơn giản đến gpt-4o-mini, phức tạp đến gpt-4o |
+| Đặt token đầu ra tối đa | Phản hồi bị giới hạn mỗi khuôn mẫu | Khuôn mẫu max_output_tokens=512 -- phản hồi không bao giờ vượt |
 
-**Cost estimation formula:**
+**Công thức ước lượng chi phí:**
 ```
 Monthly LLM cost = DAU x queries_per_user x 30 x (1 - cache_hit_rate) x (avg_input_tokens x input_price + avg_output_tokens x output_price) / 1,000,000
 ```
 
-**Benchmark thresholds by scale:**
+**Ngưỡng benchmark theo quy mô:**
 
-| DAU | Target cost/request | Monthly budget |
+| DAU | Chi phí/yêu cầu mục tiêu | Ngân sách tháng |
 |-----|-------------------|----------------|
 | 1K | < $0.005 | < $750 |
 | 10K | < $0.003 | < $4,500 |
@@ -69,59 +69,59 @@ Monthly LLM cost = DAU x queries_per_user x 30 x (1 - cache_hit_rate) x (avg_inp
 
 ## 4. Observability (Debugging in Production)
 
-You cannot fix what you cannot see.
+Bạn không thể sửa thứ không thấy.
 
-| Check | Pass Criteria | How to Verify |
+| Kiểm tra | Tiêu chí đạt | Cách xác minh |
 |-------|--------------|---------------|
-| Structured JSON logging | Every request produces a JSON log line | Log contains: request_id, user_id, model, tokens, latency_ms, cost |
-| Request tracing | End-to-end trace with component timing | Single request shows: guardrail (5ms) + cache (2ms) + llm (3200ms) + eval (1ms) |
-| Latency tracking | P50, P95, P99 measured | After 1000 requests: P50 < 2s, P99 < 10s |
-| Error rate monitoring | Errors counted and categorized | Dashboard shows: 0.5% API errors, 0.1% guardrail blocks, 0.01% timeouts |
-| Cache metrics | Hit rate, miss rate, entry count visible | `GET /v1/cache/stats` returns current numbers |
-| A/B test metrics | Per-variant quality metrics logged | Each request logs prompt_template + version for comparison |
-| Eval logging | Quality signals recorded per request | Response length, latency, model, template version stored for offline analysis |
+| Ghi log JSON có cấu trúc | Mỗi yêu cầu tạo dòng log JSON | Log chứa: request_id, user_id, model, tokens, latency_ms, cost |
+| Tracing yêu cầu | Trace từ đầu đến cuối có thời gian thành phần | Một yêu cầu hiện: guardrail (5ms) + cache (2ms) + llm (3200ms) + eval (1ms) |
+| Theo dõi độ trễ | Đo P50, P95, P99 | Sau 1000 yêu cầu: P50 < 2s, P99 < 10s |
+| Giám sát tỷ lệ lỗi | Lỗi được đếm và phân loại | Dashboard hiện: lỗi API 0.5%, guardrail chặn 0.1%, timeout 0.01% |
+| Thước đo cache | Thấy tỷ lệ hit, miss, số mục | `GET /v1/cache/stats` trả số hiện tại |
+| Thước đo kiểm thử A/B | Ghi thước đo chất lượng mỗi biến thể | Mỗi yêu cầu ghi prompt_template + version để so sánh |
+| Ghi log đánh giá | Ghi tín hiệu chất lượng mỗi yêu cầu | Độ dài phản hồi, độ trễ, mô hình, phiên bản khuôn mẫu lưu để phân tích ngoại tuyến |
 
 ## 5. Prompt Management
 
-Prompts are code. Treat them like code.
+Prompt là mã. Đối xử như mã.
 
-| Check | Pass Criteria | How to Verify |
+| Kiểm tra | Tiêu chí đạt | Cách xác minh |
 |-------|--------------|---------------|
-| Versioned templates | Every template has a name + version string | Template change creates new version, old version preserved |
-| A/B testing support | Traffic split by deterministic user hash | Same user always sees same variant within experiment |
-| Rollback capability | Revert to previous version in < 1 minute | Change experiment config -- traffic instantly shifts |
-| Template validation | Variables validated before rendering | Missing variable in template raises clear error, not KeyError |
-| System prompt separation | System and user messages in separate fields | System prompt is not concatenated into user message |
+| Khuôn mẫu có phiên bản | Mọi khuôn mẫu có tên + chuỗi phiên bản | Thay khuôn mẫu tạo phiên bản mới, giữ phiên bản cũ |
+| Hỗ trợ kiểm thử A/B | Chia lưu lượng bằng hash người dùng tất định | Cùng người dùng luôn thấy cùng biến thể trong thí nghiệm |
+| Khả năng hoàn tác | Về phiên bản trước trong < 1 phút | Đổi cấu hình thí nghiệm -- lưu lượng chuyển tức thì |
+| Xác thực khuôn mẫu | Biến được xác thực trước kết xuất | Thiếu biến trong khuôn mẫu phát lỗi rõ, không KeyError |
+| Tách system prompt | Thông điệp hệ thống và người dùng ở trường riêng | System prompt không bị nối vào thông điệp người dùng |
 
 ## 6. Scaling Readiness
 
-Not needed at launch. Needed at 10x.
+Không cần khi ra mắt. Cần ở 10x.
 
-| Check | Pass Criteria | How to Verify |
+| Kiểm tra | Tiêu chí đạt | Cách xác minh |
 |-------|--------------|---------------|
-| Async LLM calls | No thread blocking on API calls | 50 concurrent requests -- server CPU stays < 30% |
-| Connection pooling | HTTP connections reused | Network trace shows persistent connections to LLM provider |
-| Horizontal scaling | Stateless server design | 2 instances behind load balancer -- all requests succeed |
-| Queue support | Non-real-time tasks go to queue | Summarization request returns job_id, result available via polling |
-| Load tested | 100 concurrent users, < 5% error rate | `wrk` or `locust` test passes at target concurrency |
+| Gọi LLM bất đồng bộ | Không chặn luồng trên lệnh gọi API | 50 yêu cầu đồng thời -- CPU máy chủ giữ < 30% |
+| Gộp kết nối | Kết nối HTTP tái sử dụng | Trace mạng hiện kết nối bền đến nhà cung cấp LLM |
+| Mở rộng ngang | Thiết kế máy chủ không trạng thái | 2 instance sau bộ cân bằng tải -- mọi yêu cầu thành công |
+| Hỗ trợ hàng đợi | Tác vụ không thời gian thực vào hàng đợi | Yêu cầu tóm tắt trả job_id, kết quả có qua thăm dò |
+| Đã kiểm thử tải | 100 người dùng đồng thời, tỷ lệ lỗi < 5% | Kiểm thử `wrk` hoặc `locust` đạt ở mức đồng thời đích |
 
 ## Implementation order for new projects
 
-1. **Day 1:** API server + prompt templates + single LLM call with retry
-2. **Day 2:** Input guardrails + output guardrails + error handling
-3. **Day 3:** Semantic cache + cost tracking per request
-4. **Day 4:** Streaming (SSE) + health check endpoint
-5. **Day 5:** Structured logging + request tracing + eval logging
-6. **Week 2:** A/B testing + prompt versioning + rollback
-7. **Week 3:** Fallback model chain + graceful degradation
-8. **Week 4:** Load testing + async optimization + horizontal scaling
+1. **Ngày 1:** Máy chủ API + khuôn mẫu prompt + một lệnh gọi LLM có thử lại
+2. **Ngày 2:** Guardrail đầu vào + guardrail đầu ra + xử lý lỗi
+3. **Ngày 3:** Cache ngữ nghĩa + theo dõi chi phí mỗi yêu cầu
+4. **Ngày 4:** Streaming (SSE) + endpoint kiểm tra sức khỏe
+5. **Ngày 5:** Ghi log có cấu trúc + tracing yêu cầu + ghi log đánh giá
+6. **Tuần 2:** Kiểm thử A/B + quản lý phiên bản prompt + hoàn tác
+7. **Tuần 3:** Chuỗi mô hình dự phòng + suy giảm có kiểm soát
+8. **Tuần 4:** Kiểm thử tải + tối ưu bất đồng bộ + mở rộng ngang
 
 ## Quick diagnostic
 
-If something is wrong in production, check in this order:
+Nếu có sự cố trong sản xuất, kiểm tra theo thứ tự này:
 
-1. **Users complaining about errors?** Check health endpoint, then error rate in logs, then LLM provider status page
-2. **Responses are slow?** Check P99 latency, then cache hit rate, then LLM response times in traces
-3. **Cost spiking?** Check cost-per-request trend, then cache hit rate, then top users by cost, then look for prompt template changes that increased token count
-4. **Quality dropped?** Check if a new prompt version was deployed, check if RAG retrieval accuracy changed, check if model provider changed default model version
-5. **Security incident?** Check guardrail block rate (sudden drop = guardrails disabled), check request logs for unusual patterns, rotate API keys immediately
+1. **Người dùng phàn nàn lỗi?** Kiểm tra endpoint sức khỏe, rồi tỷ lệ lỗi trong log, rồi trang trạng thái nhà cung cấp LLM
+2. **Phản hồi chậm?** Kiểm tra độ trễ P99, rồi tỷ lệ cache hit, rồi thời gian phản hồi LLM trong trace
+3. **Chi phí tăng vọt?** Kiểm tra xu hướng chi phí mỗi yêu cầu, rồi tỷ lệ cache hit, rồi người dùng hàng đầu theo chi phí, rồi tìm thay đổi khuôn mẫu prompt làm tăng số token
+4. **Chất lượng giảm?** Kiểm tra có phiên bản prompt mới triển khai không, độ chính xác truy xuất RAG có đổi không, nhà cung cấp mô hình có đổi phiên bản mặc định không
+5. **Sự cố bảo mật?** Kiểm tra tỷ lệ guardrail chặn (giảm đột ngột = guardrail bị tắt), kiểm tra log yêu cầu tìm mẫu lạ, luân chuyển khóa API ngay
