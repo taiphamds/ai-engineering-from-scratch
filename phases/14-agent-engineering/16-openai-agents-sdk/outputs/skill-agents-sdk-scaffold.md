@@ -7,29 +7,29 @@ lesson: 16
 tags: [openai, agents-sdk, handoffs, guardrails, tracing, session]
 ---
 
-Given a product domain and a list of specialist agents, scaffold an OpenAI Agents SDK app.
+Với một miền sản phẩm và một danh sách các agent chuyên gia, tạo khung một ứng dụng OpenAI Agents SDK.
 
-Produce:
+Tạo:
 
-1. `Agent` per specialist plus one `triage` agent that only has handoffs (no domain tools).
-2. `FunctionTool` per domain tool with typed input schema, clear description (tells the model when to use it), and execution sandbox.
-3. `Handoff` from triage to each specialist. Verify tool names follow `transfer_to_<agent>` convention.
-4. `InputGuardrail` for PII, policy, scope. Default to parallel mode unless the guardrail LLM is large relative to the main model — then use blocking.
-5. `OutputGuardrail` for length, PII, policy. Always blocking on prod for safety-critical outputs.
-6. Per-tool guardrails on function tools that touch network or filesystem.
-7. `Session` store (SQLite default; Redis for prod).
-8. `add_trace_processor` wiring spans to your backend alongside OpenAI's trace UI.
+1. `Agent` cho mỗi chuyên gia cộng một agent `triage` chỉ có các bàn giao (không có công cụ miền).
+2. `FunctionTool` cho mỗi công cụ miền với schema đầu vào có kiểu, mô tả rõ ràng (cho mô hình biết khi nào sử dụng nó) và sandbox thực thi.
+3. `Handoff` từ phân loại ban đầu đến mỗi chuyên gia. Xác minh các tên công cụ tuân theo quy ước `transfer_to_<agent>`.
+4. `InputGuardrail` cho PII, chính sách, phạm vi. Mặc định chế độ song song trừ khi LLM chốt bảo vệ lớn so với mô hình chính — khi đó dùng chặn.
+5. `OutputGuardrail` cho độ dài, PII, chính sách. Luôn chặn trong sản xuất cho các đầu ra then chốt về an toàn.
+6. Các chốt bảo vệ cho từng công cụ trên các công cụ hàm chạm đến mạng hoặc hệ thống file.
+7. Kho `Session` (SQLite mặc định; Redis cho sản xuất).
+8. `add_trace_processor` nối các span đến backend của bạn cùng với UI trace của OpenAI.
 
-Hard rejects:
+Các trường hợp từ chối cứng:
 
-- Triage agents with domain tools. Triage handoffs only; mixing dilutes the router's decision.
-- Guardrails that mutate the input/output. Guardrails approve or reject — they do not rewrite.
-- Silent handoff loops. Require a hop counter (default max 3).
+- Các agent phân loại ban đầu có các công cụ miền. Chỉ các bàn giao phân loại ban đầu; trộn làm pha loãng quyết định của bộ định tuyến.
+- Các chốt bảo vệ thay đổi đầu vào/đầu ra. Các chốt bảo vệ chấp thuận hoặc từ chối — chúng không viết lại.
+- Các vòng lặp bàn giao âm thầm. Yêu cầu một bộ đếm chặng (mặc định tối đa 3).
 
-Refusal rules:
+Các quy tắc từ chối:
 
-- If the user wants "no guardrails, just move fast," refuse for any product that hits paying users or PII.
-- If the product has only 2 specialists, suggest routing via `Agents` with a direct classifier (Lesson 12) instead of triage+handoffs — less token cost.
-- If tracing is disabled in prod, refuse to ship. Multi-step failures are un-debuggable without traces.
+- Nếu người dùng muốn "không chốt bảo vệ, chỉ tiến nhanh," từ chối cho bất kỳ sản phẩm nào tiếp xúc người dùng trả phí hoặc PII.
+- Nếu sản phẩm chỉ có 2 chuyên gia, đề xuất định tuyến qua `Agents` với một bộ phân loại trực tiếp (Bài 12) thay vì phân loại ban đầu+bàn giao — ít chi phí token hơn.
+- Nếu truy vết bị tắt trong sản xuất, từ chối phát hành. Các lỗi nhiều bước không thể gỡ lỗi mà không có trace.
 
-Output: `agents.py`, `tools.py`, `guardrails.py`, `app.py`, `README.md` with the triage-agent rationale, guardrail modes, trace processor, and session backend. End with "what to read next" pointing to Lesson 23 (OTel GenAI), Lesson 24 (observability backends), or Lesson 17 for Claude Agent SDK translation.
+Đầu ra: `agents.py`, `tools.py`, `guardrails.py`, `app.py`, `README.md` với lý do agent phân loại ban đầu, các chế độ chốt bảo vệ, bộ xử lý trace và backend phiên. Kết thúc bằng "đọc gì tiếp theo" chỉ đến Bài 23 (OTel GenAI), Bài 24 (các backend khả năng quan sát) hoặc Bài 17 cho chuyển dịch Claude Agent SDK.
