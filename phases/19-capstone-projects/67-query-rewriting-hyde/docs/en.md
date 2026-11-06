@@ -1,6 +1,6 @@
 # Query Rewriting: HyDE, Multi-Query, and Decomposition
 
-> The query the user types is not the query your retriever wants. Rewriting bridges the gap before retrieval, so the index sees something closer to what the answer looks like.
+> Truy vấn người dùng gõ không phải truy vấn bộ truy xuất của bạn muốn. Viết lại bắc cầu khoảng cách trước truy xuất, để chỉ mục thấy thứ gần hơn với hình thức đáp án.
 
 **Type:** Build
 **Languages:** Python
@@ -8,21 +8,21 @@
 **Time:** ~90 minutes
 
 ## Learning Objectives
-- Implement Hypothetical Document Embeddings (HyDE): generate a fake answer, embed it, retrieve against that vector instead of the query vector.
-- Implement multi-query expansion: rewrite one query into N paraphrases, retrieve with each, merge the union by reciprocal rank fusion.
-- Implement query decomposition: split a complex question into sub-questions, retrieve per sub-question, merge.
-- Compare the three rewriters head to head on a fixture and explain when each strategy wins.
-- Wire a mock LLM that produces deterministic, on-fixture outputs so the rewriter loop runs offline.
+- Triển khai Hypothetical Document Embeddings (HyDE): sinh một đáp án giả, nhúng nó, truy xuất theo vector đó thay vì vector truy vấn.
+- Triển khai mở rộng đa truy vấn: viết lại một truy vấn thành N cách diễn đạt lại, truy xuất với mỗi cách, hợp nhất hợp bằng hợp nhất thứ hạng nghịch đảo.
+- Triển khai phân rã truy vấn: chia một câu hỏi phức tạp thành các câu hỏi con, truy xuất theo câu hỏi con, hợp nhất.
+- So sánh trực tiếp ba bộ viết lại trên một fixture và giải thích khi nào mỗi chiến lược thắng.
+- Nối một LLM giả lập tạo các đầu ra tất định, theo fixture để vòng lặp viết lại chạy ngoại tuyến.
 
 ## The Problem
 
-A user types "what does our team do when uploads fail and the budget is gone?". The corpus contains a doc that says "AbortMultipartOnFail aborts an in-flight S3 multipart upload and decrements the per-bucket retry budget when the upload fails". The query and the document do not share a noun phrase. BM25 misses. The bi-encoder ranks the document third or fourth because the query vector lands in a region of the embedding space that prefers the doc about cancelled jobs, not the doc about aborted uploads. The two-stage rerank from lesson 66 can salvage the answer if it sits in the top-N, but if it does not even reach top-N, the reranker never sees it.
+Một người dùng gõ "nhóm chúng ta làm gì khi tải lên thất bại và ngân sách đã hết?". Corpus chứa một tài liệu nói "AbortMultipartOnFail hủy một lần tải lên nhiều phần S3 đang xử lý và giảm ngân sách thử lại theo bucket khi tải lên thất bại". Truy vấn và tài liệu không chia sẻ một cụm danh từ. BM25 bỏ lỡ. Bi-encoder xếp tài liệu thứ ba hoặc thứ tư vì vector truy vấn nằm trong một vùng không gian embedding ưu tiên tài liệu về công việc bị hủy, không phải tài liệu về tải lên bị hủy. Xếp hạng lại hai giai đoạn từ bài 66 có thể cứu đáp án nếu nó nằm trong top-N, nhưng nếu nó thậm chí không đạt top-N, bộ xếp hạng lại không bao giờ thấy nó.
 
-The fix is to rewrite the query before it touches the retriever. The 2023 paper "Precise Zero-Shot Dense Retrieval without Relevance Labels" (Gao et al.) introduced HyDE: ask an LLM to write the document that would answer the query, embed that hypothetical document, and use its embedding as the retrieval vector. The hypothetical document sits in the right region of the embedding space because it is written in the corpus's voice. The query vector did not.
+Cách sửa là viết lại truy vấn trước khi nó chạm bộ truy xuất. Bài báo năm 2023 "Precise Zero-Shot Dense Retrieval without Relevance Labels" (Gao và cộng sự) giới thiệu HyDE: yêu cầu một LLM viết tài liệu sẽ trả lời truy vấn, nhúng tài liệu giả định đó, và dùng embedding của nó làm vector truy xuất. Tài liệu giả định nằm trong vùng đúng của không gian embedding vì nó được viết bằng giọng của corpus. Vector truy vấn thì không.
 
-Two cousin techniques pair with HyDE. Multi-query expansion (the term Microsoft's GraphRAG used) generates N paraphrases of the query and retrieves with each, then merges. Decomposition (popularized as "subquery decomposition" in the 2024 Stanford DSPy work) splits "what does our team do when uploads fail and the budget is gone" into two questions: "what happens when an upload fails" and "what happens when the retry budget is gone". Two retrievals, one merged result, both pieces of the answer reachable.
+Hai kỹ thuật họ hàng đi cặp với HyDE. Mở rộng đa truy vấn (thuật ngữ GraphRAG của Microsoft dùng) sinh N cách diễn đạt lại của truy vấn và truy xuất với mỗi cách, rồi hợp nhất. Phân rã (được phổ biến như "phân rã truy vấn con" trong nghiên cứu Stanford DSPy năm 2024) chia "nhóm chúng ta làm gì khi tải lên thất bại và ngân sách đã hết" thành hai câu hỏi: "điều gì xảy ra khi một lần tải lên thất bại" và "điều gì xảy ra khi ngân sách thử lại đã hết". Hai lần truy xuất, một kết quả hợp nhất, cả hai phần của đáp án có thể tiếp cận.
 
-This lesson implements all three and runs them against the same fixture corpus.
+Bài này triển khai cả ba và chạy chúng với cùng corpus fixture.
 
 ## The Concept
 
@@ -43,7 +43,7 @@ flowchart LR
 
 ### HyDE in detail
 
-HyDE replaces the user's query vector with an LLM-written hypothetical document vector. The prompt is short:
+HyDE thay vector truy vấn của người dùng bằng một vector tài liệu giả định do LLM viết. Prompt ngắn:
 
 ```
 You are a domain expert. Write a one-paragraph passage that answers the question
@@ -55,26 +55,26 @@ Question: {user_query}
 Passage:
 ```
 
-The LLM's answer is wrong as a factual answer because the LLM does not know your corpus. That is fine. The retriever does not care about factual correctness, only about token distribution. The hypothetical passage contains the words "abort", "multipart", "bucket", "budget", because that is what a documentation passage on this topic would say. Embed that passage. The vector lands near the real passage.
+Đáp án của LLM sai như một đáp án sự kiện vì LLM không biết corpus của bạn. Điều đó ổn. Bộ truy xuất không quan tâm tính đúng đắn sự kiện, chỉ phân phối token. Đoạn giả định chứa các từ "abort", "multipart", "bucket", "budget", vì đó là điều một đoạn tài liệu về chủ đề này sẽ nói. Nhúng đoạn đó. Vector nằm gần đoạn thực.
 
-In production you cap the hypothetical document to two or three sentences. Longer hypotheticals collect more noise. Shorter ones lose the lexical signal HyDE needs.
+Trong sản xuất bạn giới hạn tài liệu giả định ở hai hoặc ba câu. Các giả định dài hơn thu thập nhiều nhiễu hơn. Các giả định ngắn hơn mất tín hiệu từ vựng mà HyDE cần.
 
 ### Multi-query expansion in detail
 
-Generate N paraphrases of the user's query. The simplest prompt:
+Sinh N cách diễn đạt lại truy vấn của người dùng. Prompt đơn giản nhất:
 
 ```
 Rewrite the following question in {N} different ways. Each rewrite must preserve
 the original intent. Number them 1 to {N}. Do not add explanations.
 ```
 
-Retrieve top-k for each paraphrase. Merge the N ranked lists with RRF (the same algorithm from lesson 65). Cheap, parallel, deterministic.
+Truy xuất top-k cho mỗi cách diễn đạt lại. Hợp nhất N danh sách được xếp hạng bằng RRF (cùng thuật toán từ bài 65). Rẻ, song song, tất định.
 
-Multi-query wins when the user's phrasing is one of many equally valid ways to ask the question, and any of the rewrites would have asked it better. Loses when all rewrites are equally bad because the original was bad in the same way.
+Đa truy vấn thắng khi cách diễn đạt của người dùng là một trong nhiều cách hỏi hợp lệ như nhau, và bất kỳ bản viết lại nào cũng sẽ hỏi tốt hơn. Thua khi mọi bản viết lại đều tệ như nhau vì bản gốc tệ theo cùng cách.
 
 ### Decomposition in detail
 
-A single retrieval cannot satisfy a multi-faceted question. Decomposition asks the LLM to split the question into sub-questions and the system retrieves per sub-question. The prompt:
+Một lần truy xuất duy nhất không thể thỏa mãn một câu hỏi nhiều mặt. Phân rã yêu cầu LLM chia câu hỏi thành các câu hỏi con và hệ thống truy xuất theo câu hỏi con. Prompt:
 
 ```
 The following question may require information from multiple distinct topics.
@@ -84,20 +84,20 @@ independently. If the question is already atomic, return it unchanged.
 Question: {user_query}
 ```
 
-Retrieve per sub-question. Merge. Decomposition is the right tool for questions that contain conjunctions, multi-clause comparisons, or two unrelated topics. Wrong tool for atomic questions; the decomposer's job there is to return the single question and not invent fake sub-questions.
+Truy xuất theo câu hỏi con. Hợp nhất. Phân rã là công cụ đúng cho các câu hỏi chứa liên từ, các so sánh nhiều mệnh đề, hoặc hai chủ đề không liên quan. Công cụ sai cho các câu hỏi nguyên tử; công việc của bộ phân rã ở đó là trả về câu hỏi duy nhất và không tự tạo các câu hỏi con giả.
 
 ### Why all three exist
 
-The three are complementary. HyDE bridges the query-corpus token gap. Multi-query covers paraphrase variance. Decomposition covers multi-topic queries. A production system runs all three and picks the strategy per query (lesson 69's end-to-end system shows the selector).
+Ba thứ bổ sung nhau. HyDE bắc cầu khoảng cách token truy vấn-corpus. Đa truy vấn bao phủ phương sai diễn đạt lại. Phân rã bao phủ các truy vấn đa chủ đề. Một hệ thống sản xuất chạy cả ba và chọn chiến lược theo truy vấn (hệ thống đầu cuối của bài 69 cho thấy bộ chọn).
 
 ## The Mock LLM
 
-The lesson runs offline. The mock LLM is a small lookup table keyed on the user's query, plus a fallback for queries it has not seen. The lookup table contains:
+Bài học chạy ngoại tuyến. LLM giả lập là một bảng tra cứu nhỏ được đặt khóa theo truy vấn người dùng, cùng một phương án dự phòng cho các truy vấn nó chưa thấy. Bảng tra cứu chứa:
 
-- For each fixture query: a written hypothetical passage, three paraphrases, and a decomposition.
-- For an unknown query: a deterministic transformation: take the query's content words, expand them through a synonym map, and return the result.
+- Với mỗi truy vấn fixture: một đoạn giả định được viết, ba cách diễn đạt lại, và một phân rã.
+- Với một truy vấn chưa biết: một phép biến đổi tất định: lấy các từ nội dung của truy vấn, mở rộng chúng qua một ánh xạ từ đồng nghĩa, và trả về kết quả.
 
-The shape of the mock is what matters, not the data. In production you swap the mock for a real model call. The retriever does not change.
+Hình thức giả lập là điều quan trọng, không phải dữ liệu. Trong sản xuất bạn đổi giả lập thành một lệnh gọi mô hình thực. Bộ truy xuất không đổi.
 
 ```figure
 cd-hyde-vector
@@ -105,64 +105,64 @@ cd-hyde-vector
 
 ## Build It
 
-`code/main.py` implements:
+`code/main.py` triển khai:
 
-- `MockLLM` - the deterministic stand-in described above.
-- `HyDERewriter` - calls the LLM to write the hypothetical document, returns the rewriter output as `RewriteResult` with the hypothetical text and the query the retriever should use.
-- `MultiQueryRewriter` - calls the LLM for N paraphrases, returns a list of queries.
-- `DecomposeRewriter` - calls the LLM to decompose, returns sub-questions.
-- `retrieve_with_rewriter` - takes a rewriter and a retriever, runs the rewrites, fuses the results.
-- A demo that runs the three rewriters on a fixture and prints which strategy returned the gold answer document first.
+- `MockLLM` - vật thay thế tất định được mô tả ở trên.
+- `HyDERewriter` - gọi LLM để viết tài liệu giả định, trả về đầu ra bộ viết lại như `RewriteResult` với văn bản giả định và truy vấn bộ truy xuất nên dùng.
+- `MultiQueryRewriter` - gọi LLM cho N cách diễn đạt lại, trả về một danh sách truy vấn.
+- `DecomposeRewriter` - gọi LLM để phân rã, trả về các câu hỏi con.
+- `retrieve_with_rewriter` - nhận một bộ viết lại và một bộ truy xuất, chạy các bản viết lại, hợp nhất các kết quả.
+- Một demo chạy ba bộ viết lại trên một fixture và in chiến lược nào trả về tài liệu đáp án chuẩn đầu tiên.
 
-The retriever shape is reused from lesson 65 (hybrid BM25 + dense). The fusion is the same RRF. The only new shape is the rewriter interface, which is small.
+Hình thức bộ truy xuất được tái sử dụng từ bài 65 (BM25 lai + dense). Hợp nhất là cùng RRF. Hình thức mới duy nhất là giao diện bộ viết lại, vốn nhỏ.
 
-Run it:
+Chạy nó:
 
 ```bash
 python3 code/main.py
 ```
 
-The output is a per-strategy ranking and a final summary. HyDE wins on the phrasing-mismatched query. Multi-query wins on the paraphrase-variance query. Decomposition wins on the multi-topic query. The fallback (no rewriter) loses on at least one of the three.
+Đầu ra là một thứ hạng theo chiến lược và một tóm tắt cuối. HyDE thắng trên truy vấn không khớp cách diễn đạt. Đa truy vấn thắng trên truy vấn phương sai diễn đạt lại. Phân rã thắng trên truy vấn đa chủ đề. Phương án dự phòng (không bộ viết lại) thua trên ít nhất một trong ba.
 
 ## Failure modes the demo will hide
 
-**HyDE hallucinates corpus-specific identifiers wrong.** The model invents a function name. The hypothetical's BM25 score on the right doc collapses because the invented name is now a high-weight token that does not appear in the index. Cap the hypothetical's length and weight BM25 lower in the fusion.
+**HyDE ảo giác sai các định danh đặc thù corpus.** Mô hình tự tạo một tên hàm. Điểm BM25 của giả định trên tài liệu đúng sụp vì tên tự tạo giờ là một token trọng số cao không xuất hiện trong chỉ mục. Giới hạn độ dài giả định và đặt trọng số BM25 thấp hơn trong hợp nhất.
 
-**Multi-query rewrites all converge.** A weak model produces three near-identical paraphrases. The N retrievals return the same top-k. The RRF merge is no better than a single retrieval. Add an explicit diversity instruction to the rewrite prompt and detect duplicates by Jaccard.
+**Các bản viết lại đa truy vấn đều hội tụ.** Một mô hình yếu tạo ba cách diễn đạt lại gần giống hệt. N lần truy xuất trả về cùng top-k. Hợp nhất RRF không tốt hơn một lần truy xuất duy nhất. Thêm một chỉ dẫn đa dạng rõ ràng vào prompt viết lại và phát hiện các bản trùng bằng Jaccard.
 
-**Decomposition over-splits.** The decomposer turns an atomic question into a list. The retrievals all return the same document but with reduced rank. The merge is worse than the original. Detect this with a "are these sub-questions distinct enough" pass before fan-out.
+**Phân rã chia quá mức.** Bộ phân rã biến một câu hỏi nguyên tử thành một danh sách. Các lần truy xuất đều trả về cùng tài liệu nhưng với hạng giảm. Hợp nhất tệ hơn bản gốc. Phát hiện điều này bằng một lượt "các câu hỏi con này có đủ khác biệt không" trước khi phân nhánh.
 
-**Latency multiplies.** HyDE costs one LLM call. Multi-query costs one LLM call to generate N rewrites, then N retrievals. Decomposition costs one LLM call to decompose, then M retrievals. The retrievals run in parallel; the LLM call is the floor.
+**Độ trễ nhân lên.** HyDE tốn một lệnh gọi LLM. Đa truy vấn tốn một lệnh gọi LLM để sinh N bản viết lại, rồi N lần truy xuất. Phân rã tốn một lệnh gọi LLM để phân rã, rồi M lần truy xuất. Các lần truy xuất chạy song song; lệnh gọi LLM là sàn.
 
 ## Use It
 
-Production patterns:
+Các mẫu sản xuất:
 
-- Per-query strategy selection by query length: atomic short queries get multi-query, complex multi-clause queries get decomposition, jargon-heavy queries get HyDE.
-- Cache the rewriter output by query hash. Many queries repeat.
-- Run all three in parallel and fuse the three result sets into one with RRF. The cost is three LLM calls and one fusion; the quality is the union of all three strategies' coverage.
+- Chọn chiến lược theo truy vấn bằng độ dài truy vấn: các truy vấn ngắn nguyên tử nhận đa truy vấn, các truy vấn phức tạp nhiều mệnh đề nhận phân rã, các truy vấn nhiều biệt ngữ nhận HyDE.
+- Lưu đệm đầu ra bộ viết lại theo băm truy vấn. Nhiều truy vấn lặp lại.
+- Chạy cả ba song song và hợp nhất ba tập kết quả thành một bằng RRF. Chi phí là ba lệnh gọi LLM và một hợp nhất; chất lượng là hợp độ bao phủ của cả ba chiến lược.
 
 ## Ship It
 
-Lesson 69 wires this rewriter stage before the retriever from lesson 65 and the reranker from lesson 66. Lesson 68 evaluates the lift the rewriter adds to retrieval recall.
+Bài 69 nối giai đoạn viết lại này trước bộ truy xuất từ bài 65 và bộ xếp hạng lại từ bài 66. Bài 68 đánh giá mức tăng mà bộ viết lại thêm vào recall truy xuất.
 
 ## Exercises
 
-1. Implement RAG-Fusion (a 2024 variant of multi-query) where the rewriter's paraphrases are intentionally diverse, then the rerank step (lesson 66) picks the final list.
-2. Add a fourth strategy: step-back prompting (ask the LLM for the more general question, retrieve on that, then narrow). Compare on the fixture.
-3. Train the decomposer to recognize atomic queries by adding a "is the question atomic" head. Measure the over-split rate before and after.
-4. Replace the mock LLM with a real model call. Measure the latency-per-strategy on your stack.
-5. Add a confidence score per rewrite. Drop rewrites below the threshold. Measure the impact on recall.
+1. Triển khai RAG-Fusion (một biến thể đa truy vấn năm 2024) nơi các cách diễn đạt lại của bộ viết lại được cố ý làm đa dạng, rồi bước xếp hạng lại (bài 66) chọn danh sách cuối.
+2. Thêm một chiến lược thứ tư: prompting lùi bước (hỏi LLM câu hỏi tổng quát hơn, truy xuất theo nó, rồi thu hẹp). So sánh trên fixture.
+3. Huấn luyện bộ phân rã nhận ra các truy vấn nguyên tử bằng cách thêm một đầu "câu hỏi có nguyên tử không". Đo tỷ lệ chia quá mức trước và sau.
+4. Thay LLM giả lập bằng một lệnh gọi mô hình thực. Đo độ trễ theo chiến lược trên ngăn xếp của bạn.
+5. Thêm một điểm tin cậy theo bản viết lại. Bỏ các bản viết lại dưới ngưỡng. Đo tác động lên recall.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|------------------------|
-| HyDE | "Fake-document retrieval" | LLM writes the answer; embed and retrieve on that instead of the query |
-| Multi-query | "Paraphrase expansion" | N rewrites of the query; retrieve N times, merge by RRF |
-| Decomposition | "Subquery split" | Multi-topic queries split into sub-questions, retrieved separately |
-| Atomic query | "Single-topic" | Cannot be decomposed without inventing fake sub-questions |
-| Step-back | "Abstract the query" | Ask the more general question, retrieve, then narrow |
+| HyDE | "Truy xuất tài liệu giả" | LLM viết đáp án; nhúng và truy xuất theo nó thay vì truy vấn |
+| Multi-query (Đa truy vấn) | "Mở rộng diễn đạt lại" | N bản viết lại truy vấn; truy xuất N lần, hợp nhất bằng RRF |
+| Decomposition (Phân rã) | "Chia truy vấn con" | Các truy vấn đa chủ đề được chia thành các câu hỏi con, được truy xuất riêng |
+| Atomic query (Truy vấn nguyên tử) | "Một chủ đề" | Không thể phân rã mà không tự tạo các câu hỏi con giả |
+| Step-back (Lùi bước) | "Trừu tượng hóa truy vấn" | Hỏi câu hỏi tổng quát hơn, truy xuất, rồi thu hẹp |
 
 ## Further Reading
 
@@ -170,6 +170,6 @@ Lesson 69 wires this rewriter stage before the retriever from lesson 65 and the 
 - Microsoft Research, "Multi-Query Expansion for Retrieval"
 - Stanford DSPy, "Subquery Decomposition for Multi-Hop QA"
 - [LlamaIndex query transformations documentation](https://docs.llamaindex.ai/en/stable/optimizing/advanced_retrieval/query_transformations/)
-- Phase 11 lesson 07 - advanced RAG patterns
-- Phase 19 lesson 65 - the retriever this rewriter feeds
-- Phase 19 lesson 68 - the eval that measures the rewriter lift
+- Phase 11 bài 07 - các mẫu RAG nâng cao
+- Phase 19 bài 65 - bộ truy xuất mà bộ viết lại này cấp cho
+- Phase 19 bài 68 - đánh giá đo mức tăng của bộ viết lại
