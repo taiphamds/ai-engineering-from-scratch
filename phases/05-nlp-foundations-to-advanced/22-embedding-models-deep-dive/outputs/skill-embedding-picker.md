@@ -7,12 +7,12 @@ lesson: 22
 tags: [nlp, embeddings, retrieval]
 ---
 
-Given a corpus (size, languages, domain, avg length), deployment target (cloud / edge / on-prem), latency budget, and storage budget, output:
+Với một ngữ liệu (kích thước, ngôn ngữ, lĩnh vực, độ dài trung bình), đích triển khai (đám mây / biên / tại chỗ), ngân sách độ trễ và ngân sách lưu trữ, xuất ra:
 
-1. Model. Named checkpoint or API. One-sentence reason.
-2. Dimension. Full / Matryoshka-truncated / int8-quantized. Reason tied to storage budget.
-3. Mode. Dense / sparse / multi-vector / hybrid. Reason.
-4. Query prefix / template if required by the model card.
-5. Evaluation plan. MTEB tasks relevant to domain + held-out domain eval with nDCG@10.
+1. Mô hình. Checkpoint hoặc API được nêu tên. Lý do trong một câu.
+2. Số chiều. Đầy đủ / cắt ngắn Matryoshka / lượng tử hóa int8. Lý do gắn với ngân sách lưu trữ.
+3. Chế độ. Đặc / thưa / đa vector / lai. Lý do.
+4. Tiền tố / khuôn truy vấn nếu thẻ mô hình yêu cầu.
+5. Kế hoạch đánh giá. Các tác vụ MTEB liên quan đến lĩnh vực + đánh giá lĩnh vực được giữ lại bằng nDCG@10.
 
-Refuse recommendations that truncate Matryoshka to <64 dims without domain validation. Refuse ColBERTv2 for corpora under 10k passages (overhead not justified). Flag long-document corpora (>8k tokens) routed to models with 512-token windows.
+Từ chối các khuyến nghị cắt Matryoshka xuống <64 chiều mà không xác thực lĩnh vực. Từ chối ColBERTv2 cho các ngữ liệu dưới 10k đoạn văn (chi phí phụ không được biện minh). Đánh dấu các ngữ liệu tài liệu dài (>8k token) được định tuyến đến các mô hình có cửa sổ 512 token.
