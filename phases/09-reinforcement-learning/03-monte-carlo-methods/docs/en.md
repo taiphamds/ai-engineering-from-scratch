@@ -1,6 +1,6 @@
 # Monte Carlo Methods — Learning from Complete Episodes
 
-> Dynamic programming needs a model. Monte Carlo needs nothing but episodes. Run the policy, watch the returns, average them. The simplest idea in RL — and the one that unlocks everything downstream.
+> Quy hoạch động cần một mô hình. Monte Carlo không cần gì ngoài các episode. Chạy chính sách, quan sát các lợi tức, lấy trung bình chúng. Ý tưởng đơn giản nhất trong RL — và là ý tưởng mở khóa mọi thứ phía sau.
 
 **Type:** Build
 **Languages:** Python
@@ -9,40 +9,40 @@
 
 ## The Problem
 
-Dynamic programming is elegant, but it assumes you can query `P(s' | s, a)` for every state and action. Almost nothing in the real world works that way. A robot cannot analytically compute the distribution over camera pixels after a joint torque. A pricing algorithm cannot integrate over every possible customer reaction. An LLM cannot enumerate all possible continuations after a token.
+Quy hoạch động thanh lịch, nhưng nó giả định bạn có thể truy vấn `P(s' | s, a)` cho mọi trạng thái và hành động. Hầu như không có gì trong thế giới thực hoạt động như vậy. Một robot không thể tính giải tích phân phối trên các pixel camera sau một mô-men xoắn khớp. Một thuật toán định giá không thể tích phân trên mọi phản ứng có thể của khách hàng. Một LLM không thể liệt kê mọi phần tiếp nối có thể sau một token.
 
-You need a method that only needs the ability to *sample* from the environment. Run the policy. Get a trajectory `s_0, a_0, r_1, s_1, a_1, r_2, …, s_T`. Use it to estimate values. That is Monte Carlo.
+Bạn cần một phương pháp chỉ cần khả năng *lấy mẫu* từ môi trường. Chạy chính sách. Nhận một quỹ đạo `s_0, a_0, r_1, s_1, a_1, r_2, …, s_T`. Dùng nó để ước lượng giá trị. Đó là Monte Carlo.
 
-The shift from DP to MC is philosophically important: we move from *known model + exact backup* to *sampled rollouts + averaged return*. The variance jumps, but the applicability explodes. Every RL algorithm after this lesson — TD, Q-learning, REINFORCE, PPO, GRPO — is a Monte Carlo estimator at heart, sometimes with bootstrapping layered on top.
+Sự chuyển dịch từ DP sang MC quan trọng về mặt triết lý: chúng ta đi từ *mô hình đã biết + cập nhật chính xác* sang *rollout được lấy mẫu + lợi tức lấy trung bình*. Phương sai tăng vọt, nhưng khả năng áp dụng bùng nổ. Mọi thuật toán RL sau bài học này — TD, Q-learning, REINFORCE, PPO, GRPO — cốt lõi đều là một bộ ước lượng Monte Carlo, đôi khi có bootstrapping được xếp lên trên.
 
 ## The Concept
 
 ![Monte Carlo: rollout, compute returns, average; first-visit vs every-visit](../assets/monte-carlo.svg)
 
-**The core idea, in one line:** `V^π(s) = E_π[G_t | s_t = s] ≈ (1/N) Σ_i G^{(i)}(s)` where `G^{(i)}(s)` are observed returns following visits to `s` under policy `π`.
+**Ý tưởng cốt lõi, trong một dòng:** `V^π(s) = E_π[G_t | s_t = s] ≈ (1/N) Σ_i G^{(i)}(s)` trong đó `G^{(i)}(s)` là các lợi tức quan sát được sau những lần ghé `s` theo chính sách `π`.
 
-**First-visit vs every-visit MC.** Given an episode that visits state `s` multiple times, first-visit MC only counts the return from the first visit; every-visit MC counts all visits. Both are unbiased in the limit. First-visit is simpler to analyze (iid samples). Every-visit uses more data per episode and typically converges faster in practice.
+**MC lần ghé đầu so với mọi lần ghé.** Với một episode ghé trạng thái `s` nhiều lần, MC lần ghé đầu chỉ tính lợi tức từ lần ghé đầu tiên; MC mọi lần ghé tính tất cả các lần ghé. Cả hai đều không chệch trong giới hạn. Lần ghé đầu đơn giản hơn để phân tích (các mẫu iid). Mọi lần ghé dùng nhiều dữ liệu hơn mỗi episode và thường hội tụ nhanh hơn trong thực tế.
 
-**Incremental mean.** Instead of storing all returns, update the running average:
+**Trung bình tăng dần.** Thay vì lưu tất cả lợi tức, cập nhật trung bình tích lũy:
 
 `V_n(s) = V_{n-1}(s) + (1/n) [G_n - V_{n-1}(s)]`
 
-Reorganize: `V_new = V_old + α · (target - V_old)` with `α = 1/n`. Swap `1/n` for a constant step-size `α ∈ (0, 1)` and you get a non-stationary MC estimator that tracks changes in `π`. That move is the entire jump from MC to TD to every modern RL algorithm.
+Sắp xếp lại: `V_new = V_old + α · (target - V_old)` với `α = 1/n`. Đổi `1/n` thành một kích thước bước không đổi `α ∈ (0, 1)` và bạn có một bộ ước lượng MC phi dừng theo dõi các thay đổi trong `π`. Thay đổi đó là toàn bộ bước nhảy từ MC sang TD đến mọi thuật toán RL hiện đại.
 
-**Exploration is now a problem.** DP touched every state by enumeration. MC only sees states the policy visits. If `π` is deterministic, whole regions of the state space never get sampled, and their value estimates stay at zero forever. Three fixes, in historical order:
+**Khám phá giờ là một vấn đề.** DP chạm đến mọi trạng thái bằng liệt kê. MC chỉ thấy các trạng thái mà chính sách ghé. Nếu `π` tất định, cả những vùng của không gian trạng thái không bao giờ được lấy mẫu, và ước lượng giá trị của chúng mãi bằng không. Ba cách khắc phục, theo thứ tự lịch sử:
 
-1. **Exploring starts.** Start each episode from a random (s, a) pair. Guarantees coverage; unrealistic in practice (you cannot "reset" a robot into an arbitrary state).
-2. **ε-greedy.** Act greedy w.r.t. current Q, but with probability `ε` pick a random action. All state-action pairs get sampled asymptotically.
-3. **Off-policy MC.** Collect data under a behavior policy `μ`, learn about target policy `π` via importance sampling. High variance, but it's the bridge to replay-buffer methods like DQN.
+1. **Khởi đầu khám phá.** Bắt đầu mỗi episode từ một cặp (s, a) ngẫu nhiên. Bảo đảm độ bao phủ; không thực tế trong thực hành (bạn không thể "đặt lại" một robot vào một trạng thái tùy ý).
+2. **ε-greedy.** Hành động tham lam theo Q hiện tại, nhưng với xác suất `ε` chọn một hành động ngẫu nhiên. Tất cả các cặp trạng thái-hành động được lấy mẫu theo tiệm cận.
+3. **MC off-policy.** Thu thập dữ liệu theo một chính sách hành vi `μ`, học về chính sách mục tiêu `π` qua lấy mẫu quan trọng. Phương sai cao, nhưng đó là cầu nối đến các phương pháp bộ đệm phát lại như DQN.
 
-**Monte Carlo Control.** Evaluate → improve → evaluate, just like policy iteration, but evaluation is sampling-based:
+**Điều khiển Monte Carlo.** Đánh giá → cải thiện → đánh giá, giống lặp chính sách, nhưng đánh giá dựa trên lấy mẫu:
 
-1. Run `π`, get an episode.
-2. Update `Q(s, a)` from observed returns.
-3. Make `π` ε-greedy w.r.t. `Q`.
-4. Repeat.
+1. Chạy `π`, nhận một episode.
+2. Cập nhật `Q(s, a)` từ các lợi tức quan sát được.
+3. Làm `π` ε-greedy theo `Q`.
+4. Lặp lại.
 
-Converges to `Q*` and `π*` with probability 1 under mild conditions (every pair visited infinitely often, `α` satisfies Robbins-Monro).
+Hội tụ đến `Q*` và `π*` với xác suất 1 dưới các điều kiện nhẹ (mỗi cặp được ghé vô hạn lần, `α` thỏa mãn Robbins-Monro).
 
 ```figure
 epsilon-greedy
@@ -66,7 +66,7 @@ def rollout(env, policy, max_steps=200):
     return trajectory
 ```
 
-No model, only `env.reset()` and `env.step(s, a)`. Same interface as a gym environment but stripped down.
+Không mô hình, chỉ `env.reset()` và `env.step(s, a)`. Cùng giao diện như một môi trường gym nhưng được giản lược.
 
 ### Step 2: compute returns (reverse sweep)
 
@@ -80,7 +80,7 @@ def returns_from(trajectory, gamma):
     return list(reversed(returns))
 ```
 
-One pass, `O(T)`. The backward recurrence `G_t = r_{t+1} + γ G_{t+1}` avoids re-summing.
+Một lượt, `O(T)`. Truy hồi ngược `G_t = r_{t+1} + γ G_{t+1}` tránh cộng lại.
 
 ### Step 3: first-visit MC evaluation
 
@@ -101,7 +101,7 @@ def mc_policy_evaluation(env, policy, episodes, gamma=0.99):
     return V
 ```
 
-Three lines do the work: mark state as seen on first visit, increment count, update running mean.
+Ba dòng làm công việc: đánh dấu trạng thái đã thấy ở lần ghé đầu, tăng số đếm, cập nhật trung bình tích lũy.
 
 ### Step 4: ε-greedy MC control (on-policy)
 
@@ -130,34 +130,34 @@ def mc_control(env, episodes, gamma=0.99, epsilon=0.1):
 
 ### Step 5: compare to DP gold standard
 
-Your MC estimate of `V^π` should agree with the DP result from Lesson 02 as episodes → ∞. In practice: 50,000 episodes on 4×4 GridWorld gets you within `~0.1` of the DP answer.
+Ước lượng MC của bạn về `V^π` nên khớp kết quả DP từ Bài 02 khi số episode → ∞. Trong thực tế: 50,000 episode trên GridWorld 4×4 đưa bạn đến trong khoảng `~0.1` so với câu trả lời DP.
 
 ## Pitfalls
 
-- **Infinite episodes.** MC requires episodes to *terminate*. If your policy can loop forever, cap `max_steps` and treat the cap as implicit failure. GridWorld with a random policy routinely times out — that is normal, just make sure you count it correctly.
-- **Variance.** MC uses full returns. On long episodes, variance is huge — one unlucky reward at the end shifts `V(s_0)` by the same amount. TD methods (Lesson 04) cut this by bootstrapping.
-- **State coverage.** Greedy MC on a fresh Q with ties will only ever try one action. You *must* explore (ε-greedy, exploring starts, UCB).
-- **Non-stationary policies.** If `π` changes (as in MC control), old returns are from a different policy. Constant-α MC handles this; sample-average MC does not.
-- **Off-policy importance sampling.** The weights `π(a|s)/μ(a|s)` multiply across a trajectory. Variance explodes with horizon. Cap with per-decision weighted IS or switch to TD.
+- **Episode vô hạn.** MC yêu cầu các episode phải *kết thúc*. Nếu chính sách của bạn có thể lặp mãi mãi, giới hạn `max_steps` và coi mức giới hạn là thất bại ngầm. GridWorld với một chính sách ngẫu nhiên thường xuyên hết thời gian — điều đó bình thường, chỉ cần bảo đảm bạn tính nó đúng.
+- **Phương sai.** MC dùng các lợi tức đầy đủ. Trên các episode dài, phương sai rất lớn — một phần thưởng không may ở cuối dịch chuyển `V(s_0)` cùng một lượng. Các phương pháp TD (Bài 04) giảm điều này bằng bootstrapping.
+- **Độ bao phủ trạng thái.** MC tham lam trên một Q mới có các giá trị hòa sẽ chỉ thử một hành động. Bạn *phải* khám phá (ε-greedy, khởi đầu khám phá, UCB).
+- **Chính sách phi dừng.** Nếu `π` thay đổi (như trong điều khiển MC), các lợi tức cũ đến từ một chính sách khác. MC α không đổi xử lý điều này; MC trung bình mẫu thì không.
+- **Lấy mẫu quan trọng off-policy.** Các trọng số `π(a|s)/μ(a|s)` nhân với nhau trên một quỹ đạo. Phương sai bùng nổ theo chân trời. Giới hạn bằng IS có trọng số theo quyết định hoặc chuyển sang TD.
 
 ## Use It
 
-The 2026 role of Monte Carlo methods:
+Vai trò năm 2026 của các phương pháp Monte Carlo:
 
-| Use case | Why MC |
+| Trường hợp sử dụng | Vì sao MC |
 |----------|--------|
-| Short-horizon games (blackjack, poker) | Episodes terminate naturally; returns are clean. |
-| Offline evaluation of a logged policy | Average discounted returns over stored trajectories. |
-| Monte Carlo Tree Search (AlphaZero) | MC rollouts from tree leaves guide selection. |
-| LLM RL evaluation | Compute average reward over sampled completions for a given policy. |
-| Baseline estimation in PPO | The advantage target `A_t = G_t - V(s_t)` uses an MC `G_t`. |
-| Teaching RL | Simplest algorithm that actually works — strip bootstrapping to see the core. |
+| Trò chơi chân trời ngắn (blackjack, poker) | Các episode kết thúc tự nhiên; lợi tức rõ ràng. |
+| Đánh giá ngoại tuyến một chính sách đã ghi log | Lấy trung bình các lợi tức chiết khấu trên các quỹ đạo được lưu. |
+| Tìm kiếm cây Monte Carlo (AlphaZero) | Các rollout MC từ lá cây hướng dẫn lựa chọn. |
+| Đánh giá RL cho LLM | Tính phần thưởng trung bình trên các phần hoàn thành được lấy mẫu cho một chính sách cho trước. |
+| Ước lượng baseline trong PPO | Mục tiêu lợi thế `A_t = G_t - V(s_t)` dùng một `G_t` MC. |
+| Dạy RL | Thuật toán đơn giản nhất thực sự hoạt động — bỏ bootstrapping để thấy cốt lõi. |
 
-Modern deep-RL algorithms (PPO, SAC) interpolate between pure MC (full returns) and pure TD (one-step bootstrap) via `n`-step returns or GAE. Both endpoints are instances of the same estimator.
+Các thuật toán deep-RL hiện đại (PPO, SAC) nội suy giữa MC thuần túy (lợi tức đầy đủ) và TD thuần túy (bootstrap một bước) qua lợi tức `n` bước hoặc GAE. Cả hai đầu mút là các trường hợp của cùng một bộ ước lượng.
 
 ## Ship It
 
-Save as `outputs/skill-mc-evaluator.md`:
+Lưu thành `outputs/skill-mc-evaluator.md`:
 
 ```markdown
 ---
@@ -182,27 +182,27 @@ Refuse to run MC on non-episodic tasks without a finite horizon cap. Refuse to r
 
 ## Exercises
 
-1. **Easy.** Implement first-visit MC evaluation of the uniform-random policy on 4×4 GridWorld. Run 10,000 episodes. Plot `V(0,0)` as a function of episode count against the DP answer.
-2. **Medium.** Implement ε-greedy MC control with `ε ∈ {0.01, 0.1, 0.3}`. Compare mean return after 20,000 episodes. What does the curve look like? Where does the bias-variance tradeoff live?
-3. **Hard.** Implement *off-policy* MC with importance sampling: collect data under uniform-random policy `μ`, estimate `V^π` for the deterministic optimal policy `π`. Compare plain IS vs per-decision IS vs weighted IS. Which has lowest variance?
+1. **Dễ.** Triển khai đánh giá MC lần ghé đầu cho chính sách ngẫu nhiên đều trên GridWorld 4×4. Chạy 10,000 episode. Vẽ `V(0,0)` như một hàm của số episode so với câu trả lời DP.
+2. **Trung bình.** Triển khai điều khiển MC ε-greedy với `ε ∈ {0.01, 0.1, 0.3}`. So sánh lợi tức trung bình sau 20,000 episode. Đường cong trông như thế nào? Đánh đổi độ chệch-phương sai nằm ở đâu?
+3. **Khó.** Triển khai MC *off-policy* với lấy mẫu quan trọng: thu thập dữ liệu theo chính sách ngẫu nhiên đều `μ`, ước lượng `V^π` cho chính sách tối ưu tất định `π`. So sánh IS thông thường với IS theo quyết định với IS có trọng số. Cái nào có phương sai thấp nhất?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| Monte Carlo | "Random sampling" | Estimate expectations by averaging over iid samples from the distribution. |
-| Return `G_t` | "Future reward" | Sum of discounted rewards from step `t` to episode end: `Σ_{k≥0} γ^k r_{t+k+1}`. |
-| First-visit MC | "Count each state once" | Only the first visit in an episode contributes to the value estimate. |
-| Every-visit MC | "Use all visits" | Every visit contributes; slightly biased but more sample-efficient. |
-| ε-greedy | "Exploration noise" | Pick greedy action with prob `1-ε`; random action with prob `ε`. |
-| Importance sampling | "Correcting for sampling from the wrong distribution" | Reweight returns by `π(a\|s)/μ(a\|s)` products to estimate `V^π` from `μ` data. |
-| On-policy | "Learn from my own data" | Target policy = behavior policy. Vanilla MC, PPO, SARSA. |
-| Off-policy | "Learn from someone else's data" | Target policy ≠ behavior policy. Importance-sampled MC, Q-learning, DQN. |
+| Monte Carlo | "Lấy mẫu ngẫu nhiên" | Ước lượng kỳ vọng bằng cách lấy trung bình trên các mẫu iid từ phân phối. |
+| Return `G_t` (Lợi tức) | "Phần thưởng tương lai" | Tổng các phần thưởng chiết khấu từ bước `t` đến cuối episode: `Σ_{k≥0} γ^k r_{t+k+1}`. |
+| First-visit MC (MC lần ghé đầu) | "Đếm mỗi trạng thái một lần" | Chỉ lần ghé đầu tiên trong một episode đóng góp vào ước lượng giá trị. |
+| Every-visit MC (MC mọi lần ghé) | "Dùng tất cả các lần ghé" | Mọi lần ghé đều đóng góp; hơi chệch nhưng hiệu quả mẫu hơn. |
+| ε-greedy | "Nhiễu khám phá" | Chọn hành động tham lam với xác suất `1-ε`; hành động ngẫu nhiên với xác suất `ε`. |
+| Importance sampling (Lấy mẫu quan trọng) | "Hiệu chỉnh việc lấy mẫu từ sai phân phối" | Đặt lại trọng số lợi tức bằng các tích `π(a\|s)/μ(a\|s)` để ước lượng `V^π` từ dữ liệu `μ`. |
+| On-policy | "Học từ dữ liệu của chính tôi" | Chính sách mục tiêu = chính sách hành vi. MC nguyên bản, PPO, SARSA. |
+| Off-policy | "Học từ dữ liệu của người khác" | Chính sách mục tiêu ≠ chính sách hành vi. MC lấy mẫu quan trọng, Q-learning, DQN. |
 
 ## Further Reading
 
-- [Sutton & Barto (2018). Ch. 5 — Monte Carlo Methods](http://incompleteideas.net/book/RLbook2020.pdf) — the canonical treatment.
-- [Singh & Sutton (1996). Reinforcement Learning with Replacing Eligibility Traces](https://link.springer.com/article/10.1007/BF00114726) — first-visit vs every-visit analysis.
-- [Precup, Sutton, Singh (2000). Eligibility Traces for Off-Policy Policy Evaluation](http://incompleteideas.net/papers/PSS-00.pdf) — off-policy MC and variance control.
-- [Mahmood et al. (2014). Weighted Importance Sampling for Off-Policy Learning](https://arxiv.org/abs/1404.6362) — modern low-variance IS estimators.
-- [Tesauro (1995). TD-Gammon, A Self-Teaching Backgammon Program](https://dl.acm.org/doi/10.1145/203330.203343) — the first large-scale empirical demonstration of MC/TD self-play converging to superhuman play; conceptual precursor to every lesson in the second half of this phase.
+- [Sutton & Barto (2018). Ch. 5 — Monte Carlo Methods](http://incompleteideas.net/book/RLbook2020.pdf) — cách trình bày chuẩn.
+- [Singh & Sutton (1996). Reinforcement Learning with Replacing Eligibility Traces](https://link.springer.com/article/10.1007/BF00114726) — phân tích lần ghé đầu so với mọi lần ghé.
+- [Precup, Sutton, Singh (2000). Eligibility Traces for Off-Policy Policy Evaluation](http://incompleteideas.net/papers/PSS-00.pdf) — MC off-policy và kiểm soát phương sai.
+- [Mahmood et al. (2014). Weighted Importance Sampling for Off-Policy Learning](https://arxiv.org/abs/1404.6362) — các bộ ước lượng IS phương sai thấp hiện đại.
+- [Tesauro (1995). TD-Gammon, A Self-Teaching Backgammon Program](https://dl.acm.org/doi/10.1145/203330.203343) — minh chứng thực nghiệm quy mô lớn đầu tiên về tự chơi MC/TD hội tụ đến trình độ chơi siêu nhân; tiền thân về khái niệm của mọi bài học trong nửa sau của giai đoạn này.

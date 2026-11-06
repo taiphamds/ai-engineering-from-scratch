@@ -7,12 +7,12 @@ lesson: 3
 tags: [rl, monte-carlo, evaluation]
 ---
 
-Given an environment (episodic, with reset+step API) and a policy, output:
+Với một môi trường (theo episode, có API reset+step) và một chính sách, xuất ra:
 
-1. Method. First-visit vs every-visit MC. Reason.
-2. Episode budget. Target number, variance diagnostic, expected standard error.
-3. Exploration plan. ε schedule (if needed) or exploring starts.
-4. Gold-standard comparison. DP-optimal V* if tabular; otherwise a bound from a Q-learning / PPO baseline.
-5. Termination check. Max-step cap, timeouts, handling of non-terminating trajectories.
+1. Phương pháp. MC lần ghé đầu so với mọi lần ghé. Lý do.
+2. Ngân sách episode. Số lượng mục tiêu, chẩn đoán phương sai, sai số chuẩn dự kiến.
+3. Kế hoạch khám phá. Lịch ε (nếu cần) hoặc khởi đầu khám phá.
+4. So sánh tiêu chuẩn vàng. V* tối ưu theo DP nếu dạng bảng; nếu không thì một cận từ baseline Q-learning / PPO.
+5. Kiểm tra kết thúc. Giới hạn số bước tối đa, hết thời gian, xử lý các quỹ đạo không kết thúc.
 
-Refuse to run MC on non-episodic tasks without a finite horizon cap. Refuse to report V^π estimates from fewer than 100 episodes per state for tabular tasks. Flag any policy with zero-variance actions as an exploration risk.
+Từ chối chạy MC trên các tác vụ không theo episode mà không có giới hạn chân trời hữu hạn. Từ chối báo cáo ước lượng V^π từ dưới 100 episode mỗi trạng thái cho các tác vụ dạng bảng. Đánh dấu bất kỳ chính sách nào có các hành động phương sai bằng không là một rủi ro khám phá.
