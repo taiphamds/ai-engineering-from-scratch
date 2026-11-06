@@ -1,6 +1,6 @@
 # Activation Functions
 
-> Without nonlinearity, your 100-layer network is a fancy matrix multiply. Activations are the gates that let neural networks think in curves.
+> Không có tính phi tuyến, mạng 100 lớp của bạn là một phép nhân ma trận cầu kỳ. Các kích hoạt là những cánh cổng cho phép mạng nơ-ron suy nghĩ bằng các đường cong.
 
 **Type:** Build
 **Languages:** Python
@@ -9,33 +9,33 @@
 
 ## Learning Objectives
 
-- Implement sigmoid, tanh, ReLU, Leaky ReLU, GELU, Swish, and softmax with their derivatives from scratch
-- Diagnose the vanishing gradient problem by measuring activation magnitudes through 10+ layers with different activations
-- Detect dead neurons in a ReLU network and explain why GELU avoids this failure mode
-- Select the correct activation function for a given architecture (transformer, CNN, RNN, output layer)
+- Triển khai sigmoid, tanh, ReLU, Leaky ReLU, GELU, Swish và softmax cùng các đạo hàm của chúng từ đầu
+- Chẩn đoán vấn đề tiêu biến gradient bằng cách đo độ lớn kích hoạt qua 10+ lớp với các kích hoạt khác nhau
+- Phát hiện các nơ-ron chết trong một mạng ReLU và giải thích tại sao GELU tránh được kiểu thất bại này
+- Chọn hàm kích hoạt đúng cho một kiến trúc nhất định (transformer, CNN, RNN, lớp đầu ra)
 
 ## The Problem
 
-Stack two linear transformations: y = W2(W1x + b1) + b2. Expand it: y = W2W1x + W2b1 + b2. That's just y = Ax + c -- a single linear transformation. No matter how many linear layers you stack, the result collapses to one matrix multiply. Your 100-layer network has the same representational power as a single layer.
+Xếp chồng hai phép biến đổi tuyến tính: y = W2(W1x + b1) + b2. Khai triển: y = W2W1x + W2b1 + b2. Đó chỉ là y = Ax + c -- một phép biến đổi tuyến tính duy nhất. Bất kể bạn xếp chồng bao nhiêu lớp tuyến tính, kết quả thu gọn thành một phép nhân ma trận. Mạng 100 lớp của bạn có cùng năng lực biểu diễn như một lớp đơn lẻ.
 
-This is not a theoretical curiosity. It means a deep linear network literally cannot learn XOR, cannot classify a spiral dataset, cannot recognize a face. Without activation functions, depth is an illusion.
+Đây không phải là một điều thú vị thuần lý thuyết. Nó có nghĩa một mạng tuyến tính sâu thực sự không thể học XOR, không thể phân loại một tập dữ liệu xoắn ốc, không thể nhận dạng một khuôn mặt. Không có các hàm kích hoạt, độ sâu là một ảo ảnh.
 
-Activation functions break the linearity. They warp the output of each layer through a nonlinear function, giving the network the ability to bend decision boundaries, approximate arbitrary functions, and actually learn. But pick the wrong activation and your gradients vanish to zero (sigmoid in deep networks), explode to infinity (unbounded activations without careful initialization), or your neurons die permanently (ReLU with large negative biases). The choice of activation function directly determines whether your network learns at all.
+Các hàm kích hoạt phá vỡ tính tuyến tính. Chúng uốn đầu ra mỗi lớp qua một hàm phi tuyến, cho mạng khả năng bẻ cong các ranh giới quyết định, xấp xỉ các hàm tùy ý và thực sự học. Nhưng chọn sai kích hoạt và các gradient của bạn tiêu biến về không (sigmoid trong các mạng sâu), bùng nổ tới vô cực (các kích hoạt không bị chặn mà không có khởi tạo cẩn thận), hoặc các nơ-ron của bạn chết vĩnh viễn (ReLU với các bias âm lớn). Lựa chọn hàm kích hoạt trực tiếp quyết định liệu mạng của bạn có học được chút nào hay không.
 
 ## The Concept
 
 ### Why Nonlinearity Is Necessary
 
-Matrix multiplication is composable. Multiplying a vector by matrix A then matrix B is identical to multiplying by AB. This means stacking ten linear layers is mathematically equivalent to one linear layer with one big matrix. All those parameters, all that depth -- wasted. You need something to break the chain. That's what activation functions do.
+Phép nhân ma trận có thể kết hợp được. Nhân một vector với ma trận A rồi ma trận B giống hệt nhân với AB. Điều này nghĩa là xếp chồng mười lớp tuyến tính tương đương về mặt toán học với một lớp tuyến tính có một ma trận lớn. Tất cả những tham số đó, tất cả độ sâu đó -- lãng phí. Bạn cần thứ gì đó phá vỡ chuỗi. Đó là điều các hàm kích hoạt làm.
 
-Here is the proof. A linear layer computes f(x) = Wx + b. Stack two:
+Đây là chứng minh. Một lớp tuyến tính tính f(x) = Wx + b. Xếp chồng hai lớp:
 
 ```
 Layer 1: h = W1 * x + b1
 Layer 2: y = W2 * h + b2
 ```
 
-Substitute:
+Thế vào:
 
 ```
 y = W2 * (W1 * x + b1) + b2
@@ -43,126 +43,126 @@ y = (W2 * W1) * x + (W2 * b1 + b2)
 y = A * x + c
 ```
 
-One layer. Insert a nonlinear activation g() between layers:
+Một lớp. Chèn một kích hoạt phi tuyến g() giữa các lớp:
 
 ```
 h = g(W1 * x + b1)
 y = W2 * h + b2
 ```
 
-Now the substitution breaks. W2 * g(W1 * x + b1) + b2 cannot be reduced to a single linear transformation. The network can represent nonlinear functions. Each additional layer with an activation adds representational capacity.
+Giờ phép thế bị phá vỡ. W2 * g(W1 * x + b1) + b2 không thể được rút gọn thành một phép biến đổi tuyến tính duy nhất. Mạng có thể biểu diễn các hàm phi tuyến. Mỗi lớp bổ sung có kích hoạt thêm năng lực biểu diễn.
 
 ### Sigmoid
 
-The original activation function for neural networks.
+Hàm kích hoạt ban đầu cho mạng nơ-ron.
 
 ```
 sigmoid(x) = 1 / (1 + e^(-x))
 ```
 
-Output range: (0, 1). Smooth, differentiable, maps any real number to a probability-like value.
+Phạm vi đầu ra: (0, 1). Trơn, khả vi, ánh xạ bất kỳ số thực nào thành một giá trị giống xác suất.
 
-The derivative:
+Đạo hàm:
 
 ```
 sigmoid'(x) = sigmoid(x) * (1 - sigmoid(x))
 ```
 
-The maximum value of this derivative is 0.25, occurring at x = 0. In backpropagation, gradients multiply through layers. Ten layers of sigmoid means the gradient gets multiplied by at most 0.25 ten times:
+Giá trị tối đa của đạo hàm này là 0.25, xảy ra tại x = 0. Trong lan truyền ngược, các gradient nhân qua các lớp. Mười lớp sigmoid nghĩa là gradient được nhân với nhiều nhất 0.25 mười lần:
 
 ```
 0.25^10 = 0.000000953674
 ```
 
-Less than one millionth of the original signal. This is the vanishing gradient problem. Gradients in early layers become so small that weights barely update. The network appears to learn -- loss decreases in later layers -- but the first layers are frozen. Deep sigmoid networks simply do not train.
+Ít hơn một phần triệu tín hiệu ban đầu. Đây là vấn đề tiêu biến gradient. Các gradient trong các lớp đầu trở nên nhỏ tới mức các trọng số hầu như không cập nhật. Mạng dường như học -- mất mát giảm trong các lớp sau -- nhưng các lớp đầu bị đóng băng. Các mạng sigmoid sâu đơn giản là không huấn luyện được.
 
-Additional problem: sigmoid outputs are always positive (0 to 1), which means gradients on weights are always the same sign. This causes zig-zagging during gradient descent.
+Vấn đề bổ sung: các đầu ra sigmoid luôn dương (0 đến 1), nghĩa là các gradient của trọng số luôn cùng dấu. Điều này gây đi zíc zắc trong quá trình hạ gradient.
 
 ### Tanh
 
-The centered version of sigmoid.
+Phiên bản được đặt tâm của sigmoid.
 
 ```
 tanh(x) = (e^x - e^(-x)) / (e^x + e^(-x))
 ```
 
-Output range: (-1, 1). Zero-centered, which eliminates the zig-zag problem.
+Phạm vi đầu ra: (-1, 1). Có tâm tại không, loại bỏ vấn đề zíc zắc.
 
-The derivative:
+Đạo hàm:
 
 ```
 tanh'(x) = 1 - tanh(x)^2
 ```
 
-Maximum derivative is 1.0 at x = 0 -- four times better than sigmoid. But the vanishing gradient problem still exists. For large positive or negative inputs, the derivative approaches zero. Ten layers still crush the gradient, just less aggressively.
+Đạo hàm tối đa là 1.0 tại x = 0 -- tốt hơn sigmoid bốn lần. Nhưng vấn đề tiêu biến gradient vẫn tồn tại. Với các đầu vào dương hoặc âm lớn, đạo hàm tiến về không. Mười lớp vẫn nghiền nát gradient, chỉ ít quyết liệt hơn.
 
 ### ReLU: The Breakthrough
 
-Rectified Linear Unit. Popularized for deep learning by Nair and Hinton in 2010 (the function itself dates to Fukushima's 1969 work), it changed everything.
+Rectified Linear Unit. Được Nair và Hinton phổ biến cho học sâu vào năm 2010 (bản thân hàm có từ công trình năm 1969 của Fukushima), nó đã thay đổi mọi thứ.
 
 ```
 relu(x) = max(0, x)
 ```
 
-Output range: [0, infinity). The derivative is trivially simple:
+Phạm vi đầu ra: [0, vô cực). Đạo hàm cực kỳ đơn giản:
 
 ```
 relu'(x) = 1  if x > 0
             0  if x <= 0
 ```
 
-No vanishing gradient for positive inputs. The gradient is exactly 1, passed straight through. This is why deep networks became trainable -- ReLU preserves gradient magnitude across layers.
+Không có tiêu biến gradient đối với các đầu vào dương. Gradient đúng bằng 1, được truyền thẳng qua. Đây là lý do các mạng sâu trở nên có thể huấn luyện -- ReLU bảo toàn độ lớn gradient qua các lớp.
 
-But there is a failure mode: the dead neuron problem. If a neuron's weighted input is always negative (due to a large negative bias or unfortunate weight initialization), its output is always zero, its gradient is always zero, and it never updates. It is permanently dead. In practice, 10-40% of neurons in a ReLU network can die during training.
+Nhưng có một kiểu thất bại: vấn đề nơ-ron chết. Nếu đầu vào có trọng số của một nơ-ron luôn âm (do một bias âm lớn hoặc khởi tạo trọng số không may), đầu ra của nó luôn bằng không, gradient luôn bằng không và nó không bao giờ cập nhật. Nó chết vĩnh viễn. Trong thực tế, 10-40% nơ-ron trong một mạng ReLU có thể chết trong quá trình huấn luyện.
 
 ### Leaky ReLU
 
-The simplest fix for dead neurons.
+Cách khắc phục đơn giản nhất cho các nơ-ron chết.
 
 ```
 leaky_relu(x) = x        if x > 0
                 alpha * x if x <= 0
 ```
 
-Where alpha is a small constant, typically 0.01. The negative side has a small slope instead of zero, so dead neurons still get a gradient signal and can recover.
+Trong đó alpha là một hằng số nhỏ, thường là 0.01. Phía âm có độ dốc nhỏ thay vì không, nên các nơ-ron chết vẫn nhận được một tín hiệu gradient và có thể phục hồi.
 
 ### GELU: The Modern Default
 
-Gaussian Error Linear Unit. Introduced by Hendrycks and Gimpel in 2016. Default activation in BERT, GPT, and most modern transformers.
+Gaussian Error Linear Unit. Được Hendrycks và Gimpel giới thiệu năm 2016. Kích hoạt mặc định trong BERT, GPT và hầu hết các transformer hiện đại.
 
 ```
 gelu(x) = x * Phi(x)
 ```
 
-Where Phi(x) is the cumulative distribution function of the standard normal distribution. The approximation used in practice:
+Trong đó Phi(x) là hàm phân phối tích lũy của phân phối chuẩn tắc. Xấp xỉ được sử dụng trong thực tế:
 
 ```
 gelu(x) ~= 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
 ```
 
-GELU is smooth everywhere, allows small negative values (unlike ReLU which hard-clips to zero), and has a probabilistic interpretation: it weights each input by how likely it is to be positive under a Gaussian distribution. This smooth gating outperforms ReLU in transformer architectures because it provides better gradient flow and avoids the dead neuron problem entirely.
+GELU trơn ở mọi nơi, cho phép các giá trị âm nhỏ (khác ReLU cắt cứng về không), và có một cách diễn giải xác suất: nó gán trọng số cho mỗi đầu vào theo khả năng đầu vào đó dương dưới một phân phối Gaussian. Cơ chế cổng trơn này vượt ReLU trong các kiến trúc transformer vì nó cung cấp luồng gradient tốt hơn và hoàn toàn tránh vấn đề nơ-ron chết.
 
 ### Swish / SiLU
 
-Self-gated activation discovered by Ramachandran et al. in 2017 through automated search.
+Kích hoạt tự đặt cổng được Ramachandran và cộng sự khám phá năm 2017 thông qua tìm kiếm tự động.
 
 ```
 swish(x) = x * sigmoid(x)
 ```
 
-Swish is formally x * sigmoid(x). Google discovered it through automated search over activation function space -- a neural network designing parts of neural networks.
+Swish về mặt hình thức là x * sigmoid(x). Google khám phá nó thông qua tìm kiếm tự động trên không gian hàm kích hoạt -- một mạng nơ-ron thiết kế các phần của mạng nơ-ron.
 
-Like GELU, it is smooth, non-monotonic, and allows small negative values. The difference is subtle: Swish uses sigmoid for gating while GELU uses the Gaussian CDF. In practice, performance is nearly identical. Swish is used in EfficientNet and some vision models. GELU dominates in language models.
+Giống GELU, nó trơn, không đơn điệu và cho phép các giá trị âm nhỏ. Khác biệt rất tinh tế: Swish sử dụng sigmoid cho cơ chế cổng trong khi GELU sử dụng CDF Gaussian. Trong thực tế, hiệu suất gần như giống hệt. Swish được sử dụng trong EfficientNet và một số mô hình thị giác. GELU thống trị trong các mô hình ngôn ngữ.
 
 ### Softmax: The Output Activation
 
-Not used in hidden layers. Softmax converts a vector of raw scores (logits) into a probability distribution.
+Không được sử dụng trong các lớp ẩn. Softmax chuyển một vector điểm thô (logit) thành một phân phối xác suất.
 
 ```
 softmax(x_i) = e^(x_i) / sum(e^(x_j) for all j)
 ```
 
-Every output is between 0 and 1. All outputs sum to 1. This makes it the standard final activation for multi-class classification. The largest logit gets the highest probability, but unlike argmax, softmax is differentiable and preserves information about relative confidence.
+Mỗi đầu ra nằm giữa 0 và 1. Tất cả đầu ra cộng lại bằng 1. Điều này khiến nó là kích hoạt cuối tiêu chuẩn cho phân loại đa lớp. Logit lớn nhất nhận xác suất cao nhất, nhưng khác argmax, softmax khả vi và bảo toàn thông tin về độ tin cậy tương đối.
 
 ### Comparison of Shapes
 
@@ -224,7 +224,7 @@ softmax-temperature
 
 ### Step 1: Implement All Activation Functions with Derivatives
 
-Each function takes a single float and returns a float. Each derivative function takes the same input and returns the gradient.
+Mỗi hàm nhận một float đơn lẻ và trả về một float. Mỗi hàm đạo hàm nhận cùng đầu vào và trả về gradient.
 
 ```python
 import math
@@ -280,7 +280,7 @@ def softmax(xs):
 
 ### Step 2: Visualize Where Gradients Die
 
-Compute the gradient at 100 evenly-spaced points from -5 to 5. Print a text histogram showing where each activation's gradient is near-zero.
+Tính gradient tại 100 điểm cách đều từ -5 đến 5. In một histogram văn bản thể hiện nơi gradient của mỗi kích hoạt gần bằng không.
 
 ```python
 def gradient_scan(name, derivative_fn, start=-5, end=5, n=100):
@@ -307,7 +307,7 @@ gradient_scan("Swish", swish_derivative)
 
 ### Step 3: Vanishing Gradient Experiment
 
-Forward-pass a signal through N layers using sigmoid vs ReLU. Measure how the activation magnitude changes.
+Truyền xuôi một tín hiệu qua N lớp bằng sigmoid so với ReLU. Đo cách độ lớn kích hoạt thay đổi.
 
 ```python
 import random
@@ -333,7 +333,7 @@ vanishing_gradient_experiment(gelu, "GELU")
 
 ### Step 4: Dead Neuron Detector
 
-Create a ReLU network, pass random inputs through it, count how many neurons never fire.
+Tạo một mạng ReLU, truyền các đầu vào ngẫu nhiên qua nó, đếm bao nhiêu nơ-ron không bao giờ kích hoạt.
 
 ```python
 def dead_neuron_detector(n_inputs=5, hidden_size=20, n_samples=1000):
@@ -370,7 +370,7 @@ dead_neuron_detector()
 
 ### Step 5: Training Comparison -- Sigmoid vs ReLU vs GELU
 
-Train the same two-layer network on the circle dataset (points inside a circle = class 1, outside = class 0) with three different activations. Compare convergence speed.
+Huấn luyện cùng mạng hai lớp trên tập dữ liệu đường tròn (các điểm trong đường tròn = lớp 1, bên ngoài = lớp 0) với ba kích hoạt khác nhau. So sánh tốc độ hội tụ.
 
 ```python
 def make_circle_data(n=200, seed=42):
@@ -463,7 +463,7 @@ for name, losses in results.items():
 
 ## Use It
 
-PyTorch provides all of these as both functional and module forms:
+PyTorch cung cấp tất cả các hàm này ở cả dạng hàm và module:
 
 ```python
 import torch
@@ -489,48 +489,48 @@ model = nn.Sequential(
 )
 ```
 
-Hidden layers in a transformer: GELU. Hidden layers in a CNN: ReLU. Output layer for classification: softmax. Output layer for regression: none (linear). Output layer for probabilities: sigmoid. That's it. Start with these defaults. Change them only when you have evidence.
+Các lớp ẩn trong một transformer: GELU. Các lớp ẩn trong một CNN: ReLU. Lớp đầu ra cho phân loại: softmax. Lớp đầu ra cho hồi quy: không có (tuyến tính). Lớp đầu ra cho xác suất: sigmoid. Chỉ vậy thôi. Bắt đầu với những mặc định này. Chỉ thay đổi khi bạn có bằng chứng.
 
-RNNs and LSTMs use tanh for hidden state and sigmoid for gates, but if you're building from scratch today, you're probably not using RNNs. If neurons are dying in your ReLU network, switch to GELU. Don't reach for Leaky ReLU unless you have a specific reason -- GELU solves the dead neuron problem and gives better gradient flow.
+RNN và LSTM sử dụng tanh cho trạng thái ẩn và sigmoid cho các cổng, nhưng nếu bạn xây dựng từ đầu ngày nay, có lẽ bạn không sử dụng RNN. Nếu các nơ-ron đang chết trong mạng ReLU của bạn, chuyển sang GELU. Đừng chọn Leaky ReLU trừ khi có lý do cụ thể -- GELU giải quyết vấn đề nơ-ron chết và cho luồng gradient tốt hơn.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-activation-selector.md` -- a reusable prompt that helps you pick the right activation function for any architecture
+Bài học này tạo ra:
+- `outputs/prompt-activation-selector.md` -- một prompt tái sử dụng giúp bạn chọn hàm kích hoạt phù hợp cho bất kỳ kiến trúc nào
 
 ## Exercises
 
-1. Implement Parametric ReLU (PReLU) where the negative slope alpha is a learnable parameter. Train it on the circle dataset and compare to fixed Leaky ReLU.
+1. Triển khai Parametric ReLU (PReLU) trong đó độ dốc âm alpha là một tham số có thể học. Huấn luyện nó trên tập dữ liệu đường tròn và so sánh với Leaky ReLU cố định.
 
-2. Run the vanishing gradient experiment with 50 layers instead of 10. Plot the magnitude at each layer for sigmoid, tanh, ReLU, and GELU. At which layer does each activation's signal effectively reach zero?
+2. Chạy thí nghiệm tiêu biến gradient với 50 lớp thay vì 10. Vẽ độ lớn tại mỗi lớp cho sigmoid, tanh, ReLU và GELU. Tại lớp nào tín hiệu của mỗi kích hoạt về thực chất đạt không?
 
-3. Implement the ELU (Exponential Linear Unit): elu(x) = x if x > 0, alpha * (e^x - 1) if x <= 0. Compare its dead neuron rate to ReLU on the same network.
+3. Triển khai ELU (Exponential Linear Unit): elu(x) = x nếu x > 0, alpha * (e^x - 1) nếu x <= 0. So sánh tỷ lệ nơ-ron chết của nó với ReLU trên cùng mạng.
 
-4. Build a "gradient health monitor" that runs during training: at each epoch, compute the average gradient magnitude at each layer. Print a warning when any layer's gradient drops below 0.001 or exceeds 100.
+4. Xây dựng một "bộ giám sát sức khỏe gradient" chạy trong quá trình huấn luyện: tại mỗi epoch, tính độ lớn gradient trung bình ở mỗi lớp. In cảnh báo khi gradient của bất kỳ lớp nào giảm dưới 0.001 hoặc vượt 100.
 
-5. Modify the training comparison to use the XOR dataset from Lesson 01 instead of circles. Which activation converges fastest on XOR? Why does this differ from the circle results?
+5. Sửa phần so sánh huấn luyện để sử dụng tập dữ liệu XOR từ Bài 01 thay vì các đường tròn. Kích hoạt nào hội tụ nhanh nhất trên XOR? Tại sao điều này khác kết quả đường tròn?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Activation function | "The nonlinear part" | A function applied to each neuron's output that breaks linearity, enabling the network to learn nonlinear mappings |
-| Vanishing gradient | "Gradients disappear in deep networks" | Gradients shrink exponentially through layers when the activation's derivative is less than 1, making early layers untrainable |
-| Exploding gradient | "Gradients blow up" | Gradients grow exponentially through layers when the effective multiplier exceeds 1, causing unstable training |
-| Dead neuron | "A neuron that stopped learning" | A ReLU neuron whose input is permanently negative, producing zero output and zero gradient |
-| Sigmoid | "Squishes values to 0-1" | The logistic function 1/(1+e^-x), historically important but causes vanishing gradients in deep networks |
-| ReLU | "Clips negatives to zero" | max(0, x) -- the activation that made deep learning practical by preserving gradient magnitude |
-| GELU | "The transformer activation" | Gaussian Error Linear Unit, a smooth activation that weights inputs by their probability of being positive |
-| Swish/SiLU | "Self-gated ReLU" | x * sigmoid(x), discovered through automated search, used in EfficientNet |
-| Softmax | "Turns scores into probabilities" | Normalizes a vector of logits into a probability distribution where all values are in (0,1) and sum to 1 |
-| Leaky ReLU | "ReLU that doesn't die" | max(alpha*x, x) where alpha is small (0.01), preventing dead neurons by allowing small negative gradients |
-| Saturation | "The flat part of sigmoid" | Regions where an activation's derivative approaches zero, blocking gradient flow |
-| Logit | "The raw score before softmax" | The unnormalized output of the final layer before applying softmax or sigmoid |
+| Activation function (Hàm kích hoạt) | "Phần phi tuyến" | Một hàm áp dụng cho đầu ra mỗi nơ-ron phá vỡ tính tuyến tính, cho phép mạng học các ánh xạ phi tuyến |
+| Vanishing gradient (Tiêu biến gradient) | "Các gradient biến mất trong các mạng sâu" | Các gradient co lại theo cấp số nhân qua các lớp khi đạo hàm của kích hoạt nhỏ hơn 1, khiến các lớp đầu không thể huấn luyện |
+| Exploding gradient (Bùng nổ gradient) | "Các gradient nổ tung" | Các gradient tăng theo cấp số nhân qua các lớp khi hệ số nhân hiệu dụng vượt 1, gây huấn luyện không ổn định |
+| Dead neuron (Nơ-ron chết) | "Một nơ-ron đã ngừng học" | Một nơ-ron ReLU có đầu vào âm vĩnh viễn, tạo ra đầu ra bằng không và gradient bằng không |
+| Sigmoid | "Ép các giá trị về 0-1" | Hàm logistic 1/(1+e^-x), quan trọng về lịch sử nhưng gây tiêu biến gradient trong các mạng sâu |
+| ReLU | "Cắt các giá trị âm về không" | max(0, x) -- kích hoạt khiến học sâu trở nên thực tiễn bằng cách bảo toàn độ lớn gradient |
+| GELU | "Kích hoạt transformer" | Gaussian Error Linear Unit, một kích hoạt trơn gán trọng số cho các đầu vào theo xác suất chúng dương |
+| Swish/SiLU | "ReLU tự đặt cổng" | x * sigmoid(x), được khám phá thông qua tìm kiếm tự động, được sử dụng trong EfficientNet |
+| Softmax | "Biến điểm số thành xác suất" | Chuẩn hóa một vector logit thành một phân phối xác suất trong đó mọi giá trị thuộc (0,1) và có tổng bằng 1 |
+| Leaky ReLU | "ReLU không chết" | max(alpha*x, x) trong đó alpha nhỏ (0.01), ngăn các nơ-ron chết bằng cách cho phép các gradient âm nhỏ |
+| Saturation (Bão hòa) | "Phần phẳng của sigmoid" | Các vùng mà đạo hàm của một kích hoạt tiến về không, chặn luồng gradient |
+| Logit | "Điểm thô trước softmax" | Đầu ra chưa chuẩn hóa của lớp cuối trước khi áp dụng softmax hoặc sigmoid |
 
 ## Further Reading
 
-- Nair & Hinton, "Rectified Linear Units Improve Restricted Boltzmann Machines" (2010) -- the paper that introduced ReLU and enabled training of deep networks
-- Hendrycks & Gimpel, "Gaussian Error Linear Units (GELUs)" (2016) -- introduced the activation function that became the default for transformers
-- Ramachandran et al., "Searching for Activation Functions" (2017) -- used automated search to discover Swish, showing that activation design can be automated
-- Glorot & Bengio, "Understanding the difficulty of training deep feedforward neural networks" (2010) -- the paper that diagnosed vanishing/exploding gradients and proposed Xavier initialization
-- Goodfellow, Bengio, Courville, "Deep Learning" Chapter 6.3 (https://www.deeplearningbook.org/) -- rigorous treatment of hidden units and activation functions
+- Nair & Hinton, "Rectified Linear Units Improve Restricted Boltzmann Machines" (2010) -- bài báo giới thiệu ReLU và cho phép huấn luyện các mạng sâu
+- Hendrycks & Gimpel, "Gaussian Error Linear Units (GELUs)" (2016) -- giới thiệu hàm kích hoạt trở thành mặc định cho transformer
+- Ramachandran et al., "Searching for Activation Functions" (2017) -- sử dụng tìm kiếm tự động để khám phá Swish, cho thấy thiết kế kích hoạt có thể được tự động hóa
+- Glorot & Bengio, "Understanding the difficulty of training deep feedforward neural networks" (2010) -- bài báo chẩn đoán gradient tiêu biến/bùng nổ và đề xuất khởi tạo Xavier
+- Goodfellow, Bengio, Courville, "Deep Learning" Chapter 6.3 (https://www.deeplearningbook.org/) -- trình bày chặt chẽ về các đơn vị ẩn và hàm kích hoạt
