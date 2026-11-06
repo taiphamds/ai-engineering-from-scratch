@@ -1,6 +1,6 @@
 # Naive Bayes
 
-> The "naive" assumption is wrong, and it works anyway. That's the beauty of it.
+> Giả định "ngây thơ" sai, và nó vẫn hoạt động. Đó là vẻ đẹp của nó.
 
 **Type:** Build
 **Language:** Python
@@ -9,74 +9,74 @@
 
 ## Learning Objectives
 
-- Implement Multinomial Naive Bayes from scratch with Laplace smoothing for text classification
-- Explain why the naive independence assumption is mathematically wrong but produces correct class rankings in practice
-- Compare Multinomial, Bernoulli, and Gaussian Naive Bayes variants and select the right one for a given feature type
-- Evaluate Naive Bayes against logistic regression on high-dimensional sparse data and explain the bias-variance tradeoff at work
+- Triển khai Multinomial Naive Bayes từ đầu với làm trơn Laplace cho phân loại văn bản
+- Giải thích tại sao giả định độc lập ngây thơ sai về toán học nhưng tạo ra các thứ hạng lớp đúng trong thực tế
+- So sánh các biến thể Multinomial, Bernoulli và Gaussian Naive Bayes và chọn biến thể phù hợp cho một loại đặc trưng nhất định
+- Đánh giá Naive Bayes so với hồi quy logistic trên dữ liệu thưa nhiều chiều và giải thích sự đánh đổi độ chệch-phương sai đang hoạt động
 
 ## The Problem
 
-You need to classify text. Emails into spam or not-spam. Customer reviews into positive or negative. Support tickets into categories. You have thousands of features (one per word) and limited training data.
+Bạn cần phân loại văn bản. Email thành thư rác hoặc không phải thư rác. Đánh giá khách hàng thành tích cực hoặc tiêu cực. Phiếu hỗ trợ thành các loại. Bạn có hàng nghìn đặc trưng (một cho mỗi từ) và dữ liệu huấn luyện hạn chế.
 
-Most classifiers choke here. Logistic regression needs enough samples to estimate thousands of weights reliably. Decision trees split on one word at a time and overfit wildly. KNN in 10,000 dimensions is meaningless because every point is equally far from every other point.
+Hầu hết các bộ phân loại nghẹn ở đây. Hồi quy logistic cần đủ mẫu để ước lượng hàng nghìn trọng số một cách đáng tin cậy. Cây quyết định chia theo từng từ một và khớp quá mức dữ dội. KNN trong 10,000 chiều vô nghĩa vì mỗi điểm cách mọi điểm khác xa như nhau.
 
-Naive Bayes handles this. It makes a mathematically wrong assumption (that every feature is independent of every other feature given the class), and it still outperforms "smarter" models on text classification, especially with small training sets. It trains in a single pass through the data. It scales to millions of features. It produces probability estimates (though often poorly calibrated due to the independence assumption).
+Naive Bayes xử lý điều này. Nó đưa ra một giả định sai về toán học (rằng mọi đặc trưng độc lập với mọi đặc trưng khác khi biết lớp), và vẫn vượt các mô hình "thông minh hơn" trên phân loại văn bản, đặc biệt với các tập huấn luyện nhỏ. Nó huấn luyện trong một lượt qua dữ liệu. Nó mở rộng đến hàng triệu đặc trưng. Nó tạo các ước lượng xác suất (dù thường được hiệu chỉnh kém do giả định độc lập).
 
-Understanding why a wrong assumption leads to good predictions teaches you something fundamental about machine learning: the best model is not the most correct one, it is the one with the best bias-variance tradeoff for your data.
+Hiểu tại sao một giả định sai dẫn đến các dự đoán tốt dạy bạn một điều cơ bản về học máy: mô hình tốt nhất không phải mô hình đúng nhất, mà là mô hình có sự đánh đổi độ chệch-phương sai tốt nhất cho dữ liệu của bạn.
 
 ## The Concept
 
 ### Bayes' Theorem (Quick Review)
 
-Bayes' theorem flips conditional probabilities:
+Định lý Bayes đảo các xác suất có điều kiện:
 
 ```
 P(class | features) = P(features | class) * P(class) / P(features)
 ```
 
-We want `P(class | features)` -- the probability that a document belongs to a class given the words in it. We can compute this from:
-- `P(features | class)` -- the likelihood of seeing these words in documents of this class
-- `P(class)` -- the prior probability of the class (how common is spam in general?)
-- `P(features)` -- the evidence, same for all classes, so we can ignore it when comparing
+Chúng ta muốn `P(class | features)` -- xác suất một tài liệu thuộc một lớp khi biết các từ trong nó. Chúng ta có thể tính từ:
+- `P(features | class)` -- hợp lý của việc thấy các từ này trong các tài liệu thuộc lớp này
+- `P(class)` -- xác suất tiên nghiệm của lớp (thư rác phổ biến đến mức nào nói chung?)
+- `P(features)` -- bằng chứng, giống nhau cho tất cả các lớp, nên có thể bỏ qua khi so sánh
 
-The class with the highest `P(class | features)` wins.
+Lớp có `P(class | features)` cao nhất thắng.
 
 ### The Naive Independence Assumption
 
-Computing `P(features | class)` exactly requires estimating the joint probability of all features together. With a vocabulary of 10,000 words, you would need to estimate a distribution over 2^10,000 possible combinations. Impossible.
+Tính chính xác `P(features | class)` đòi hỏi ước lượng xác suất đồng thời của tất cả đặc trưng cùng nhau. Với từ vựng 10,000 từ, bạn cần ước lượng một phân phối trên 2^10,000 tổ hợp có thể. Bất khả thi.
 
-The naive assumption: every feature is conditionally independent given the class.
+Giả định ngây thơ: mọi đặc trưng độc lập có điều kiện khi biết lớp.
 
 ```
 P(w1, w2, ..., wn | class) = P(w1 | class) * P(w2 | class) * ... * P(wn | class)
 ```
 
-Instead of one impossible joint distribution, you estimate n simple per-feature distributions. Each one needs only a count.
+Thay vì một phân phối đồng thời bất khả thi, bạn ước lượng n phân phối đơn giản theo từng đặc trưng. Mỗi phân phối chỉ cần một số đếm.
 
-This assumption is obviously wrong. The words "machine" and "learning" are not independent in any document. But the classifier does not need correct probability estimates. It needs correct rankings -- which class has the highest probability. The independence assumption introduces systematic errors, but those errors affect all classes similarly, so the ranking stays correct.
+Giả định này rõ ràng sai. Các từ "machine" và "learning" không độc lập trong bất kỳ tài liệu nào. Nhưng bộ phân loại không cần các ước lượng xác suất đúng. Nó cần các thứ hạng đúng -- lớp nào có xác suất cao nhất. Giả định độc lập đưa vào các sai số hệ thống, nhưng các sai số đó ảnh hưởng mọi lớp tương tự nhau, nên thứ hạng giữ đúng.
 
 ### Why It Still Works
 
-Three reasons:
+Ba lý do:
 
-1. **Ranking over calibration.** Classification only needs the top-ranked class to be correct. Even if P(spam) = 0.99999 when the true probability is 0.7, the classifier still picks spam correctly. We do not need correct probabilities. We need the correct winner.
+1. **Xếp hạng hơn hiệu chỉnh.** Phân loại chỉ cần lớp được xếp hạng đầu đúng. Ngay cả nếu P(spam) = 0.99999 khi xác suất thực là 0.7, bộ phân loại vẫn chọn thư rác đúng. Chúng ta không cần các xác suất đúng. Chúng ta cần bên thắng đúng.
 
-2. **High bias, low variance.** The independence assumption is a strong prior. It constrains the model heavily, which prevents overfitting. With limited training data, a model that is slightly wrong but stable beats a model that is theoretically right but wildly unstable. This is the bias-variance tradeoff in action.
+2. **Độ chệch cao, phương sai thấp.** Giả định độc lập là một tiên nghiệm mạnh. Nó ràng buộc mô hình nặng, ngăn khớp quá mức. Với dữ liệu huấn luyện hạn chế, một mô hình hơi sai nhưng ổn định thắng một mô hình đúng về lý thuyết nhưng rất không ổn định. Đây là sự đánh đổi độ chệch-phương sai trong thực tế.
 
-3. **Feature redundancy cancels out.** Correlated features provide redundant evidence. The classifier double-counts this evidence, but it double-counts it for the correct class too. If "machine" and "learning" always appear together, both provide evidence for the "tech" class. NB counts them twice, but it counts them twice for the right class.
+3. **Sự dư thừa đặc trưng triệt tiêu.** Các đặc trưng tương quan cung cấp bằng chứng dư thừa. Bộ phân loại đếm đôi bằng chứng này, nhưng cũng đếm đôi cho lớp đúng. Nếu "machine" và "learning" luôn xuất hiện cùng nhau, cả hai cung cấp bằng chứng cho lớp "tech". NB đếm chúng hai lần, nhưng đếm hai lần cho lớp đúng.
 
-A fourth, practical reason: Naive Bayes is extremely fast. Training is a single pass through the data counting frequencies. Prediction is a matrix multiplication. You can train on a million documents in seconds. This speed means you can iterate faster, try more feature sets, and run more experiments than with slower models.
+Một lý do thứ tư, thực tế: Naive Bayes cực kỳ nhanh. Huấn luyện là một lượt qua dữ liệu để đếm tần suất. Dự đoán là một phép nhân ma trận. Bạn có thể huấn luyện trên một triệu tài liệu trong vài giây. Tốc độ này nghĩa là bạn có thể lặp nhanh hơn, thử nhiều tập đặc trưng hơn và chạy nhiều thí nghiệm hơn các mô hình chậm.
 
 ### The Math Step by Step
 
-Let us trace through a concrete example. Suppose we have two classes: spam and not-spam. Our vocabulary has three words: "free", "money", "meeting".
+Hãy theo dõi một ví dụ cụ thể. Giả sử chúng ta có hai lớp: thư rác và không phải thư rác. Từ vựng có ba từ: "free", "money", "meeting".
 
-Training data:
-- Spam emails mention "free" 80 times, "money" 60 times, "meeting" 10 times (150 total words)
-- Not-spam emails mention "free" 5 times, "money" 10 times, "meeting" 100 times (115 total words)
-- 40% of emails are spam, 60% are not-spam
+Dữ liệu huấn luyện:
+- Email thư rác nhắc "free" 80 lần, "money" 60 lần, "meeting" 10 lần (tổng 150 từ)
+- Email không phải thư rác nhắc "free" 5 lần, "money" 10 lần, "meeting" 100 lần (tổng 115 từ)
+- 40% email là thư rác, 60% không phải thư rác
 
-With Laplace smoothing (alpha=1):
+Với làm trơn Laplace (alpha=1):
 
 ```
 P(free | spam)    = (80 + 1) / (150 + 3) = 81/153 = 0.529
@@ -88,7 +88,7 @@ P(money | not-spam)   = (10 + 1) / (115 + 3) = 11/118 = 0.093
 P(meeting | not-spam) = (100 + 1) / (115 + 3) = 101/118 = 0.856
 ```
 
-New email contains: "free" (2 times), "money" (1 time), "meeting" (0 times).
+Email mới chứa: "free" (2 lần), "money" (1 lần), "meeting" (0 lần).
 
 ```
 log P(spam | email) = log(0.4) + 2*log(0.529) + 1*log(0.399) + 0*log(0.072)
@@ -100,109 +100,109 @@ log P(not-spam | email) = log(0.6) + 2*log(0.051) + 1*log(0.093) + 0*log(0.856)
                         = -8.838
 ```
 
-Spam wins by a large margin. The word "free" appearing twice is strong evidence for spam. Note that "meeting" not appearing contributes zero to both log sums (0 * log(P)) -- in Multinomial NB, absent words have no effect. It is Bernoulli NB that explicitly models word absence.
+Thư rác thắng với cách biệt lớn. Từ "free" xuất hiện hai lần là bằng chứng mạnh cho thư rác. Lưu ý "meeting" không xuất hiện đóng góp bằng không vào cả hai tổng log (0 * log(P)) -- trong Multinomial NB, các từ vắng mặt không có tác động. Chính Bernoulli NB mô hình hóa tường minh sự vắng mặt của từ.
 
 ### Three Variants
 
-Naive Bayes comes in three flavors. Each models `P(feature | class)` differently.
+Naive Bayes có ba dạng. Mỗi dạng mô hình hóa `P(feature | class)` khác nhau.
 
 #### Multinomial Naive Bayes
 
-Models each feature as a count. Best for text data where features are word frequencies or TF-IDF values.
+Mô hình hóa mỗi đặc trưng thành một số đếm. Tốt nhất cho dữ liệu văn bản nơi các đặc trưng là tần suất từ hoặc giá trị TF-IDF.
 
 ```
 P(word_i | class) = (count of word_i in class + alpha) / (total words in class + alpha * vocab_size)
 ```
 
-The `alpha` is Laplace smoothing (explained below). This variant is the workhorse for text classification.
+`alpha` là làm trơn Laplace (giải thích bên dưới). Biến thể này là công cụ chủ lực cho phân loại văn bản.
 
 #### Gaussian Naive Bayes
 
-Models each feature as a normal distribution. Best for continuous features.
+Mô hình hóa mỗi đặc trưng thành một phân phối chuẩn. Tốt nhất cho các đặc trưng liên tục.
 
 ```
 P(x_i | class) = (1 / sqrt(2 * pi * var)) * exp(-(x_i - mean)^2 / (2 * var))
 ```
 
-Each class gets its own mean and variance per feature. This works well when features genuinely follow a bell curve within each class.
+Mỗi lớp có trung bình và phương sai riêng theo từng đặc trưng. Cách này hoạt động tốt khi các đặc trưng thực sự theo đường cong hình chuông trong mỗi lớp.
 
 #### Bernoulli Naive Bayes
 
-Models each feature as binary (present or absent). Best for short text or binary feature vectors.
+Mô hình hóa mỗi đặc trưng là nhị phân (hiện diện hoặc vắng mặt). Tốt nhất cho văn bản ngắn hoặc các vector đặc trưng nhị phân.
 
 ```
 P(word_i | class) = (docs in class containing word_i + alpha) / (total docs in class + 2 * alpha)
 ```
 
-Unlike Multinomial, Bernoulli explicitly penalizes the absence of a word. If "free" typically appears in spam but is absent from this email, Bernoulli counts that as evidence against spam.
+Khác Multinomial, Bernoulli phạt tường minh sự vắng mặt của một từ. Nếu "free" thường xuất hiện trong thư rác nhưng vắng mặt trong email này, Bernoulli tính đó là bằng chứng chống thư rác.
 
 ### When to Use Each Variant
 
-| Variant | Feature Type | Best For | Example |
+| Biến thể | Loại Đặc trưng | Tốt nhất Cho | Ví dụ |
 |---------|-------------|----------|---------|
-| Multinomial | Counts or frequencies | Text classification, bag-of-words | Email spam, topic classification |
-| Gaussian | Continuous values | Tabular data with normal-ish features | Iris classification, sensor data |
-| Bernoulli | Binary (0/1) | Short text, binary feature vectors | SMS spam, presence/absence features |
+| Multinomial | Số đếm hoặc tần suất | Phân loại văn bản, bag-of-words | Thư rác email, phân loại chủ đề |
+| Gaussian | Các giá trị liên tục | Dữ liệu dạng bảng với các đặc trưng gần chuẩn | Phân loại Iris, dữ liệu cảm biến |
+| Bernoulli | Nhị phân (0/1) | Văn bản ngắn, vector đặc trưng nhị phân | Thư rác SMS, các đặc trưng hiện diện/vắng mặt |
 
 ### Laplace Smoothing
 
-What happens when a word appears in the test data but never appeared in the training data for a particular class?
+Điều gì xảy ra khi một từ xuất hiện trong dữ liệu kiểm tra nhưng chưa từng xuất hiện trong dữ liệu huấn luyện cho một lớp cụ thể?
 
-Without smoothing: `P(word | class) = 0/N = 0`. One zero multiplied through the entire product makes `P(class | features) = 0`, regardless of all other evidence. A single unseen word destroys the entire prediction, no matter how much other evidence supports it.
+Không làm trơn: `P(word | class) = 0/N = 0`. Một số không nhân xuyên toàn bộ tích làm `P(class | features) = 0`, bất kể mọi bằng chứng khác. Một từ chưa thấy duy nhất phá hủy toàn bộ dự đoán, bất kể có bao nhiêu bằng chứng khác hỗ trợ nó.
 
-Laplace smoothing adds a small count `alpha` (usually 1) to every feature count:
+Làm trơn Laplace thêm một số đếm nhỏ `alpha` (thường là 1) vào mọi số đếm đặc trưng:
 
 ```
 P(word_i | class) = (count(word_i, class) + alpha) / (total_words_in_class + alpha * vocab_size)
 ```
 
-With alpha=1, every word gets at least a tiny probability. The word "discombobulate" appearing in a test email no longer kills the spam probability. The smoothing has a Bayesian interpretation: it is equivalent to placing a uniform Dirichlet prior on the word distributions.
+Với alpha=1, mọi từ có ít nhất một xác suất rất nhỏ. Từ "discombobulate" xuất hiện trong một email kiểm tra không còn triệt tiêu xác suất thư rác. Làm trơn có một diễn giải Bayes: nó tương đương với đặt một tiên nghiệm Dirichlet đều trên các phân phối từ.
 
-Higher alpha means stronger smoothing (more uniform distributions). Lower alpha means the model trusts the data more. Alpha is a hyperparameter you tune.
+Alpha cao hơn nghĩa là làm trơn mạnh hơn (các phân phối đều hơn). Alpha thấp hơn nghĩa là mô hình tin dữ liệu hơn. Alpha là một siêu tham số bạn điều chỉnh.
 
-The effect of alpha:
+Tác động của alpha:
 
-| Alpha | Effect | When to use |
+| Alpha | Tác động | Khi nào sử dụng |
 |-------|--------|-------------|
-| 0.001 | Almost no smoothing, trust the data | Very large training set, no unseen features expected |
-| 0.1 | Light smoothing | Large training set |
-| 1.0 | Standard Laplace smoothing | Default starting point |
-| 10.0 | Heavy smoothing, flattens distributions | Very small training set, many unseen features expected |
+| 0.001 | Gần như không làm trơn, tin dữ liệu | Tập huấn luyện rất lớn, không kỳ vọng đặc trưng chưa thấy |
+| 0.1 | Làm trơn nhẹ | Tập huấn luyện lớn |
+| 1.0 | Làm trơn Laplace tiêu chuẩn | Điểm bắt đầu mặc định |
+| 10.0 | Làm trơn nặng, làm phẳng các phân phối | Tập huấn luyện rất nhỏ, kỳ vọng nhiều đặc trưng chưa thấy |
 
 ### Log-Space Computation
 
-Multiplying hundreds of probabilities (each less than 1) causes floating-point underflow. The product becomes zero in floating point even though the true value is a very small positive number.
+Nhân hàng trăm xác suất (mỗi xác suất nhỏ hơn 1) gây hụt dưới dấu phẩy động. Tích trở thành không trong dấu phẩy động dù giá trị thực là một số dương rất nhỏ.
 
-The solution: work in log space. Instead of multiplying probabilities, add their logarithms:
+Giải pháp: làm việc trong không gian log. Thay vì nhân các xác suất, cộng các logarit:
 
 ```
 log P(class | x1, x2, ..., xn) = log P(class) + sum_i log P(xi | class)
 ```
 
-This turns the prediction into a dot product:
+Điều này biến dự đoán thành một tích vô hướng:
 
 ```
 log_scores = X @ log_feature_probs.T + log_class_priors
 prediction = argmax(log_scores)
 ```
 
-Matrix multiplication. That is why Naive Bayes prediction is so fast -- it is the same operation as a single-layer linear model.
+Phép nhân ma trận. Đó là lý do dự đoán Naive Bayes rất nhanh -- nó là cùng phép toán với một mô hình tuyến tính một lớp.
 
 ### Naive Bayes vs Logistic Regression
 
-Both are linear classifiers for text. The difference is in what they model.
+Cả hai là các bộ phân loại tuyến tính cho văn bản. Khác biệt nằm ở những gì chúng mô hình hóa.
 
-| Aspect | Naive Bayes | Logistic Regression |
+| Khía cạnh | Naive Bayes | Hồi quy Logistic |
 |--------|------------|-------------------|
-| Type | Generative (models P(X\|Y)) | Discriminative (models P(Y\|X)) |
-| Training | Count frequencies | Optimize loss function |
-| Small data | Better (strong prior helps) | Worse (not enough to estimate weights) |
-| Large data | Worse (wrong assumption hurts) | Better (flexible boundary) |
-| Features | Assumes independence | Handles correlations |
-| Speed | Single pass, very fast | Iterative optimization |
-| Calibration | Poor probabilities | Better probabilities |
+| Loại | Tạo sinh (mô hình hóa P(X\|Y)) | Phân biệt (mô hình hóa P(Y\|X)) |
+| Huấn luyện | Đếm các tần suất | Tối ưu hóa hàm mất mát |
+| Dữ liệu nhỏ | Tốt hơn (tiên nghiệm mạnh giúp) | Kém hơn (không đủ để ước lượng trọng số) |
+| Dữ liệu lớn | Kém hơn (giả định sai gây hại) | Tốt hơn (biên linh hoạt) |
+| Các đặc trưng | Giả định độc lập | Xử lý các tương quan |
+| Tốc độ | Một lượt, rất nhanh | Tối ưu hóa lặp |
+| Hiệu chỉnh | Các xác suất kém | Các xác suất tốt hơn |
 
-Rule of thumb: start with Naive Bayes. If you have enough data and NB plateaus, switch to logistic regression.
+Quy tắc kinh nghiệm: bắt đầu với Naive Bayes. Nếu có đủ dữ liệu và NB chững lại, chuyển sang hồi quy logistic.
 
 ### Classification Pipeline
 
@@ -219,7 +219,7 @@ flowchart LR
     style G fill:#9f9,stroke:#333
 ```
 
-In practice, we work in log space to avoid floating-point underflow. Instead of multiplying many small probabilities, we add their logarithms:
+Trong thực tế, chúng ta làm việc trong không gian log để tránh hụt dưới dấu phẩy động. Thay vì nhân nhiều xác suất nhỏ, chúng ta cộng các logarit:
 
 ```
 log P(class | features) = log P(class) + sum_i log P(feature_i | class)
@@ -231,17 +231,17 @@ naive-bayes
 
 ## Build It
 
-The code in `code/naive_bayes.py` implements both MultinomialNB and GaussianNB from scratch.
+Mã trong `code/naive_bayes.py` triển khai cả MultinomialNB và GaussianNB từ đầu.
 
 ### MultinomialNB
 
-The from-scratch implementation:
+Triển khai từ đầu:
 
-1. **fit(X, y)**: For each class, count the frequency of each feature. Add Laplace smoothing. Compute log probabilities. Store class priors (log of class frequencies).
+1. **fit(X, y)**: Với mỗi lớp, đếm tần suất mỗi đặc trưng. Thêm làm trơn Laplace. Tính xác suất log. Lưu các tiên nghiệm lớp (log của các tần suất lớp).
 
-2. **predict_log_proba(X)**: For each sample, compute log P(class) + sum of log P(feature_i | class) for all classes. This is a matrix multiplication: X @ log_probs.T + log_priors.
+2. **predict_log_proba(X)**: Với mỗi mẫu, tính log P(class) + tổng log P(feature_i | class) cho mọi lớp. Đây là phép nhân ma trận: X @ log_probs.T + log_priors.
 
-3. **predict(X)**: Return the class with highest log probability.
+3. **predict(X)**: Trả về lớp có xác suất log cao nhất.
 
 ```python
 class MultinomialNB:
@@ -266,11 +266,11 @@ class MultinomialNB:
         return self
 ```
 
-The key insight: after fitting, prediction is just matrix multiplication plus a bias. This is why Naive Bayes is so fast.
+Điểm cốt yếu: sau khi khớp, dự đoán chỉ là nhân ma trận cộng một bias. Đây là lý do Naive Bayes rất nhanh.
 
 ### GaussianNB
 
-For continuous features, we estimate mean and variance per class per feature:
+Với các đặc trưng liên tục, chúng ta ước lượng trung bình và phương sai theo từng lớp cho từng đặc trưng:
 
 ```python
 class GaussianNB:
@@ -293,34 +293,34 @@ class GaussianNB:
         return self
 ```
 
-Prediction uses the Gaussian PDF per feature, multiplied across features (added in log space).
+Dự đoán sử dụng PDF Gaussian theo từng đặc trưng, được nhân trên các đặc trưng (cộng trong không gian log).
 
 ### Demo: Text Classification
 
-The code generates synthetic bag-of-words data simulating two classes (tech articles vs sports articles). Each class has a different word frequency distribution. MultinomialNB classifies them using word counts.
+Mã tạo dữ liệu bag-of-words tổng hợp mô phỏng hai lớp (bài viết công nghệ so với bài viết thể thao). Mỗi lớp có một phân phối tần suất từ khác nhau. MultinomialNB phân loại bằng số đếm từ.
 
-The synthetic data works like this: we create 200 "words" (feature columns). Words 0-39 have high frequency in tech articles and low in sports. Words 80-119 have high frequency in sports and low in tech. Words 40-79 are medium frequency in both. This creates a realistic scenario where some words are strong class indicators and others are noise.
+Dữ liệu tổng hợp hoạt động như sau: chúng ta tạo 200 "từ" (các cột đặc trưng). Các từ 0-39 có tần suất cao trong bài công nghệ và thấp trong thể thao. Các từ 80-119 có tần suất cao trong thể thao và thấp trong công nghệ. Các từ 40-79 có tần suất trung bình trong cả hai. Điều này tạo một tình huống thực tế nơi một số từ là các chỉ báo lớp mạnh và các từ khác là nhiễu.
 
 ### Demo: Continuous Features
 
-The code generates Iris-like data (3 classes, 4 features, Gaussian clusters). GaussianNB classifies using per-class mean and variance. Each class has a different center (mean vector) and different spread (variance), mimicking real-world data where measurements differ systematically between categories.
+Mã tạo dữ liệu giống Iris (3 lớp, 4 đặc trưng, các cụm Gaussian). GaussianNB phân loại bằng trung bình và phương sai theo từng lớp. Mỗi lớp có một tâm khác (vector trung bình) và độ phân tán khác (phương sai), mô phỏng dữ liệu thực tế nơi các số đo khác nhau có hệ thống giữa các loại.
 
-The code also demonstrates:
-- **Smoothing comparison:** Training MultinomialNB with different alpha values to show the effect of smoothing strength on accuracy.
-- **Training size experiment:** How NB accuracy improves as training data grows from 20 to 1600 samples. NB reaches decent accuracy even with very few samples -- this is its main advantage.
-- **Confusion matrix:** Per-class precision, recall, and F1 score to show where NB makes mistakes.
+Mã cũng minh họa:
+- **So sánh làm trơn:** Huấn luyện MultinomialNB với các giá trị alpha khác nhau để cho thấy tác động của cường độ làm trơn lên độ chính xác.
+- **Thí nghiệm kích thước huấn luyện:** Cách độ chính xác NB cải thiện khi dữ liệu huấn luyện tăng từ 20 lên 1600 mẫu. NB đạt độ chính xác khá ngay cả với rất ít mẫu -- đây là lợi thế chính.
+- **Ma trận nhầm lẫn:** Precision, recall và điểm F1 theo từng lớp để cho thấy NB mắc lỗi ở đâu.
 
 ### Prediction Speed
 
-Naive Bayes prediction is a matrix multiplication. For n samples with d features and k classes:
-- MultinomialNB: one matrix multiply (n x d) @ (d x k) = O(n * d * k)
-- GaussianNB: n * k Gaussian PDF evaluations, each over d features = O(n * d * k)
+Dự đoán Naive Bayes là phép nhân ma trận. Với n mẫu có d đặc trưng và k lớp:
+- MultinomialNB: một phép nhân ma trận (n x d) @ (d x k) = O(n * d * k)
+- GaussianNB: n * k lần tính PDF Gaussian, mỗi lần trên d đặc trưng = O(n * d * k)
 
-Both are linear in every dimension. Compare this to KNN (which requires distance computation to all training points) or SVM with RBF kernel (which requires kernel evaluation against all support vectors). NB is faster by orders of magnitude at prediction time.
+Cả hai tuyến tính theo mọi chiều. So sánh với KNN (đòi hỏi tính khoảng cách đến tất cả điểm huấn luyện) hoặc SVM với kernel RBF (đòi hỏi tính kernel với tất cả vector hỗ trợ). NB nhanh hơn nhiều bậc độ lớn tại thời điểm dự đoán.
 
 ## Use It
 
-With sklearn, both variants are one-liners:
+Với sklearn, cả hai biến thể chỉ là các dòng lệnh đơn:
 
 ```python
 from sklearn.naive_bayes import GaussianNB, MultinomialNB
@@ -334,7 +334,7 @@ mnb.fit(X_train_counts, y_train)
 print(f"MultinomialNB accuracy: {mnb.score(X_test_counts, y_test):.3f}")
 ```
 
-For text classification with sklearn:
+Cho phân loại văn bản với sklearn:
 
 ```python
 from sklearn.feature_extraction.text import CountVectorizer
@@ -350,11 +350,11 @@ text_clf.fit(train_texts, train_labels)
 accuracy = text_clf.score(test_texts, test_labels)
 ```
 
-The code in `naive_bayes.py` compares from-scratch implementations against sklearn on the same data to verify correctness.
+Mã trong `naive_bayes.py` so sánh các triển khai từ đầu với sklearn trên cùng dữ liệu để xác minh tính đúng đắn.
 
 ### TF-IDF with Naive Bayes
 
-Raw word counts give every word equal weight per occurrence. But common words like "the" and "is" appear frequently in every class -- they carry no information. TF-IDF (Term Frequency - Inverse Document Frequency) downweights common words and upweights rare, discriminative words.
+Số đếm từ thô cho mọi từ trọng số như nhau mỗi lần xuất hiện. Nhưng các từ phổ biến như "the" và "is" xuất hiện thường xuyên trong mọi lớp -- chúng không mang thông tin. TF-IDF (Tần suất Thuật ngữ - Tần suất Tài liệu Nghịch đảo) giảm trọng số các từ phổ biến và tăng trọng số các từ hiếm, có tính phân biệt.
 
 ```python
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -367,11 +367,11 @@ text_clf = Pipeline([
 ])
 ```
 
-TF-IDF values are non-negative, so they work with MultinomialNB. The combination of TF-IDF + MultinomialNB is one of the strongest baselines for text classification. It frequently beats more complex models on datasets with fewer than 10,000 training samples.
+Các giá trị TF-IDF không âm, nên hoạt động với MultinomialNB. Kết hợp TF-IDF + MultinomialNB là một trong những mốc cơ sở mạnh nhất cho phân loại văn bản. Nó thường vượt các mô hình phức tạp hơn trên các tập dữ liệu có ít hơn 10,000 mẫu huấn luyện.
 
 ### BernoulliNB for Short Text
 
-For short text (tweets, SMS, chat messages), BernoulliNB can outperform MultinomialNB. Short texts have low word counts, so the frequency information that MultinomialNB relies on is noisy. BernoulliNB only cares about presence or absence, which is more reliable with short text.
+Với văn bản ngắn (tweet, SMS, tin nhắn trò chuyện), BernoulliNB có thể vượt MultinomialNB. Các văn bản ngắn có số đếm từ thấp, nên thông tin tần suất mà MultinomialNB dựa vào nhiều nhiễu. BernoulliNB chỉ quan tâm hiện diện hay vắng mặt, đáng tin cậy hơn với văn bản ngắn.
 
 ```python
 from sklearn.naive_bayes import BernoulliNB
@@ -383,11 +383,11 @@ text_clf = Pipeline([
 ])
 ```
 
-The `binary=True` flag in CountVectorizer converts all counts to 0/1. Without it, BernoulliNB still works but is seeing counts that it was not designed for.
+Cờ `binary=True` trong CountVectorizer chuyển mọi số đếm thành 0/1. Không có nó, BernoulliNB vẫn hoạt động nhưng đang thấy các số đếm mà nó không được thiết kế để xử lý.
 
 ### Calibrating NB Probabilities
 
-NB probabilities are poorly calibrated. When NB says P(spam) = 0.95, the true probability might be 0.7. If you need reliable probability estimates (for example, to set a threshold or to combine with other models), use sklearn's CalibratedClassifierCV:
+Các xác suất NB được hiệu chỉnh kém. Khi NB nói P(spam) = 0.95, xác suất thực có thể là 0.7. Nếu cần các ước lượng xác suất đáng tin cậy (ví dụ, để đặt ngưỡng hoặc kết hợp với các mô hình khác), sử dụng CalibratedClassifierCV của sklearn:
 
 ```python
 from sklearn.calibration import CalibratedClassifierCV
@@ -397,65 +397,65 @@ calibrated_nb.fit(X_train, y_train)
 proba = calibrated_nb.predict_proba(X_test)
 ```
 
-This fits a logistic regression on top of NB's raw scores using cross-validation. The resulting probabilities are much closer to the true class frequencies.
+Điều này khớp một hồi quy logistic trên các điểm thô của NB bằng xác thực chéo. Các xác suất kết quả gần các tần suất lớp thực hơn nhiều.
 
 ### Common Gotchas
 
-1. **Negative feature values.** MultinomialNB requires non-negative features. If you have negative values (like TF-IDF with certain settings or standardized features), use GaussianNB instead, or shift the features to be positive.
+1. **Các giá trị đặc trưng âm.** MultinomialNB đòi hỏi các đặc trưng không âm. Nếu có các giá trị âm (như TF-IDF với một số thiết lập hoặc các đặc trưng đã chuẩn hóa), sử dụng GaussianNB thay thế hoặc dịch các đặc trưng để chúng dương.
 
-2. **Zero variance features.** GaussianNB divides by variance. If a feature has zero variance for a class (all values identical), the probability computation breaks. The code adds a small smoothing term (1e-9) to all variances to prevent this.
+2. **Các đặc trưng phương sai bằng không.** GaussianNB chia cho phương sai. Nếu một đặc trưng có phương sai bằng không cho một lớp (mọi giá trị giống hệt), phép tính xác suất hỏng. Mã thêm một số hạng làm trơn nhỏ (1e-9) vào mọi phương sai để ngăn điều này.
 
-3. **Class imbalance.** If 99% of emails are not-spam, the prior P(not-spam) = 0.99 is so strong that it overwhelms the likelihood evidence. You can set class priors manually or use class_prior parameter in sklearn.
+3. **Mất cân bằng lớp.** Nếu 99% email không phải thư rác, tiên nghiệm P(not-spam) = 0.99 mạnh đến mức lấn át bằng chứng hợp lý. Bạn có thể đặt các tiên nghiệm lớp thủ công hoặc sử dụng tham số class_prior trong sklearn.
 
-4. **Feature scaling.** MultinomialNB does not need scaling (it works on counts). GaussianNB does not need scaling either (it estimates per-feature statistics). This is an advantage over logistic regression and SVM, which are sensitive to feature scales.
+4. **Co giãn đặc trưng.** MultinomialNB không cần co giãn (nó làm việc trên số đếm). GaussianNB cũng không cần co giãn (nó ước lượng các thống kê theo từng đặc trưng). Đây là lợi thế so với hồi quy logistic và SVM, vốn nhạy với thang đo đặc trưng.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/skill-naive-bayes-chooser.md` -- a decision skill for picking the right NB variant
-- `code/naive_bayes.py` -- MultinomialNB and GaussianNB from scratch, with sklearn comparison
+Bài học này tạo ra:
+- `outputs/skill-naive-bayes-chooser.md` -- một skill quyết định để chọn biến thể NB phù hợp
+- `code/naive_bayes.py` -- MultinomialNB và GaussianNB từ đầu, với so sánh sklearn
 
 ### When Naive Bayes Fails
 
-NB fails when the independence assumption causes incorrect rankings (not just incorrect probabilities). This happens when:
+NB thất bại khi giả định độc lập gây ra các thứ hạng sai (không chỉ các xác suất sai). Điều này xảy ra khi:
 
-1. **Strong feature interactions.** If the class depends on the combination of two features but not either alone (XOR-like patterns), NB will miss it entirely. Each feature alone provides no evidence, and NB cannot combine them nonlinearly.
+1. **Các tương tác đặc trưng mạnh.** Nếu lớp phụ thuộc vào kết hợp hai đặc trưng nhưng không phụ thuộc từng đặc trưng riêng (các mẫu giống XOR), NB sẽ bỏ lỡ hoàn toàn. Mỗi đặc trưng riêng không cung cấp bằng chứng, và NB không thể kết hợp chúng phi tuyến.
 
-2. **Highly correlated features with opposing evidence.** If feature A says "spam" and feature B says "not-spam", but A and B are perfectly correlated (they always agree in reality), NB will see conflicting evidence where there is none.
+2. **Các đặc trưng tương quan cao với bằng chứng đối lập.** Nếu đặc trưng A nói "thư rác" và đặc trưng B nói "không phải thư rác", nhưng A và B tương quan hoàn hảo (chúng luôn đồng ý trong thực tế), NB sẽ thấy bằng chứng mâu thuẫn ở nơi không có.
 
-3. **Very large training sets.** With enough data, discriminative models like logistic regression learn the true decision boundary and outperform NB. The independence assumption that helped with small data now holds the model back.
+3. **Các tập huấn luyện rất lớn.** Với đủ dữ liệu, các mô hình phân biệt như hồi quy logistic học biên quyết định thực và vượt NB. Giả định độc lập đã giúp với dữ liệu nhỏ giờ cản trở mô hình.
 
-In practice, these failure modes are rare for text classification. Text features are numerous, individually weak, and the independence assumption's errors tend to cancel out. For tabular data with few strongly correlated features, consider logistic regression or tree-based models first.
+Trong thực tế, các kiểu thất bại này hiếm đối với phân loại văn bản. Các đặc trưng văn bản nhiều, riêng lẻ yếu và sai số của giả định độc lập có xu hướng triệt tiêu. Với dữ liệu dạng bảng có ít đặc trưng tương quan mạnh, cân nhắc hồi quy logistic hoặc các mô hình dựa trên cây trước.
 
 ## Exercises
 
-1. **Smoothing experiment.** Train MultinomialNB on text data with alpha values of 0.01, 0.1, 1.0, 10.0, and 100.0. Plot accuracy vs alpha. Where does performance peak? Why does very high alpha hurt?
+1. **Thí nghiệm làm trơn.** Huấn luyện MultinomialNB trên dữ liệu văn bản với các giá trị alpha 0.01, 0.1, 1.0, 10.0 và 100.0. Vẽ độ chính xác theo alpha. Hiệu năng đạt đỉnh ở đâu? Tại sao alpha rất cao gây hại?
 
-2. **Feature independence test.** Take a real text dataset. Pick two words that are obviously correlated ("machine" and "learning"). Compute P(word1 | class) * P(word2 | class) and compare to P(word1 AND word2 | class). How wrong is the independence assumption? Does it affect classification accuracy?
+2. **Kiểm tra độc lập đặc trưng.** Lấy một tập dữ liệu văn bản thực. Chọn hai từ rõ ràng tương quan ("machine" và "learning"). Tính P(word1 | class) * P(word2 | class) và so sánh với P(word1 AND word2 | class). Giả định độc lập sai đến mức nào? Nó có ảnh hưởng độ chính xác phân loại không?
 
-3. **Bernoulli implementation.** Extend the code with a BernoulliNB class. Convert bag-of-words to binary (present/absent) and compare accuracy against MultinomialNB on text data. When does Bernoulli win?
+3. **Triển khai Bernoulli.** Mở rộng mã với một lớp BernoulliNB. Chuyển bag-of-words thành nhị phân (hiện diện/vắng mặt) và so sánh độ chính xác với MultinomialNB trên dữ liệu văn bản. Khi nào Bernoulli thắng?
 
-4. **NB vs Logistic Regression.** Train both on text data. Start with 100 training samples and increase to 10,000. Plot accuracy vs training set size for both. At what point does Logistic Regression overtake Naive Bayes?
+4. **NB so với Hồi quy Logistic.** Huấn luyện cả hai trên dữ liệu văn bản. Bắt đầu với 100 mẫu huấn luyện và tăng đến 10,000. Vẽ độ chính xác theo kích thước tập huấn luyện cho cả hai. Tại điểm nào Hồi quy Logistic vượt Naive Bayes?
 
-5. **Spam filter.** Build a complete spam classifier: tokenize raw email text, build vocabulary, create bag-of-words features, train MultinomialNB, evaluate with precision and recall (not just accuracy -- why?).
+5. **Bộ lọc thư rác.** Xây dựng một bộ phân loại thư rác hoàn chỉnh: tách token văn bản email thô, xây dựng từ vựng, tạo các đặc trưng bag-of-words, huấn luyện MultinomialNB, đánh giá bằng precision và recall (không chỉ accuracy -- tại sao?).
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Naive Bayes | "Simple probabilistic classifier" | A classifier that applies Bayes' theorem with the assumption that features are conditionally independent given the class |
-| Conditional independence | "Features don't affect each other" | P(A, B \| C) = P(A \| C) * P(B \| C) -- knowing B tells you nothing new about A once you know C |
-| Laplace smoothing | "Add-one smoothing" | Adding a small count to every feature to prevent zero probabilities from dominating the prediction |
-| Prior | "What you believed before seeing data" | P(class) -- the probability of each class before observing any features |
-| Likelihood | "How well the data fits" | P(features \| class) -- the probability of observing these features if the class is known |
-| Posterior | "What you believe after seeing data" | P(class \| features) -- the updated probability of the class after observing the features |
-| Generative model | "Models how data is generated" | A model that learns P(X \| Y) and P(Y), then uses Bayes' theorem to get P(Y \| X) |
-| Discriminative model | "Models the decision boundary" | A model that directly learns P(Y \| X) without modeling how X is generated |
-| Log probability | "Avoid underflow" | Working with log P instead of P to prevent the product of many small numbers from becoming zero in floating point |
+| Naive Bayes | "Bộ phân loại xác suất đơn giản" | Một bộ phân loại áp dụng định lý Bayes với giả định các đặc trưng độc lập có điều kiện khi biết lớp |
+| Conditional independence (Độc lập có điều kiện) | "Các đặc trưng không ảnh hưởng lẫn nhau" | P(A, B \| C) = P(A \| C) * P(B \| C) -- biết B không cho thêm điều gì mới về A một khi đã biết C |
+| Laplace smoothing (Làm trơn Laplace) | "Làm trơn cộng một" | Thêm một số đếm nhỏ vào mọi đặc trưng để ngăn các xác suất bằng không chi phối dự đoán |
+| Prior (Tiên nghiệm) | "Những gì bạn tin trước khi thấy dữ liệu" | P(class) -- xác suất mỗi lớp trước khi quan sát bất kỳ đặc trưng nào |
+| Likelihood (Hợp lý) | "Dữ liệu khớp tốt đến mức nào" | P(features \| class) -- xác suất quan sát các đặc trưng này nếu lớp đã biết |
+| Posterior (Hậu nghiệm) | "Những gì bạn tin sau khi thấy dữ liệu" | P(class \| features) -- xác suất lớp đã cập nhật sau khi quan sát các đặc trưng |
+| Generative model (Mô hình tạo sinh) | "Mô hình hóa cách dữ liệu được sinh" | Một mô hình học P(X \| Y) và P(Y), rồi sử dụng định lý Bayes để có P(Y \| X) |
+| Discriminative model (Mô hình phân biệt) | "Mô hình hóa biên quyết định" | Một mô hình học trực tiếp P(Y \| X) mà không mô hình hóa cách X được sinh |
+| Log probability (Xác suất log) | "Tránh hụt dưới" | Làm việc với log P thay vì P để ngăn tích của nhiều số nhỏ trở thành không trong dấu phẩy động |
 
 ## Further Reading
 
-- [scikit-learn Naive Bayes docs](https://scikit-learn.org/stable/modules/naive_bayes.html) -- all three variants with mathematical details
-- [McCallum and Nigam, A Comparison of Event Models for Naive Bayes Text Classification (1998)](https://www.cs.cmu.edu/~knigam/papers/multinomial-aaaiws98.pdf) -- the classic comparison of Multinomial vs Bernoulli for text
-- [Rennie et al., Tackling the Poor Assumptions of Naive Bayes Text Classifiers (2003)](https://people.csail.mit.edu/jrennie/papers/icml03-nb.pdf) -- improvements to NB for text
-- [Ng and Jordan, On Discriminative vs. Generative Classifiers (2001)](https://ai.stanford.edu/~ang/papers/nips01-discriminativegenerative.pdf) -- proves NB converges faster than LR with less data
+- [Tài liệu scikit-learn Naive Bayes](https://scikit-learn.org/stable/modules/naive_bayes.html) -- cả ba biến thể với chi tiết toán học
+- [McCallum and Nigam, A Comparison of Event Models for Naive Bayes Text Classification (1998)](https://www.cs.cmu.edu/~knigam/papers/multinomial-aaaiws98.pdf) -- so sánh kinh điển Multinomial với Bernoulli cho văn bản
+- [Rennie et al., Tackling the Poor Assumptions of Naive Bayes Text Classifiers (2003)](https://people.csail.mit.edu/jrennie/papers/icml03-nb.pdf) -- các cải tiến NB cho văn bản
+- [Ng and Jordan, On Discriminative vs. Generative Classifiers (2001)](https://ai.stanford.edu/~ang/papers/nips01-discriminativegenerative.pdf) -- chứng minh NB hội tụ nhanh hơn LR với ít dữ liệu hơn
