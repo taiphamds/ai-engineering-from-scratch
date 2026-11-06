@@ -7,25 +7,25 @@ lesson: 13
 tags: [pipeline, training, manifest, eval-gate, cost, rollback]
 ---
 
-Given a proposed training pipeline manifest (YAML or JSON describing tokenizer, data, pre-training, SFT, alignment, eval, quantization, and serving stages), produce a review covering:
+Với manifest pipeline huấn luyện đề xuất (YAML hoặc JSON mô tả giai đoạn tokenizer, dữ liệu, huấn luyện trước, SFT, căn chỉnh, đánh giá, lượng tử hóa và phục vụ), tạo bản rà soát bao phủ:
 
-1. Stage graph. Confirm each stage has typed inputs and outputs. Call out missing dependencies, implicit state, or any stage that consumes a bare directory instead of a named artifact hash.
-2. Hash chain. Verify output_hash of stage N equals one of the input_hashes of every downstream stage. Any mismatch means the manifest is incoherent and the pipeline must not start.
-3. Eval gate. Every metric in the gate list must be numeric, have an operator, a threshold, and a measurement source. Reject any gate that is subjective ("looks good"), unbounded (no threshold), or measured on the training data.
-4. Regression guard. The new model's core benchmarks (MMLU, MATH, HumanEval+, GPQA, or a domain-specific equivalent) must have baseline numbers attached. A run with no baselines is a run with no regression detection.
-5. KL budget. Alignment stages (RLHF, DPO, CAI, GRPO) must declare a cumulative KL cap against the reference. Unbounded KL is an unbounded drift.
-6. Contamination check. Training data shards and eval sets must have a documented overlap check (exact match or 13-gram). Required pass threshold: <0.1%.
-7. Cost estimate. Pre-run estimate for each stage plus a total, compared against the budget gate. If estimate > budget, pipeline refuses to start.
-8. Rollback plan. For each stage, named actions on failure: re-run, fall back to previous artifact, revise inputs and re-run downstream. Expensive stages (pre-training) must have a warm checkpoint strategy.
-9. Artifact store. Checkpoints, datasets, tokenizers, eval reports must be content-addressed (SHA-256). Filename-addressed artifacts ("latest.pt") are a hard reject.
-10. Observability. Every stage must emit structured logs with a trace ID, stage name, input hashes, output hash, wall clock, and cost. Missing trace IDs mean the run cannot be debugged after the fact.
+1. Đồ thị giai đoạn. Xác nhận mỗi giai đoạn có đầu vào và đầu ra có kiểu. Chỉ ra phụ thuộc thiếu, trạng thái ngầm hoặc giai đoạn tiêu thụ thư mục trần thay hash artifact có tên.
+2. Chuỗi hash. Xác minh output_hash giai đoạn N bằng một trong input_hashes của mọi giai đoạn phía sau. Bất kỳ không khớp nào nghĩa là manifest không nhất quán và pipeline không được bắt đầu.
+3. Cổng đánh giá. Mỗi thước đo trong danh sách cổng phải là số, có toán tử, ngưỡng và nguồn đo. Từ chối cổng chủ quan ("trông tốt"), không bị chặn (không ngưỡng), hoặc đo trên dữ liệu huấn luyện.
+4. Bảo vệ hồi quy. Benchmark cốt lõi mô hình mới (MMLU, MATH, HumanEval+, GPQA hoặc tương đương riêng miền) phải kèm số baseline. Lần chạy không baseline là lần chạy không phát hiện hồi quy.
+5. Ngân sách KL. Giai đoạn căn chỉnh (RLHF, DPO, CAI, GRPO) phải khai báo trần KL tích lũy với tham chiếu. KL không bị chặn là trôi không bị chặn.
+6. Kiểm tra nhiễm. Mảnh dữ liệu huấn luyện và tập đánh giá phải có kiểm tra chồng lấp được ghi lại (khớp chính xác hoặc 13-gram). Ngưỡng đạt bắt buộc: <0.1%.
+7. Ước tính chi phí. Ước tính trước chạy cho mỗi giai đoạn cộng tổng, so cổng ngân sách. Nếu ước tính > ngân sách, pipeline từ chối bắt đầu.
+8. Kế hoạch hoàn tác. Với mỗi giai đoạn, hành động có tên khi lỗi: chạy lại, quay về artifact trước, sửa đầu vào rồi chạy lại phía sau. Giai đoạn đắt (huấn luyện trước) phải có chiến lược checkpoint ấm.
+9. Kho artifact. Checkpoint, tập dữ liệu, tokenizer, báo cáo đánh giá phải định địa chỉ theo nội dung (SHA-256). Artifact theo tên file ("latest.pt") bị từ chối dứt khoát.
+10. Khả năng quan sát. Mỗi giai đoạn phải phát log có cấu trúc với trace ID, tên giai đoạn, hash đầu vào, hash đầu ra, thời gian thực và chi phí. Thiếu trace ID nghĩa là lần chạy không thể gỡ lỗi về sau.
 
-Red flags that halt the review:
-- a gate missing a measurement source (gate on a metric no stage computes)
-- a stage that shares a checkpoint with a downstream stage (no separation of concerns)
-- an alignment stage with no reference model (no anchor for KL)
-- an LLM-as-judge eval where the judge is the same model family as the policy (contamination)
-- a cost estimate that exceeds the budget by more than 20%
-- a rollback plan consisting solely of "re-run from scratch"
+Dấu hiệu cảnh báo dừng rà soát:
+- cổng thiếu nguồn đo (đặt cổng trên thước đo không giai đoạn nào tính)
+- giai đoạn chia sẻ checkpoint với giai đoạn phía sau (không tách mối quan tâm)
+- giai đoạn căn chỉnh không mô hình tham chiếu (không điểm neo cho KL)
+- đánh giá LLM-as-judge mà giám khảo cùng họ mô hình với chính sách (nhiễm)
+- ước tính chi phí vượt ngân sách hơn 20%
+- kế hoạch hoàn tác chỉ gồm "chạy lại từ đầu"
 
-Output: a two-page review with PASS/HOLD per gate, the exact manifest field or missing field that produced each verdict, and the minimum change required to flip a HOLD into a PASS.
+Đầu ra: bản rà soát hai trang với PASS/HOLD mỗi cổng, trường manifest chính xác hoặc trường thiếu tạo mỗi phán quyết, và thay đổi tối thiểu để chuyển HOLD thành PASS.

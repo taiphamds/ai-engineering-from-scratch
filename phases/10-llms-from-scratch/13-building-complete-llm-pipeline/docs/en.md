@@ -1,6 +1,6 @@
 # Building a Complete LLM Pipeline
 
-> Everything from Lessons 01 to 12 is one stage of one pipeline. This lesson is the scaffold that turns those stages into a single end-to-end run: tokenize, pre-train, scale, SFT, align, evaluate, quantize, serve. You will not train a 70B model on a laptop. You will produce the orchestration layer, the manifest, the eval gate, and the rollback plan that a 2026 frontier team uses to decide what gets shipped. This is the capstone.
+> Mọi thứ từ Bài 01 đến 12 là một giai đoạn của một pipeline. Bài này là khung biến các giai đoạn đó thành một lần chạy đầu cuối: token hóa, huấn luyện trước, mở rộng, SFT, căn chỉnh, đánh giá, lượng tử hóa, phục vụ. Bạn sẽ không huấn luyện mô hình 70B trên laptop. Bạn sẽ tạo lớp điều phối, manifest, cổng đánh giá và kế hoạch hoàn tác mà một nhóm hàng đầu năm 2026 dùng để quyết định thứ được phát hành. Đây là bài tổng kết.
 
 **Type:** Build
 **Languages:** Python (stdlib)
@@ -9,26 +9,26 @@
 
 ## Learning Objectives
 
-- Compose the eleven prior lessons (tokenizer, data, pre-training, scaling, SFT, RLHF, DPO, CAI, eval, quantization, inference) into a single reproducible pipeline spec
-- Define the artifact contract between stages: what each stage consumes, what it produces, and how the next stage verifies the input
-- Build an orchestrator that tracks experiments, hashes artifacts, and gates ship decisions on eval thresholds
-- Design the rollback plan: which artifacts are cheap to re-run, which are expensive, and what a corrupted checkpoint costs
+- Kết hợp mười một bài trước (tokenizer, dữ liệu, huấn luyện trước, mở rộng, SFT, RLHF, DPO, CAI, đánh giá, lượng tử hóa, suy luận) thành một đặc tả pipeline tái lập được
+- Định nghĩa quy ước artifact giữa các giai đoạn: mỗi giai đoạn tiêu thụ gì, tạo gì và giai đoạn sau xác minh đầu vào thế nào
+- Xây bộ điều phối theo dõi thử nghiệm, băm artifact và đặt cổng quyết định phát hành theo ngưỡng đánh giá
+- Thiết kế kế hoạch hoàn tác: artifact nào rẻ để chạy lại, cái nào đắt, và checkpoint hỏng tốn gì
 
 ## The Problem
 
-The previous lessons each work. Tokenizer trained. Tiny GPT pre-trained. SFT dataset assembled. Reward model trained. DPO run. Evals measured. Quantized weights exported. Inference server spun up. Each one is a notebook. Each one has its own conventions, its own output paths, its own seed.
+Mỗi bài trước đều hoạt động. Tokenizer đã huấn luyện. GPT nhỏ đã huấn luyện trước. Tập SFT đã lắp. Mô hình phần thưởng đã huấn luyện. DPO đã chạy. Đánh giá đã đo. Trọng số lượng tử hóa đã xuất. Máy chủ suy luận đã khởi chạy. Mỗi thứ là một notebook. Mỗi thứ có quy ước, đường dẫn đầu ra và seed riêng.
 
-A frontier training run is not a notebook. Llama 3 405B took 30 million H100 hours over roughly 54 days. DeepSeek-V3 used around 2.8 million H800 hours. During that time, one corrupted checkpoint, one data contamination, one eval regression can cost a team a week of wall-clock and a month of GPU budget. The way teams survive this is through pipeline hygiene: every stage has a deterministic input, a deterministic output, a manifest, a hash, and a gate.
+Một lần huấn luyện hàng đầu không phải notebook. Llama 3 405B mất 30 triệu giờ H100 trong khoảng 54 ngày. DeepSeek-V3 dùng khoảng 2.8 triệu giờ H800. Trong thời gian đó, một checkpoint hỏng, một lần nhiễm dữ liệu, một hồi quy đánh giá có thể tốn một tuần thời gian thực và một tháng ngân sách GPU của nhóm. Cách nhóm sống sót là giữ pipeline ngăn nắp: mỗi giai đoạn có đầu vào tất định, đầu ra tất định, manifest, hash và cổng.
 
-This is the capstone. You will not run the pipeline end-to-end on a laptop. You will write the orchestrator that coordinates the stages, the manifest that describes the run, the verifier that gates ship decisions, and the replay plan that lets a third party re-run your work from a single file. The code is small; the discipline is large.
+Đây là bài tổng kết. Bạn sẽ không chạy pipeline đầu cuối trên laptop. Bạn sẽ viết bộ điều phối phối hợp các giai đoạn, manifest mô tả lần chạy, bộ xác minh đặt cổng phát hành, và kế hoạch chạy lại cho phép bên thứ ba chạy lại công việc từ một file. Mã nhỏ; kỷ luật lớn.
 
-The pattern scales from 100M to 1T parameters unchanged. The same four components -- manifest, orchestrator, eval gate, artifact store -- run Llama 3 and also run your hobby GPT. The difference is the size of the numbers inside each stage's config, not the shape of the pipeline.
+Mô thức mở rộng từ 100M đến 1T tham số không đổi. Cùng bốn thành phần -- manifest, bộ điều phối, cổng đánh giá, kho artifact -- chạy Llama 3 và cả GPT sở thích của bạn. Khác biệt là độ lớn các con số trong cấu hình mỗi giai đoạn, không phải hình dạng pipeline.
 
 ## The Concept
 
 ### The Twelve Stages
 
-Every Phase 10 lesson is a stage. Here is the full dependency graph.
+Mọi bài Giai đoạn 10 là một giai đoạn. Đây là toàn đồ thị phụ thuộc.
 
 ```mermaid
 graph TD
@@ -53,11 +53,11 @@ graph TD
     style GATE fill:#1a1a2e,stroke:#51cf66,color:#fff
 ```
 
-Stages 07 and 08 can run in parallel. Everything else is a hard dependency. A change in stage 02 (tokenizer) invalidates every downstream artifact. A change in stage 10 (eval) invalidates only the ship decision.
+Giai đoạn 07 và 08 có thể chạy song song. Mọi thứ khác là phụ thuộc cứng. Thay đổi giai đoạn 02 (tokenizer) làm mất hiệu lực mọi artifact phía sau. Thay đổi giai đoạn 10 (đánh giá) chỉ làm mất hiệu lực quyết định phát hành.
 
 ### The Manifest
 
-A manifest is a single file that describes a run completely enough to replay it. Nothing the pipeline produces should depend on state that is not in the manifest. The fields are boring and mandatory.
+Manifest là một file mô tả lần chạy đủ đầy để chạy lại. Không thứ gì pipeline tạo nên phụ thuộc trạng thái không có trong manifest. Các trường nhàm chán và bắt buộc.
 
 ```
 pipeline_version: 1.2.3
@@ -72,31 +72,31 @@ stages:
     cost_usd: 12
 ```
 
-The output hash of stage N is the input hash of stage N+1. Any deviation and the pipeline halts. This is how you catch data corruption early. It is also how a teammate on a different continent verifies that their replay produced the same artifact as yours.
+Hash đầu ra giai đoạn N là hash đầu vào giai đoạn N+1. Bất kỳ sai lệch nào thì pipeline dừng. Đây là cách bắt hỏng dữ liệu sớm. Cũng là cách đồng đội trên lục địa khác xác minh lần chạy lại tạo cùng artifact như bạn.
 
-In practice teams use a small YAML schema plus a manifest checker that diffs against the previous successful run. Any delta outside the expected fields (cost, wall clock) is a red flag.
+Trong thực tế nhóm dùng schema YAML nhỏ cộng bộ kiểm tra manifest so khác biệt với lần thành công trước. Mọi thay đổi ngoài trường kỳ vọng (chi phí, thời gian thực) là dấu hiệu cảnh báo.
 
 ### Artifact Typing
 
-Each stage's output is a typed artifact. Not a directory blob, not a pickle, but a named type with a known schema.
+Đầu ra mỗi giai đoạn là artifact có kiểu. Không phải khối thư mục, không phải pickle, mà là kiểu có tên với schema đã biết.
 
-| Stage | Artifact Type | Key Fields |
+| Giai đoạn | Loại artifact | Trường chính |
 |-------|--------------|-----------|
 | 01-02 | Tokenizer | vocab.json, merges.txt, config.json, hash |
-| 03 | Dataset | shards[], row count, token count, dedup stats |
-| 04-05 | Checkpoint | weights.safetensors, config.json, optimizer state, step count |
-| 06 | SFT Model | checkpoint + SFT recipe + data mix |
-| 07 | Reward Model | RM checkpoint + preference data hash |
-| 08-09 | Policy | checkpoint + reference hash + beta + KL budget consumed |
-| 10 | Eval Report | benchmark scores + regression diffs + eval data hash |
-| 11 | Quantized Model | quantized weights + calibration data + accuracy delta vs FP16 |
-| 12 | Server Spec | endpoint + model hash + config + observability hooks |
+| 03 | Tập dữ liệu | shards[], số hàng, số token, thống kê khử trùng lặp |
+| 04-05 | Checkpoint | weights.safetensors, config.json, trạng thái optimizer, số bước |
+| 06 | Mô hình SFT | checkpoint + công thức SFT + hỗn hợp dữ liệu |
+| 07 | Mô hình phần thưởng | checkpoint RM + hash dữ liệu sở thích |
+| 08-09 | Chính sách | checkpoint + hash tham chiếu + beta + ngân sách KL đã dùng |
+| 10 | Báo cáo đánh giá | điểm benchmark + diff hồi quy + hash dữ liệu đánh giá |
+| 11 | Mô hình lượng tử hóa | trọng số lượng tử hóa + dữ liệu hiệu chuẩn + độ chênh chính xác so với FP16 |
+| 12 | Đặc tả máy chủ | endpoint + hash mô hình + cấu hình + hook khả năng quan sát |
 
-The typing prevents the most common failure mode: using a stage 08 output as a stage 06 input, shipping a DPO-trained model through the SFT path. Typed artifacts and typed stage signatures make these errors compile-time failures, not day-five failures.
+Định kiểu ngăn kiểu thất bại phổ biến nhất: dùng đầu ra giai đoạn 08 làm đầu vào giai đoạn 06, phát hành mô hình huấn luyện DPO qua đường SFT. Artifact và chữ ký giai đoạn có kiểu biến lỗi này thành lỗi lúc biên dịch, không phải lỗi ngày thứ năm.
 
 ### The Eval Gate
 
-Shipping is not "training finished." Shipping is "training finished and the eval gate passed." The gate is defined before the run starts.
+Phát hành không phải "huấn luyện xong." Phát hành là "huấn luyện xong và cổng đánh giá đạt." Cổng được định nghĩa trước khi bắt đầu.
 
 ```
 gates:
@@ -108,49 +108,49 @@ gates:
   cost_total_usd: <= 50000
 ```
 
-Every gate is a numeric threshold. No "looks good" gates. No subjective sign-offs. If every gate passes, the artifact is marked shippable. If any gate fails, the run is held pending explicit override by a named reviewer, which itself is logged in the manifest.
+Mỗi cổng là ngưỡng số. Không cổng "trông tốt". Không phê duyệt chủ quan. Nếu mọi cổng đạt, artifact được đánh dấu có thể phát hành. Nếu bất kỳ cổng nào không đạt, lần chạy bị giữ chờ ghi đè rõ ràng bởi người rà soát có tên, bản thân việc này được ghi vào manifest.
 
-Two gates catch most disasters. A *regression* gate (the new model must be at least as good as the previous on core benchmarks) catches training bugs. A *KL budget* gate (the aligned policy must not have drifted further than X from its reference) catches alignment overcooking. Every production pipeline has both.
+Hai cổng bắt hầu hết thảm họa. Cổng *hồi quy* (mô hình mới ít nhất phải tốt bằng mô hình trước trên benchmark cốt lõi) bắt lỗi huấn luyện. Cổng *ngân sách KL* (chính sách căn chỉnh không được trôi quá X khỏi tham chiếu) bắt căn chỉnh quá tay. Mọi pipeline production có cả hai.
 
 ### The Orchestrator
 
-A small piece of code that reads the manifest, dispatches stages, tracks artifacts, and halts on any contract violation. This is not Airflow. This is not Kubeflow. For pipeline hygiene you want something boring that you wrote.
+Một đoạn mã nhỏ đọc manifest, phân công giai đoạn, theo dõi artifact và dừng khi vi phạm bất kỳ quy ước nào. Đây không phải Airflow. Không phải Kubeflow. Để giữ pipeline ngăn nắp, bạn muốn thứ nhàm chán do mình viết.
 
-The orchestrator's job is narrow:
+Công việc bộ điều phối hẹp:
 
-1. Resolve the DAG from the manifest.
-2. For each stage, check if the expected output already exists at the correct hash (skip if so).
-3. Run the stage, capture stdout/stderr, measure wall clock and cost.
-4. Verify the output hash against the downstream stage's expected input hash.
-5. On failure, write a partial manifest with the exact failing stage and exit nonzero.
+1. Giải quyết DAG từ manifest.
+2. Với mỗi giai đoạn, kiểm tra đầu ra kỳ vọng đã tồn tại ở hash đúng chưa (bỏ qua nếu có).
+3. Chạy giai đoạn, thu stdout/stderr, đo thời gian thực và chi phí.
+4. Xác minh hash đầu ra với hash đầu vào kỳ vọng của giai đoạn phía sau.
+5. Khi thất bại, ghi manifest một phần với đúng giai đoạn lỗi và thoát khác không.
 
-That is 200 lines of Python. It will look like the file `code/main.py` in this lesson. Under the hood, the real pipeline uses `torchrun` or `ray` to execute individual stages on clusters, but the orchestrator itself runs on a single box.
+Đó là 200 dòng Python. Nó sẽ giống file `code/main.py` trong bài này. Bên dưới, pipeline thực dùng `torchrun` hoặc `ray` để thực thi từng giai đoạn trên cụm, nhưng bản thân bộ điều phối chạy trên một máy.
 
 ### Experiment Tracking and Artifact Storage
 
-Two external systems anchor the pipeline.
+Hai hệ thống ngoài neo pipeline.
 
-**Experiment tracker (wandb, neptune, mlflow).** Logs loss curves, eval metrics, system telemetry per stage. The tracker is where you go when you need to compare run A against run B three weeks later. Teams almost always use a hosted tracker for this -- writing your own loses time that should go into training.
+**Bộ theo dõi thử nghiệm (wandb, neptune, mlflow).** Ghi đường cong mất mát, thước đo đánh giá, đo từ xa hệ thống mỗi giai đoạn. Bộ theo dõi là nơi bạn đến khi cần so lần A với B sau ba tuần. Nhóm gần như luôn dùng bộ theo dõi được lưu trữ cho việc này -- tự viết mất thời gian nên dành cho huấn luyện.
 
-**Artifact store (S3, R2, GCS).** Immutable object store for checkpoints, datasets, tokenizers, eval reports. Artifacts are addressed by hash, not by filename. A filename like `latest.pt` is a foot-gun; `ckpt-7b-step-20000-sha256:abc123.safetensors` is a contract.
+**Kho artifact (S3, R2, GCS).** Kho đối tượng bất biến cho checkpoint, tập dữ liệu, tokenizer, báo cáo đánh giá. Artifact được định địa chỉ bằng hash, không tên file. Tên như `latest.pt` là cái bẫy tự hại; `ckpt-7b-step-20000-sha256:abc123.safetensors` là quy ước.
 
-The orchestrator writes to both. The tracker is for humans looking at charts. The artifact store is for the next stage looking up inputs.
+Bộ điều phối ghi vào cả hai. Bộ theo dõi cho con người xem biểu đồ. Kho artifact cho giai đoạn sau tra đầu vào.
 
 ### Costing
 
-A frontier run has a dollar number attached. Budget discipline happens in two places.
+Lần chạy hàng đầu gắn một con số đô la. Kỷ luật ngân sách diễn ra ở hai nơi.
 
-**Pre-run estimate.** From the manifest, compute expected FLOPs (for pre-training: 6 x params x tokens), expected GPU hours (FLOPs / peak throughput / utilization), and dollar cost at the current rental rate. If the estimate exceeds the budget gate, the pipeline refuses to start.
+**Ước tính trước chạy.** Từ manifest, tính FLOPs kỳ vọng (cho huấn luyện trước: 6 x params x tokens), giờ GPU kỳ vọng (FLOPs / thông lượng đỉnh / mức sử dụng), và chi phí đô la theo giá thuê hiện tại. Nếu ước tính vượt cổng ngân sách, pipeline từ chối bắt đầu.
 
-**In-run tracking.** Stage-by-stage wall clock and cost are logged to the manifest. After every stage, the remaining budget is checked. If a stage overran, the next stage's gate is evaluated with the new remaining budget. You do not find out you are out of money when the VC calls.
+**Theo dõi trong chạy.** Thời gian thực và chi phí từng giai đoạn được ghi vào manifest. Sau mỗi giai đoạn, kiểm tra ngân sách còn lại. Nếu giai đoạn vượt dự trù, cổng giai đoạn sau được đánh giá với ngân sách còn lại mới. Bạn không chờ nhà đầu tư mạo hiểm gọi mới biết hết tiền.
 
-Llama 3's reported cost was $61M. DeepSeek-V3 reported $5.6M for the main pre-training run. The ratio is mostly hardware efficiency plus mixture-of-experts -- but the specific cost is visible because both teams tracked it per stage, not per run.
+Chi phí Llama 3 được báo cáo là $61M. DeepSeek-V3 báo cáo $5.6M cho lần huấn luyện trước chính. Tỷ lệ phần lớn do hiệu quả phần cứng cộng mixture-of-experts -- nhưng chi phí cụ thể thấy được vì cả hai nhóm theo dõi từng giai đoạn, không từng lần chạy.
 
 ### Reproducibility vs Determinism
 
-These are not the same. *Reproducible* means the same manifest plus the same code plus the same infrastructure produces a checkpoint with equivalent downstream metrics. *Deterministic* means bit-identical output.
+Hai thứ này không giống nhau. *Tái lập được* nghĩa là cùng manifest cộng cùng mã cộng cùng hạ tầng tạo checkpoint có thước đo phía sau tương đương. *Tất định* nghĩa là đầu ra giống hệt từng bit.
 
-Modern LLM training is reproducible but not deterministic. Distributed training's reduce-order, GPU kernel non-determinism (cuBLAS, flash-attn), and mixed precision rounding combine to produce floats that differ at the 1e-5 level between runs. This is fine for the final metrics, which do not move. It is fatal if you are trying to debug with bit-level diffs. The cure is to log every stage's input hash, output hash, and headline metrics -- if those match, the run is "reproduced" even if the weights are not bit-identical.
+Huấn luyện LLM hiện đại tái lập được nhưng không tất định. Thứ tự reduce của huấn luyện phân tán, tính không tất định kernel GPU (cuBLAS, flash-attn), và làm tròn độ chính xác hỗn hợp kết hợp tạo float khác nhau ở mức 1e-5 giữa lần chạy. Điều này ổn cho thước đo cuối, vốn không đổi. Nó chí mạng nếu bạn cố gỡ lỗi bằng diff cấp bit. Cách chữa là ghi hash đầu vào, hash đầu ra và thước đo chính mỗi giai đoạn -- nếu chúng khớp, lần chạy "được tái lập" dù trọng số không giống từng bit.
 
 ```mermaid
 graph LR
@@ -171,27 +171,27 @@ graph LR
 
 ### Rollback Plan
 
-Before the run starts, write down what happens on failure of each stage. Three categories.
+Trước khi bắt đầu, viết ra điều xảy ra khi mỗi giai đoạn thất bại. Ba loại.
 
-- **Cheap to re-run** (hours): tokenizer, eval, quantization, inference server. Just re-run.
-- **Medium** (days): SFT, DPO, CAI. Keep the base model; re-run only the alignment stages.
-- **Expensive** (weeks and millions of dollars): pre-training. The rollback plan here is not "re-run." It is "use the last good checkpoint and re-run the cheaper downstream stages with revised data."
+- **Rẻ để chạy lại** (giờ): tokenizer, đánh giá, lượng tử hóa, máy chủ suy luận. Cứ chạy lại.
+- **Trung bình** (ngày): SFT, DPO, CAI. Giữ mô hình cơ sở; chỉ chạy lại giai đoạn căn chỉnh.
+- **Đắt** (tuần và hàng triệu đô la): huấn luyện trước. Kế hoạch hoàn tác ở đây không phải "chạy lại." Là "dùng checkpoint tốt cuối và chạy lại giai đoạn phía sau rẻ hơn với dữ liệu sửa đổi."
 
-Because stage dependencies are typed and hashed, the orchestrator can compute the rollback set automatically: invalidate the failed stage plus every descendant. A failure at stage 06 (SFT) invalidates 06, 07, 08, 09, 10, 11, 12. A failure at stage 11 (quantization) invalidates only 11 and 12. Naming this up front avoids improvising while the team is exhausted at 4am.
+Vì phụ thuộc giai đoạn có kiểu và hash, bộ điều phối tự tính tập hoàn tác: làm mất hiệu lực giai đoạn lỗi cộng mọi hậu duệ. Lỗi ở giai đoạn 06 (SFT) làm mất hiệu lực 06, 07, 08, 09, 10, 11, 12. Lỗi ở giai đoạn 11 (lượng tử hóa) chỉ làm mất hiệu lực 11 và 12. Nêu trước điều này tránh ứng biến khi nhóm kiệt sức lúc 4 giờ sáng.
 
 ### Production Recipes Observed in 2026
 
-Most frontier teams converged on the same skeleton.
+Hầu hết nhóm hàng đầu hội tụ về cùng bộ khung.
 
-- Tokenizer: 128k BPE with byte fallback. Trained on a small, balanced multilingual slice.
-- Pre-training: 10-20T tokens, mostly web plus code plus synthetic. Muon or AdamW optimizer. FSDP2 or DeepSpeed ZeRO-3. Gradient checkpointing. BF16 weights, FP32 master.
-- SFT: 500k-2M instruction pairs, mixed human and synthetic, with strict dedup against the eval set.
-- Alignment: DPO or CAI + GRPO. RLHF only where the preference signal is too multidimensional for DPO.
-- Eval: MMLU-Pro, MATH, HumanEval+, GPQA, SWE-Bench Verified, LiveBench, plus a private held-out set the public never sees.
-- Quantization: 4-bit GPTQ or AWQ for serving, 8-bit for safety evals where accuracy deltas matter.
-- Serving: vLLM, TensorRT-LLM, or in-house. Continuous batching. Speculative decoding. KV cache eviction.
+- Tokenizer: BPE 128k với dự phòng byte. Huấn luyện trên lát đa ngôn ngữ nhỏ, cân bằng.
+- Huấn luyện trước: 10-20T token, phần lớn web cộng mã cộng tổng hợp. Optimizer Muon hoặc AdamW. FSDP2 hoặc DeepSpeed ZeRO-3. Gradient checkpointing. Trọng số BF16, trọng số chính FP32.
+- SFT: 500k-2M cặp chỉ dẫn, trộn con người và tổng hợp, khử trùng lặp nghiêm ngặt với tập đánh giá.
+- Căn chỉnh: DPO hoặc CAI + GRPO. RLHF chỉ ở nơi tín hiệu sở thích quá đa chiều cho DPO.
+- Đánh giá: MMLU-Pro, MATH, HumanEval+, GPQA, SWE-Bench Verified, LiveBench, cộng tập giữ lại riêng công chúng không bao giờ thấy.
+- Lượng tử hóa: GPTQ hoặc AWQ 4-bit để phục vụ, 8-bit cho đánh giá an toàn nơi độ chênh chính xác quan trọng.
+- Phục vụ: vLLM, TensorRT-LLM hoặc nội bộ. Continuous batching. Speculative decoding. Loại bỏ KV cache.
 
-The numbers change every six months. The skeleton does not.
+Các con số đổi mỗi sáu tháng. Bộ khung không đổi.
 
 ```figure
 beam-search
@@ -199,22 +199,22 @@ beam-search
 
 ## Build It
 
-The lesson's code is an orchestrator and a manifest checker, not twelve training scripts. Each stage is simulated with a placeholder that produces an output artifact with the correct shape and hash. Running the orchestrator end-to-end proves the pipeline's plumbing works before you burn GPU money on the real stages.
+Mã bài học là bộ điều phối và bộ kiểm tra manifest, không phải mười hai script huấn luyện. Mỗi giai đoạn được mô phỏng bằng placeholder tạo artifact đầu ra có hình dạng và hash đúng. Chạy bộ điều phối đầu cuối chứng minh kết nối pipeline hoạt động trước khi đốt tiền GPU cho giai đoạn thực.
 
-See `code/main.py` for the full implementation. The key pieces:
+Xem `code/main.py` cho triển khai đầy đủ. Các phần chính:
 
-- `Manifest` dataclass: pipeline version, seed, git commit, stages, gates.
-- `Stage` dataclass: name, type, inputs (hashes), output (hash), wall clock, cost.
-- `Orchestrator.run()`: resolves DAG, dispatches stages, verifies hashes, updates manifest.
-- `EvalGate.check()`: reads thresholds, compares against latest eval report, returns pass/fail.
-- `ArtifactStore` (in-memory stub): put/get by hash, simulates S3.
-- `CostTracker`: per-stage and cumulative, halts when cap exceeded.
+- Dataclass `Manifest`: phiên bản pipeline, seed, git commit, giai đoạn, cổng.
+- Dataclass `Stage`: tên, kiểu, đầu vào (hash), đầu ra (hash), thời gian thực, chi phí.
+- `Orchestrator.run()`: giải DAG, phân công giai đoạn, xác minh hash, cập nhật manifest.
+- `EvalGate.check()`: đọc ngưỡng, so báo cáo đánh giá mới nhất, trả đạt/không đạt.
+- `ArtifactStore` (stub trong bộ nhớ): put/get theo hash, mô phỏng S3.
+- `CostTracker`: theo giai đoạn và tích lũy, dừng khi vượt trần.
 
-The pipeline in `main.py` runs twelve placeholder stages, produces a manifest, and exercises a failing eval gate to show what a held run looks like. Swap each placeholder for the real training script from the corresponding lesson and you have the skeleton a real frontier pipeline uses.
+Pipeline trong `main.py` chạy mười hai giai đoạn placeholder, tạo manifest và thử cổng đánh giá không đạt để cho thấy lần chạy bị giữ trông thế nào. Đổi mỗi placeholder thành script huấn luyện thực từ bài tương ứng và bạn có bộ khung pipeline hàng đầu thực dùng.
 
 ## Use It
 
-The canonical workflow has three commands.
+Quy trình chuẩn có ba lệnh.
 
 ```
 python code/main.py plan    # validate manifest, compute cost estimate, print DAG
@@ -222,46 +222,46 @@ python code/main.py run     # execute stages, writing to manifest.out.yaml
 python code/main.py gate    # read manifest.out.yaml, apply eval gates, ship-or-hold
 ```
 
-Run `plan` first every time. Most pipeline bugs show up at plan time -- missing gate thresholds, stale hashes, budget overruns. Running `plan` is free. Running `run` is expensive. Save money by catching bugs on the cheap side.
+Luôn chạy `plan` trước. Hầu hết lỗi pipeline lộ lúc lập kế hoạch -- thiếu ngưỡng cổng, hash cũ, vượt ngân sách. Chạy `plan` miễn phí. Chạy `run` đắt. Tiết kiệm tiền bằng bắt lỗi ở phía rẻ.
 
-The output of `gate` is either `SHIP` or `HOLD: <reason>`. A held run is not a failure; it is a decision point. A named reviewer either overrides (and the override is logged), or they approve the rollback.
+Đầu ra `gate` hoặc `SHIP` hoặc `HOLD: <reason>`. Lần bị giữ không phải thất bại; là điểm quyết định. Người rà soát có tên hoặc ghi đè (và ghi lại ghi đè), hoặc phê duyệt hoàn tác.
 
 ## Ship It
 
-This lesson produces `outputs/skill-llm-pipeline-reviewer.md`. Feed it a proposed pipeline manifest and it checks all the contracts: stage typing, hash chain, gates, rollback plan, cost estimate. It refuses to approve a manifest with a missing eval gate, an unbounded KL budget, or a run that mixes eval and training data.
+Bài học này tạo ra `outputs/skill-llm-pipeline-reviewer.md`. Đưa manifest pipeline đề xuất và nó kiểm tra mọi quy ước: định kiểu giai đoạn, chuỗi hash, cổng, kế hoạch hoàn tác, ước tính chi phí. Nó từ chối phê duyệt manifest thiếu cổng đánh giá, ngân sách KL không bị chặn, hoặc lần chạy trộn dữ liệu đánh giá và huấn luyện.
 
 ## Exercises
 
-1. Extend the orchestrator to support parallel execution of stages 07 and 08. Use the stdlib `concurrent.futures` module. Confirm the final manifest records both stages' outputs and that stage 09's input hash is a deterministic combination of both.
+1. Mở rộng bộ điều phối hỗ trợ thực thi song song giai đoạn 07 và 08. Dùng mô-đun stdlib `concurrent.futures`. Xác nhận manifest cuối ghi đầu ra cả hai và hash đầu vào giai đoạn 09 là kết hợp tất định của cả hai.
 
-2. Add a "contamination check" gate. Given the eval dataset hash and the training dataset shards, compute the overlap (exact string match or 13-gram match). The gate fails if overlap exceeds 0.1%. Feed it a contaminated training set and confirm the gate holds the run.
+2. Thêm cổng "kiểm tra nhiễm". Với hash tập đánh giá và mảnh tập huấn luyện, tính chồng lấp (khớp chuỗi chính xác hoặc 13-gram). Cổng không đạt nếu chồng lấp vượt 0.1%. Đưa tập huấn luyện nhiễm và xác nhận cổng giữ lần chạy.
 
-3. Implement a cost estimator from first principles. For stage 04 (pre-training), estimate FLOPs as 6 x params x tokens, assume 40% MFU (model FLOPs utilization) on H100 at 989 TFLOPs BF16, at $2.50/GPU-hour. Report the estimate for a 7B model trained on 2T tokens. Compare to published Llama 2 numbers.
+3. Triển khai bộ ước tính chi phí từ nguyên lý đầu tiên. Với giai đoạn 04 (huấn luyện trước), ước tính FLOPs là 6 x params x tokens, giả định MFU 40% (mức sử dụng FLOPs mô hình) trên H100 ở 989 TFLOPs BF16, giá $2.50/giờ GPU. Báo ước tính cho mô hình 7B huấn luyện trên 2T token. So với con số Llama 2 công bố.
 
-4. Build a partial rollback. Simulate a failure at stage 09 (CAI), then re-run stages 09 through 12 while leaving 01-08 cached. The orchestrator should detect the cached artifacts by hash and skip them. Measure wall-clock saved versus full re-run.
+4. Xây hoàn tác một phần. Mô phỏng lỗi ở giai đoạn 09 (CAI), rồi chạy lại 09 đến 12 trong khi giữ 01-08 đã cache. Bộ điều phối nên phát hiện artifact cache bằng hash và bỏ qua. Đo thời gian thực tiết kiệm so với chạy lại đầy đủ.
 
-5. Add observability. Emit OpenTelemetry spans for each stage, with attributes for params, tokens seen, loss, and cost. Pipe the spans to a local collector. The point is not dashboards; the point is that every stage's health is traceable from a single trace ID.
+5. Thêm khả năng quan sát. Phát span OpenTelemetry cho mỗi giai đoạn, với thuộc tính tham số, token đã thấy, mất mát và chi phí. Đưa span đến collector cục bộ. Điểm chính không phải bảng theo dõi; mà là sức khỏe mỗi giai đoạn truy được từ một trace ID.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Manifest | "The recipe file" | YAML or JSON describing pipeline version, seed, per-stage config, and gate thresholds — sufficient to replay a run |
-| Content-addressed | "By hash not name" | Artifacts stored by SHA-256 of their contents, so you can never confuse version A with version B |
-| Eval gate | "The ship criteria" | Numeric thresholds on benchmark metrics and safety scores that must pass before an artifact is marked shippable |
-| KL budget | "How far alignment drifted" | A cap on cumulative KL(policy || reference) across alignment stages, enforced as a gate |
-| MFU | "How much of the GPU you used" | Model FLOPs Utilization — achieved FLOPs divided by theoretical peak. 40% is typical at 70B scale, 55% at 7B |
-| Rollback plan | "What we do when it breaks" | Pre-written set of actions per stage on failure: re-run, fall back, retrain with revised inputs |
-| Orchestrator | "The conductor" | The process that reads the manifest, dispatches stages, verifies hashes, halts on any contract violation |
-| Artifact store | "Versioned S3 for weights" | Immutable content-addressed object store — single source of truth for checkpoints, datasets, eval reports |
-| Reproducible | "Same metrics on replay" | Different bit-level weights but equivalent downstream metrics — the realistic target for distributed LLM training |
-| Cost gate | "You cannot exceed X" | Pre-run cost estimate plus in-run tracker — the pipeline refuses to start if the estimate exceeds budget |
+| Manifest | "File công thức" | YAML hoặc JSON mô tả phiên bản pipeline, seed, cấu hình từng giai đoạn và ngưỡng cổng — đủ để chạy lại |
+| Content-addressed (Định địa chỉ theo nội dung) | "Bằng hash không bằng tên" | Artifact lưu theo SHA-256 nội dung, nên không thể nhầm phiên bản A với B |
+| Eval gate (Cổng đánh giá) | "Tiêu chí phát hành" | Ngưỡng số trên thước đo benchmark và điểm an toàn phải đạt trước khi artifact được đánh dấu có thể phát hành |
+| KL budget (Ngân sách KL) | "Căn chỉnh đã trôi xa bao nhiêu" | Trần KL(policy || reference) tích lũy xuyên các giai đoạn căn chỉnh, thực thi như cổng |
+| MFU | "Bạn đã dùng bao nhiêu GPU" | Mức sử dụng FLOPs mô hình — FLOPs đạt được chia đỉnh lý thuyết. 40% điển hình ở quy mô 70B, 55% ở 7B |
+| Rollback plan (Kế hoạch hoàn tác) | "Làm gì khi nó hỏng" | Tập hành động viết trước theo giai đoạn khi lỗi: chạy lại, quay về, huấn luyện lại với đầu vào sửa đổi |
+| Orchestrator (Bộ điều phối) | "Nhạc trưởng" | Tiến trình đọc manifest, phân công giai đoạn, xác minh hash, dừng khi vi phạm bất kỳ quy ước nào |
+| Artifact store (Kho artifact) | "S3 có phiên bản cho trọng số" | Kho đối tượng bất biến định địa chỉ theo nội dung — nguồn sự thật duy nhất cho checkpoint, tập dữ liệu, báo cáo đánh giá |
+| Reproducible (Tái lập được) | "Cùng thước đo khi chạy lại" | Trọng số khác cấp bit nhưng thước đo phía sau tương đương — mục tiêu thực tế cho huấn luyện LLM phân tán |
+| Cost gate (Cổng chi phí) | "Bạn không thể vượt X" | Ước tính trước chạy cộng theo dõi trong chạy — pipeline từ chối bắt đầu nếu ước tính vượt ngân sách |
 
 ## Further Reading
 
-- [Dubey et al., 2024 -- "The Llama 3 Herd of Models"](https://arxiv.org/abs/2407.21783) -- the most detailed public description of a frontier pipeline including data, training, alignment, eval
-- [DeepSeek-AI, 2024 -- "DeepSeek-V3 Technical Report"](https://arxiv.org/abs/2412.19437) -- efficiency-first pipeline at roughly 1/10th the cost of Llama 3 class training
-- [Kaplan et al., 2020 -- "Scaling Laws for Neural Language Models"](https://arxiv.org/abs/2001.08361) -- the original compute-data-params scaling relationship
-- [Hoffmann et al., 2022 -- "Training Compute-Optimal Large Language Models (Chinchilla)"](https://arxiv.org/abs/2203.15556) -- the correction to Kaplan that recalibrated modern data budgets
-- [PyTorch FSDP2 documentation](https://pytorch.org/docs/stable/fsdp.html) -- the distributed training primitive replacing FSDP1 in PyTorch 2.4+
-- [Weights & Biases LLM Reports](https://wandb.ai/site/solutions/llms/) -- real manifests and experiment tracker output for open-source LLM runs, useful as plagiarizable templates
+- [Dubey et al., 2024 -- "The Llama 3 Herd of Models"](https://arxiv.org/abs/2407.21783) -- mô tả công khai chi tiết nhất về pipeline hàng đầu gồm dữ liệu, huấn luyện, căn chỉnh, đánh giá
+- [DeepSeek-AI, 2024 -- "DeepSeek-V3 Technical Report"](https://arxiv.org/abs/2412.19437) -- pipeline ưu tiên hiệu quả với khoảng 1/10 chi phí huấn luyện hạng Llama 3
+- [Kaplan et al., 2020 -- "Scaling Laws for Neural Language Models"](https://arxiv.org/abs/2001.08361) -- quan hệ mở rộng tính toán-dữ liệu-tham số gốc
+- [Hoffmann et al., 2022 -- "Training Compute-Optimal Large Language Models (Chinchilla)"](https://arxiv.org/abs/2203.15556) -- hiệu chỉnh Kaplan đã hiệu chuẩn lại ngân sách dữ liệu hiện đại
+- [PyTorch FSDP2 documentation](https://pytorch.org/docs/stable/fsdp.html) -- thành phần huấn luyện phân tán thay FSDP1 trong PyTorch 2.4+
+- [Weights & Biases LLM Reports](https://wandb.ai/site/solutions/llms/) -- manifest thực và đầu ra bộ theo dõi thử nghiệm cho lần chạy LLM mã nguồn mở, hữu ích làm mẫu có thể đạo văn
