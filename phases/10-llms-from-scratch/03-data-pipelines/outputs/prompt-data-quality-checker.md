@@ -9,67 +9,67 @@ tags: [data-pipeline, deduplication, quality-filter, pre-training, llm, data-cle
 
 # Data Quality Checker for LLM Pre-Training
 
-When building or auditing a data pipeline for LLM pre-training, use this framework to catch problems before they reach the model.
+Khi xây dựng hoặc kiểm tra một pipeline dữ liệu cho huấn luyện trước LLM, dùng khung này để bắt vấn đề trước khi chúng đến mô hình.
 
 ## Red Flags in Pipeline Output
 
-**Deduplication removed less than 20% of web data.** Common Crawl typically contains 30-40% duplicates. If your dedup step removes less than 20%, your MinHash parameters are too conservative or your threshold is too high. Check: shingle size k, number of hash functions, number of LSH bands, Jaccard threshold.
+**Khử trùng lặp loại dưới 20% dữ liệu web.** Common Crawl thường chứa 30-40% bản trùng. Nếu bước khử trùng lặp loại dưới 20%, tham số MinHash quá bảo thủ hoặc ngưỡng quá cao. Kiểm tra: kích thước shingle k, số hàm băm, số dải LSH, ngưỡng Jaccard.
 
-**Compression ratio below 2.0 chars/token.** This means your tokenizer is splitting too aggressively. Either retrain with more merges, increase vocabulary size, or check that pre-tokenization is not fragmenting text unnecessarily.
+**Tỷ lệ nén dưới 2.0 ký tự/token.** Điều này nghĩa là tokenizer tách quá mạnh. Hoặc huấn luyện lại với nhiều phép gộp hơn, tăng kích thước từ vựng, hoặc kiểm tra tiền token hóa không phân mảnh văn bản không cần thiết.
 
-**Compression ratio above 6.0 chars/token.** Your tokenizer has learned very domain-specific merges that may not generalize. This is fine for a domain-specific model but a warning sign for general-purpose models.
+**Tỷ lệ nén trên 6.0 ký tự/token.** Tokenizer đã học các phép gộp rất riêng cho miền có thể không khái quát hóa. Điều này phù hợp cho mô hình riêng miền nhưng là dấu hiệu cảnh báo cho mô hình tổng quát.
 
-**Sequence utilization below 90%.** Too much padding. Either your documents are very short (filter them or increase minimum document length) or your sequence packing is inefficient (switch from naive padding to multi-document packing).
+**Mức sử dụng chuỗi dưới 90%.** Quá nhiều đệm. Hoặc tài liệu rất ngắn (lọc chúng hoặc tăng độ dài tài liệu tối thiểu) hoặc đóng gói chuỗi kém hiệu quả (chuyển từ đệm đơn giản sang đóng gói nhiều tài liệu).
 
-**Vocab utilization below 50%.** More than half your vocabulary is unused on this corpus. Either the vocabulary is too large for your domain or the tokenizer was trained on very different data.
+**Mức sử dụng từ vựng dưới 50%.** Hơn nửa từ vựng không được dùng trên corpus này. Hoặc từ vựng quá lớn cho miền của bạn hoặc tokenizer được huấn luyện trên dữ liệu rất khác.
 
 ## Quality Filter Calibration
 
-Run these checks on a random sample of 1,000 documents at each pipeline stage:
+Chạy các kiểm tra này trên một mẫu ngẫu nhiên 1,000 tài liệu ở mỗi giai đoạn pipeline:
 
-1. **Read 20 random documents after cleaning.** Do they contain residual HTML, JavaScript, navigation text, or boilerplate? If yes, your HTML stripping is incomplete.
+1. **Đọc 20 tài liệu ngẫu nhiên sau làm sạch.** Chúng có chứa HTML, JavaScript, văn bản điều hướng hoặc nội dung mẫu còn sót không? Nếu có, loại HTML chưa đầy đủ.
 
-2. **Read 20 random documents that PASSED the quality filter.** Are any of them spam, keyword lists, or machine-generated? If yes, tighten the filter thresholds.
+2. **Đọc 20 tài liệu ngẫu nhiên ĐÃ VƯỢT bộ lọc chất lượng.** Có tài liệu nào là spam, danh sách từ khóa hoặc do máy sinh không? Nếu có, siết ngưỡng lọc.
 
-3. **Read 20 random documents that FAILED the quality filter.** Are any of them genuinely good content? If yes, your filter is too aggressive. Relax thresholds or add exceptions for specific patterns.
+3. **Đọc 20 tài liệu ngẫu nhiên KHÔNG VƯỢT bộ lọc chất lượng.** Có tài liệu nào thực sự là nội dung tốt không? Nếu có, bộ lọc quá mạnh. Nới ngưỡng hoặc thêm ngoại lệ cho các mẫu cụ thể.
 
-4. **Read 20 random near-duplicate pairs from dedup.** Are they actually similar? If not, lower the Jaccard threshold or increase the number of hash functions.
+4. **Đọc 20 cặp gần trùng lặp ngẫu nhiên từ khử trùng lặp.** Chúng thực sự tương đồng không? Nếu không, hạ ngưỡng Jaccard hoặc tăng số hàm băm.
 
 ## Data Mixing Ratios
 
-There is no universal formula. Start with these baselines and adjust based on evaluation:
+Không có công thức phổ quát. Bắt đầu với các baseline này và điều chỉnh dựa trên đánh giá:
 
-| Category | Llama 3 Ratio | Starting Point |
+| Loại | Tỷ lệ Llama 3 | Điểm khởi đầu |
 |----------|--------------|----------------|
-| Web text | 50% | 50% |
-| Code | 25% | 15-25% |
-| Books/academic | 13% | 10-15% |
-| Math | 8% | 5-10% |
-| Multilingual web | 4% | 5-10% |
+| Văn bản web | 50% | 50% |
+| Mã | 25% | 15-25% |
+| Sách/học thuật | 13% | 10-15% |
+| Toán | 8% | 5-10% |
+| Web đa ngôn ngữ | 4% | 5-10% |
 
-Increase code ratio if the model should be strong at programming. Increase math ratio if reasoning matters. Decrease web ratio if you need less noise. Always evaluate on benchmarks after changing ratios.
+Tăng tỷ lệ mã nếu mô hình cần mạnh về lập trình. Tăng tỷ lệ toán nếu suy luận quan trọng. Giảm tỷ lệ web nếu cần ít nhiễu hơn. Luôn đánh giá trên benchmark sau khi thay đổi tỷ lệ.
 
 ## Scaling Estimates
 
-For a given target token count:
+Với một số token mục tiêu cho trước:
 
-- 1T tokens from web: expect ~3-5TB raw text, ~1.5-2TB after cleaning and dedup
-- Tokenization speed (Rust): ~100M tokens/second per core
-- Tokenization speed (Python): ~1-10M tokens/second per core
-- MinHash dedup at 128 hashes, 16 bands: ~10K documents/second per core
-- Sequence packing: I/O bound, use memory-mapped files for corpora above 10GB
+- 1T token từ web: dự kiến ~3-5TB văn bản thô, ~1.5-2TB sau làm sạch và khử trùng lặp
+- Tốc độ token hóa (Rust): ~100M token/giây mỗi lõi
+- Tốc độ token hóa (Python): ~1-10M token/giây mỗi lõi
+- Khử trùng lặp MinHash ở 128 hàm băm, 16 dải: ~10K tài liệu/giây mỗi lõi
+- Đóng gói chuỗi: bị giới hạn I/O, dùng file ánh xạ bộ nhớ cho corpus trên 10GB
 
-For 15T tokens (Llama 3 scale), plan for ~30-50TB of raw input data, 1-2 weeks of preprocessing on a 64-core machine, and 100TB+ of disk for intermediate files.
+Với 15T token (quy mô Llama 3), dự trù ~30-50TB dữ liệu đầu vào thô, 1-2 tuần tiền xử lý trên máy 64 lõi, và 100TB+ ổ đĩa cho các file trung gian.
 
 ## Checklist Before Training
 
-1. Total token count matches your compute budget (use Chinchilla scaling or the Llama 3 overtrain ratio as a guide)
-2. Dedup removed 30-40% of web data
-3. Quality filter removed 10-20% of remaining data
-4. Compression ratio is 3-5 chars/token for English
-5. Sequence utilization is above 95%
-6. Random spot-checks show clean, coherent text at every pipeline stage
-7. Data mix ratios have been validated on a small-scale training run
-8. PII removal has been verified on a sample
-9. All binary formats (packed sequences, token ID arrays) pass round-trip encoding/decoding tests
-10. Pipeline is reproducible: same input produces identical output with fixed random seeds
+1. Tổng số token khớp ngân sách tính toán (dùng mở rộng Chinchilla hoặc tỷ lệ huấn luyện quá mức Llama 3 làm hướng dẫn)
+2. Khử trùng lặp loại 30-40% dữ liệu web
+3. Bộ lọc chất lượng loại 10-20% dữ liệu còn lại
+4. Tỷ lệ nén là 3-5 ký tự/token cho tiếng Anh
+5. Mức sử dụng chuỗi trên 95%
+6. Các kiểm tra ngẫu nhiên cho thấy văn bản sạch, mạch lạc ở mỗi giai đoạn pipeline
+7. Các tỷ lệ trộn dữ liệu đã được xác thực trên một lần huấn luyện quy mô nhỏ
+8. Loại PII đã được xác minh trên một mẫu
+9. Mọi định dạng nhị phân (chuỗi đóng gói, mảng ID token) vượt các kiểm thử mã hóa/giải mã khứ hồi
+10. Pipeline có thể tái lập: cùng đầu vào tạo đầu ra giống hệt với seed ngẫu nhiên cố định
