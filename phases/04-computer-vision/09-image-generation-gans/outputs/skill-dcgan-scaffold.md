@@ -9,40 +9,40 @@ tags: [computer-vision, gan, dcgan, scaffolding]
 
 # DCGAN Scaffold
 
-Given three parameters, emit a runnable DCGAN project skeleton with the architecture sized correctly for the target image resolution.
+Với ba tham số, xuất một bộ khung dự án DCGAN có thể chạy với kiến trúc được định cỡ đúng cho độ phân giải hình ảnh đích.
 
 ## When to use
 
-- Starting a new generative experiment on a small dataset.
-- Teaching DCGAN fundamentals with a working minimal example.
-- Prototyping conditional GANs (label injection happens in the same scaffold).
+- Bắt đầu một thí nghiệm tạo sinh mới trên tập dữ liệu nhỏ.
+- Dạy nền tảng DCGAN với một ví dụ tối giản hoạt động.
+- Tạo mẫu thử GAN có điều kiện (đưa nhãn vào diễn ra trong cùng bộ khung).
 
 ## Inputs
 
-- `image_size`: one of 32, 64, 128 (must be a power of two).
-- `num_channels`: 1 (grayscale) or 3 (RGB).
-- `z_dim`: typically 64 or 128.
-- `with_spectral_norm`: yes | no; default yes.
+- `image_size`: một trong 32, 64, 128 (phải là lũy thừa của hai).
+- `num_channels`: 1 (thang xám) hoặc 3 (RGB).
+- `z_dim`: thường 64 hoặc 128.
+- `with_spectral_norm`: yes | no; mặc định yes.
 
 ## Architecture sizing
 
-Number of transposed conv blocks in G and strided conv blocks in D depends on `image_size`:
+Số khối tích chập chuyển vị trong G và khối tích chập có stride trong D phụ thuộc `image_size`:
 
-| image_size | G blocks | D blocks |
+| image_size | Các khối G | Các khối D |
 |------------|----------|----------|
 | 32         | 4        | 4        |
 | 64         | 5        | 5        |
 | 128        | 6        | 6        |
 
-Each additional block doubles (G) or halves (D) the spatial dimension. Feature count starts at 32 and scales with `feat_base * 2^block_index`.
+Mỗi khối bổ sung gấp đôi (G) hoặc giảm một nửa (D) chiều không gian. Số đặc trưng bắt đầu ở 32 và tăng theo `feat_base * 2^block_index`.
 
 ## Output files
 
-- `model.py` — Generator + Discriminator classes
-- `train.py` — training loop, loss, optimiser setup
-- `sample.py` — sample grid saver
-- `config.json` — hyperparameters
-- `README.md` — 10-line quickstart
+- `model.py` — các lớp Generator + Discriminator
+- `train.py` — vòng lặp huấn luyện, mất mát, thiết lập bộ tối ưu hóa
+- `sample.py` — bộ lưu lưới mẫu
+- `config.json` — các siêu tham số
+- `README.md` — hướng dẫn bắt đầu nhanh 10 dòng
 
 ## Report
 
@@ -75,7 +75,7 @@ Each additional block doubles (G) or halves (D) the spatial dimension. Feature c
 
 ## Rules
 
-- Always use `nn.Tanh()` on G's output and scale data to [-1, 1] during training.
-- Always use `LeakyReLU(0.2)` in D.
-- When `with_spectral_norm == yes`, wrap every conv in D with `spectral_norm()` and remove BatchNorm from D. Keep BatchNorm in G.
-- Never emit a scaffold for image_size > 128 — DCGAN becomes unstable above that; point the user to StyleGAN or a diffusion model.
+- Luôn sử dụng `nn.Tanh()` trên đầu ra G và co giãn dữ liệu về [-1, 1] trong huấn luyện.
+- Luôn sử dụng `LeakyReLU(0.2)` trong D.
+- Khi `with_spectral_norm == yes`, bao bọc mọi tích chập trong D bằng `spectral_norm()` và loại bỏ BatchNorm khỏi D. Giữ BatchNorm trong G.
+- Không bao giờ xuất bộ khung cho image_size > 128 — DCGAN trở nên không ổn định trên mức đó; hướng người dùng tới StyleGAN hoặc một mô hình khuếch tán.

@@ -1,6 +1,6 @@
 # Image Generation — GANs
 
-> A GAN is two neural networks in a fixed game. One draws, one critiques. They get better together until the drawings fool the critic.
+> Một GAN là hai mạng nơ-ron trong một trò chơi cố định. Một mạng vẽ, một mạng phê bình. Chúng cùng tốt lên cho tới khi các bức vẽ đánh lừa người phê bình.
 
 **Type:** Build
 **Languages:** Python
@@ -9,18 +9,18 @@
 
 ## Learning Objectives
 
-- Explain the minimax game between generator and discriminator and why the equilibrium corresponds to p_model = p_data
-- Implement a DCGAN in PyTorch and get it to generate coherent 32x32 synthetic images in under 60 lines
-- Stabilise GAN training with the three standard tricks: non-saturating loss, spectral norm, TTUR (two-timescale update rule)
-- Read training curves that distinguish healthy convergence from mode collapse, oscillation, and discriminator-wins-completely
+- Giải thích trò chơi minimax giữa bộ sinh và bộ phân biệt và tại sao cân bằng tương ứng với p_model = p_data
+- Triển khai một DCGAN bằng PyTorch và khiến nó sinh các hình ảnh tổng hợp 32x32 nhất quán trong dưới 60 dòng
+- Ổn định huấn luyện GAN bằng ba thủ thuật tiêu chuẩn: mất mát không bão hòa, spectral norm, TTUR (quy tắc cập nhật hai thang thời gian)
+- Đọc các đường cong huấn luyện phân biệt hội tụ khỏe mạnh với sụp đổ mode, dao động và bộ phân biệt thắng hoàn toàn
 
 ## The Problem
 
-Classification teaches a network to map images to labels. Generation inverts the problem: sample new images that look like they came from the same distribution. There is no "correct" output you can diff against; there is only a distribution you want to mimic.
+Phân loại dạy một mạng ánh xạ hình ảnh thành nhãn. Sinh đảo ngược bài toán: lấy mẫu các hình ảnh mới trông như đến từ cùng phân phối. Không có đầu ra "đúng" để bạn đối chiếu; chỉ có một phân phối bạn muốn bắt chước.
 
-The standard loss functions (MSE, cross-entropy) cannot measure "did this sample come from the real distribution." Minimising per-pixel error produces blurry averages, not realistic samples. The breakthrough was to learn the loss: train a second network whose job is to tell real from fake, and use its judgement to push the generator.
+Các hàm mất mát tiêu chuẩn (MSE, cross-entropy) không thể đo "mẫu này có đến từ phân phối thật không." Tối thiểu hóa sai số từng pixel tạo ra các trung bình mờ, không phải các mẫu chân thực. Đột phá là học mất mát: huấn luyện một mạng thứ hai có nhiệm vụ phân biệt thật giả và sử dụng phán đoán của nó để thúc đẩy bộ sinh.
 
-GANs (Goodfellow et al., 2014) defined that framework. By 2018 StyleGAN was producing 1024x1024 faces indistinguishable from photographs. Diffusion models have since taken the throne on quality and controllability, but every trick that makes diffusion practical — normalisation choices, latent spaces, feature losses — was first understood on GANs.
+GAN (Goodfellow et al., 2014) định nghĩa framework đó. Đến năm 2018 StyleGAN tạo các khuôn mặt 1024x1024 không thể phân biệt với ảnh chụp. Các mô hình khuếch tán sau đó giành ngôi về chất lượng và khả năng điều khiển, nhưng mọi thủ thuật khiến khuếch tán thực tiễn — lựa chọn chuẩn hóa, không gian tiềm ẩn, mất mát đặc trưng — đều được hiểu đầu tiên trên GAN.
 
 ## The Concept
 
@@ -39,42 +39,42 @@ flowchart LR
     style OUT fill:#dcfce7,stroke:#16a34a
 ```
 
-The **generator** G takes a vector of noise `z` and outputs an image. The **discriminator** D takes an image and outputs a single scalar: the probability that the image is real.
+**Bộ sinh** G nhận một vector nhiễu `z` và xuất ra một hình ảnh. **Bộ phân biệt** D nhận một hình ảnh và xuất một số vô hướng duy nhất: xác suất hình ảnh là thật.
 
 ### The game
 
-G wants D to be wrong. D wants to be right. Formally:
+G muốn D sai. D muốn đúng. Về hình thức:
 
 ```
 min_G max_D  E_x[log D(x)] + E_z[log(1 - D(G(z)))]
 ```
 
-Read right to left: D is maximising accuracy on real (`log D(real)`) and fake (`log (1 - D(fake))`) images. G is minimising D's accuracy on fakes — it wants `D(G(z))` to be high.
+Đọc từ phải sang trái: D tối đa hóa accuracy trên các hình ảnh thật (`log D(real)`) và giả (`log (1 - D(fake))`). G tối thiểu hóa accuracy của D trên các ảnh giả — nó muốn `D(G(z))` cao.
 
-Goodfellow proved that this minimax has a global equilibrium where `p_G = p_data`, D outputs 0.5 everywhere, and the Jensen-Shannon divergence between generated and real distributions is zero. The hard part is getting there.
+Goodfellow chứng minh minimax này có một cân bằng toàn cục nơi `p_G = p_data`, D xuất ra 0.5 ở mọi nơi và phân kỳ Jensen-Shannon giữa phân phối sinh và thật bằng không. Phần khó là tới đó.
 
 ### Non-saturating loss
 
-The form above is numerically unstable. Early in training, `D(G(z))` is near zero for every fake, so `log(1 - D(G(z)))` has vanishing gradients with respect to G. The fix: flip G's loss.
+Dạng trên không ổn định về số. Đầu huấn luyện, `D(G(z))` gần không với mọi ảnh giả, nên `log(1 - D(G(z)))` có các gradient tiêu biến theo G. Khắc phục: đảo mất mát của G.
 
 ```
 L_D = -E_x[log D(x)] - E_z[log(1 - D(G(z)))]
 L_G = -E_z[log D(G(z))]                          # non-saturating
 ```
 
-Now when `D(G(z))` is near zero, G's loss is large and its gradient is informative. Every modern GAN trains with this variant.
+Giờ khi `D(G(z))` gần không, mất mát G lớn và gradient của nó có thông tin. Mọi GAN hiện đại đều huấn luyện với biến thể này.
 
 ### DCGAN architecture rules
 
-Radford, Metz, Chintala (2015) distilled years of failed experiments into five rules that make GAN training stable:
+Radford, Metz, Chintala (2015) chắt lọc nhiều năm thí nghiệm thất bại thành năm quy tắc khiến huấn luyện GAN ổn định:
 
-1. Replace pooling with strided convs (both nets).
-2. Use batch norm in both generator and discriminator, except output of G and input of D.
-3. Remove fully connected layers on deeper architectures.
-4. G uses ReLU on all layers except output (tanh for output in [-1, 1]).
-5. D uses LeakyReLU (negative_slope=0.2) on all layers.
+1. Thay pooling bằng các tích chập có stride (cả hai mạng).
+2. Sử dụng batch norm trong cả bộ sinh và bộ phân biệt, trừ đầu ra G và đầu vào D.
+3. Loại bỏ các lớp kết nối đầy đủ trên các kiến trúc sâu hơn.
+4. G sử dụng ReLU trên mọi lớp trừ đầu ra (tanh cho đầu ra trong [-1, 1]).
+5. D sử dụng LeakyReLU (negative_slope=0.2) trên mọi lớp.
 
-Every modern conv-based GAN (StyleGAN, BigGAN, GigaGAN) still starts from these rules and replaces pieces one at a time.
+Mọi GAN dựa trên tích chập hiện đại (StyleGAN, BigGAN, GigaGAN) vẫn bắt đầu từ các quy tắc này và thay từng phần một.
 
 ### Failure modes and their signatures
 
@@ -89,20 +89,20 @@ flowchart LR
     style M3 fill:#fecaca,stroke:#dc2626
 ```
 
-- **Mode collapse**: G finds one image that fools D and produces only that. Fix: add minibatch discrimination, spectral norm, or label-conditioning.
-- **Discriminator wins**: D becomes too strong too fast, G's gradients vanish. Fix: smaller D, lower D learning rate, or apply label smoothing on the real labels.
-- **Oscillation**: the two nets trade wins without ever approaching equilibrium. Fix: TTUR (D learns faster than G by a factor of 2-4), or switch to Wasserstein loss.
+- **Sụp đổ mode**: G tìm một hình ảnh đánh lừa D và chỉ tạo ảnh đó. Khắc phục: thêm phân biệt minibatch, spectral norm hoặc điều kiện hóa nhãn.
+- **Bộ phân biệt thắng**: D trở nên quá mạnh quá nhanh, các gradient G tiêu biến. Khắc phục: D nhỏ hơn, tốc độ học D thấp hơn hoặc áp dụng làm trơn nhãn trên các nhãn thật.
+- **Dao động**: hai mạng thay nhau thắng mà không bao giờ tiến tới cân bằng. Khắc phục: TTUR (D học nhanh hơn G 2-4 lần) hoặc chuyển sang mất mát Wasserstein.
 
 ### Evaluation
 
-GANs have no ground truth, so how do you know they are working?
+GAN không có sự thật nền, vậy làm sao bạn biết chúng đang hoạt động?
 
-- **Sample inspection** — just look at 64 samples at the end of every epoch. Non-negotiable.
-- **FID (Fréchet Inception Distance)** — distance between Inception-v3 feature distributions of real and generated sets. Lower is better. Community standard.
-- **Inception Score** — older, more brittle; prefer FID.
-- **Precision/Recall for generative models** — measures quality (precision) and coverage (recall) separately. More informative than FID alone.
+- **Xem xét mẫu** — chỉ cần xem 64 mẫu ở cuối mỗi epoch. Không thể thương lượng.
+- **FID (Fréchet Inception Distance)** — khoảng cách giữa các phân phối đặc trưng Inception-v3 của tập thật và tập sinh. Thấp hơn tốt hơn. Tiêu chuẩn cộng đồng.
+- **Inception Score** — cũ hơn, mong manh hơn; ưu tiên FID.
+- **Precision/Recall cho mô hình tạo sinh** — đo riêng chất lượng (precision) và độ bao phủ (recall). Nhiều thông tin hơn chỉ FID.
 
-For a small synthetic-data run, sample inspection is enough.
+Với một lần chạy dữ liệu tổng hợp nhỏ, xem xét mẫu là đủ.
 
 ```figure
 cv-gan-image
@@ -112,7 +112,7 @@ cv-gan-image
 
 ### Step 1: Generator
 
-A small DCGAN generator that takes 64-dim noise and produces a 32x32 image.
+Một bộ sinh DCGAN nhỏ nhận nhiễu 64 chiều và tạo một hình ảnh 32x32.
 
 ```python
 import torch
@@ -139,11 +139,11 @@ class Generator(nn.Module):
         return self.net(z.view(z.size(0), -1, 1, 1))
 ```
 
-Four transposed convs, each with `kernel_size=4, stride=2, padding=1` so they cleanly double spatial size. Output activations in [-1, 1] via tanh.
+Bốn tích chập chuyển vị, mỗi phép có `kernel_size=4, stride=2, padding=1` để gấp đôi kích thước không gian gọn gàng. Các kích hoạt đầu ra trong [-1, 1] qua tanh.
 
 ### Step 2: Discriminator
 
-Mirror of the generator. LeakyReLU, strided convs, ends with a scalar logit.
+Ảnh gương của bộ sinh. LeakyReLU, các tích chập có stride, kết thúc với một logit vô hướng.
 
 ```python
 class Discriminator(nn.Module):
@@ -165,11 +165,11 @@ class Discriminator(nn.Module):
         return self.net(x).view(-1)
 ```
 
-The last conv reduces a `4x4` feature map to `1x1`. Output is a single scalar per image; apply sigmoid only during loss computation.
+Tích chập cuối giảm bản đồ đặc trưng `4x4` thành `1x1`. Đầu ra là một số vô hướng mỗi hình ảnh; chỉ áp dụng sigmoid khi tính mất mát.
 
 ### Step 3: Training step
 
-Alternate: update D once, then G once, every batch.
+Luân phiên: cập nhật D một lần, rồi G một lần, mỗi batch.
 
 ```python
 import torch.nn.functional as F
@@ -197,7 +197,7 @@ def train_step(G, D, real, z, opt_g, opt_d, device):
     return loss_d.item(), loss_g.item()
 ```
 
-`G(z).detach()` in the D step is critical: we do not want gradients flowing into G during its update. Forgetting that is the classic beginner bug.
+`G(z).detach()` trong bước D rất quan trọng: chúng ta không muốn các gradient chảy vào G trong cập nhật của nó. Quên điều đó là lỗi người mới kinh điển.
 
 ### Step 4: Full training loop on synthetic shapes
 
@@ -234,7 +234,7 @@ for epoch in range(10):
     print(f"epoch {epoch}  D {ld:.3f}  G {lg:.3f}")
 ```
 
-`Adam(lr=2e-4, betas=(0.5, 0.999))` is the DCGAN default — the low beta1 keeps the momentum term from stabilising the adversarial game too much.
+`Adam(lr=2e-4, betas=(0.5, 0.999))` là mặc định DCGAN — beta1 thấp giữ số hạng momentum không ổn định hóa trò chơi đối kháng quá nhiều.
 
 ### Step 5: Sampling
 
@@ -248,11 +248,11 @@ def sample(G, n=16, z_dim=64, device="cpu"):
     return imgs.clamp(0, 1)
 ```
 
-Always switch to eval mode before sampling. For DCGAN this matters because batch norm running stats are used instead of the batch's stats.
+Luôn chuyển sang chế độ eval trước khi lấy mẫu. Với DCGAN điều này quan trọng vì các thống kê tích lũy batch norm được dùng thay thống kê của batch.
 
 ### Step 6: Spectral normalisation
 
-A drop-in replacement for BN in the discriminator that guarantees the network is 1-Lipschitz. Fixes most "D wins too hard" failures.
+Một thay thế trực tiếp cho BN trong bộ phân biệt bảo đảm mạng là 1-Lipschitz. Khắc phục hầu hết thất bại "D thắng quá mạnh".
 
 ```python
 from torch.nn.utils import spectral_norm
@@ -269,46 +269,46 @@ def build_sn_discriminator(img_channels=3, feat=64):
     )
 ```
 
-Swap `Discriminator` for `build_sn_discriminator()` and you often do not need the TTUR trick. Spectral norm is the easiest single robustness upgrade you can apply.
+Đổi `Discriminator` thành `build_sn_discriminator()` và bạn thường không cần thủ thuật TTUR. Spectral norm là nâng cấp độ vững đơn lẻ dễ nhất bạn có thể áp dụng.
 
 ## Use It
 
-For serious generation, use pretrained weights or switch to diffusion. Two standard libraries:
+Với sinh ảnh nghiêm túc, sử dụng các trọng số được tiền huấn luyện hoặc chuyển sang khuếch tán. Hai thư viện tiêu chuẩn:
 
-- `torch_fidelity` computes FID / IS on your generator without writing custom eval code.
-- `pytorch-gan-zoo` (legacy) and `StudioGAN` ship tested implementations of DCGAN, WGAN-GP, SN-GAN, StyleGAN, and BigGAN.
+- `torch_fidelity` tính FID / IS trên bộ sinh của bạn mà không viết mã eval tùy chỉnh.
+- `pytorch-gan-zoo` (cũ) và `StudioGAN` cung cấp các bản triển khai đã kiểm thử của DCGAN, WGAN-GP, SN-GAN, StyleGAN và BigGAN.
 
-In 2026, GANs are still the best choice for: real-time image generation (latency <10 ms), style transfer, image-to-image translation with precise control (Pix2Pix, CycleGAN). Diffusion wins on photorealism and text conditioning.
+Năm 2026, GAN vẫn là lựa chọn tốt nhất cho: sinh hình ảnh thời gian thực (độ trễ <10 ms), chuyển phong cách, chuyển đổi ảnh-sang-ảnh với kiểm soát chính xác (Pix2Pix, CycleGAN). Khuếch tán thắng về tính chân thực như ảnh chụp và điều kiện hóa văn bản.
 
 ## Ship It
 
-This lesson produces:
+Bài học này tạo ra:
 
-- `outputs/prompt-gan-training-triage.md` — a prompt that reads a training curve description and picks the failure mode (mode collapse, D-wins, oscillation) plus the single recommended fix.
-- `outputs/skill-dcgan-scaffold.md` — a skill that writes a DCGAN scaffold from `z_dim`, target `image_size`, and `num_channels`, including training loop and sample saver.
+- `outputs/prompt-gan-training-triage.md` — một prompt đọc mô tả đường cong huấn luyện và chọn kiểu thất bại (sụp đổ mode, D thắng, dao động) cộng một cách khắc phục được khuyến nghị.
+- `outputs/skill-dcgan-scaffold.md` — một skill viết bộ khung DCGAN từ `z_dim`, `image_size` đích và `num_channels`, gồm vòng lặp huấn luyện và bộ lưu mẫu.
 
 ## Exercises
 
-1. **(Easy)** Train the DCGAN above on the synthetic circle dataset and save a grid of 16 samples at the end of each epoch. By which epoch do the generated circles become clearly circular?
-2. **(Medium)** Replace the discriminator's batch norm with spectral norm. Train both versions side by side. Which one converges faster? Which one has lower variance across three seeds?
-3. **(Hard)** Implement a conditional DCGAN: feed the class label into both G and D (concat one-hot to the noise in G, concat a class embedding channel in D). Train on the synthetic "circles vs squares" dataset from lesson 7 and show that class conditioning works by sampling with specific labels.
+1. **(Dễ)** Huấn luyện DCGAN trên trên tập dữ liệu hình tròn tổng hợp và lưu một lưới 16 mẫu ở cuối mỗi epoch. Đến epoch nào các hình tròn được sinh trở nên rõ ràng tròn?
+2. **(Vừa)** Thay batch norm bộ phân biệt bằng spectral norm. Huấn luyện hai phiên bản cạnh nhau. Phiên bản nào hội tụ nhanh hơn? Phiên bản nào có phương sai thấp hơn qua ba seed?
+3. **(Khó)** Triển khai một DCGAN có điều kiện: đưa nhãn lớp vào cả G và D (nối one-hot vào nhiễu trong G, nối một kênh embedding lớp trong D). Huấn luyện trên tập dữ liệu tổng hợp "hình tròn so với hình vuông" từ bài 7 và cho thấy điều kiện hóa lớp hoạt động bằng cách lấy mẫu với các nhãn cụ thể.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Generator (G) | "The draws-stuff net" | Maps noise to images; trained to fool the discriminator |
-| Discriminator (D) | "The critic" | Binary classifier; trained to distinguish real from generated images |
-| Minimax | "The game" | min over G, max over D of an adversarial loss; equilibrium is p_G = p_data |
-| Non-saturating loss | "The numerically sane version" | G's loss is -log(D(G(z))) instead of log(1 - D(G(z))) to avoid vanishing gradients early in training |
-| Mode collapse | "Generator makes one thing" | G produces only a small subset of the data distribution; fix with SN, minibatch discrimination, or larger batch |
-| TTUR | "Two learning rates" | D learns faster than G, typically by a factor of 2-4; stabilises training |
-| Spectral norm | "1-Lipschitz layer" | A weight-normalisation that bounds each layer's Lipschitz constant; stops D from becoming arbitrarily steep |
-| FID | "Fréchet Inception Distance" | Distance between Inception-v3 feature distributions of real and generated sets; the standard evaluation metric |
+| Generator (G) (Bộ sinh) | "Mạng vẽ các thứ" | Ánh xạ nhiễu thành hình ảnh; được huấn luyện để đánh lừa bộ phân biệt |
+| Discriminator (D) (Bộ phân biệt) | "Người phê bình" | Bộ phân loại nhị phân; được huấn luyện để phân biệt hình ảnh thật với hình ảnh sinh |
+| Minimax | "Trò chơi" | min trên G, max trên D của một mất mát đối kháng; cân bằng là p_G = p_data |
+| Non-saturating loss (Mất mát không bão hòa) | "Phiên bản hợp lý về số" | Mất mát G là -log(D(G(z))) thay vì log(1 - D(G(z))) để tránh gradient tiêu biến đầu huấn luyện |
+| Mode collapse (Sụp đổ mode) | "Bộ sinh tạo một thứ" | G chỉ tạo một tập con nhỏ của phân phối dữ liệu; khắc phục bằng SN, phân biệt minibatch hoặc batch lớn hơn |
+| TTUR | "Hai tốc độ học" | D học nhanh hơn G, thường 2-4 lần; ổn định huấn luyện |
+| Spectral norm | "Lớp 1-Lipschitz" | Một phép chuẩn hóa trọng số chặn hằng số Lipschitz mỗi lớp; ngăn D trở nên dốc tùy ý |
+| FID | "Fréchet Inception Distance" | Khoảng cách giữa các phân phối đặc trưng Inception-v3 của tập thật và tập sinh; thước đo đánh giá tiêu chuẩn |
 
 ## Further Reading
 
-- [Generative Adversarial Networks (Goodfellow et al., 2014)](https://arxiv.org/abs/1406.2661) — the paper that started it all
-- [DCGAN (Radford, Metz, Chintala, 2015)](https://arxiv.org/abs/1511.06434) — the architecture rules that made GANs trainable
-- [Spectral Normalization for GANs (Miyato et al., 2018)](https://arxiv.org/abs/1802.05957) — the single most useful stabilisation trick
-- [StyleGAN3 (Karras et al., 2021)](https://arxiv.org/abs/2106.12423) — the SOTA GAN; reads like a greatest-hits album of every trick from the last decade
+- [Generative Adversarial Networks (Goodfellow et al., 2014)](https://arxiv.org/abs/1406.2661) — bài báo khởi đầu tất cả
+- [DCGAN (Radford, Metz, Chintala, 2015)](https://arxiv.org/abs/1511.06434) — các quy tắc kiến trúc khiến GAN có thể huấn luyện
+- [Spectral Normalization for GANs (Miyato et al., 2018)](https://arxiv.org/abs/1802.05957) — thủ thuật ổn định hóa hữu ích nhất
+- [StyleGAN3 (Karras et al., 2021)](https://arxiv.org/abs/2106.12423) — GAN SOTA; đọc như một album tuyển tập các thủ thuật hay nhất từ thập kỷ qua
