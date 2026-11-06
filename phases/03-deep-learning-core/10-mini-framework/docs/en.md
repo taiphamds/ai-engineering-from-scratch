@@ -1,6 +1,6 @@
 # Build Your Own Mini Framework
 
-> You have built neurons, layers, networks, backprop, activations, loss functions, optimizers, regularization, initialization, and LR schedules. All as separate pieces. Now wire them together into a framework. Not PyTorch. Not TensorFlow. Yours.
+> Bạn đã xây dựng các nơ-ron, lớp, mạng, backprop, kích hoạt, hàm mất mát, bộ tối ưu hóa, chính quy hóa, khởi tạo và lịch LR. Tất cả dưới dạng các phần riêng biệt. Giờ nối chúng thành một framework. Không phải PyTorch. Không phải TensorFlow. Của bạn.
 
 **Type:** Build
 **Languages:** Python
@@ -9,48 +9,48 @@
 
 ## Learning Objectives
 
-- Build a complete deep learning framework (~500 lines) with Module, Linear, ReLU, Sigmoid, Dropout, BatchNorm, Sequential, loss functions, optimizers, and DataLoader
-- Explain the Module abstraction (forward, backward, parameters) and why train/eval mode toggling is necessary
-- Wire all components into a working training loop that trains a 4-layer network on circle classification
-- Map each component of your framework to its PyTorch equivalent (nn.Module, nn.Sequential, optim.Adam, DataLoader)
+- Xây dựng một framework học sâu hoàn chỉnh (~500 dòng) với Module, Linear, ReLU, Sigmoid, Dropout, BatchNorm, Sequential, các hàm mất mát, bộ tối ưu hóa và DataLoader
+- Giải thích trừu tượng Module (forward, backward, parameters) và tại sao chuyển đổi chế độ train/eval là cần thiết
+- Nối tất cả các thành phần thành một vòng lặp huấn luyện hoạt động để huấn luyện một mạng 4 lớp trên phân loại đường tròn
+- Ánh xạ mỗi thành phần framework của bạn tới thành phần PyTorch tương đương (nn.Module, nn.Sequential, optim.Adam, DataLoader)
 
 ## The Problem
 
-You have ten lessons of building blocks scattered across separate files. A `Value` class here, a training loop there, weight initialization in another file, learning rate schedules in yet another. To train a network, you copy-paste from five different lessons and wire them together by hand.
+Bạn có các khối xây dựng từ mười bài học rải rác trong các file riêng biệt. Một lớp `Value` ở đây, một vòng lặp huấn luyện ở kia, khởi tạo trọng số trong một file khác, các lịch tốc độ học trong một file khác nữa. Để huấn luyện một mạng, bạn sao chép-dán từ năm bài học khác nhau và nối chúng thủ công.
 
-That is what frameworks solve. PyTorch gives you `nn.Module`, `nn.Sequential`, `optim.Adam`, `DataLoader`, and a training loop pattern that ties them together. TensorFlow gives you `keras.Layer`, `keras.Sequential`, `keras.optimizers.Adam`. These are not magic. They are organizational patterns that make it possible to define, train, and evaluate networks without reinventing the plumbing every time.
+Đó là điều framework giải quyết. PyTorch cho bạn `nn.Module`, `nn.Sequential`, `optim.Adam`, `DataLoader` và một mẫu vòng lặp huấn luyện gắn chúng với nhau. TensorFlow cho bạn `keras.Layer`, `keras.Sequential`, `keras.optimizers.Adam`. Đây không phải phép thuật. Chúng là các mẫu tổ chức cho phép định nghĩa, huấn luyện và đánh giá các mạng mà không phải làm lại hệ thống kết nối mỗi lần.
 
-You are going to build the same thing in ~500 lines of Python. No numpy. No external dependencies. A framework that can define any feedforward network, train it with SGD or Adam, batch the data, apply dropout and batch normalization, use any activation, and schedule the learning rate.
+Bạn sẽ xây dựng cùng thứ đó trong ~500 dòng Python. Không numpy. Không phụ thuộc bên ngoài. Một framework có thể định nghĩa bất kỳ mạng feedforward nào, huấn luyện nó với SGD hoặc Adam, chia dữ liệu thành batch, áp dụng dropout và batch normalization, sử dụng bất kỳ kích hoạt nào và lập lịch tốc độ học.
 
-When you finish, you will understand exactly what happens when you write `model = nn.Sequential(...)` in PyTorch. You will understand why `model.train()` and `model.eval()` exist. You will understand why `optimizer.zero_grad()` is a separate call. You will understand all of it, because you built all of it.
+Khi hoàn thành, bạn sẽ hiểu chính xác điều gì xảy ra khi viết `model = nn.Sequential(...)` trong PyTorch. Bạn sẽ hiểu tại sao `model.train()` và `model.eval()` tồn tại. Bạn sẽ hiểu tại sao `optimizer.zero_grad()` là một lời gọi riêng. Bạn sẽ hiểu tất cả, vì bạn đã xây dựng tất cả.
 
 ## The Concept
 
 ### The Module Abstraction
 
-Every layer in PyTorch inherits from `nn.Module`. A Module has three responsibilities:
+Mỗi lớp trong PyTorch kế thừa từ `nn.Module`. Một Module có ba trách nhiệm:
 
-1. **forward()** -- compute the output given inputs
-2. **parameters()** -- return all trainable weights
-3. **backward()** -- compute gradients (handled by autograd in PyTorch, explicit in ours)
+1. **forward()** -- tính đầu ra từ các đầu vào cho trước
+2. **parameters()** -- trả về tất cả các trọng số có thể huấn luyện
+3. **backward()** -- tính các gradient (được autograd xử lý trong PyTorch, tường minh trong framework của chúng ta)
 
-A Linear layer is a Module. A ReLU activation is a Module. A dropout layer is a Module. A batch normalization layer is a Module. They all have the same interface.
+Một lớp Linear là một Module. Một kích hoạt ReLU là một Module. Một lớp dropout là một Module. Một lớp batch normalization là một Module. Tất cả có cùng giao diện.
 
 ### Sequential Container
 
-`nn.Sequential` chains Modules. Forward pass: feed data through Module 1, then Module 2, then Module 3. Backward pass: reverse the chain. The container itself is a Module -- it has forward(), parameters(), and backward(). This is the composite pattern: a sequence of Modules is itself a Module.
+`nn.Sequential` nối các Module thành chuỗi. Lượt truyền xuôi: đưa dữ liệu qua Module 1, rồi Module 2, rồi Module 3. Lượt truyền ngược: đảo ngược chuỗi. Bản thân bộ chứa là một Module -- nó có forward(), parameters() và backward(). Đây là mẫu composite: một chuỗi các Module tự nó là một Module.
 
 ### Training vs Evaluation Mode
 
-Dropout randomly zeroes neurons during training but passes everything through during evaluation. Batch normalization uses batch statistics during training but running averages during evaluation. The `train()` and `eval()` methods toggle this behavior. Every Module has a `training` flag.
+Dropout đưa ngẫu nhiên các nơ-ron về không trong huấn luyện nhưng truyền mọi thứ qua trong đánh giá. Batch normalization sử dụng thống kê batch trong huấn luyện nhưng các trung bình tích lũy trong đánh giá. Các phương thức `train()` và `eval()` chuyển đổi hành vi này. Mỗi Module có một cờ `training`.
 
 ### Optimizer
 
-The optimizer updates parameters using their gradients. SGD: `param -= lr * grad`. Adam: maintains momentum and variance estimates, then updates. The optimizer does not know about the network architecture -- it only sees a flat list of parameters and their gradients.
+Bộ tối ưu hóa cập nhật các tham số bằng các gradient của chúng. SGD: `param -= lr * grad`. Adam: duy trì các ước lượng momentum và phương sai, rồi cập nhật. Bộ tối ưu hóa không biết về kiến trúc mạng -- nó chỉ thấy một danh sách phẳng các tham số và gradient của chúng.
 
 ### DataLoader
 
-Batching matters for two reasons. First, you cannot fit the entire dataset in memory for large problems. Second, mini-batch gradient descent provides noise that helps escape local minima. The DataLoader splits data into batches and optionally shuffles between epochs.
+Chia batch quan trọng vì hai lý do. Thứ nhất, bạn không thể đưa toàn bộ tập dữ liệu vào bộ nhớ với các bài toán lớn. Thứ hai, hạ gradient mini-batch cung cấp nhiễu giúp thoát các cực tiểu cục bộ. DataLoader chia dữ liệu thành các batch và tùy chọn xáo trộn giữa các epoch.
 
 ### Framework Architecture
 
@@ -155,7 +155,7 @@ gradient-clipping
 
 ### Step 1: Module Base Class
 
-The abstract interface that every layer implements.
+Giao diện trừu tượng mà mọi lớp triển khai.
 
 ```python
 class Module:
@@ -180,7 +180,7 @@ class Module:
 
 ### Step 2: Linear Layer
 
-The fundamental building block. Stores weights and biases, computes Wx + b forward, and weight/input gradients backward.
+Khối xây dựng cơ bản. Lưu các trọng số và bias, tính Wx + b khi truyền xuôi, và các gradient trọng số/đầu vào khi truyền ngược.
 
 ```python
 import math
@@ -229,7 +229,7 @@ class Linear(Module):
 
 ### Step 3: Activation Modules
 
-ReLU, Sigmoid, and Tanh as Modules. Each caches what it needs for the backward pass.
+ReLU, Sigmoid và Tanh dưới dạng Module. Mỗi module lưu đệm những gì nó cần cho lượt truyền ngược.
 
 ```python
 class ReLU(Module):
@@ -276,7 +276,7 @@ class Tanh(Module):
 
 ### Step 4: Dropout Module
 
-Randomly zeroes elements during training. Scales remaining elements by 1/(1-p) so expected values stay the same. Does nothing during eval.
+Đưa ngẫu nhiên các phần tử về không trong huấn luyện. Co giãn các phần tử còn lại theo 1/(1-p) để các giá trị kỳ vọng giữ nguyên. Không làm gì trong eval.
 
 ```python
 class Dropout(Module):
@@ -299,7 +299,7 @@ class Dropout(Module):
 
 ### Step 5: BatchNorm Module
 
-Normalizes activations to zero mean and unit variance per feature across the batch. Maintains running statistics for eval mode.
+Chuẩn hóa các kích hoạt về trung bình bằng không và phương sai đơn vị cho mỗi đặc trưng trên toàn batch. Duy trì các thống kê tích lũy cho chế độ eval.
 
 ```python
 class BatchNorm(Module):
@@ -379,7 +379,7 @@ class BatchNorm(Module):
 
 ### Step 6: Sequential Container
 
-Chains modules. Forward goes left-to-right, backward goes right-to-left.
+Nối các module thành chuỗi. Xuôi đi từ trái sang phải, ngược đi từ phải sang trái.
 
 ```python
 class Sequential(Module):
@@ -416,7 +416,7 @@ class Sequential(Module):
 
 ### Step 7: Loss Functions
 
-MSE and Binary Cross-Entropy. Each returns the loss value and provides a backward() that returns the gradient.
+MSE và Cross-Entropy Nhị phân. Mỗi hàm trả về giá trị mất mát và cung cấp một backward() trả về gradient.
 
 ```python
 class MSELoss:
@@ -457,7 +457,7 @@ class BCELoss:
 
 ### Step 8: SGD and Adam Optimizers
 
-Both take a parameter list and update weights using gradients.
+Cả hai nhận một danh sách tham số và cập nhật các trọng số bằng các gradient.
 
 ```python
 class SGD:
@@ -522,7 +522,7 @@ class Adam:
 
 ### Step 9: DataLoader
 
-Splits data into batches, optionally shuffles each epoch.
+Chia dữ liệu thành các batch, tùy chọn xáo trộn mỗi epoch.
 
 ```python
 class DataLoader:
@@ -548,7 +548,7 @@ class DataLoader:
 
 ### Step 10: Train a 4-Layer Network on Circle Classification
 
-Wire everything together. Define a model, pick a loss, pick an optimizer, run the training loop.
+Nối mọi thứ lại. Định nghĩa một mô hình, chọn một mất mát, chọn một bộ tối ưu hóa, chạy vòng lặp huấn luyện.
 
 ```python
 def make_circle_data(n=500, seed=42):
@@ -633,7 +633,7 @@ def train():
 
 ## Use It
 
-Here is the PyTorch equivalent of what you just built:
+Đây là bản PyTorch tương đương với những gì bạn vừa xây dựng:
 
 ```python
 import torch
@@ -668,44 +668,44 @@ for epoch in range(100):
         test_predictions = model(test_inputs)
 ```
 
-The structure is identical. `Sequential`, `Linear`, `ReLU`, `Sigmoid`, `BCELoss`, `Adam`, `zero_grad`, `backward`, `step`, `train`, `eval`. Every concept maps one-to-one. The difference is that PyTorch handles autograd automatically (no need to implement backward() in each module), runs on GPU, and has been optimized for years. But the bones are the same.
+Cấu trúc giống hệt. `Sequential`, `Linear`, `ReLU`, `Sigmoid`, `BCELoss`, `Adam`, `zero_grad`, `backward`, `step`, `train`, `eval`. Mỗi khái niệm ánh xạ một-một. Khác biệt là PyTorch xử lý autograd tự động (không cần triển khai backward() trong mỗi module), chạy trên GPU và đã được tối ưu hóa nhiều năm. Nhưng bộ khung giống nhau.
 
-Now when you see PyTorch code, you know exactly what is happening at every line. That understanding is the whole point.
+Giờ khi bạn thấy mã PyTorch, bạn biết chính xác điều gì đang xảy ra ở mỗi dòng. Sự hiểu biết đó là toàn bộ mục đích.
 
 ## Ship It
 
-This lesson produces:
-- `outputs/prompt-framework-architect.md` -- a prompt for designing neural network architectures using framework abstractions
+Bài học này tạo ra:
+- `outputs/prompt-framework-architect.md` -- một prompt để thiết kế các kiến trúc mạng nơ-ron bằng các trừu tượng framework
 
 ## Exercises
 
-1. Add a `SoftmaxCrossEntropyLoss` class for multi-class classification. Softmax the predictions, compute cross-entropy loss, and handle the combined backward pass. Test it on a 3-class spiral dataset.
+1. Thêm một lớp `SoftmaxCrossEntropyLoss` cho phân loại đa lớp. Áp dụng softmax cho các dự đoán, tính mất mát cross-entropy và xử lý lượt truyền ngược kết hợp. Kiểm thử trên một tập dữ liệu xoắn ốc 3 lớp.
 
-2. Implement learning rate scheduling in the optimizer: add a `set_lr()` method and wire in the cosine schedule from Lesson 09. Train the circle classifier with warmup + cosine and compare to constant LR.
+2. Triển khai lập lịch tốc độ học trong bộ tối ưu hóa: thêm một phương thức `set_lr()` và nối lịch cosine từ Bài 09 vào. Huấn luyện bộ phân loại đường tròn với warmup + cosine và so sánh với LR hằng.
 
-3. Add a `save()` and `load()` method to Sequential that serializes all weights to a JSON file and loads them back. Verify that a loaded model produces the same predictions as the original.
+3. Thêm một phương thức `save()` và `load()` vào Sequential để tuần tự hóa tất cả các trọng số vào một file JSON và tải chúng lại. Xác minh một mô hình được tải tạo ra cùng các dự đoán như bản gốc.
 
-4. Implement weight decay (L2 regularization) in the Adam optimizer. Add a `weight_decay` parameter that shrinks weights toward zero each step. Compare training with decay=0 vs decay=0.01.
+4. Triển khai weight decay (chính quy hóa L2) trong bộ tối ưu hóa Adam. Thêm một tham số `weight_decay` co các trọng số về không mỗi bước. So sánh huấn luyện với decay=0 và decay=0.01.
 
-5. Replace the per-sample training loop with proper mini-batch gradient accumulation: accumulate gradients across all samples in a batch, then divide by batch size and take one optimizer step. Measure whether this changes convergence speed.
+5. Thay vòng lặp huấn luyện theo từng mẫu bằng tích lũy gradient mini-batch đúng nghĩa: tích lũy các gradient trên tất cả các mẫu trong một batch, rồi chia cho kích thước batch và thực hiện một bước tối ưu hóa. Đo xem điều này có thay đổi tốc độ hội tụ không.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Cách mọi người nói | Ý nghĩa thực sự |
 |------|----------------|----------------------|
-| Module | "A layer" | The base abstraction in a framework -- anything with forward(), backward(), and parameters() |
-| Sequential | "Stack layers in order" | A container that chains modules, applying them in sequence for forward and reverse for backward |
-| Forward pass | "Run the network" | Computing the output by passing input through each module in order |
-| Backward pass | "Compute gradients" | Propagating the loss gradient through each module in reverse to compute parameter gradients |
-| Parameters | "The trainable weights" | All values in the network that the optimizer can update -- weights and biases |
-| Optimizer | "The thing that updates weights" | An algorithm that uses gradients to update parameters, implementing SGD, Adam, or other rules |
-| DataLoader | "The thing that feeds data" | An iterator that splits a dataset into batches, optionally shuffling between epochs |
-| Training mode | "model.train()" | A flag that enables stochastic behavior like dropout and batch normalization with batch stats |
-| Evaluation mode | "model.eval()" | A flag that disables dropout and uses running statistics for batch normalization |
-| Zero grad | "Clear the gradients" | Resetting all parameter gradients to zero before computing the next batch's gradients |
+| Module | "Một lớp" | Trừu tượng cơ sở trong một framework -- bất cứ thứ gì có forward(), backward() và parameters() |
+| Sequential | "Xếp chồng các lớp theo thứ tự" | Một bộ chứa nối các module, áp dụng chúng theo thứ tự khi truyền xuôi và ngược lại khi truyền ngược |
+| Forward pass (Lượt truyền xuôi) | "Chạy mạng" | Tính đầu ra bằng cách truyền đầu vào qua từng module theo thứ tự |
+| Backward pass (Lượt truyền ngược) | "Tính các gradient" | Lan truyền gradient mất mát qua từng module theo chiều ngược lại để tính các gradient tham số |
+| Parameters (Các tham số) | "Các trọng số có thể huấn luyện" | Tất cả các giá trị trong mạng mà bộ tối ưu hóa có thể cập nhật -- các trọng số và bias |
+| Optimizer (Bộ tối ưu hóa) | "Thứ cập nhật các trọng số" | Một thuật toán sử dụng các gradient để cập nhật tham số, triển khai SGD, Adam hoặc các quy tắc khác |
+| DataLoader | "Thứ cung cấp dữ liệu" | Một iterator chia tập dữ liệu thành các batch, tùy chọn xáo trộn giữa các epoch |
+| Training mode (Chế độ huấn luyện) | "model.train()" | Một cờ bật hành vi ngẫu nhiên như dropout và batch normalization với thống kê batch |
+| Evaluation mode (Chế độ đánh giá) | "model.eval()" | Một cờ tắt dropout và sử dụng các thống kê tích lũy cho batch normalization |
+| Zero grad (Đưa gradient về không) | "Xóa các gradient" | Đặt lại tất cả các gradient tham số về không trước khi tính các gradient của batch tiếp theo |
 
 ## Further Reading
 
-- Paszke et al., "PyTorch: An Imperative Style, High-Performance Deep Learning Library" (2019) -- the paper describing PyTorch's design decisions
-- Chollet, "Deep Learning with Python, Second Edition" (2021) -- Chapter 3 covers Keras internals with the same module/layer abstraction
-- Johnson, "Tiny-DNN" (https://github.com/tiny-dnn/tiny-dnn) -- a header-only C++ deep learning framework for understanding framework internals
+- Paszke et al., "PyTorch: An Imperative Style, High-Performance Deep Learning Library" (2019) -- bài báo mô tả các quyết định thiết kế của PyTorch
+- Chollet, "Deep Learning with Python, Second Edition" (2021) -- Chương 3 đề cập nội bộ Keras với cùng trừu tượng module/lớp
+- Johnson, "Tiny-DNN" (https://github.com/tiny-dnn/tiny-dnn) -- một framework học sâu C++ chỉ gồm header để hiểu nội bộ framework
