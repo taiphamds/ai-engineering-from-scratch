@@ -1,6 +1,6 @@
 # Long-Context Evaluation — NIAH, RULER, LongBench, MRCR
 
-> Gemini 3 Pro advertises 10M tokens of context. At 1M tokens, 8-needle MRCR drops to 26.3%. Advertised ≠ usable. Long-context evaluation tells you the actual capacity of the model you are shipping on.
+> Gemini 3 Pro quảng bá ngữ cảnh 10M token. Ở 1M token, MRCR 8 kim giảm xuống 26.3%. Quảng bá ≠ dùng được. Đánh giá ngữ cảnh dài cho bạn biết dung lượng thực của mô hình mà bạn đang dựa vào để phát hành.
 
 **Type:** Learn
 **Languages:** Python
@@ -9,42 +9,42 @@
 
 ## The Problem
 
-You have a 200-page contract. The model claims a 1M-token context. You paste the contract in and ask: "What is the termination clause?" The model answers — but answers from the cover page because the termination clause sits at 120k tokens deep, past where the model actually attends.
+Bạn có một hợp đồng 200 trang. Mô hình tuyên bố ngữ cảnh 1M token. Bạn dán hợp đồng vào và hỏi: "Điều khoản chấm dứt là gì?" Mô hình trả lời — nhưng trả lời từ trang bìa vì điều khoản chấm dứt nằm sâu ở 120k token, vượt nơi mô hình thực sự chú ý.
 
-This is the 2026 context-capacity gap. Spec sheets say 1M or 10M. Reality says 60-70% of that is usable, and "usable" depends on the task.
+Đây là khoảng cách dung lượng ngữ cảnh năm 2026. Các bảng thông số nói 1M hoặc 10M. Thực tế nói 60-70% trong đó dùng được, và "dùng được" phụ thuộc tác vụ.
 
-- **Retrieval (single needle in haystack):** near-perfect up to the advertised max on frontier models.
-- **Multi-hop / aggregation:** degrades sharply past ~128k on most models.
-- **Reasoning over dispersed facts:** the first task to fail.
+- **Truy xuất (một kim trong đống cỏ):** gần hoàn hảo đến mức tối đa được quảng bá trên các mô hình tiên phong.
+- **Nhiều bước / tổng hợp:** suy giảm mạnh sau ~128k trên hầu hết các mô hình.
+- **Suy luận trên các sự kiện phân tán:** tác vụ đầu tiên thất bại.
 
-Long-context evaluation measures these axes. This lesson names the benchmarks, what each actually measures, and how to build a custom needle test for your domain.
+Đánh giá ngữ cảnh dài đo các trục này. Bài học này nêu tên các benchmark, mỗi benchmark thực sự đo gì và cách xây dựng một kiểm thử kim tùy chỉnh cho lĩnh vực của bạn.
 
 ## The Concept
 
 ![NIAH baseline, RULER multi-task, LongBench holistic](../assets/long-context-eval.svg)
 
-**Needle-in-a-Haystack (NIAH, 2023).** Place a fact ("the magic word is pineapple") at a controlled depth in a long context. Ask the model to retrieve it. Sweep depth × length. The original long-context benchmark. Frontier models now saturate this; it is a necessary but not sufficient baseline.
+**Needle-in-a-Haystack (NIAH, 2023).** Đặt một sự kiện ("từ thần kỳ là dứa") ở một độ sâu được kiểm soát trong một ngữ cảnh dài. Yêu cầu mô hình truy xuất nó. Quét độ sâu × độ dài. Benchmark ngữ cảnh dài gốc. Các mô hình tiên phong hiện bão hòa benchmark này; nó là một baseline cần thiết nhưng không đủ.
 
-**RULER (Nvidia, 2024).** 13 task types across 4 categories: retrieval (single / multi-key / multi-value), multi-hop tracing (variable tracking), aggregation (common word frequency), QA. Configurable context length (4k to 128k+). Reveals models that saturate NIAH but fail on multi-hop. In the 2024 release, only half of 17 models claiming 32k+ context maintained quality at 32k.
+**RULER (Nvidia, 2024).** 13 loại tác vụ trên 4 nhóm: truy xuất (một / nhiều khóa / nhiều giá trị), lần theo nhiều bước (theo dõi biến), tổng hợp (tần suất từ phổ biến), QA. Độ dài ngữ cảnh có thể cấu hình (4k đến 128k+). Bộc lộ các mô hình bão hòa NIAH nhưng thất bại ở nhiều bước. Trong bản phát hành năm 2024, chỉ một nửa của 17 mô hình tuyên bố ngữ cảnh 32k+ duy trì chất lượng tại 32k.
 
-**LongBench v2 (2024).** 503 multiple-choice questions, 8k-2M word contexts, six task categories: single-doc QA, multi-doc QA, long in-context learning, long dialogue, code repo, long structured data. The production benchmark for real-world long-context behavior.
+**LongBench v2 (2024).** 503 câu hỏi trắc nghiệm, các ngữ cảnh 8k-2M từ, sáu nhóm tác vụ: QA một tài liệu, QA nhiều tài liệu, học trong ngữ cảnh dài, hội thoại dài, kho mã, dữ liệu có cấu trúc dài. Benchmark production cho hành vi ngữ cảnh dài thực tế.
 
-**MRCR (Multi-Round Coreference Resolution).** Multi-turn coreference at scale. 8-needle, 24-needle, 100-needle variants. Exposes how many facts a model can juggle before attention degrades.
+**MRCR (Multi-Round Coreference Resolution).** Đồng tham chiếu nhiều lượt ở quy mô lớn. Các biến thể 8 kim, 24 kim, 100 kim. Bộc lộ bao nhiêu sự kiện một mô hình có thể xử lý đồng thời trước khi attention suy giảm.
 
-**NoLiMa.** "Non-lexical needle." The needle and the query share no literal overlap; retrieval requires one step of semantic reasoning. Harder than NIAH.
+**NoLiMa.** "Kim phi từ vựng." Kim và truy vấn không có phần giao nguyên văn; truy xuất đòi hỏi một bước suy luận ngữ nghĩa. Khó hơn NIAH.
 
-**HELMET.** Concatenates many documents, asks a question from any one. Tests selective attention.
+**HELMET.** Nối nhiều tài liệu, hỏi một câu hỏi từ bất kỳ tài liệu nào. Kiểm thử attention có chọn lọc.
 
-**BABILong.** Embeds bAbI reasoning chains inside irrelevant haystacks. Tests reasoning-in-a-haystack, not just retrieval.
+**BABILong.** Nhúng các chuỗi suy luận bAbI trong các đống cỏ không liên quan. Kiểm thử suy luận-trong-đống-cỏ, không chỉ truy xuất.
 
 ### What to actually report
 
-- **Advertised context window.** The spec-sheet number.
-- **Effective retrieval length.** NIAH pass at some threshold (e.g., 90%).
-- **Effective reasoning length.** Multi-hop or aggregation pass at that threshold.
-- **Degradation curve.** Accuracy vs context length, plotted per task type.
+- **Cửa sổ ngữ cảnh được quảng bá.** Con số trên bảng thông số.
+- **Độ dài truy xuất hiệu dụng.** Vượt NIAH tại một ngưỡng nào đó (ví dụ, 90%).
+- **Độ dài suy luận hiệu dụng.** Vượt nhiều bước hoặc tổng hợp tại ngưỡng đó.
+- **Đường cong suy giảm.** Accuracy theo độ dài ngữ cảnh, được vẽ cho mỗi loại tác vụ.
 
-Two numbers for your spec sheet: retrieval-effective and reasoning-effective. Usually the reasoning-effective is 25-50% of the advertised window.
+Hai con số cho bảng thông số của bạn: hiệu dụng truy xuất và hiệu dụng suy luận. Thường hiệu dụng suy luận là 25-50% của cửa sổ được quảng bá.
 
 ```figure
 gx-niah-decay
@@ -54,7 +54,7 @@ gx-niah-decay
 
 ### Step 1: a custom NIAH for your domain
 
-See `code/main.py`. The skeleton:
+Xem `code/main.py`. Khung:
 
 ```python
 def build_haystack(filler_text, needle, depth_ratio, total_tokens):
@@ -84,7 +84,7 @@ def score_niah(model, haystack, question, expected):
     return 1 if expected.lower() in answer.lower() else 0
 ```
 
-Sweep `depth_ratio` ∈ {0, 0.25, 0.5, 0.75, 1.0} × `total_tokens` ∈ {1k, 4k, 16k, 64k}. Plot the heatmap. That is the NIAH card for your target model.
+Quét `depth_ratio` ∈ {0, 0.25, 0.5, 0.75, 1.0} × `total_tokens` ∈ {1k, 4k, 16k, 64k}. Vẽ bản đồ nhiệt. Đó là thẻ NIAH cho mô hình đích của bạn.
 
 ### Step 2: a multi-needle variant
 
@@ -99,7 +99,7 @@ def build_multi_needle(filler, needles, total_tokens):
     return " ".join(chunks)
 ```
 
-Questions like "What are the three magic words?" require retrieving all three. Single-needle success does not predict multi-needle success.
+Các câu hỏi như "Ba từ thần kỳ là gì?" yêu cầu truy xuất cả ba. Thành công một kim không dự đoán thành công nhiều kim.
 
 ### Step 3: multi-hop variable tracing (RULER-style)
 
@@ -108,7 +108,7 @@ haystack = """X1 = 42. ... (filler) ... X2 = X1 + 10. ... (filler) ... X3 = X2 *
 question = "What is X3?"
 ```
 
-The answer requires chaining three assignments. Frontier models at 128k often drop to 50-70% accuracy here.
+Câu trả lời yêu cầu nối ba phép gán. Các mô hình tiên phong tại 128k thường giảm xuống accuracy 50-70% ở đây.
 
 ### Step 4: LongBench v2 on your stack
 
@@ -126,34 +126,34 @@ def eval_model_on_longbench(model, subset="single-doc-qa"):
     return correct / len(tasks)
 ```
 
-Report per-category accuracy. Aggregate scores hide big task-level differences.
+Báo cáo accuracy theo nhóm. Các điểm tổng hợp che giấu các khác biệt lớn ở cấp tác vụ.
 
 ## Pitfalls
 
-- **NIAH-only evaluation.** Passing NIAH at 1M tokens says nothing about multi-hop. Always run RULER or a custom multi-hop test.
-- **Uniform depth sampling.** Many implementations only test depth=0.5. Test depth=0, 0.25, 0.5, 0.75, 1.0 — the "lost in the middle" effect is real.
-- **Lexical overlap with filler.** If the needle shares keywords with the filler, retrieval becomes trivial. Use NoLiMa-style non-overlapping needles.
-- **Ignoring latency.** 1M-token prompts take 30-120 seconds to prefill. Measure time-to-first-token alongside accuracy.
-- **Vendor-self-reported numbers.** OpenAI, Google, Anthropic all publish their own scores. Always re-run independently on your use case.
+- **Đánh giá chỉ NIAH.** Vượt NIAH tại 1M token không nói gì về nhiều bước. Luôn chạy RULER hoặc một kiểm thử nhiều bước tùy chỉnh.
+- **Lấy mẫu độ sâu đồng đều.** Nhiều triển khai chỉ kiểm thử depth=0.5. Kiểm thử depth=0, 0.25, 0.5, 0.75, 1.0 — hiệu ứng "lạc ở giữa" là có thật.
+- **Phần giao từ vựng với phần đệm.** Nếu kim có chung từ khóa với phần đệm, truy xuất trở nên tầm thường. Dùng các kim không giao nhau kiểu NoLiMa.
+- **Bỏ qua độ trễ.** Các prompt 1M token mất 30-120 giây để prefill. Đo thời gian đến token đầu cùng accuracy.
+- **Các con số nhà cung cấp tự báo cáo.** OpenAI, Google, Anthropic đều công bố các điểm riêng. Luôn chạy lại độc lập trên trường hợp sử dụng của bạn.
 
 ## Use It
 
-The 2026 stack:
+Ngăn xếp năm 2026:
 
-| Situation | Benchmark |
+| Tình huống | Benchmark |
 |-----------|-----------|
-| Quick sanity check | Custom NIAH at 3 depths × 3 lengths |
-| Model selection for production | RULER (13 tasks) at your target length |
-| Real-world QA quality | LongBench v2 single-doc-QA subset |
-| Multi-hop reasoning | BABILong or custom variable-tracing |
-| Conversational / dialogue | MRCR 8-needle at your target length |
-| Model upgrade regression | Fixed in-house NIAH + RULER harness, run on every new model |
+| Kiểm tra hợp lý nhanh | NIAH tùy chỉnh tại 3 độ sâu × 3 độ dài |
+| Lựa chọn mô hình cho production | RULER (13 tác vụ) tại độ dài đích của bạn |
+| Chất lượng QA thực tế | Tập con QA một tài liệu LongBench v2 |
+| Suy luận nhiều bước | BABILong hoặc lần theo biến tùy chỉnh |
+| Hội thoại / đối thoại | MRCR 8 kim tại độ dài đích của bạn |
+| Hồi quy nâng cấp mô hình | Bộ chạy kiểm thử NIAH + RULER nội bộ cố định, chạy trên mỗi mô hình mới |
 
-Rule of thumb for production: never trust a context window until you have NIAH + 1 reasoning task at your intended length.
+Quy tắc kinh nghiệm cho production: không bao giờ tin một cửa sổ ngữ cảnh cho đến khi bạn có NIAH + 1 tác vụ suy luận tại độ dài dự định.
 
 ## Ship It
 
-Save as `outputs/skill-long-context-eval.md`:
+Lưu thành `outputs/skill-long-context-eval.md`:
 
 ```markdown
 ---
@@ -178,27 +178,27 @@ Refuse to trust a context window from the model card alone. Refuse NIAH-only eva
 
 ## Exercises
 
-1. **Easy.** Build a NIAH with 3 depths (0.25, 0.5, 0.75) × 3 lengths (1k, 4k, 16k). Run on any model. Plot pass rate as a 3×3 heatmap.
-2. **Medium.** Add a 3-needle variant. Measure retrieval of all 3 at each length. Compare to single-needle pass rate at the same length.
-3. **Hard.** Construct a variable-tracing task (X1 → X2 → X3, with 3 hops) embedded in 64k of filler. Measure accuracy across 3 frontier models. Report effective reasoning length per model.
+1. **Dễ.** Xây dựng một NIAH với 3 độ sâu (0.25, 0.5, 0.75) × 3 độ dài (1k, 4k, 16k). Chạy trên bất kỳ mô hình nào. Vẽ tỷ lệ đạt thành một bản đồ nhiệt 3×3.
+2. **Trung bình.** Thêm một biến thể 3 kim. Đo truy xuất cả 3 ở mỗi độ dài. So sánh với tỷ lệ đạt một kim tại cùng độ dài.
+3. **Khó.** Xây dựng một tác vụ lần theo biến (X1 → X2 → X3, với 3 bước) được nhúng trong 64k phần đệm. Đo accuracy trên 3 mô hình tiên phong. Báo cáo độ dài suy luận hiệu dụng cho mỗi mô hình.
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |------|-----------------|-----------------------|
-| NIAH | Needle in haystack | Plant a fact in filler, ask the model to retrieve it. |
-| RULER | NIAH on steroids | 13 task types across retrieval / multi-hop / aggregation / QA. |
-| Effective context | The real capacity | Length at which accuracy still holds above threshold. |
-| Lost in the middle | Depth bias | Models under-attend to content in the middle of long inputs. |
-| Multi-needle | Many facts at once | Multiple plants; tests attention juggling, not retrieval alone. |
-| MRCR | Multi-round coref | 8, 24, or 100-needle coreference; exposes attention saturation. |
-| NoLiMa | Non-lexical needle | Needle and query share no literal tokens; requires reasoning. |
+| NIAH | Kim trong đống cỏ | Cài một sự kiện trong phần đệm, yêu cầu mô hình truy xuất nó. |
+| RULER | NIAH được tăng cường | 13 loại tác vụ trên truy xuất / nhiều bước / tổng hợp / QA. |
+| Effective context (Ngữ cảnh hiệu dụng) | Dung lượng thực | Độ dài mà accuracy vẫn giữ trên ngưỡng. |
+| Lost in the middle (Lạc ở giữa) | Thiên lệch độ sâu | Các mô hình chú ý không đủ đến nội dung ở giữa các đầu vào dài. |
+| Multi-needle (Nhiều kim) | Nhiều sự kiện cùng lúc | Nhiều phần được cài; kiểm thử xử lý attention đồng thời, không chỉ truy xuất. |
+| MRCR | Đồng tham chiếu nhiều lượt | Đồng tham chiếu 8, 24 hoặc 100 kim; bộc lộ bão hòa attention. |
+| NoLiMa | Kim phi từ vựng | Kim và truy vấn không có token nguyên văn chung; đòi hỏi suy luận. |
 
 ## Further Reading
 
-- [Kamradt (2023). Needle in a Haystack analysis](https://github.com/gkamradt/LLMTest_NeedleInAHaystack) — the original NIAH repo.
-- [Hsieh et al. (2024). RULER: What's the Real Context Size of Your Long-Context LMs?](https://arxiv.org/abs/2404.06654) — the multi-task benchmark.
-- [Bai et al. (2024). LongBench v2](https://arxiv.org/abs/2412.15204) — real-world long-context eval.
-- [Modarressi et al. (2024). NoLiMa: Non-lexical needles](https://arxiv.org/abs/2404.06666) — harder needles.
-- [Kuratov et al. (2024). BABILong](https://arxiv.org/abs/2406.10149) — reasoning-in-haystack.
-- [Liu et al. (2024). Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172) — the depth-bias paper.
+- [Kamradt (2023). Needle in a Haystack analysis](https://github.com/gkamradt/LLMTest_NeedleInAHaystack) — kho NIAH gốc.
+- [Hsieh et al. (2024). RULER: What's the Real Context Size of Your Long-Context LMs?](https://arxiv.org/abs/2404.06654) — benchmark đa tác vụ.
+- [Bai et al. (2024). LongBench v2](https://arxiv.org/abs/2412.15204) — đánh giá ngữ cảnh dài thực tế.
+- [Modarressi et al. (2024). NoLiMa: Non-lexical needles](https://arxiv.org/abs/2404.06666) — các kim khó hơn.
+- [Kuratov et al. (2024). BABILong](https://arxiv.org/abs/2406.10149) — suy luận-trong-đống-cỏ.
+- [Liu et al. (2024). Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172) — bài báo thiên lệch độ sâu.
