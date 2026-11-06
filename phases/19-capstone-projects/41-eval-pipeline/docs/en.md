@@ -1,6 +1,6 @@
 # Capstone Lesson 41: Full Evaluation Pipeline
 
-> Training is the part you can monitor with loss curves. Evaluation is the part you have to design. This lesson builds a unified eval pipeline that takes any trained language model, runs four heterogeneous evals on it, aggregates the results into a per-task report, and ships a local mock LLM-as-judge so the loop runs without a network. The four evals cover the dimensions every shipping model needs: language modelling (perplexity), short-form correctness (exact-match), open-form similarity (token F1), and qualitative scoring (judge).
+> Huấn luyện là phần bạn có thể giám sát bằng các đường cong mất mát. Đánh giá là phần bạn phải thiết kế. Bài này xây dựng một pipeline đánh giá thống nhất nhận bất kỳ mô hình ngôn ngữ đã huấn luyện nào, chạy bốn đánh giá không đồng nhất trên nó, tổng hợp các kết quả thành một báo cáo theo tác vụ, và cung cấp một LLM-làm-bộ-chấm giả lập cục bộ để vòng lặp chạy không có mạng. Bốn đánh giá bao phủ các chiều mà mọi mô hình được cung cấp cần: mô hình hóa ngôn ngữ (perplexity), tính đúng đắn dạng ngắn (khớp chính xác), độ tương tự dạng mở (F1 token), và chấm điểm định tính (bộ chấm).
 
 **Type:** Build
 **Languages:** Python (torch, numpy)
@@ -9,19 +9,19 @@
 
 ## Learning Objectives
 
-- Compute held-out perplexity with masked-token accounting on a tiny transformer.
-- Run an exact-match eval on short-form factual prompts.
-- Compute token-level F1 between predicted and reference strings with normalisation.
-- Build a local mock LLM-as-judge that scores model outputs on a 1-5 scale.
-- Aggregate the four evals into a single weighted report with per-task breakdown.
+- Tính perplexity trên phần giữ riêng với hạch toán token được che trên một transformer tí hon.
+- Chạy một đánh giá khớp chính xác trên các prompt sự kiện dạng ngắn.
+- Tính F1 ở mức token giữa các chuỗi dự đoán và tham chiếu với chuẩn hóa.
+- Xây dựng một LLM-làm-bộ-chấm giả lập cục bộ chấm các đầu ra mô hình trên thang 1-5.
+- Tổng hợp bốn đánh giá thành một báo cáo có trọng số duy nhất với phân tích theo tác vụ.
 
 ## The Problem
 
-A single metric never describes a language model. Perplexity says how well the model fits the language distribution but says nothing about whether it answers questions. Exact-match says whether the model produces the gold string but punishes correct paraphrases. Token F1 forgives paraphrase but is fooled by lexical overlap with wrong content. LLM-as-judge captures qualitative dimensions but is expensive and stochastic.
+Một chỉ số duy nhất không bao giờ mô tả một mô hình ngôn ngữ. Perplexity nói mô hình khớp phân phối ngôn ngữ tốt thế nào nhưng không nói gì về việc nó có trả lời câu hỏi không. Khớp chính xác nói liệu mô hình tạo chuỗi chuẩn không nhưng phạt các cách diễn đạt lại đúng. F1 token tha thứ diễn đạt lại nhưng bị đánh lừa bởi chồng lấn từ vựng với nội dung sai. LLM-làm-bộ-chấm nắm bắt các chiều định tính nhưng tốn kém và ngẫu nhiên.
 
-The pipeline you actually want has all four. Each eval covers a dimension the others miss. Each runs on a different subset of held-out data shaped for that metric. The final report shows the per-task numbers side by side and an aggregate, so a reviewer can see at a glance which trade-offs the model is making.
+Pipeline bạn thực sự muốn có cả bốn. Mỗi đánh giá bao phủ một chiều các đánh giá khác bỏ lỡ. Mỗi đánh giá chạy trên một tập con dữ liệu được giữ riêng khác nhau có hình thức cho chỉ số đó. Báo cáo cuối hiển thị các số liệu theo tác vụ cạnh nhau và một tổng hợp, để một người rà soát có thể thấy thoáng qua những đánh đổi mô hình đang thực hiện.
 
-This lesson builds that pipeline, end to end, in one file.
+Bài này xây dựng pipeline đó, từ đầu đến cuối, trong một file.
 
 ## The Concept
 
@@ -38,50 +38,50 @@ flowchart LR
   R --> A[(aggregate score)]
 ```
 
-Each eval is a function from `(model, dataset) -> EvalResult`. The result carries the metric value, per-example details for inspection, and a name for the aggregate. The pipeline composes them with a config that says which evals to run and how to weight them.
+Mỗi đánh giá là một hàm từ `(model, dataset) -> EvalResult`. Kết quả mang giá trị chỉ số, các chi tiết theo ví dụ để kiểm tra, và một tên cho tổng hợp. Pipeline kết hợp chúng bằng một cấu hình nói chạy những đánh giá nào và đặt trọng số thế nào.
 
 ## Perplexity, properly counted
 
-Perplexity is `exp(mean negative log-likelihood per token)`. The implementation has two traps:
+Perplexity là `exp(mean negative log-likelihood per token)`. Triển khai có hai bẫy:
 
-- The mean must be over actual token positions, not over batch * sequence. Padding tokens have to be excluded from the denominator or perplexity will look better than it is.
-- The model predicts the next token, so logits at position `i` predict the token at position `i+1`. Off-by-one mistakes here are silent: the loss still trains, but the metric becomes meaningless.
+- Trung bình phải trên các vị trí token thực, không phải trên batch * sequence. Các token đệm phải được loại khỏi mẫu số hoặc perplexity sẽ trông tốt hơn thực tế.
+- Mô hình dự đoán token tiếp theo, nên các logit tại vị trí `i` dự đoán token tại vị trí `i+1`. Các lỗi lệch một ở đây âm thầm: mất mát vẫn huấn luyện, nhưng chỉ số trở nên vô nghĩa.
 
-The eval computes per-batch sums of `-log p(token)` over non-pad positions and a per-batch token count, then divides at the end. This is numerically safer than averaging per-batch perplexities (which under-weights short sequences) and matches the textbook definition.
+Đánh giá tính các tổng theo lô của `-log p(token)` trên các vị trí không đệm và một số đếm token theo lô, rồi chia ở cuối. Điều này an toàn số học hơn lấy trung bình các perplexity theo lô (vốn đặt trọng số thấp cho các chuỗi ngắn) và khớp định nghĩa sách giáo khoa.
 
 ## Exact-match, with normalisation
 
-The harness normalises both the prediction and the reference before comparing:
+Harness chuẩn hóa cả dự đoán và tham chiếu trước khi so sánh:
 
-- Lowercase.
-- Strip surrounding whitespace.
-- Collapse internal whitespace runs to a single space.
-- Drop trailing terminal punctuation (`.`, `!`, `?`) if both sides differ only by punctuation.
+- Chuyển chữ thường.
+- Bỏ khoảng trắng xung quanh.
+- Gộp các chuỗi khoảng trắng bên trong thành một khoảng trắng.
+- Bỏ dấu câu kết thúc ở cuối (`.`, `!`, `?`) nếu hai phía chỉ khác dấu câu.
 
-Normalisation makes exact-match useful in practice. A model that says `"Paris"` is right; one that says `"Paris."` is also right; one that says `"  paris  "` is also right. The metric still requires the answer to be the same string after normalisation.
+Chuẩn hóa khiến khớp chính xác hữu ích trong thực tế. Một mô hình nói `"Paris"` là đúng; một mô hình nói `"Paris."` cũng đúng; một mô hình nói `"  paris  "` cũng đúng. Chỉ số vẫn đòi hỏi đáp án là cùng chuỗi sau chuẩn hóa.
 
 ## Token F1, the right way
 
-Token F1 is the harmonic mean of precision and recall computed over the bag-of-tokens. Steps:
+F1 token là trung bình điều hòa của precision và recall được tính trên túi token. Các bước:
 
-1. Normalise prediction and reference (same rules as exact-match).
-2. Split each into a list of tokens (whitespace tokenisation).
-3. Count the multiset intersection.
-4. Precision = `intersection_count / len(pred_tokens)`. Recall = `intersection_count / len(ref_tokens)`. F1 = harmonic mean.
+1. Chuẩn hóa dự đoán và tham chiếu (cùng quy tắc như khớp chính xác).
+2. Chia mỗi chuỗi thành một danh sách token (phân tách token theo khoảng trắng).
+3. Đếm giao đa tập.
+4. Precision = `intersection_count / len(pred_tokens)`. Recall = `intersection_count / len(ref_tokens)`. F1 = trung bình điều hòa.
 
-If both prediction and reference are empty, F1 is 1 (vacuous match). If only one is empty, F1 is 0. This pattern matches the SQuAD evaluation reference and produces stable numbers across paraphrases.
+Nếu cả dự đoán và tham chiếu rỗng, F1 là 1 (khớp rỗng). Nếu chỉ một rỗng, F1 là 0. Mẫu này khớp tham chiếu đánh giá SQuAD và tạo các con số ổn định trên các cách diễn đạt lại.
 
 ## Local Mock LLM-as-Judge
 
-A real judge is a frontier model behind an API. For this lesson the judge has to run offline. The mock judge is a deterministic scorer that takes an instruction, the model's prediction, and the reference, and returns a score in `{1, 2, 3, 4, 5}` plus a one-line rationale. The scoring rules are explicit:
+Một bộ chấm thực là một mô hình tiên phong sau một API. Với bài này bộ chấm phải chạy ngoại tuyến. Bộ chấm giả lập là một bộ chấm điểm tất định nhận một chỉ dẫn, dự đoán của mô hình, và tham chiếu, và trả về một điểm trong `{1, 2, 3, 4, 5}` cùng một lý do một dòng. Các quy tắc chấm điểm rõ ràng:
 
-- 5 if normalised prediction equals normalised reference.
-- 4 if token F1 between prediction and reference is at least 0.8.
-- 3 if token F1 is in `[0.5, 0.8)`.
-- 2 if token F1 is in `[0.2, 0.5)`.
-- 1 otherwise.
+- 5 nếu dự đoán được chuẩn hóa bằng tham chiếu được chuẩn hóa.
+- 4 nếu F1 token giữa dự đoán và tham chiếu ít nhất 0.8.
+- 3 nếu F1 token trong `[0.5, 0.8)`.
+- 2 nếu F1 token trong `[0.2, 0.5)`.
+- 1 nếu không.
 
-This is not a real judge, but it has the right interface. Swap in a real model later by changing one function. The pipeline does not care.
+Đây không phải một bộ chấm thực, nhưng nó có giao diện đúng. Thay bằng một mô hình thực sau này bằng cách thay đổi một hàm. Pipeline không quan tâm.
 
 ```mermaid
 flowchart LR
@@ -94,14 +94,14 @@ flowchart LR
 
 ## Aggregation
 
-The aggregate is a weighted mean of normalised eval scores. Each eval reports its own number in `[0, 1]`:
+Tổng hợp là một trung bình có trọng số của các điểm đánh giá được chuẩn hóa. Mỗi đánh giá báo cáo số riêng của nó trong `[0, 1]`:
 
-- Perplexity: normalise as `1 / (1 + log(perplexity))`. A perplexity of 1 maps to 1, infinity maps to 0.
-- Exact-match: already in `[0, 1]`.
-- Token F1: already in `[0, 1]`.
-- Judge: divide by 5.
+- Perplexity: chuẩn hóa thành `1 / (1 + log(perplexity))`. Một perplexity 1 ánh xạ đến 1, vô cực ánh xạ đến 0.
+- Khớp chính xác: đã trong `[0, 1]`.
+- F1 token: đã trong `[0, 1]`.
+- Bộ chấm: chia cho 5.
 
-Weights are configurable. The default mix is 0.2 perplexity, 0.3 exact-match, 0.3 token F1, 0.2 judge. The choice of weights is a product decision; the lesson exposes the knob so you can experiment.
+Các trọng số có thể cấu hình. Hỗn hợp mặc định là 0.2 perplexity, 0.3 khớp chính xác, 0.3 F1 token, 0.2 bộ chấm. Lựa chọn trọng số là một quyết định sản phẩm; bài học cung cấp núm điều chỉnh để bạn có thể thử nghiệm.
 
 ```figure
 cg-eval-quadrant
@@ -126,34 +126,34 @@ flowchart TD
   R --> Pretty[stdout table]
 ```
 
-The `EvalSuite` is a thin orchestrator. Each individual eval is a free function that takes `(model, tokenizer, dataset, config)` and returns an `EvalResult`. The `Aggregator` collects results and produces the final report. The demo prints the table and writes a JSON copy that downstream CI can ingest.
+`EvalSuite` là một bộ điều phối mỏng. Mỗi đánh giá riêng lẻ là một hàm tự do nhận `(model, tokenizer, dataset, config)` và trả về một `EvalResult`. `Aggregator` thu thập kết quả và tạo báo cáo cuối. Demo in bảng và ghi một bản sao JSON mà CI hạ nguồn có thể tiếp nhận.
 
 ## What you will build
 
-The implementation is one `main.py` plus tests.
+Triển khai là một `main.py` cùng các kiểm thử.
 
-1. `TinyGPT`: the same decoder-only architecture used in lessons 38-40, included so the lesson stands alone.
-2. `InstructionTokenizer`: byte tokeniser with INST / RESP / PAD specials.
-3. Four fixtures: an LM corpus, an EM set, an F1 set, and a judge set. Twenty examples each, deterministic.
-4. `perplexity_eval`: returns `EvalResult` with the perplexity value and per-token loss histogram.
-5. `exact_match_eval`: returns mean EM and per-example records.
-6. `token_f1_eval`: returns mean token F1 and per-example records.
-7. `mock_judge` and `judge_eval`: per-example score and rationale, mean score across the set.
-8. `Aggregator.normalise`: per-eval normalisation rule.
-9. `Aggregator.aggregate`: weighted mean and the assembled report.
-10. `run_demo`: trains a tiny model briefly, runs all four evals, prints the report table and writes the JSON, exits zero on success.
+1. `TinyGPT`: cùng kiến trúc chỉ decoder được dùng trong các bài 38-40, được đưa vào để bài học độc lập.
+2. `InstructionTokenizer`: tokenizer byte với các token đặc biệt INST / RESP / PAD.
+3. Bốn fixture: một corpus LM, một tập EM, một tập F1, và một tập bộ chấm. Hai mươi ví dụ mỗi tập, tất định.
+4. `perplexity_eval`: trả về `EvalResult` với giá trị perplexity và histogram mất mát theo token.
+5. `exact_match_eval`: trả về EM trung bình và các bản ghi theo ví dụ.
+6. `token_f1_eval`: trả về F1 token trung bình và các bản ghi theo ví dụ.
+7. `mock_judge` và `judge_eval`: điểm và lý do theo ví dụ, điểm trung bình trên tập.
+8. `Aggregator.normalise`: quy tắc chuẩn hóa theo đánh giá.
+9. `Aggregator.aggregate`: trung bình có trọng số và báo cáo được lắp ráp.
+10. `run_demo`: huấn luyện một mô hình tí hon ngắn, chạy cả bốn đánh giá, in bảng báo cáo và ghi JSON, thoát với mã không khi thành công.
 
 ## Reading the report
 
-The report has three layers. The top is the aggregate score. Below it are the four per-eval numbers. Below those are the per-example breakdowns for diagnostics. A failing CI run typically wants the aggregate, but a reviewer chasing a regression wants the per-example breakdown to see which inputs the model got wrong.
+Báo cáo có ba lớp. Trên cùng là điểm tổng hợp. Bên dưới nó là bốn số theo đánh giá. Bên dưới chúng là các phân tích theo ví dụ để chẩn đoán. Một lần chạy CI thất bại thường muốn tổng hợp, nhưng một người rà soát truy đuổi một lỗi thoái lui muốn phân tích theo ví dụ để thấy những đầu vào nào mô hình làm sai.
 
-The JSON dump uses stable keys so a CI dashboard can plot trend lines across versions. The pretty-printed table is for humans staring at the terminal after a training run.
+Bản xuất JSON sử dụng các khóa ổn định để một bảng điều khiển CI có thể vẽ các đường xu hướng qua các phiên bản. Bảng được in đẹp dành cho con người nhìn terminal sau một lần chạy huấn luyện.
 
 ## Stretch goals
 
-- Add a calibration eval: do the model's softmax probabilities match its accuracy? Bucket predictions by confidence and report the empirical accuracy per bucket.
-- Add a robustness eval: tag each example with a perturbation (typo, paraphrase, distractor) and report metric drop per perturbation.
-- Replace the mock judge with a real model behind an HTTP call. The function signature does not change.
-- Add per-task weight learning: instead of fixed weights, fit weights to a target preference order over models.
+- Thêm một đánh giá hiệu chuẩn: các xác suất softmax của mô hình có khớp độ chính xác của nó không? Chia nhóm dự đoán theo độ tin cậy và báo cáo độ chính xác thực nghiệm theo nhóm.
+- Thêm một đánh giá độ vững: gắn nhãn mỗi ví dụ bằng một nhiễu loạn (lỗi gõ, diễn đạt lại, yếu tố gây nhiễu) và báo cáo mức giảm chỉ số theo nhiễu loạn.
+- Thay bộ chấm giả lập bằng một mô hình thực sau một lệnh gọi HTTP. Chữ ký hàm không đổi.
+- Thêm học trọng số theo tác vụ: thay vì các trọng số cố định, khớp trọng số theo một thứ tự ưu tiên đích trên các mô hình.
 
-The implementation gives you the four evals, the aggregator, and the report. Real evaluation pipelines layer many more dimensions on top; the pattern stays the same: one function per eval, one aggregator, one report.
+Triển khai cho bạn bốn đánh giá, bộ tổng hợp, và báo cáo. Các pipeline đánh giá thực xếp thêm nhiều chiều trên đó; mẫu giữ nguyên: một hàm mỗi đánh giá, một bộ tổng hợp, một báo cáo.
