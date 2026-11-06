@@ -1,6 +1,6 @@
 # Action Budgets, Iteration Caps, and Cost Governors
 
-> A mid-sized e-commerce agent's monthly LLM cost jumped from $1,200 to $4,800 after its team enabled the "order-tracking" skill. That is not a pricing bug. That is an agent that found a new loop and kept spending inside it. Microsoft's Agent Governance Toolkit (April 2, 2026) codifies the defense against this class: per-request `max_tokens`, per-task token and dollar budgets, per-day/month caps, iteration caps, tiered model routing, prompt caching, context windowing, HITL checkpoints on expensive actions, kill switches on budget breach. Anthropic's Claude Code Agent SDK ships the same primitives under different names. Financial velocity limits — e.g. cut access on >$50 in 10 minutes — catch loops faster than monthly caps.
+> Chi phí LLM hằng tháng của một agent thương mại điện tử cỡ vừa đã tăng từ $1,200 lên $4,800 sau khi nhóm của nó bật skill “theo dõi đơn hàng”. Đó không phải là lỗi định giá. Đó là một agent đã tìm ra một vòng lặp mới và tiếp tục chi tiêu bên trong nó. Agent Governance Toolkit của Microsoft (ngày 2 tháng 4 năm 2026) hệ thống hóa biện pháp phòng thủ chống lại loại này: `max_tokens` theo từng yêu cầu, ngân sách token và đô la theo từng tác vụ, mức trần theo ngày/tháng, mức trần số lần lặp, định tuyến mô hình phân tầng, bộ nhớ đệm prompt, phân cửa sổ ngữ cảnh, checkpoint HITL trên các hành động tốn kém, công tắc ngắt khi vượt ngân sách. Claude Code Agent SDK của Anthropic cung cấp cùng các nguyên thủy dưới những tên khác. Giới hạn tốc độ tài chính — ví dụ: cắt quyền truy cập khi >$50 trong 10 phút — bắt các vòng lặp nhanh hơn mức trần hằng tháng.
 
 **Type:** Learn
 **Languages:** Python (stdlib, layered cost-governor simulator)
@@ -9,56 +9,56 @@
 
 ## The Problem
 
-Autonomous agents spend real money on every turn. A chatbot's bad output is a bad reply; an agent's bad loop is a bill. The industry-documented term for the failure mode is "Denial of Wallet" — the agent keeps reasoning, keeps tool-calling, keeps billing, and nothing stops it because nothing was designed to.
+Các agent tự chủ tiêu tiền thật ở mỗi lượt. Đầu ra tệ của chatbot là một câu trả lời tệ; vòng lặp tệ của agent là một hóa đơn. Thuật ngữ được ngành ghi nhận cho chế độ lỗi này là “Denial of Wallet” — agent tiếp tục suy luận, tiếp tục gọi công cụ, tiếp tục tính phí, và không có gì ngăn nó vì không có gì được thiết kế để làm vậy.
 
-The fix is not one number. It is a stack of limits at different time scales and granularities: per-request, per-task, per-hour, per-day, per-month. A well-designed stack catches a runaway loop within minutes, a slow leak within hours, and a bad release within a day. The same stack keeps a budget at all when the agent is long-horizon and autonomous.
+Cách khắc phục không phải là một con số. Đó là một ngăn xếp giới hạn ở các thang thời gian và độ hạt khác nhau: theo từng yêu cầu, theo từng tác vụ, theo giờ, theo ngày, theo tháng. Một ngăn xếp được thiết kế tốt bắt một vòng lặp mất kiểm soát trong vài phút, một rò rỉ chậm trong vài giờ, và một bản phát hành tệ trong một ngày. Cũng ngăn xếp đó giúp duy trì được một ngân sách khi agent có tầm thời gian dài và tự chủ.
 
-This is an engineering lesson: the math is trivial, the discipline is where teams fail. The list of limits below is all named either in the Microsoft Agent Governance Toolkit or the Anthropic Claude Code Agent SDK docs.
+Đây là một bài học kỹ thuật: toán học đơn giản, kỷ luật là nơi các nhóm thất bại. Danh sách giới hạn bên dưới đều được nêu tên trong Microsoft Agent Governance Toolkit hoặc tài liệu Anthropic Claude Code Agent SDK.
 
 ## The Concept
 
 ### The cost-governor stack
 
-1. **`max_tokens` per request.** Simple. Prevents any one call from emitting an unbounded completion.
-2. **Per-task token budget.** Across the whole run, do not exceed N tokens. Hard stop at the cap.
-3. **Per-task dollar budget.** Same as tokens but in currency. `max_budget_usd` in Claude Code.
-4. **Per-tool call cap.** No more than N `WebFetch` calls, N `shell_exec` calls, etc.
-5. **Iteration cap (`max_turns`).** Total agent loop iterations; prevents infinite reasoning loops.
-6. **Per-minute / per-hour / per-day / per-month cap.** Rolling windows. Catches leaks at different time scales.
-7. **Financial velocity limit.** E.g., "if spend exceeds $50 in 10 minutes, cut access." Catches loop-based burn before monthly caps fire.
-8. **Tiered model routing.** Default to a smaller model; escalate to a larger one only when a classifier judges the task warrants it.
-9. **Prompt caching.** System prompt and stable context stored in provider cache; token cost of re-sending is near zero.
-10. **Context windowing.** Compaction / summarization to keep the active context below a threshold; direct token-cost reduction.
-11. **HITL checkpoints on expensive actions.** Before an action known to be expensive (long tool call, large download, a costly model upgrade), require a human tap.
-12. **Kill switch on budget breach.** Session aborts when any cap fires. Cap is recorded; requires a separate re-enable path.
+1. **`max_tokens` theo từng yêu cầu.** Đơn giản. Ngăn bất kỳ lệnh gọi đơn lẻ nào phát ra một phần hoàn thành không giới hạn.
+2. **Ngân sách token theo từng tác vụ.** Trong toàn bộ lần chạy, không vượt quá N token. Dừng cứng ở mức trần.
+3. **Ngân sách đô la theo từng tác vụ.** Giống token nhưng bằng tiền tệ. `max_budget_usd` trong Claude Code.
+4. **Mức trần lệnh gọi theo từng công cụ.** Không quá N lệnh gọi `WebFetch`, N lệnh gọi `shell_exec`, v.v.
+5. **Mức trần số lần lặp (`max_turns`).** Tổng số lần lặp vòng lặp agent; ngăn các vòng lặp suy luận vô hạn.
+6. **Mức trần theo phút / theo giờ / theo ngày / theo tháng.** Các cửa sổ trượt. Bắt các rò rỉ ở những thang thời gian khác nhau.
+7. **Giới hạn tốc độ tài chính.** Ví dụ: “nếu chi tiêu vượt $50 trong 10 phút, cắt quyền truy cập.” Bắt việc đốt tiền do vòng lặp trước khi mức trần hằng tháng kích hoạt.
+8. **Định tuyến mô hình phân tầng.** Mặc định dùng mô hình nhỏ hơn; chỉ nâng lên mô hình lớn hơn khi một bộ phân loại đánh giá tác vụ cần điều đó.
+9. **Bộ nhớ đệm prompt.** Prompt hệ thống và ngữ cảnh ổn định được lưu trong bộ nhớ đệm của nhà cung cấp; chi phí token của việc gửi lại gần bằng không.
+10. **Phân cửa sổ ngữ cảnh.** Nén / tóm tắt để giữ ngữ cảnh hoạt động dưới một ngưỡng; giảm trực tiếp chi phí token.
+11. **Checkpoint HITL trên các hành động tốn kém.** Trước một hành động được biết là tốn kém (lệnh gọi công cụ dài, tải xuống lớn, nâng cấp mô hình tốn kém), yêu cầu một lần chạm của con người.
+12. **Công tắc ngắt khi vượt ngân sách.** Phiên bị hủy khi bất kỳ mức trần nào kích hoạt. Mức trần được ghi lại; yêu cầu một đường bật lại riêng.
 
 ### Why the stack, not one cap
 
-A single monthly cap catches a runaway agent only after the wallet is gone. A single per-request cap catches nothing at the session level. Different failure modes require different time scales:
+Một mức trần hằng tháng đơn lẻ chỉ bắt được một agent mất kiểm soát sau khi ví đã cạn. Một mức trần theo từng yêu cầu đơn lẻ không bắt được gì ở cấp phiên. Các chế độ lỗi khác nhau yêu cầu các thang thời gian khác nhau:
 
-- **Runaway loop** (agent stuck in a 5-second retry): caught by velocity limit.
-- **Slow leak** (agent doing ~2x expected work per task): caught by daily cap.
-- **Bad release** (new version uses 5x tokens): caught by weekly / monthly cap.
-- **Legitimate surge** (real demand, not a bug): caught by hour / day cap with clear log.
+- **Vòng lặp mất kiểm soát** (agent mắc kẹt trong một lần thử lại 5 giây): bị bắt bởi giới hạn tốc độ.
+- **Rò rỉ chậm** (agent làm ~2x công việc dự kiến cho mỗi tác vụ): bị bắt bởi mức trần hằng ngày.
+- **Bản phát hành tệ** (phiên bản mới dùng 5x token): bị bắt bởi mức trần theo tuần / tháng.
+- **Tăng vọt hợp lệ** (nhu cầu thực, không phải lỗi): bị bắt bởi mức trần theo giờ / ngày với nhật ký rõ ràng.
 
 ### A harness budget surface
 
-The Claude Code Agent SDK exposes (public docs):
+Claude Code Agent SDK cung cấp (tài liệu công khai):
 
-- `max_turns` — iteration cap.
-- `max_budget_usd` — dollar cap; session aborts on breach.
-- `allowed_tools` / `disallowed_tools` — tool allowlist and denylist.
-- Hook points before tool use for custom cost-accounting.
+- `max_turns` — mức trần số lần lặp.
+- `max_budget_usd` — mức trần đô la; phiên bị hủy khi vượt.
+- `allowed_tools` / `disallowed_tools` — danh sách công cụ cho phép và danh sách từ chối.
+- Các điểm hook trước khi sử dụng công cụ cho việc hạch toán chi phí tùy chỉnh.
 
-Combine with the permission-mode ladder (Lesson 10). An `autoMode` session without `max_budget_usd` is ungoverned autonomy. Anthropic explicitly frames Auto Mode as requiring budget controls; the classifier is orthogonal to cost.
+Kết hợp với thang chế độ quyền (Bài 10). Một phiên `autoMode` không có `max_budget_usd` là tính tự chủ không được quản lý. Anthropic định vị rõ ràng Auto Mode là cần các kiểm soát ngân sách; bộ phân loại trực giao với chi phí.
 
 ### EU AI Act, OWASP Agentic Top 10
 
-Microsoft's Agent Governance Toolkit covers the OWASP Agentic Top 10 and the EU AI Act Article 14 (human oversight) requirements. For production in the EU, logging and cap enforcement are not optional.
+Agent Governance Toolkit của Microsoft bao phủ OWASP Agentic Top 10 và các yêu cầu của Điều 14 EU AI Act (giám sát của con người). Đối với sản xuất tại EU, ghi nhật ký và thực thi mức trần không phải là tùy chọn.
 
 ### The observed $1,200 → $4,800 case
 
-The real case in the Microsoft docs: an e-commerce agent whose monthly cost tripled after a new tool was added. The tool allowed the agent to poll order status during every session. No loop detection. No per-tool cap. No alert on week-over-week growth. The fix was a per-tool cap plus a daily-growth alert. This is a template: every new tool surface is a new potential loop; every new tool needs its own cap and its own alert.
+Trường hợp thực trong tài liệu Microsoft: một agent thương mại điện tử có chi phí hằng tháng tăng gấp ba sau khi một công cụ mới được thêm vào. Công cụ cho phép agent thăm dò trạng thái đơn hàng trong mỗi phiên. Không phát hiện vòng lặp. Không mức trần theo từng công cụ. Không cảnh báo về tăng trưởng tuần so với tuần. Cách khắc phục là một mức trần theo từng công cụ cộng với một cảnh báo tăng trưởng hằng ngày. Đây là một khuôn mẫu: mọi bề mặt công cụ mới đều là một vòng lặp tiềm năng mới; mọi công cụ mới đều cần mức trần riêng và cảnh báo riêng.
 
 ```figure
 cost-governor-stack
@@ -66,41 +66,41 @@ cost-governor-stack
 
 ## Use It
 
-`code/main.py` simulates an agent run with and without a layered cost-governor stack. The simulated agent drifts into a polling loop after some turns; the layered stack catches it within the velocity window while a single monthly cap would not fire until days later.
+`code/main.py` mô phỏng một lần chạy agent có và không có ngăn xếp bộ điều tiết chi phí nhiều lớp. Agent mô phỏng trôi vào một vòng lặp thăm dò sau một số lượt; ngăn xếp nhiều lớp bắt nó trong cửa sổ tốc độ trong khi một mức trần hằng tháng đơn lẻ sẽ không kích hoạt cho đến nhiều ngày sau.
 
 ## Ship It
 
-`outputs/skill-agent-budget-audit.md` audits a proposed agent deployment's cost-governor stack and flags missing layers.
+`outputs/skill-agent-budget-audit.md` kiểm toán ngăn xếp bộ điều tiết chi phí của một triển khai agent được đề xuất và đánh dấu các lớp còn thiếu.
 
 ## Exercises
 
-1. Run `code/main.py`. Confirm the velocity limit fires before the iteration cap on a polling-loop trajectory. Now disable the velocity limit and measure how much the agent "spends" before the iteration cap catches it.
+1. Chạy `code/main.py`. Xác nhận giới hạn tốc độ kích hoạt trước mức trần số lần lặp trên một quỹ đạo vòng lặp thăm dò. Bây giờ tắt giới hạn tốc độ và đo agent “chi” bao nhiêu trước khi mức trần số lần lặp bắt nó.
 
-2. Design a per-tool cap set for a browser agent (Lesson 11). Which tool needs the tightest cap? Which tool can run unbounded without risk?
+2. Thiết kế một tập mức trần theo từng công cụ cho một agent trình duyệt (Bài 11). Công cụ nào cần mức trần chặt nhất? Công cụ nào có thể chạy không giới hạn mà không có rủi ro?
 
-3. Read the Microsoft Agent Governance Toolkit docs. List every cap type the toolkit names. Map each to one of the failure modes (runaway loop, slow leak, bad release, surge).
+3. Đọc tài liệu Microsoft Agent Governance Toolkit. Liệt kê mọi loại mức trần mà bộ công cụ nêu tên. Ánh xạ mỗi loại tới một trong các chế độ lỗi (vòng lặp mất kiểm soát, rò rỉ chậm, bản phát hành tệ, tăng vọt).
 
-4. Price an overnight unattended run for a realistic task (e.g., "triage 50 issues in a repo"). Set `max_budget_usd` at 2x your point estimate. Justify the 2x.
+4. Định giá một lần chạy qua đêm không có người giám sát cho một tác vụ thực tế (ví dụ: “phân loại 50 issue trong một repo”). Đặt `max_budget_usd` ở mức 2x ước tính điểm của bạn. Giải thích mức 2x.
 
-5. Claude Code's `max_budget_usd` fires on session aggregate cost. Design a complementary velocity limit you would enforce externally. What triggers the cut-off, and what does re-enable look like?
+5. `max_budget_usd` của Claude Code kích hoạt trên tổng chi phí phiên. Thiết kế một giới hạn tốc độ bổ sung mà bạn sẽ thực thi từ bên ngoài. Điều gì kích hoạt việc cắt, và bật lại trông như thế nào?
 
 ## Key Terms
 
-| Term | What people say | What it actually means |
+| Thuật ngữ | Mọi người nói gì | Ý nghĩa thực sự |
 |---|---|---|
-| Denial of Wallet | "Runaway bill" | Agent loop generating spend with no cap to stop it |
-| max_tokens | "Per-request cap" | Ceiling on a single completion's size |
-| max_turns | "Iteration cap" | Ceiling on agent loop iterations in a session |
-| max_budget_usd | "Dollar kill switch" | Session cost cap; aborts on breach |
-| Velocity limit | "Rate cap" | Limit on spend per short window (e.g., $50 / 10 min) |
-| Tiered routing | "Small model first" | Cheap model default; escalate only when classifier warrants |
-| Prompt caching | "Cached system prompt" | Provider-side cache reduces re-send token cost to near zero |
-| HITL checkpoint | "Human approval gate" | Human tap required before expensive action |
+| Denial of Wallet (Từ chối ví tiền) | “Hóa đơn mất kiểm soát” | Vòng lặp agent tạo ra chi tiêu mà không có mức trần để ngăn nó |
+| max_tokens | “Mức trần theo từng yêu cầu” | Giới hạn trên đối với kích thước của một phần hoàn thành đơn lẻ |
+| max_turns | “Mức trần số lần lặp” | Giới hạn trên đối với số lần lặp vòng lặp agent trong một phiên |
+| max_budget_usd | “Công tắc ngắt đô la” | Mức trần chi phí phiên; hủy khi vượt |
+| Velocity limit (Giới hạn tốc độ) | “Mức trần tốc độ” | Giới hạn chi tiêu trong một cửa sổ ngắn (ví dụ: $50 / 10 phút) |
+| Tiered routing (Định tuyến phân tầng) | “Mô hình nhỏ trước” | Mô hình rẻ mặc định; chỉ nâng cấp khi bộ phân loại xác định là cần |
+| Prompt caching (Bộ nhớ đệm prompt) | “Prompt hệ thống được lưu đệm” | Bộ nhớ đệm phía nhà cung cấp giảm chi phí token gửi lại xuống gần không |
+| HITL checkpoint (Checkpoint HITL) | “Cổng phê duyệt của con người” | Yêu cầu một lần chạm của con người trước hành động tốn kém |
 
 ## Further Reading
 
-- [Anthropic Claude Code Agent SDK — agent loop and budgets](https://code.claude.com/docs/en/agent-sdk/agent-loop) — `max_turns`, `max_budget_usd`, tool allowlists.
-- [Microsoft Agent Framework — human-in-the-loop and governance](https://learn.microsoft.com/en-us/agent-framework/workflows/human-in-the-loop) — cost-governor checkpoints.
-- [Anthropic — Claude Managed Agents overview](https://platform.claude.com/docs/en/managed-agents/overview) — provider-side cost controls.
-- [Anthropic — Prompt caching (Claude API docs)](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) — caching mechanics.
-- [Anthropic — Measuring agent autonomy in practice](https://www.anthropic.com/research/measuring-agent-autonomy) — cost profile for long-horizon agents.
+- [Anthropic Claude Code Agent SDK — agent loop and budgets](https://code.claude.com/docs/en/agent-sdk/agent-loop) — `max_turns`, `max_budget_usd`, các danh sách công cụ cho phép.
+- [Microsoft Agent Framework — human-in-the-loop and governance](https://learn.microsoft.com/en-us/agent-framework/workflows/human-in-the-loop) — các checkpoint bộ điều tiết chi phí.
+- [Anthropic — Claude Managed Agents overview](https://platform.claude.com/docs/en/managed-agents/overview) — các kiểm soát chi phí phía nhà cung cấp.
+- [Anthropic — Prompt caching (Claude API docs)](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) — cơ chế bộ nhớ đệm.
+- [Anthropic — Measuring agent autonomy in practice](https://www.anthropic.com/research/measuring-agent-autonomy) — hồ sơ chi phí cho các agent có tầm thời gian dài.
