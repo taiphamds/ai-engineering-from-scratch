@@ -16,17 +16,17 @@ related: [tokenization-decoding/constrained-decoding-how]
 updated: 2026-11-03
 ---
 
-You review the schema of an extraction service. It is `{"answer": ..., "reasoning": ..., "date": <a strict year-month-day regex>}`, enforced by constrained decoding. Compliance is perfect, yet accuracy is poor and some dates are invented. What is wrong with the design, and how do you change it?
+Bạn review schema của một dịch vụ trích xuất. Nó là `{"answer": ..., "reasoning": ..., "date": <a strict year-month-day regex>}`, được constrained decoding thực thi. Sự tuân thủ hoàn hảo, nhưng độ chính xác kém và một số ngày bị bịa. Thiết kế sai ở đâu, và bạn thay đổi nó bằng cách nào?
 
 ## Short answer
 
-Two faults that no validator can catch. The answer field comes before the reasoning field, so the model commits to an answer before it has reasoned, and the strict date pattern leaves no legal way to say unknown, so the model complies by inventing a date. Put reasoning first and the answer last, and allow a null or a sentinel for a missing date; field order is logic, not formatting, and a grammar that is too strict forces a confident wrong value.
+Hai lỗi không bộ xác thực nào có thể bắt. Trường câu trả lời đứng trước trường suy luận, nên mô hình cam kết một câu trả lời trước khi đã suy luận, và mẫu ngày nghiêm ngặt không để cách hợp lệ nào nói không biết, nên mô hình tuân thủ bằng cách bịa một ngày. Đặt suy luận trước và câu trả lời cuối, và cho phép một null hoặc một sentinel cho một ngày thiếu; thứ tự trường là logic, không phải định dạng, và một ngữ pháp quá nghiêm ngặt ép một giá trị sai tự tin.
 
 ## Full answer
 
 ### Fault one: premature commitment
 
-Generation is left to right. With `answer` first, the model must emit the label before it has written a single word of analysis; the reasoning that follows is a justification of a choice already made. Swap the order and the model writes its analysis into the context that the answer is then conditioned on. The JSON is equally valid either way. Only the second way is correct.
+Sinh từ trái sang phải. Với `answer` trước, mô hình phải phát nhãn trước khi viết một từ phân tích nào; suy luận theo sau là một sự biện minh cho một lựa chọn đã đưa ra. Đổi thứ tự và mô hình viết phân tích vào ngữ cảnh mà câu trả lời sau đó được điều kiện hóa theo. JSON hợp lệ ngang nhau theo cả hai cách. Chỉ cách thứ hai đúng.
 
 ```json
 {"reasoning": "... therefore ...", "answer": "yes"}
@@ -34,35 +34,35 @@ Generation is left to right. With `answer` first, the model must emit the label 
 
 ### Fault two: a grammar with no exit
 
-The date regex admits only well-formed dates. When the source has no date, the model cannot output "unknown", and a mask that forbids every honest token leaves only dishonest ones. Allow `null` or a sentinel string in the schema and instruct the model to use it.
+Regex ngày chỉ nhận các ngày đúng định dạng. Khi nguồn không có ngày, mô hình không thể xuất "không biết", và một mask cấm mọi token trung thực chỉ để lại các token không trung thực. Cho phép `null` hoặc một chuỗi sentinel trong schema và chỉ dẫn mô hình dùng nó.
 
 ### The other pitfalls to check in the same review
 
-- **Recursive schemas behind a state-machine library.** The machine flattens recursion to a fixed depth; nested structures need a context-free grammar engine.
-- **Huge enums.** An enum of 10,000 options compiles slowly or times out; narrow the candidates with a retriever first, then constrain to those.
-- **Plain JSON mode without a schema.** It guarantees syntax, not your fields.
+- **Các schema đệ quy phía sau một thư viện máy trạng thái.** Máy làm phẳng đệ quy tới một độ sâu cố định; các cấu trúc lồng nhau cần một bộ máy ngữ pháp phi ngữ cảnh.
+- **Các enum khổng lồ.** Một enum 10,000 lựa chọn biên dịch chậm hoặc hết thời gian chờ; thu hẹp các ứng viên bằng một retriever trước, rồi ràng buộc vào chúng.
+- **Chế độ JSON thuần không có schema.** Nó bảo đảm cú pháp, không phải các trường của bạn.
 
 ### The validation plan that would have caught it
 
-Compliance rate is one number of four. Add semantic validity, measured with a judge or a labeled set, the field coverage rate, and latency at p50 and p99. A system with perfect compliance and poor semantic validity is exactly this case.
+Tỷ lệ tuân thủ là một con số trong bốn. Thêm tính hợp lệ ngữ nghĩa, được đo bằng một bộ chấm hoặc một tập được gán nhãn, tỷ lệ bao phủ trường, và độ trễ ở p50 và p99. Một hệ thống tuân thủ hoàn hảo và tính hợp lệ ngữ nghĩa kém chính là trường hợp này.
 
 ### The rule for the team
 
-Refuse any schema that puts `answer` or `decision` before its reasoning fields. Refuse bare JSON mode without a schema. Flag any recursive schema that sits behind a state-machine-only library.
+Từ chối mọi schema đặt `answer` hoặc `decision` trước các trường suy luận. Từ chối chế độ JSON trần không có schema. Đánh dấu mọi schema đệ quy nằm phía sau một thư viện chỉ-máy-trạng-thái.
 
 ## Follow-ups
 
-- **Level 3:** How do you measure semantic validity when compliance is already perfect? Expected: a labeled sample scored by a judge or by rules on the content, tracked separately from schema compliance.
-- **Level 3:** The output needs a tree, such as nested comments. What changes? Expected: a state-machine library flattens recursion; move to a context-free grammar engine.
-- **Level 4:** The product streams the answer to the user and wants it first for latency. How do you resolve the conflict? Expected: name the trade; options are two calls, reasoning in a hidden field before a visible answer, or accepting the latency; never answer-first with the same accuracy expectation.
-- **Level 4:** How would the invented dates have shown up in monitoring? Expected: a field coverage rate near 100 percent on a corpus where the date is often missing is itself the alarm; compare the rate with the base rate of the field in the source.
+- **Level 3:** Bạn đo tính hợp lệ ngữ nghĩa khi sự tuân thủ đã hoàn hảo bằng cách nào? Expected: một mẫu được gán nhãn được chấm bởi một bộ chấm hoặc bằng các quy tắc trên nội dung, được theo dõi tách biệt với tuân thủ schema.
+- **Level 3:** Đầu ra cần một cây, như các bình luận lồng nhau. Điều gì thay đổi? Expected: một thư viện máy trạng thái làm phẳng đệ quy; chuyển sang một bộ máy ngữ pháp phi ngữ cảnh.
+- **Level 4:** Sản phẩm stream câu trả lời tới người dùng và muốn nó trước vì độ trễ. Bạn giải quyết xung đột bằng cách nào? Expected: nêu đánh đổi; các lựa chọn là hai lệnh gọi, suy luận trong một trường ẩn trước một câu trả lời hiển thị, hoặc chấp nhận độ trễ; không bao giờ câu-trả-lời-trước với cùng kỳ vọng độ chính xác.
+- **Level 4:** Các ngày bịa ra sẽ thể hiện thế nào trong giám sát? Expected: một tỷ lệ bao phủ trường gần 100 phần trăm trên một kho ngữ liệu nơi ngày thường bị thiếu tự nó là báo động; so tỷ lệ với tỷ lệ cơ sở của trường trong nguồn.
 
 ## Wrong answers
 
-- "Tighten the regex so only plausible dates pass." The grammar is already the problem; a tighter one forces more invention.
-- "Add a line to the prompt asking the model to be honest." The mask forbids the honest tokens; no instruction can make the model emit a token with minus infinity logit.
-- "Validation passes, so the system works." Validation checks shape; it cannot see that the answer was committed before the reasoning or that a date was made up.
+- "Thắt chặt regex để chỉ các ngày hợp lý qua." Ngữ pháp đã là vấn đề; một ngữ pháp chặt hơn ép nhiều bịa đặt hơn.
+- "Thêm một dòng vào prompt yêu cầu mô hình trung thực." Mask cấm các token trung thực; không chỉ dẫn nào có thể khiến mô hình phát một token có logit âm vô cùng.
+- "Xác thực đạt, nên hệ thống hoạt động." Xác thực kiểm tra hình dạng; nó không thể thấy câu trả lời đã được cam kết trước suy luận hoặc một ngày đã được bịa.
 
 ## Taught in
 
-The [structured outputs and constrained decoding lesson](../../../phases/05-nlp-foundations-to-advanced/20-structured-outputs-constrained-decoding/) names the field-order pitfall, the too-strict grammar, and the validation plan.
+[Bài học structured outputs và constrained decoding](../../../phases/05-nlp-foundations-to-advanced/20-structured-outputs-constrained-decoding/) nêu cạm bẫy thứ tự trường, ngữ pháp quá nghiêm ngặt, và kế hoạch xác thực.

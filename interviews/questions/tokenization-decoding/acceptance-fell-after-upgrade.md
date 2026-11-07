@@ -16,53 +16,53 @@ related: [tokenization-decoding/choose-the-draft-for-a-new-model, tokenization-d
 updated: 2026-11-03
 ---
 
-Two changes shipped in one week: the target model moved to its next version, and a new customer whose traffic is mostly code was routed onto the same cluster. Speculative decoding has been on for months. Since then the mean inter-token latency fell 25 percent, the P99 rose 15 percent, and throughput at the usual concurrency is down. Diagnose it.
+Hai thay đổi được phát hành trong một tuần: mô hình đích chuyển lên phiên bản tiếp theo, và một khách hàng mới có lưu lượng phần lớn là mã được định tuyến lên cùng cụm. Giải mã suy đoán đã bật nhiều tháng. Từ đó, độ trễ liên token trung bình giảm 25 phần trăm, P99 tăng 15 phần trăm, và thông lượng ở mức đồng thời thường dùng giảm. Chẩn đoán.
 
 ## Short answer
 
-Both changes attack acceptance. The draft head was trained against the previous target version, so its distribution drifted and more drafts reject; the code traffic shifts the input distribution away from the general chat data the head was trained on, where acceptance falls into the 0.4 to 0.6 band. A rejected draft costs a verify and a re-roll, two passes that serialize under a full batch, which is exactly a tail that worsens while the mean still improves. Read acceptance per traffic slice and per target version from the engine's speculative metrics, retrain or roll back to a head aligned with the new target, and gate speculation per request class.
+Cả hai thay đổi đánh vào sự chấp nhận. Draft head được huấn luyện theo phiên bản đích trước, nên phân phối của nó trôi dạt và nhiều draft bị từ chối hơn; lưu lượng mã dịch phân phối đầu vào khỏi dữ liệu chat chung mà head được huấn luyện trên đó, nơi sự chấp nhận rơi vào dải 0.4 đến 0.6. Một draft bị từ chối tốn một lần xác minh và một lần lấy lại, hai lượt nối tiếp dưới một batch đầy, đúng là một đuôi tệ hơn trong khi trung bình vẫn cải thiện. Đọc sự chấp nhận theo từng lát lưu lượng và từng phiên bản đích từ các chỉ số suy đoán của engine, huấn luyện lại hoặc quay về một head aligned với đích mới, và chặn qua cổng suy đoán theo từng lớp yêu cầu.
 
 ## Full answer
 
 ### Why mean and tail move in opposite directions
 
-Most requests still accept most drafts, so their inter-token latency falls and the mean improves. The requests that reject early pay the draft steps, the verify and a second target pass for the correction, and under a full batch those passes queue behind each other. The tail is where the rejected requests live. Watch P99, not P50.
+Phần lớn các yêu cầu vẫn chấp nhận phần lớn các draft, nên độ trễ liên token của chúng giảm và trung bình cải thiện. Các yêu cầu từ chối sớm trả phí các bước draft, lần xác minh và một lượt đích thứ hai cho hiệu chỉnh, và dưới một batch đầy các lượt đó xếp hàng sau nhau. Đuôi là nơi các yêu cầu bị từ chối nằm. Theo dõi P99, không phải P50.
 
 ### Cause one: a draft one version behind
 
-A hidden-state draft is trained to predict a specific target's next token from that target's features. A new target version changes the features and the distribution, and the draft's agreement with it drops. The capstone's first exercise is to measure this degradation and to build the alert for it.
+Một draft trạng thái ẩn được huấn luyện để dự đoán token tiếp theo của một đích cụ thể từ các feature của đích đó. Một phiên bản đích mới thay đổi các feature và phân phối, và mức đồng thuận của draft với nó giảm. Bài tập đầu tiên của capstone là đo suy giảm này và xây cảnh báo cho nó.
 
 ### Cause two: a domain the head never saw
 
-A head trained on general chat sits at 0.6 to 0.8 acceptance there and at 0.4 to 0.6 on code, medical or legal traffic. Code tokens are predictable for a draft trained on code, and poorly predicted by one that was not. Below an acceptance of about 0.55 at high concurrency speculation is net negative, so the new customer may have pushed the cluster under the floor.
+Một head được huấn luyện trên chat chung nằm ở mức chấp nhận 0.6 đến 0.8 ở đó và ở 0.4 đến 0.6 trên lưu lượng mã, y tế hoặc pháp lý. Các token mã có thể dự đoán với một draft được huấn luyện trên mã, và được dự đoán kém bởi một draft không được huấn luyện như vậy. Dưới mức chấp nhận khoảng 0.55 ở độ đồng thời cao, suy đoán có lợi ích ròng âm, nên khách hàng mới có thể đã đẩy cụm xuống dưới sàn.
 
 ### The diagnosis
 
-1. Pull accepted draft tokens and proposed draft tokens per request from the engine, divide the first by the second, and split by target version and by customer or request class. One number for the whole cluster hides both causes.
-2. Compare the chat slice before and after the upgrade: if it fell, the version drift is real.
-3. Compare the code slice against the chat slice at the same version: if it sits far lower, the domain shift is real.
-4. Confirm the tail story by bucketing P99 by acceptance; the slow tail should be the low-acceptance slice.
+1. Lấy các token draft được chấp nhận và các token draft được đề xuất theo từng yêu cầu từ engine, chia số đầu cho số sau, và tách theo phiên bản đích và theo khách hàng hoặc lớp yêu cầu. Một con số cho toàn cụm giấu cả hai nguyên nhân.
+2. So sánh lát chat trước và sau nâng cấp: nếu nó giảm, drift phiên bản là thật.
+3. So sánh lát mã với lát chat ở cùng phiên bản: nếu nó nằm thấp hơn nhiều, dịch chuyển lĩnh vực là thật.
+4. Xác nhận câu chuyện đuôi bằng cách chia bucket P99 theo sự chấp nhận; đuôi chậm nên là lát chấp nhận thấp.
 
 ### The fix
 
-- Retrain the head against the new target version, or roll the target back until the aligned head is ready.
-- Route the code customer to a plain decode pool, or train a code-specific head; the training job is light next to fine-tuning the target.
-- Gate speculation per request class on measured acceptance, with an n-gram or draft-free fallback below the floor.
-- Alert on acceptance per slice so the next version bump cannot ship without the draft.
+- Huấn luyện lại head theo phiên bản đích mới, hoặc rollback đích cho đến khi head aligned sẵn sàng.
+- Định tuyến khách hàng mã tới một pool giải mã thuần, hoặc huấn luyện một head riêng cho mã; công việc huấn luyện nhẹ so với fine-tuning đích.
+- Chặn qua cổng suy đoán theo từng lớp yêu cầu dựa trên sự chấp nhận được đo, với một fallback n-gram hoặc không draft dưới sàn.
+- Cảnh báo sự chấp nhận theo từng lát để lần tăng phiên bản tiếp theo không thể phát hành thiếu draft.
 
 ## Follow-ups
 
-- **Level 3:** Why can the mean improve while throughput falls? Expected: the accepted requests get faster, but the rejected ones consume two target passes each, and at a full batch that extra work displaces other requests.
-- **Level 4:** Design the alert in two sentences. Expected: compute acceptance per slice and per target version over a short window and compare against the baseline recorded at rollout; page when a slice crosses the floor or drops a fixed share from its baseline.
-- **Level 4:** What is the fallback when acceptance drops on one slice only? Expected: switch that slice to an n-gram draft or to plain decoding while the head is retrained, and keep speculation where it still pays.
-- **Level 4:** How does this change your release process? Expected: a target upgrade ships together with a draft trained against it, and the benchmark that gates the release reports acceptance and P99 per slice.
+- **Level 3:** Tại sao trung bình có thể cải thiện trong khi thông lượng giảm? Expected: các yêu cầu được chấp nhận nhanh hơn, nhưng các yêu cầu bị từ chối tiêu hai lượt đích mỗi yêu cầu, và ở một batch đầy công việc thêm đó chiếm chỗ các yêu cầu khác.
+- **Level 4:** Thiết kế cảnh báo trong hai câu. Expected: tính sự chấp nhận theo từng lát và từng phiên bản đích trên một cửa sổ ngắn và so với baseline được ghi lúc rollout; gọi người khi một lát vượt qua sàn hoặc giảm một tỷ lệ cố định so với baseline.
+- **Level 4:** Fallback là gì khi sự chấp nhận chỉ giảm trên một lát? Expected: chuyển lát đó sang một draft n-gram hoặc sang giải mã thuần trong khi head được huấn luyện lại, và giữ suy đoán ở nơi nó vẫn mang lợi ích.
+- **Level 4:** Điều này thay đổi quy trình phát hành của bạn như thế nào? Expected: một nâng cấp đích phát hành cùng một draft được huấn luyện theo nó, và benchmark làm cổng phát hành báo cáo sự chấp nhận và P99 theo từng lát.
 
 ## Wrong answers
 
-- "Increase the draft length to win back throughput." More drafts at low acceptance are mostly rejected and their cost is still paid; the tail gets worse.
-- "Turn speculation off everywhere." The chat slice may still pay; gate by slice and fix the head.
-- "The new target is just slower; speculation has nothing to do with it." A plain-decode benchmark of the new target settles that in minutes, and the mean improving while the tail worsens points at rejections.
+- "Tăng độ dài draft để lấy lại thông lượng." Nhiều draft hơn ở mức chấp nhận thấp phần lớn bị từ chối và chi phí của chúng vẫn được trả; đuôi tệ hơn.
+- "Tắt suy đoán ở mọi nơi." Lát chat có thể vẫn mang lợi ích; đặt cổng theo lát và sửa head.
+- "Đích mới chỉ chậm hơn; suy đoán không liên quan." Một benchmark giải mã thuần của đích mới giải quyết điều đó trong vài phút, và trung bình cải thiện trong khi đuôi tệ hơn chỉ tới các lần từ chối.
 
 ## Taught in
 
-The [speculative decoding server capstone](../../../phases/19-capstone-projects/14-speculative-decoding-server/) sets the drift measurement and the fallback exercises, the [production EAGLE-3 lesson](../../../phases/17-infrastructure-and-production/05-eagle3-speculative-decoding/) explains the tail and the acceptance floor, and the [EAGLE-3 lesson](../../../phases/10-llms-from-scratch/15-speculative-decoding-eagle3/) explains why the draft is tied to one target version.
+[Capstone server giải mã suy đoán](../../../phases/19-capstone-projects/14-speculative-decoding-server/) đặt ra đo drift và các bài tập fallback, [bài học EAGLE-3 production](../../../phases/17-infrastructure-and-production/05-eagle3-speculative-decoding/) giải thích đuôi và sàn chấp nhận, và [bài học EAGLE-3](../../../phases/10-llms-from-scratch/15-speculative-decoding-eagle3/) giải thích tại sao draft gắn với một phiên bản đích.

@@ -16,7 +16,7 @@ related: [tokenization-decoding/read-the-decoder-round-trip]
 updated: 2026-11-03
 ---
 
-Read this dataset code from the lesson. `ids` is the whole corpus as one tensor of token ids.
+Đọc mã dataset này từ bài học. `ids` là toàn bộ kho ngữ liệu dưới dạng một tensor các id token.
 
 ```python
 @staticmethod
@@ -33,17 +33,17 @@ def __getitem__(self, index):
     return window[:-1].clone(), window[1:].clone()
 ```
 
-Why does each window need one more id than the context length, how does the count change when you halve the stride, and what does the loader do to make two runs see the same order?
+Tại sao mỗi cửa sổ cần thêm một id so với độ dài ngữ cảnh, số lượng thay đổi thế nào khi bạn giảm stride còn một nửa, và loader làm gì để hai lần chạy thấy cùng thứ tự?
 
 ## Short answer
 
-The target is the input shifted left by one, so an example of T input ids needs T plus 1 ids, and the count is 1 plus the floor of (N minus T minus 1) over the stride, or zero when the stream is too short. Halving the stride from T to T over 2 gives about twice the examples with half of each window shared with its neighbor, and a stride of 1 multiplies the count by about T. The loader seeds a generator with the base seed plus the epoch index, so the shuffle is the same on every restart and each epoch gets a new shuffle.
+Mục tiêu là đầu vào dịch trái một vị trí, nên một ví dụ T id đầu vào cần T cộng 1 id, và số lượng là 1 cộng phần nguyên của (N trừ T trừ 1) chia stride, hoặc không khi luồng quá ngắn. Giảm stride từ T xuống T chia 2 cho khoảng gấp đôi số ví dụ với một nửa mỗi cửa sổ được dùng chung với cửa sổ lân cận, và stride 1 nhân số lượng lên khoảng T. Loader đặt seed cho một generator bằng seed cơ sở cộng chỉ số epoch, nên thứ tự xáo trộn giống nhau ở mỗi lần khởi động lại và mỗi epoch nhận một thứ tự xáo trộn mới.
 
 ## Full answer
 
 ### The shape contract
 
-A causal language model consumes `(B, T)` input ids and `(B, T)` target ids where the target at position t is the input at t plus 1. One slice of T plus 1 ids gives both tensors from the same memory, which makes the shift mistake impossible: `window[:-1]` and `window[1:]`.
+Một mô hình ngôn ngữ nhân quả tiêu thụ các id đầu vào `(B, T)` và các id mục tiêu `(B, T)` trong đó mục tiêu ở vị trí t là đầu vào tại t cộng 1. Một lát T cộng 1 id cho cả hai tensor từ cùng bộ nhớ, khiến lỗi dịch không thể xảy ra: `window[:-1]` và `window[1:]`.
 
 ### The count
 
@@ -51,21 +51,21 @@ A causal language model consumes `(B, T)` input ids and `(B, T)` target ids wher
 examples = max(0, 1 + (N - (T + 1)) // S)
 ```
 
-The last window is dropped when it cannot fill T plus 1 ids. Padding it is valid too, but it complicates the loss mask, so the lesson drops.
+Cửa sổ cuối bị bỏ khi không thể lấp T cộng 1 id. Padding nó cũng hợp lệ, nhưng làm phức tạp loss mask, nên bài học bỏ.
 
 ### Stride against redundancy
 
-| Stride | Overlap | Examples |
+| Stride | Chồng lấn | Số ví dụ |
 |---|---|---|
-| T | none | about N over T |
-| T over 2 | half of each window | about twice as many |
-| 1 | almost all | about T times as many |
+| T | không có | khoảng N chia T |
+| T chia 2 | một nửa mỗi cửa sổ | khoảng gấp đôi |
+| 1 | gần như tất cả | khoảng T lần |
 
-More overlap moves the window boundaries around, so the model sees more distinct predict-next-token tasks per epoch, at the price of more compute per epoch. Most pretraining runs use a stride equal to the context length because the corpus is already larger than one epoch can cover.
+Nhiều chồng lấn hơn dịch các ranh giới cửa sổ, nên mô hình thấy nhiều tác vụ dự-đoán-token-tiếp-theo khác biệt hơn mỗi epoch, với cái giá tính toán nhiều hơn mỗi epoch. Phần lớn các lần tiền huấn luyện dùng stride bằng độ dài ngữ cảnh vì kho ngữ liệu đã lớn hơn những gì một epoch có thể bao phủ.
 
 ### Memory
 
-The dataset stores one copy of the id stream and computes each window's start on the fly, so the memory cost does not grow with the number of examples the stride creates.
+Dataset lưu một bản sao luồng id và tính điểm bắt đầu mỗi cửa sổ khi cần, nên chi phí bộ nhớ không tăng theo số ví dụ mà stride tạo.
 
 ### Determinism
 
@@ -74,21 +74,21 @@ generator = torch.Generator()
 generator.manual_seed(base_seed + epoch)
 ```
 
-The same base seed gives the same order in every epoch of every run, and the epoch index gives each epoch a new shuffle. Without this, two runs that differ in one hyperparameter also differ in data order, and the loss curves diverge for reasons unrelated to the change.
+Cùng seed cơ sở cho cùng thứ tự trong mỗi epoch của mỗi lần chạy, và chỉ số epoch cho mỗi epoch một thứ tự xáo trộn mới. Không có điều này, hai lần chạy khác một siêu tham số cũng khác thứ tự dữ liệu, và các đường cong loss phân kỳ vì các lý do không liên quan tới thay đổi.
 
 ## Follow-ups
 
-- **Level 2:** Why not pad the last window instead of dropping it? Expected: padding needs a loss mask so the pad positions do not count; dropping keeps the loss simple.
-- **Level 3:** Why seed per epoch and not once per run? Expected: a generator seeded once and advanced across epochs is also reproducible, but epoch k's order then depends on replaying every earlier epoch; seeding with the base seed plus the epoch index builds epoch k's order directly, which a resumed run needs.
-- **Level 3:** What does a stride of 1 cost and buy? Expected: about T times the compute per epoch and heavy redundancy, against maximum boundary diversity.
-- **Level 4:** You split the id stream into train and validation after windowing. What goes wrong? Expected: overlapping windows straddle the split, so validation text appears in training; split the stream first, then window each part.
+- **Level 2:** Tại sao không padding cửa sổ cuối thay vì bỏ? Expected: padding cần một loss mask để các vị trí pad không được tính; bỏ giữ loss đơn giản.
+- **Level 3:** Tại sao đặt seed theo từng epoch mà không một lần mỗi lần chạy? Expected: một generator được đặt seed một lần và tiến qua các epoch cũng có thể tái lập, nhưng thứ tự epoch k khi đó phụ thuộc vào phát lại mọi epoch trước; đặt seed bằng seed cơ sở cộng chỉ số epoch xây trực tiếp thứ tự epoch k, điều một lần chạy được tiếp tục cần.
+- **Level 3:** Một stride 1 tốn gì và mang lại gì? Expected: tính toán mỗi epoch khoảng T lần và dư thừa nặng, đổi lấy đa dạng ranh giới tối đa.
+- **Level 4:** Bạn tách luồng id thành huấn luyện và validation sau khi tạo cửa sổ. Điều gì sai? Expected: các cửa sổ chồng lấn vượt qua phần tách, nên văn bản validation xuất hiện trong huấn luyện; tách luồng trước, rồi tạo cửa sổ mỗi phần.
 
 ## Wrong answers
 
-- "The number of examples is N divided by T." That ignores the extra id per window and the stride; the formula has both.
-- "A fixed seed makes every epoch see the same order." The epoch index is added to the seed, so each epoch gets a new shuffle and each run is reproducible.
-- "The target is the same window as the input." It is the window shifted left by one; the same ids give both tensors from one slice.
+- "Số ví dụ là N chia T." Điều đó bỏ qua id thêm mỗi cửa sổ và stride; công thức có cả hai.
+- "Một seed cố định khiến mỗi epoch thấy cùng thứ tự." Chỉ số epoch được cộng vào seed, nên mỗi epoch nhận một thứ tự xáo trộn mới và mỗi lần chạy có thể tái lập.
+- "Mục tiêu là cùng cửa sổ như đầu vào." Nó là cửa sổ dịch trái một vị trí; cùng các id cho cả hai tensor từ một lát.
 
 ## Taught in
 
-The [sliding-window dataset capstone](../../../phases/19-capstone-projects/31-tokenized-dataset-sliding-window/) gives the count formula, the shift-by-one slice and the seeded loader.
+[Capstone dataset cửa sổ trượt](../../../phases/19-capstone-projects/31-tokenized-dataset-sliding-window/) cung cấp công thức đếm, lát dịch-một-vị-trí và loader có seed.

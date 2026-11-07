@@ -16,11 +16,11 @@ related: [tokenization-decoding/bpe-training-loop]
 updated: 2026-11-03
 ---
 
-Before any merge runs, a production tokenizer cuts the text into chunks with a regular expression. Show me what the classic pattern does to `Hello, world! Don't stop.` and explain why the cut exists at all, given that the merges could run on the raw stream.
+Trước khi bất kỳ phép gộp nào chạy, một tokenizer production cắt văn bản thành các chunk bằng một biểu thức chính quy. Cho tôi thấy mẫu cổ điển làm gì với `Hello, world! Don't stop.` và giải thích tại sao việc cắt tồn tại, khi các phép gộp có thể chạy trên luồng thô.
 
 ## Short answer
 
-The pattern cuts the sentence into eight chunks, `Hello`, `,`, ` world`, `!`, ` Don`, `'t`, ` stop` and `.`: each word after the first keeps the space in front of it, contractions split at the apostrophe, and punctuation stands alone. The merges then run inside each chunk and can never join symbols across a chunk boundary. Without the cut, training learns merges that span words, the vocabulary fills with whole phrases, and the pieces generalize worse to new text.
+Mẫu cắt câu thành tám chunk, `Hello`, `,`, ` world`, `!`, ` Don`, `'t`, ` stop` và `.`: mỗi từ sau từ đầu giữ dấu cách phía trước, các dạng rút gọn tách ở dấu nháy, và dấu câu đứng riêng. Các phép gộp sau đó chạy bên trong mỗi chunk và không bao giờ có thể nối các symbol qua một ranh giới chunk. Không có việc cắt, huấn luyện học các phép gộp trải qua các từ, từ vựng đầy các cụm từ hoàn chỉnh, và các mảnh khái quát kém hơn tới văn bản mới.
 
 ## Full answer
 
@@ -30,37 +30,37 @@ The pattern cuts the sentence into eight chunks, `Hello`, `,`, ` world`, `!`, ` 
 '(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+
 ```
 
-In order: common contraction endings, a word with an optional leading space, a run of digits with an optional leading space, a run of punctuation, and whitespace. The `\p{L}` and `\p{N}` classes need the third-party `regex` module; the standard library falls back to ASCII classes, which is wrong for multilingual text.
+Theo thứ tự: các đuôi rút gọn phổ biến, một từ với một dấu cách đầu tùy chọn, một chuỗi chữ số với một dấu cách đầu tùy chọn, một chuỗi dấu câu, và khoảng trắng. Các lớp `\p{L}` và `\p{N}` cần mô-đun `regex` bên thứ ba; thư viện chuẩn quay về các lớp ASCII, sai với văn bản đa ngôn ngữ.
 
 ### Why the leading space travels with the word
 
-` hello` and `hello` are different tokens. Keeping the space on the word means a word-initial piece and a word-internal piece stay distinct, and the decoder can rebuild the spacing from the tokens alone. The same reason forces every caller to be explicit about whether a prefix space is added at the start of a prompt.
+` hello` và `hello` là các token khác nhau. Giữ dấu cách trên từ nghĩa là một mảnh đầu từ và một mảnh trong từ giữ khác biệt, và decoder có thể xây lại khoảng cách chỉ từ các token. Cùng lý do buộc mọi bên gọi tường minh về liệu một dấu cách tiền tố được thêm ở đầu một prompt không.
 
 ### Why cut at all
 
-The merge loop is greedy on frequency. In a raw stream the pair "e" followed by a space followed by "t" is frequent, so the loop would happily learn a piece that ends one word and starts the next. Such pieces do not transfer: the next text has different word pairs. Cutting first keeps every merge inside a word, which is where the regularities that generalize live.
+Vòng lặp gộp tham lam theo tần suất. Trong một luồng thô, cặp "e" theo sau bởi một dấu cách theo sau bởi "t" phổ biến, nên vòng lặp sẽ vui vẻ học một mảnh kết thúc một từ và bắt đầu từ tiếp theo. Các mảnh như vậy không chuyển giao: văn bản tiếp theo có các cặp từ khác. Cắt trước giữ mọi phép gộp bên trong một từ, đó là nơi các quy luật khái quát được nằm.
 
 ### The other design
 
-A tokenizer that works on raw text treats the space as an ordinary symbol and lets the merge or prune algorithm find the boundaries. It needs no language rules and handles scripts without spaces, and it allows cross-word pieces, which can compress a little better and read a little worse.
+Một tokenizer làm việc trên văn bản thô xem dấu cách là một symbol thông thường và để thuật toán gộp hoặc cắt tìm các ranh giới. Nó không cần các quy tắc ngôn ngữ và xử lý các hệ chữ không có dấu cách, và nó cho phép các mảnh liên từ, có thể nén tốt hơn một chút và đọc kém hơn một chút.
 
 ### The capstone's version
 
-A small split on whitespace and punctuation. It is enough to keep merges inside words for a small training set, and the rest of the pipeline stays the same.
+Một phép tách nhỏ theo khoảng trắng và dấu câu. Nó đủ để giữ các phép gộp bên trong các từ cho một tập huấn luyện nhỏ, và phần còn lại của pipeline giữ nguyên.
 
 ## Follow-ups
 
-- **Level 2:** Why does a prompt that starts without a space tokenize differently from one that starts with a space? Expected: the space is part of the word-initial token, so the first word maps to a different id; set the prefix-space behavior explicitly.
-- **Level 3:** Why does the `regex` module matter for this pattern? Expected: the Unicode letter and number classes cover scripts beyond ASCII, which the standard library's engine lacks.
-- **Level 3:** What is the trade in skipping the cut and running on raw text? Expected: no language rules and good behavior for scripts without spaces, against cross-word pieces that compress slightly better and are less interpretable.
-- **Level 3:** A tokenizer file is unchanged but ids differ between two machines. What in this stage can cause it? Expected: one machine fell back to the ASCII pattern because the `regex` module was missing, so the chunks differ.
+- **Level 2:** Tại sao một prompt bắt đầu không có dấu cách token hóa khác một prompt bắt đầu có dấu cách? Expected: dấu cách là một phần của token đầu từ, nên từ đầu ánh xạ tới một id khác; đặt hành vi dấu-cách-tiền-tố tường minh.
+- **Level 3:** Tại sao mô-đun `regex` quan trọng với mẫu này? Expected: các lớp chữ cái và số Unicode bao phủ các hệ chữ ngoài ASCII, mà engine thư viện chuẩn thiếu.
+- **Level 3:** Đánh đổi khi bỏ việc cắt và chạy trên văn bản thô là gì? Expected: không quy tắc ngôn ngữ và hành vi tốt cho các hệ chữ không có dấu cách, đổi lấy các mảnh liên từ nén tốt hơn một chút và ít diễn giải được hơn.
+- **Level 3:** Một file tokenizer không đổi nhưng các id khác giữa hai máy. Điều gì trong giai đoạn này có thể gây ra? Expected: một máy quay về mẫu ASCII vì mô-đun `regex` bị thiếu, nên các chunk khác.
 
 ## Wrong answers
 
-- "Pre-tokenization is just splitting on spaces." The pattern also handles contractions, digits, punctuation and runs of whitespace, and it keeps the space attached to the word.
-- "The cut is cosmetic; the merges would find the same pieces." Without the cut the merges cross word boundaries and the vocabulary fills with phrases.
-- "Attach punctuation to the word it follows." Then `world!` and `world` are different pieces, and the vocabulary pays for every punctuation variant.
+- "Tiền token hóa chỉ là tách theo dấu cách." Mẫu cũng xử lý các dạng rút gọn, chữ số, dấu câu và các chuỗi khoảng trắng, và nó giữ dấu cách gắn với từ.
+- "Việc cắt chỉ là bề ngoài; các phép gộp sẽ tìm cùng các mảnh." Không có việc cắt, các phép gộp vượt ranh giới từ và từ vựng đầy các cụm từ.
+- "Gắn dấu câu vào từ nó theo sau." Khi đó `world!` và `world` là các mảnh khác nhau, và từ vựng trả phí cho mọi biến thể dấu câu.
 
 ## Taught in
 
-The [tokenizer build lesson](../../../phases/10-llms-from-scratch/02-building-a-tokenizer/) gives the pattern and its output, the [BPE capstone](../../../phases/19-capstone-projects/30-bpe-tokenizer-from-scratch/) explains why merges stay inside words, and the [subword lesson](../../../phases/05-nlp-foundations-to-advanced/19-subword-tokenization/) lists the whitespace pitfall.
+[Bài học xây tokenizer](../../../phases/10-llms-from-scratch/02-building-a-tokenizer/) cung cấp mẫu và đầu ra, [capstone BPE](../../../phases/19-capstone-projects/30-bpe-tokenizer-from-scratch/) giải thích tại sao các phép gộp giữ bên trong các từ, và [bài học subword](../../../phases/05-nlp-foundations-to-advanced/19-subword-tokenization/) liệt kê cạm bẫy khoảng trắng.

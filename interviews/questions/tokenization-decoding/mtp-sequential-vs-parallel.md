@@ -16,17 +16,17 @@ related: [tokenization-decoding/hidden-state-drafts]
 updated: 2026-11-03
 ---
 
-A pretraining team wants to supervise each position on more than the next token. One design puts several independent output heads on the backbone. Another chains small modules, one per extra depth. Which design gives you a usable speculative draft at inference, and what does it cost during training?
+Một nhóm tiền huấn luyện muốn giám sát mỗi vị trí trên nhiều hơn token tiếp theo. Một thiết kế đặt nhiều head đầu ra độc lập trên backbone. Một thiết kế khác nối chuỗi các mô-đun nhỏ, một mô-đun mỗi độ sâu thêm. Thiết kế nào cho bạn một draft suy đoán dùng được ở suy luận, và nó tốn gì trong huấn luyện?
 
 ## Short answer
 
-The chained design. Module k takes the previous depth's hidden state and the embedding of the actual next token, runs its own small transformer block, and reuses the shared embedding and the shared output head, so its prediction of the token at t plus k plus 1 is conditioned on the token at t plus k, which is the same causal chain a decoder follows and lets the module draft tokens at inference with acceptance at depth one of 80 percent or more for about 1.8 times throughput. Independent heads all read the same hidden state and cannot condition on each other. The training cost is about 10 percent slower pretraining and about 14 h squared parameters per module, with a loss weight of 0.3 early and 0.1 later.
+Thiết kế nối chuỗi. Mô-đun k nhận trạng thái ẩn của độ sâu trước và embedding của token tiếp theo thực tế, chạy block transformer nhỏ riêng, và dùng lại embedding chung cùng head đầu ra chung, nên dự đoán token tại t cộng k cộng 1 của nó được điều kiện hóa trên token tại t cộng k, đó là cùng chuỗi nhân quả mà một decoder đi theo và cho phép mô-đun draft các token ở suy luận với mức chấp nhận ở độ sâu một từ 80 phần trăm trở lên cho thông lượng khoảng 1.8 lần. Các head độc lập đều đọc cùng trạng thái ẩn và không thể điều kiện hóa theo nhau. Chi phí huấn luyện là tiền huấn luyện chậm hơn khoảng 10 phần trăm và khoảng 14 h bình phương tham số mỗi mô-đun, với một trọng số loss 0.3 lúc đầu và 0.1 về sau.
 
 ## Full answer
 
 ### The sequential recipe
 
-For a prefix through position i, depth zero is the main backbone, and depth k builds on depth k minus 1:
+Với một tiền tố tới vị trí i, độ sâu không là backbone chính, và độ sâu k xây trên độ sâu k trừ 1:
 
 ```text
 h_i^(k) = T_k( M_k · concat( RMSNorm(h_i^(k-1)), RMSNorm(E(t_{i+k})) ) )
@@ -35,45 +35,45 @@ L_k = cross-entropy( logits_{i+k+1}, t_{i+k+1} )
 L_MTP = (lambda / D) · sum over k of L_k
 ```
 
-`E` is the embedding table and `Out` is the output head, both shared with the main model. `M_k` folds the previous hidden state and the next token's embedding into one vector. `T_k` is one transformer block. The total loss is the main next-token loss plus `L_MTP`, with lambda at 0.3 for the first 10 percent of training and 0.1 afterward.
+`E` là bảng embedding và `Out` là head đầu ra, cả hai dùng chung với mô hình chính. `M_k` gấp trạng thái ẩn trước và embedding của token tiếp theo thành một vector. `T_k` là một block transformer. Tổng loss là loss token tiếp theo chính cộng `L_MTP`, với lambda ở 0.3 cho 10 phần trăm huấn luyện đầu và 0.1 sau đó.
 
 ### Why the chain matters
 
-To predict two tokens ahead, module one sees what the next token actually was. At inference you feed it the drafted token instead, and it predicts the one after. That is exactly how a hidden-state draft works, so the trained module is a draft network for free. Parallel heads fire from one hidden state, so head two cannot use head one's answer. A verifier can still check their guesses, but they are accepted less often.
+Để dự đoán trước hai token, mô-đun một thấy token tiếp theo thực sự là gì. Ở suy luận bạn đưa token được draft cho nó thay vào đó, và nó dự đoán token sau. Đó chính xác là cách một draft trạng thái ẩn hoạt động, nên mô-đun đã huấn luyện là một mạng draft miễn phí. Các head song song phát từ một trạng thái ẩn, nên head hai không thể dùng câu trả lời head một. Một bộ xác minh vẫn có thể kiểm tra các phỏng đoán, nhưng chúng được chấp nhận ít thường xuyên hơn.
 
 ### The accounting
 
-Per module: the projection is `2 h^2`, the block is about `12 h^2` for attention and a gated MLP, so about `14 h^2`. At a hidden size of 7168 and one module that is about 720M on paper; the published figure is 14B on a 671B main model, about 2 percent, because the module's MLP inherits the expert structure of the main model. The embedding and head add nothing, because they are shared.
+Theo từng mô-đun: phép chiếu là `2 h^2`, block là khoảng `12 h^2` cho attention và một MLP có cổng, nên khoảng `14 h^2`. Ở kích thước ẩn 7168 và một mô-đun, đó là khoảng 720M trên giấy; con số đã công bố là 14B trên một mô hình chính 671B, khoảng 2 phần trăm, vì MLP của mô-đun thừa hưởng cấu trúc expert của mô hình chính. Embedding và head không thêm gì, vì chúng được dùng chung.
 
 ### What you get
 
-1. A denser training signal: every hidden state is supervised on D plus 1 targets, and the report shows consistent gains on reasoning, math and code evaluations.
-2. A draft at inference with 80 percent or more acceptance at depth one, for about 1.8 times generation throughput, and the training-time cost is paid back the first time the model serves.
+1. Một tín hiệu huấn luyện dày hơn: mọi trạng thái ẩn được giám sát trên D cộng 1 mục tiêu, và báo cáo cho thấy các mức tăng nhất quán trên các đánh giá suy luận, toán và mã.
+2. Một draft ở suy luận với mức chấp nhận 80 phần trăm trở lên ở độ sâu một, cho thông lượng sinh khoảng 1.8 lần, và chi phí lúc huấn luyện được trả lại lần đầu mô hình phục vụ.
 
 ### Against a post-hoc draft
 
-| | Post-hoc hidden-state draft | Baked-in modules |
+| | Draft trạng thái ẩn được huấn luyện sau | Các mô-đun tích hợp |
 |---|---|---|
-| When trained | after pretraining | during pretraining |
-| Works with existing weights | yes | no, retrain |
-| Draft parameters | one or two layers | one block plus a projection |
-| Acceptance | 0.88 to 0.92 | 0.80 and above at depth one |
-| Benefit beyond speed | none | denser training signal |
+| Khi huấn luyện | sau tiền huấn luyện | trong tiền huấn luyện |
+| Hoạt động với các trọng số hiện có | có | không, huấn luyện lại |
+| Các tham số draft | một hoặc hai lớp | một block cùng một phép chiếu |
+| Sự chấp nhận | 0.88 đến 0.92 | 0.80 trở lên ở độ sâu một |
+| Lợi ích ngoài tốc độ | không có | tín hiệu huấn luyện dày hơn |
 
-Use the baked-in design when you control pretraining and the hidden size is at least 4096; at a 1B scale the overhead hurts more than it helps. Use the post-hoc draft when the weights already exist.
+Dùng thiết kế tích hợp khi bạn kiểm soát tiền huấn luyện và kích thước ẩn ít nhất 4096; ở quy mô 1B, overhead gây hại nhiều hơn giúp. Dùng draft được huấn luyện sau khi các trọng số đã tồn tại.
 
 ## Follow-ups
 
-- **Level 3:** Why share the embedding and the output head with the main model? Expected: no extra parameters, and the module predicts in the same vocabulary space as the backbone.
-- **Level 3:** Why is the published parameter overhead larger than the `14 h^2` estimate? Expected: the module's MLP has the same expert structure as the main model, which multiplies its parameters.
-- **Level 4:** With two modules, what does the second one take as input? Expected: the first module's hidden state and the embedding of the token two ahead, to predict the token three ahead.
-- **Level 4:** A team wants to add this to an existing dense model by fine-tuning a new head. Your answer? Expected: the module is not trained and the backbone was not shaped by the extra loss; the lesson's position is that it needs a pretraining run, and a post-hoc draft is the right tool for existing weights.
+- **Level 3:** Tại sao dùng chung embedding và head đầu ra với mô hình chính? Expected: không tham số thêm, và mô-đun dự đoán trong cùng không gian từ vựng như backbone.
+- **Level 3:** Tại sao overhead tham số đã công bố lớn hơn ước lượng `14 h^2`? Expected: MLP của mô-đun có cùng cấu trúc expert như mô hình chính, nhân các tham số của nó lên.
+- **Level 4:** Với hai mô-đun, mô-đun thứ hai nhận gì làm đầu vào? Expected: trạng thái ẩn của mô-đun đầu và embedding của token phía trước hai vị trí, để dự đoán token phía trước ba vị trí.
+- **Level 4:** Một nhóm muốn thêm điều này vào một mô hình dense hiện có bằng cách fine-tune một head mới. Câu trả lời của bạn? Expected: mô-đun chưa được huấn luyện và backbone chưa được loss thêm định hình; quan điểm của bài học là nó cần một lần tiền huấn luyện, và một draft được huấn luyện sau là công cụ đúng cho các trọng số hiện có.
 
 ## Wrong answers
 
-- "The extra loss replaces next-token prediction." It is added to the main loss with a small weight; the main objective stays.
-- "The module can be bolted onto a trained model with a quick fine-tune." The design is a pretraining choice; existing weights get a post-hoc draft instead.
+- "Loss thêm thay thế dự đoán token tiếp theo." Nó được cộng vào loss chính với một trọng số nhỏ; mục tiêu chính giữ nguyên.
+- "Mô-đun có thể được gắn vào một mô hình đã huấn luyện bằng một fine-tune nhanh." Thiết kế là một lựa chọn tiền huấn luyện; các trọng số hiện có nhận một draft được huấn luyện sau thay vào đó.
 
 ## Taught in
 
-The [multi-token prediction lesson](../../../phases/10-llms-from-scratch/18-multi-token-prediction/) gives the sequential recipe, the loss, the parameter accounting and the comparison with post-hoc drafts.
+[Bài học multi-token prediction](../../../phases/10-llms-from-scratch/18-multi-token-prediction/) cung cấp công thức tuần tự, loss, tính toán tham số và so sánh với các draft được huấn luyện sau.

@@ -16,53 +16,53 @@ related: [tokenization-decoding/speedup-from-alpha]
 updated: 2026-11-03
 ---
 
-Walk the line from a separate small draft model to the current generation of hidden-state drafts. What limitation did each step remove, and why does feeding the draft the verifier's internal features help so much?
+Trình bày tuyến phát triển từ một mô hình draft nhỏ riêng biệt tới thế hệ draft trạng thái ẩn hiện tại. Mỗi bước loại bỏ giới hạn nào, và tại sao đưa các feature nội bộ của bộ xác minh cho draft giúp nhiều đến vậy?
 
 ## Short answer
 
-A separate small model from the same family accepts around 0.6 of its tokens, because its distribution drifts from the verifier's. The first hidden-state draft replaces it with a one or two layer network that reads the verifier's last-layer features, so the draft starts from the verifier's own representation and acceptance rises to 0.7 to 0.8. The second generation proposes a tree of candidates and verifies every branch in one pass with a tree-shaped attention mask, lifting acceptance per accepted-path token above 0.85. The third drops the feature-matching loss, trains on direct token prediction, and feeds the draft its own previous outputs during training, which removes exposure bias and reaches 0.88 to 0.92.
+Một mô hình nhỏ riêng biệt cùng họ chấp nhận khoảng 0.6 token, vì phân phối của nó trôi khỏi bộ xác minh. Draft trạng thái ẩn đầu tiên thay nó bằng một mạng một hoặc hai lớp đọc các feature lớp cuối của bộ xác minh, nên draft bắt đầu từ biểu diễn riêng của bộ xác minh và sự chấp nhận tăng lên 0.7 đến 0.8. Thế hệ thứ hai đề xuất một cây ứng viên và xác minh mọi nhánh trong một lượt với một attention mask dạng cây, nâng sự chấp nhận theo từng token đường được chấp nhận lên trên 0.85. Thế hệ thứ ba bỏ loss khớp feature, huấn luyện trên dự đoán token trực tiếp, và đưa các đầu ra trước của chính draft cho nó trong huấn luyện, loại exposure bias và đạt 0.88 đến 0.92.
 
 ## Full answer
 
 ### The progression
 
-| Generation | Draft | Acceptance | Training cost |
+| Thế hệ | Draft | Sự chấp nhận | Chi phí huấn luyện |
 |---|---|---|---|
-| Separate small model | an independently trained smaller model | 0.55 to 0.70 | none |
-| Extra heads on the verifier | several output heads predicting positions ahead | 0.65 to 0.75 | about 1B supervised tokens |
-| First hidden-state draft | one transformer layer on the verifier's last hidden state | 0.70 to 0.80 | about 60B tokens |
-| Dynamic draft tree | the same plus a tree of candidates | 0.80 to 0.88 | about 60B tokens |
-| Multi-layer features plus training-time test | fuses several verifier layers; trained on its own outputs | 0.88 to 0.92 | about 60 to 200B tokens |
+| Mô hình nhỏ riêng biệt | một mô hình nhỏ hơn được huấn luyện độc lập | 0.55 đến 0.70 | không có |
+| Các head thêm trên bộ xác minh | nhiều head đầu ra dự đoán các vị trí phía trước | 0.65 đến 0.75 | khoảng 1B token có giám sát |
+| Draft trạng thái ẩn đầu tiên | một lớp transformer trên trạng thái ẩn cuối của bộ xác minh | 0.70 đến 0.80 | khoảng 60B token |
+| Cây draft động | tương tự cộng một cây ứng viên | 0.80 đến 0.88 | khoảng 60B token |
+| Các feature nhiều lớp cộng kiểm thử lúc huấn luyện | hợp nhất nhiều lớp bộ xác minh; được huấn luyện trên các đầu ra riêng | 0.88 đến 0.92 | khoảng 60 đến 200B token |
 
 ### Why the hidden state helps
 
-A separate draft re-derives from raw tokens what the verifier has already computed. The verifier's last hidden state at position t is a rich summary of the prefix, and a tiny network that reads it predicts the verifier's next token far better than a small model that reads only the token ids. The draft becomes a reader of the verifier instead of an imitation of it.
+Một draft riêng suy ra lại từ các token thô những gì bộ xác minh đã tính. Trạng thái ẩn cuối của bộ xác minh ở vị trí t là một bản tóm tắt phong phú của tiền tố, và một mạng rất nhỏ đọc nó dự đoán token tiếp theo của bộ xác minh tốt hơn nhiều một mô hình nhỏ chỉ đọc các id token. Draft trở thành một bên đọc bộ xác minh thay vì một bản bắt chước.
 
 ### What the tree adds
 
-A linear chain of drafts dies at the first miss. A tree proposes several candidates at each depth, grows wider where the draft is uncertain and stays narrow where it is confident, and the verifier scores every node in one forward pass with a mask that lets each node attend only to its ancestors. The longest accepted path wins. Verification cost barely moves, because it is still one forward pass.
+Một chuỗi draft tuyến tính chết ở lần trượt đầu. Một cây đề xuất nhiều ứng viên ở mỗi độ sâu, mở rộng ở nơi draft không chắc và giữ hẹp ở nơi nó tự tin, và bộ xác minh chấm mọi nút trong một lượt truyền xuôi với một mask chỉ cho mỗi nút chú ý tới các tổ tiên. Đường được chấp nhận dài nhất thắng. Chi phí xác minh hầu như không dịch chuyển, vì vẫn là một lượt truyền xuôi.
 
 ### What the third generation fixes
 
-The earlier hidden-state drafts were trained to match the verifier's features, which capped how much extra data could help. The third generation trains on token prediction directly, and during training it feeds the draft its own previous predictions over several steps, the way it runs at inference. That aligns the training inputs with the inference inputs and stops error accumulation, the same fix that scheduled sampling gave sequence models. The paper reports up to 6.5 times end-to-end on chat and a 38 percent throughput gain at a batch of 64 on a production engine.
+Các draft trạng thái ẩn trước được huấn luyện để khớp các feature của bộ xác minh, giới hạn mức dữ liệu thêm có thể giúp. Thế hệ thứ ba huấn luyện trên dự đoán token trực tiếp, và trong huấn luyện nó đưa các dự đoán trước của chính draft cho nó qua nhiều bước, theo cách nó chạy ở suy luận. Điều đó căn chỉnh các đầu vào huấn luyện với các đầu vào suy luận và dừng tích lũy lỗi, cùng cách sửa mà scheduled sampling đã cho các mô hình chuỗi. Bài báo báo cáo tới 6.5 lần đầu cuối trên chat và một mức tăng thông lượng 38 phần trăm ở batch 64 trên một engine production.
 
 ### The draft is only as good as its traffic
 
-A general-purpose draft head trained on chat data drops to 0.4 to 0.6 acceptance on code, medical or legal traffic. A domain-specific head recovers it, and training one is a light job next to fine-tuning the verifier.
+Một draft head đa dụng được huấn luyện trên dữ liệu chat giảm xuống mức chấp nhận 0.4 đến 0.6 trên lưu lượng mã, y tế hoặc pháp lý. Một head riêng theo lĩnh vực khôi phục nó, và huấn luyện một head là một công việc nhẹ so với fine-tuning bộ xác minh.
 
 ## Follow-ups
 
-- **Level 3:** Why did matching the verifier's features cap the first generations? Expected: the feature loss asks the draft to reproduce hidden states rather than predict tokens, so more training data stopped helping; the third generation trains on tokens.
-- **Level 3:** What is exposure bias in this setting? Expected: the draft was trained on teacher-forced verifier inputs and run on its own outputs; the mismatch compounds over the draft steps.
-- **Level 4:** What does the tree cost? Expected: a non-causal attention mask that follows the tree topology, extra stored keys and values for the tree nodes, and scheduler complexity; the verifier still runs once.
-- **Level 4:** How do you compare the extra-heads design with the hidden-state draft? Expected: no second model to deploy and simpler serving, against a somewhat lower acceptance and a supervised fine-tuning stage on the verifier.
+- **Level 3:** Tại sao khớp các feature của bộ xác minh giới hạn các thế hệ đầu? Expected: loss feature yêu cầu draft tái tạo các trạng thái ẩn thay vì dự đoán token, nên nhiều dữ liệu huấn luyện hơn ngừng giúp; thế hệ thứ ba huấn luyện trên token.
+- **Level 3:** Exposure bias trong bối cảnh này là gì? Expected: draft được huấn luyện trên các đầu vào bộ xác minh teacher-forced và chạy trên các đầu ra riêng; sự không khớp tích lũy qua các bước draft.
+- **Level 4:** Cây tốn gì? Expected: một attention mask không nhân quả đi theo cấu trúc cây, các key và value được lưu thêm cho các nút cây, và độ phức tạp bộ lập lịch; bộ xác minh vẫn chạy một lần.
+- **Level 4:** Bạn so thiết kế các head thêm với draft trạng thái ẩn bằng cách nào? Expected: không có mô hình thứ hai để triển khai và phục vụ đơn giản hơn, đổi lấy sự chấp nhận thấp hơn phần nào và một giai đoạn fine-tuning có giám sát trên bộ xác minh.
 
 ## Wrong answers
 
-- "A larger separate draft model is the main lever." Alignment with the verifier matters more than size; a one-layer draft on hidden states beats a far larger independent model.
-- "The hidden-state draft changes the verifier's output distribution to gain acceptance." The rejection rule keeps the output exact; the draft only changes how often it is right.
-- "A tree needs one verifier pass per branch." All branches are verified in one pass under the tree mask.
+- "Một mô hình draft riêng lớn hơn là đòn bẩy chính." Căn chỉnh với bộ xác minh quan trọng hơn kích thước; một draft một lớp trên các trạng thái ẩn đánh bại một mô hình độc lập lớn hơn xa.
+- "Draft trạng thái ẩn thay đổi phân phối đầu ra của bộ xác minh để tăng sự chấp nhận." Quy tắc từ chối giữ đầu ra chính xác; draft chỉ thay đổi mức thường xuyên nó đúng.
+- "Một cây cần một lượt bộ xác minh mỗi nhánh." Mọi nhánh được xác minh trong một lượt dưới mask cây.
 
 ## Taught in
 
-The [EAGLE-3 lesson](../../../phases/10-llms-from-scratch/15-speculative-decoding-eagle3/) walks the progression and the training-time test, the [Phase 10 speculative decoding lesson](../../../phases/10-llms-from-scratch/25-speculative-decoding/) explains feature reuse and tree verification, the [Phase 7 lesson](../../../phases/07-transformers-deep-dive/16-speculative-decoding/) introduces the draft families, and the [production EAGLE-3 lesson](../../../phases/17-infrastructure-and-production/05-eagle3-speculative-decoding/) covers domain drift.
+[Bài học EAGLE-3](../../../phases/10-llms-from-scratch/15-speculative-decoding-eagle3/) trình bày sự phát triển và kiểm thử lúc huấn luyện, [bài học giải mã suy đoán Phase 10](../../../phases/10-llms-from-scratch/25-speculative-decoding/) giải thích dùng lại feature và xác minh cây, [bài học Phase 7](../../../phases/07-transformers-deep-dive/16-speculative-decoding/) giới thiệu các họ draft, và [bài học EAGLE-3 production](../../../phases/17-infrastructure-and-production/05-eagle3-speculative-decoding/) bao phủ drift lĩnh vực.

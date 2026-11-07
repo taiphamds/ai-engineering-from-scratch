@@ -16,59 +16,59 @@ related: [tokenization-decoding/mtp-sequential-vs-parallel, tokenization-decodin
 updated: 2026-11-03
 ---
 
-You are about to pretrain a model that will later serve a large volume using speculative decoding. Three ways to get a draft are on the table: bake sequential multi-token modules into pretraining, train a hidden-state draft head after pretraining, or reuse a small model of the same family. Give the decision with its costs, and name the gate you measure before you ship the flag.
+Bạn sắp tiền huấn luyện một mô hình sau đó sẽ phục vụ một khối lượng lớn bằng giải mã suy đoán. Có ba cách lấy một draft trên bàn: tích hợp các mô-đun multi-token tuần tự vào tiền huấn luyện, huấn luyện một draft head trạng thái ẩn sau tiền huấn luyện, hoặc dùng lại một mô hình nhỏ cùng họ. Đưa quyết định với các chi phí, và nêu cổng bạn đo trước khi phát hành cờ.
 
 ## Short answer
 
-If I control pretraining and the hidden size is at least 4096, I bake in the sequential modules: about 10 percent slower training buys a denser supervision signal and a draft that accepts 80 percent or more at depth one. If the weights already exist, I train a post-hoc head on the verifier's features with about 60 to 200B tokens; it is backward compatible and reaches 0.88 to 0.92 acceptance on general chat. A same-family small model needs no training and sits around 0.55 to 0.70. Whatever I pick, the gate is measured acceptance on my own traffic mix at production concurrency, with the flag off below about 0.55 and the tail latency watched, not the mean.
+Nếu tôi kiểm soát tiền huấn luyện và kích thước ẩn ít nhất 4096, tôi tích hợp các mô-đun tuần tự: huấn luyện chậm hơn khoảng 10 phần trăm đổi lấy một tín hiệu giám sát dày hơn và một draft chấp nhận 80 phần trăm trở lên ở độ sâu một. Nếu các trọng số đã tồn tại, tôi huấn luyện một head được huấn luyện sau trên các feature của bộ xác minh với khoảng 60 đến 200B token; nó tương thích ngược và đạt mức chấp nhận 0.88 đến 0.92 trên chat chung. Một mô hình nhỏ cùng họ không cần huấn luyện và nằm quanh 0.55 đến 0.70. Bất kể tôi chọn gì, cổng là sự chấp nhận được đo trên hỗn hợp lưu lượng riêng ở độ đồng thời production, với cờ tắt dưới khoảng 0.55 và độ trễ đuôi được theo dõi, không phải trung bình.
 
 ## Full answer
 
 ### The three options
 
-| Option | When trained | Works with existing weights | Draft parameters | Acceptance | Extra benefit |
+| Lựa chọn | Khi huấn luyện | Hoạt động với các trọng số hiện có | Các tham số draft | Sự chấp nhận | Lợi ích thêm |
 |---|---|---|---|---|---|
-| Sequential modules in pretraining | during pretraining | no | one block plus a projection per depth | 0.80 and above at depth one | denser training signal |
-| Post-hoc head on verifier features | after pretraining | yes | one or two layers, trained on about 60 to 200B tokens | 0.88 to 0.92 on chat | none beyond speed |
-| Same-family small model | none | yes | a whole small model | 0.55 to 0.70 | none, and it costs memory |
+| Các mô-đun tuần tự trong tiền huấn luyện | trong tiền huấn luyện | không | một block cùng một phép chiếu mỗi độ sâu | 0.80 trở lên ở độ sâu một | tín hiệu huấn luyện dày hơn |
+| Head được huấn luyện sau trên các feature bộ xác minh | sau tiền huấn luyện | có | một hoặc hai lớp, được huấn luyện trên khoảng 60 đến 200B token | 0.88 đến 0.92 trên chat | không có ngoài tốc độ |
+| Mô hình nhỏ cùng họ | không | có | một mô hình nhỏ đầy đủ | 0.55 đến 0.70 | không có, và nó tốn bộ nhớ |
 
 ### The decision tree
 
-1. **Do you own pretraining?** If yes and the model is large enough, the modules are the only option that improves the model and the serving at once; the report that introduced them measured about 1.8 times generation throughput from the draft alone. At a 1B scale the overhead hurts more than it helps.
-2. **Do the weights already exist?** Then the post-hoc head. It is a light training job compared with the verifier, and it does not touch the verifier's outputs.
-3. **No training budget at all?** The small model, as a prototype, knowing the acceptance ceiling is low and the second model takes memory.
+1. **Bạn có sở hữu tiền huấn luyện không?** Nếu có và mô hình đủ lớn, các mô-đun là lựa chọn duy nhất cải thiện mô hình và việc phục vụ cùng lúc; báo cáo giới thiệu chúng đo thông lượng sinh khoảng 1.8 lần chỉ từ draft. Ở quy mô 1B, overhead gây hại nhiều hơn giúp.
+2. **Các trọng số đã tồn tại chưa?** Khi đó là head được huấn luyện sau. Nó là một công việc huấn luyện nhẹ so với bộ xác minh, và nó không chạm các đầu ra của bộ xác minh.
+3. **Hoàn toàn không ngân sách huấn luyện?** Mô hình nhỏ, như một prototype, biết rằng trần chấp nhận thấp và mô hình thứ hai tốn bộ nhớ.
 
 ### The gate
 
-Speculation is opt-in on the production engine, and the production lesson's rule is that flipping the flag without measuring acceptance on real traffic is an anti-pattern. The plan:
+Suy đoán là opt-in trên engine production, và quy tắc của bài học production là bật cờ mà không đo sự chấp nhận trên lưu lượng thực là một anti-pattern. Kế hoạch:
 
-1. Serve the target plain and record time to first token, inter-token latency and throughput at the target concurrency.
-2. Enable the draft and rerun the same benchmark.
-3. Read accepted draft tokens and proposed draft tokens per request from the engine and divide the first by the second to get acceptance.
-4. Below about 0.55 at production concurrency, disable the flag or train a domain-specific head.
-5. Confirm that the tail inter-token latency did not get worse, because a rejected draft costs a verify and a re-roll.
+1. Phục vụ đích thuần và ghi thời gian tới token đầu, độ trễ liên token và thông lượng ở độ đồng thời mục tiêu.
+2. Bật draft và chạy lại cùng benchmark.
+3. Đọc các token draft được chấp nhận và các token draft được đề xuất theo từng yêu cầu từ engine và chia số đầu cho số sau để có sự chấp nhận.
+4. Dưới khoảng 0.55 ở độ đồng thời production, tắt cờ hoặc huấn luyện một head riêng cho lĩnh vực.
+5. Xác nhận độ trễ liên token đuôi không tệ hơn, vì một draft bị từ chối tốn một lần xác minh và một lần lấy lại.
 
 ### Traffic mix
 
-A head trained on general chat sits at 0.6 to 0.8 there and falls to 0.4 to 0.6 on code, medical or legal traffic. Weight the acceptance by traffic share before you decide, and measure each slice on its own; a blended number can hide a slice where speculation is net negative. The capstone's exercise asks exactly this for a 70 percent chat and 30 percent code mix with acceptances of 0.7 and 0.4.
+Một head được huấn luyện trên chat chung nằm ở 0.6 đến 0.8 ở đó và giảm xuống 0.4 đến 0.6 trên lưu lượng mã, y tế hoặc pháp lý. Đặt trọng số sự chấp nhận theo tỷ lệ lưu lượng trước khi quyết định, và đo riêng từng lát; một con số pha trộn có thể giấu một lát nơi suy đoán có lợi ích ròng âm. Bài tập của capstone hỏi đúng điều này cho một hỗn hợp 70 phần trăm chat và 30 phần trăm mã với các mức chấp nhận 0.7 và 0.4.
 
 ### Operate it
 
-Acceptance drifts when the target changes version and the draft does not, so alert on it per slice, and keep a draft-free or n-gram fallback for the slices where the head stops paying.
+Sự chấp nhận trôi dạt khi đích thay phiên bản và draft không thay, nên cảnh báo theo từng lát, và giữ một fallback không draft hoặc n-gram cho các lát nơi head ngừng mang lợi ích.
 
 ## Follow-ups
 
-- **Level 3:** The traffic is 70 percent chat at 0.7 acceptance and 30 percent code at 0.4. How do you decide? Expected: weight by traffic share, then check each slice against the floor; code alone is below it, so route code to a plain decode or train a code head.
-- **Level 4:** The target gets a new version next quarter. What happens to each option? Expected: the baked-in modules move with the model; the post-hoc head must be retrained against the new target; the small model drifts further; alert on acceptance per version.
-- **Level 4:** What does a hidden-state head read in the current generation? Expected: features from several target layers, not only the last, which is part of why acceptance rose.
-- **Level 4:** Where does the small-model option still win? Expected: a prototype with no training budget, or a CPU deployment where the engine ships only the plain draft path.
+- **Level 3:** Lưu lượng là 70 phần trăm chat ở mức chấp nhận 0.7 và 30 phần trăm mã ở 0.4. Bạn quyết định bằng cách nào? Expected: đặt trọng số theo tỷ lệ lưu lượng, rồi kiểm tra từng lát theo sàn; riêng mã dưới sàn, nên định tuyến mã tới giải mã thuần hoặc huấn luyện một head mã.
+- **Level 4:** Đích có một phiên bản mới quý tới. Điều gì xảy ra với mỗi lựa chọn? Expected: các mô-đun tích hợp di chuyển cùng mô hình; head được huấn luyện sau phải được huấn luyện lại theo đích mới; mô hình nhỏ trôi xa hơn; cảnh báo sự chấp nhận theo từng phiên bản.
+- **Level 4:** Một head trạng thái ẩn đọc gì trong thế hệ hiện tại? Expected: các feature từ nhiều lớp đích, không chỉ lớp cuối, đó là một phần lý do sự chấp nhận tăng.
+- **Level 4:** Lựa chọn mô hình nhỏ vẫn thắng ở đâu? Expected: một prototype không ngân sách huấn luyện, hoặc một triển khai CPU nơi engine chỉ cung cấp đường draft thuần.
 
 ## Wrong answers
 
-- "Always use the latest hidden-state draft; it is strictly best." It needs training against your target and its acceptance on domain traffic can fall to 0.4; the baked-in modules give you a draft and a better model if you own pretraining.
-- "Bake the modules in later with a fine-tune." They are a pretraining choice; an existing dense model gets a post-hoc head instead.
-- "Pick by the speedup on a public benchmark." Acceptance depends on your traffic; the gate is measured on your own mix at your concurrency.
+- "Luôn dùng draft trạng thái ẩn mới nhất; nó tốt nhất tuyệt đối." Nó cần huấn luyện theo đích của bạn và sự chấp nhận trên lưu lượng lĩnh vực có thể giảm tới 0.4; các mô-đun tích hợp cho bạn một draft và một mô hình tốt hơn nếu bạn sở hữu tiền huấn luyện.
+- "Tích hợp các mô-đun sau bằng một fine-tune." Chúng là một lựa chọn tiền huấn luyện; một mô hình dense hiện có nhận một head được huấn luyện sau thay vào đó.
+- "Chọn theo mức tăng tốc trên một benchmark công khai." Sự chấp nhận phụ thuộc lưu lượng của bạn; cổng được đo trên hỗn hợp riêng ở độ đồng thời riêng.
 
 ## Taught in
 
-The [multi-token prediction lesson](../../../phases/10-llms-from-scratch/18-multi-token-prediction/) and the [EAGLE-3 lesson](../../../phases/10-llms-from-scratch/15-speculative-decoding-eagle3/) give the two trained options and their costs, the [production EAGLE-3 lesson](../../../phases/17-infrastructure-and-production/05-eagle3-speculative-decoding/) sets the measurement gate, and the [speculative decoding server capstone](../../../phases/19-capstone-projects/14-speculative-decoding-server/) covers drift and fallback.
+[Bài học multi-token prediction](../../../phases/10-llms-from-scratch/18-multi-token-prediction/) và [bài học EAGLE-3](../../../phases/10-llms-from-scratch/15-speculative-decoding-eagle3/) cung cấp hai lựa chọn được huấn luyện và các chi phí, [bài học EAGLE-3 production](../../../phases/17-infrastructure-and-production/05-eagle3-speculative-decoding/) đặt cổng đo lường, và [capstone server giải mã suy đoán](../../../phases/19-capstone-projects/14-speculative-decoding-server/) bao phủ drift và fallback.

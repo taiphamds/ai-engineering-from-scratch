@@ -16,7 +16,7 @@ related: []
 updated: 2026-11-03
 ---
 
-Read this toy speculative step from the lesson. `q_model` is the verifier and `p_model` is the draft; each returns a probability vector for the next token given a prefix.
+Đọc bước suy đoán đồ chơi này từ bài học. `q_model` là bộ xác minh và `p_model` là draft; mỗi mô hình trả về một vector xác suất cho token tiếp theo khi biết một tiền tố.
 
 ```python
 def spec_step(prefix, q_model, p_model, N, rng):
@@ -42,51 +42,51 @@ def spec_step(prefix, q_model, p_model, N, rng):
     return prefix + [sample(q_dists[N], rng)]
 ```
 
-Why does `q_dists` hold N plus 1 entries, what happens when the first draft token fails the test, and why does the residual use `p_model(prefix)` rather than `p_probs[i]`?
+Tại sao `q_dists` giữ N cộng 1 mục, điều gì xảy ra khi token draft đầu không vượt kiểm tra, và tại sao phần dư dùng `p_model(prefix)` thay vì `p_probs[i]`?
 
 ## Short answer
 
-The verifier gives a distribution at every drafted position and one more, N plus 1 in total, because when every draft is accepted the extra distribution supplies a bonus token at no extra verifier cost. At the first rejection at position i the code samples from the residual, the positive part of the verifier's distribution minus the draft's, renormalized, appends that token and returns, so every later draft is discarded. The residual needs the draft's whole distribution at that position, a vector, and `p_probs[i]` kept only the scalar probability of the token that was drafted.
+Bộ xác minh cho một phân phối ở mỗi vị trí được draft và thêm một phân phối, tổng cộng N cộng 1, vì khi mọi draft được chấp nhận, phân phối thêm cung cấp một token thưởng không tốn thêm chi phí bộ xác minh. Ở lần từ chối đầu tại vị trí i, mã lấy mẫu từ phần dư, phần dương của phân phối bộ xác minh trừ phân phối draft, được chuẩn hóa lại, thêm token đó và trả về, nên mọi draft sau bị bỏ. Phần dư cần toàn bộ phân phối draft ở vị trí đó, một vector, và `p_probs[i]` chỉ giữ xác suất vô hướng của token đã được draft.
 
 ## Full answer
 
 ### Why the rule is exact
 
-Accepting a drafted token with probability `min(1, q(d) / p(d))` and otherwise sampling from `(q - p)` clamped at zero and renormalized gives samples distributed exactly as q. The theorem holds however poor p is: a bad draft rejects more often, and the output distribution does not move. That is the only reason the method is allowed in production. It is a latency optimization with no quality trade.
+Chấp nhận một token được draft với xác suất `min(1, q(d) / p(d))` và nếu không thì lấy mẫu từ `(q - p)` được chặn ở không và chuẩn hóa lại cho các mẫu có phân phối chính xác như q. Định lý giữ bất kể p kém thế nào: một draft xấu từ chối thường xuyên hơn, và phân phối đầu ra không dịch chuyển. Đó là lý do duy nhất phương pháp được cho phép trong production. Nó là một tối ưu độ trễ không đánh đổi chất lượng.
 
 ### Why N plus 1 verifier distributions
 
-The verifier is queried on the prefix plus the first i drafts for i from zero to N. The first N distributions judge the drafts. The last one is the verifier's own next-token distribution after all N drafts; if everything was accepted it is free, and the step emits N plus 1 tokens from one verifier pass. In the toy the N plus 1 calls stand for a single batched forward pass over the prefix plus the drafts.
+Bộ xác minh được truy vấn trên tiền tố cộng i draft đầu cho i từ không tới N. N phân phối đầu đánh giá các draft. Phân phối cuối là phân phối token tiếp theo riêng của bộ xác minh sau tất cả N draft; nếu mọi thứ được chấp nhận thì nó miễn phí, và bước phát N cộng 1 token từ một lượt bộ xác minh. Trong ví dụ đồ chơi, N cộng 1 lệnh gọi đại diện cho một lượt truyền xuôi theo batch trên tiền tố cộng các draft.
 
 ### The rejection branch
 
-Return after the first rejection. Positions after it were drafted on a context that is now known to be wrong, so their verifier distributions are not for the sequence that is being generated. The step always produces at least one token, the residual sample, and at most N plus 1.
+Trả về sau lần từ chối đầu. Các vị trí sau nó được draft trên một ngữ cảnh giờ được biết là sai, nên các phân phối bộ xác minh của chúng không dành cho chuỗi đang được sinh. Bước luôn tạo ít nhất một token, mẫu phần dư, và nhiều nhất N cộng 1.
 
 ### The residual needs a vector
 
-`residual_dist(q, p)` subtracts the two distributions element by element, clamps negatives to zero and renormalizes. `p_probs[i]` is one number, the draft's probability of the drafted token, enough for the acceptance test and not for the residual. The call `p_model(prefix)` recomputes the draft's full distribution at the position being corrected; in a real implementation the draft's distributions are kept from the drafting loop instead of being recomputed.
+`residual_dist(q, p)` trừ hai phân phối từng phần tử, chặn các số âm về không và chuẩn hóa lại. `p_probs[i]` là một con số, xác suất của draft cho token được draft, đủ cho kiểm tra chấp nhận và không đủ cho phần dư. Lệnh gọi `p_model(prefix)` tính lại toàn bộ phân phối draft ở vị trí đang được sửa; trong một triển khai thực, các phân phối draft được giữ từ vòng lặp draft thay vì tính lại.
 
 ### The greedy case
 
-At temperature zero the rule collapses to a comparison: accept if the drafted token equals the verifier's argmax, otherwise emit the argmax and stop.
+Ở temperature bằng không, quy tắc thu về một so sánh: chấp nhận nếu token được draft bằng argmax của bộ xác minh, nếu không thì phát argmax và dừng.
 
 ### How you would test it
 
-Run the step 10,000 times and compare the histogram of produced tokens with direct samples from q; a chi-square test passes within sampling error. Then perturb p away from q and watch the acceptance rate fall while the histogram stays put.
+Chạy bước 10,000 lần và so biểu đồ tần suất các token được tạo với các mẫu trực tiếp từ q; một kiểm định chi-square đạt trong sai số lấy mẫu. Rồi làm p lệch khỏi q và theo dõi tỷ lệ chấp nhận giảm trong khi biểu đồ tần suất giữ nguyên.
 
 ## Follow-ups
 
-- **Level 3:** `p_probs[i]` is zero and the code divides by it. Can that happen? Expected: no, the token was sampled from p so its probability is positive; the production version still guards the division and accepts when p is zero.
-- **Level 3:** When does `residual_dist` divide by zero, and what should it return? Expected: when q is nowhere larger than p, which means the two are equal; return q itself.
-- **Level 4:** What does the single batched verifier pass do to the verifier's stored keys and values? Expected: it extends them by N entries, and a rejection at position j must roll the logical length back to the accepted prefix plus the correction.
-- **Level 4:** How many tokens does one step emit at minimum and at maximum? Expected: one, the residual sample at an immediate rejection; N plus 1 when every draft is accepted and the bonus token is sampled.
+- **Level 3:** `p_probs[i]` bằng không và mã chia cho nó. Điều đó có thể xảy ra không? Expected: không, token được lấy mẫu từ p nên xác suất dương; phiên bản production vẫn bảo vệ phép chia và chấp nhận khi p bằng không.
+- **Level 3:** Khi nào `residual_dist` chia cho không, và nó nên trả về gì? Expected: khi q không lớn hơn p ở đâu, nghĩa là hai phân phối bằng nhau; trả về chính q.
+- **Level 4:** Một lượt bộ xác minh theo batch duy nhất làm gì với các key và value được lưu của bộ xác minh? Expected: nó mở rộng chúng thêm N mục, và một lần từ chối tại vị trí j phải rollback độ dài logic về tiền tố được chấp nhận cộng hiệu chỉnh.
+- **Level 4:** Một bước phát tối thiểu và tối đa bao nhiêu token? Expected: một, mẫu phần dư ở một lần từ chối ngay; N cộng 1 khi mọi draft được chấp nhận và token thưởng được lấy mẫu.
 
 ## Wrong answers
 
-- "Accept a draft whenever the verifier gives it a probability above a threshold." A threshold changes the output distribution; the ratio test with the residual is what keeps it exact.
-- "On a rejection, resample from the verifier's distribution at that position." That over-weights tokens the draft already favored; the residual removes exactly that mass.
-- "Drop the bonus token to be safe." It is a sample from the verifier's own distribution and costs nothing; dropping it wastes a token per step.
+- "Chấp nhận một draft bất cứ khi nào bộ xác minh cho nó một xác suất trên một ngưỡng." Một ngưỡng thay đổi phân phối đầu ra; kiểm tra tỷ số với phần dư là điều giữ nó chính xác.
+- "Khi từ chối, lấy mẫu lại từ phân phối bộ xác minh ở vị trí đó." Điều đó đặt trọng số quá cao cho các token draft đã ưu tiên; phần dư loại chính xác khối xác suất đó.
+- "Bỏ token thưởng cho an toàn." Nó là một mẫu từ phân phối riêng của bộ xác minh và không tốn gì; bỏ nó lãng phí một token mỗi bước.
 
 ## Taught in
 
-The [speculative decoding lesson](../../../phases/07-transformers-deep-dive/16-speculative-decoding/) gives this step and the distribution check, and the [Phase 10 speculative decoding lesson](../../../phases/10-llms-from-scratch/25-speculative-decoding/) states the greedy case and the rejection rule.
+[Bài học giải mã suy đoán](../../../phases/07-transformers-deep-dive/16-speculative-decoding/) cung cấp bước này và kiểm tra phân phối, và [bài học giải mã suy đoán Phase 10](../../../phases/10-llms-from-scratch/25-speculative-decoding/) nêu trường hợp tham lam và quy tắc từ chối.

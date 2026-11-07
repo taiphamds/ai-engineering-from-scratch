@@ -16,7 +16,7 @@ related: [tokenization-decoding/merge-order-at-encode]
 updated: 2026-11-03
 ---
 
-Two versions of a byte-level tokenizer's decode function came in for review. `vocab` maps each id to a `bytes` object.
+Hai phiên bản của hàm giải mã một tokenizer cấp byte được đưa tới review. `vocab` ánh xạ mỗi id tới một đối tượng `bytes`.
 
 ```python
 def decode_a(self, ids):
@@ -27,43 +27,43 @@ def decode_b(self, ids):
     return "".join(self.vocab[t].decode("utf-8") for t in ids)
 ```
 
-Both pass the English tests. Which one is correct for an emoji whose bytes were split across two tokens, why does the correct one always terminate, and what is `errors="replace"` for?
+Cả hai vượt qua các kiểm thử tiếng Anh. Phiên bản nào đúng cho một emoji có các byte bị tách qua hai token, tại sao phiên bản đúng luôn kết thúc, và `errors="replace"` để làm gì?
 
 ## Short answer
 
-Join all the bytes first and decode once, which is what `decode_a` does. A multi-byte character such as an emoji, 4 bytes in UTF-8, can be split across two or more tokens, so decoding each token's bytes alone hits an incomplete sequence and raises or emits replacement characters. The join works because every id is either one of the 256 raw bytes or the concatenation of two earlier ids, so expanding ids to bytes always ends in raw bytes, and the full byte string is valid UTF-8 whenever the input was. The `replace` option keeps the decoder from raising when a model emits a partial character at the end of a stream.
+Nối tất cả các byte trước và giải mã một lần, đó là điều `decode_a` làm. Một ký tự nhiều byte như một emoji, 4 byte trong UTF-8, có thể bị tách qua hai token trở lên, nên giải mã riêng các byte của từng token gặp một chuỗi chưa đầy đủ và phát sinh lỗi hoặc phát các ký tự thay thế. Phép nối hoạt động vì mỗi id hoặc là một trong 256 byte thô hoặc là phần nối của hai id trước, nên mở rộng các id thành byte luôn kết thúc ở các byte thô, và chuỗi byte đầy đủ là UTF-8 hợp lệ bất cứ khi nào đầu vào hợp lệ. Tùy chọn `replace` giữ decoder khỏi phát sinh lỗi khi một mô hình phát ra một ký tự một phần ở cuối stream.
 
 ## Full answer
 
 ### Why the split happens
 
-A byte-level vocabulary starts from single bytes and learns merges from the corpus. An emoji that was rare in training may have no merge covering all 4 of its bytes, so the encoder leaves it as two tokens, perhaps 3 bytes and 1 byte. Each token on its own is not valid UTF-8. The characters of a script with 3-byte characters have the same problem whenever a merge covers part of a character.
+Một từ vựng cấp byte bắt đầu từ các byte đơn và học các phép gộp từ kho ngữ liệu. Một emoji hiếm trong huấn luyện có thể không có phép gộp bao phủ cả 4 byte, nên bộ mã hóa để nó thành hai token, có thể 3 byte và 1 byte. Mỗi token riêng không phải UTF-8 hợp lệ. Các ký tự của một hệ chữ với các ký tự 3 byte có cùng vấn đề bất cứ khi nào một phép gộp bao phủ một phần ký tự.
 
 ### Why the join terminates and round-trips
 
-The capstone states the guarantee: encode then decode returns the input bytes exactly. The decoder concatenates the byte expansion of every id in order. Because every id is a raw byte or the concatenation of two known ids, the recursive expansion bottoms out in raw bytes, and the concatenation of all tokens is the original byte string. UTF-8 decoding then recovers the text. The test suite pins the property on an unseen sentence, on a sentence with an emoji, and on a sentence that contains a literal special-token string.
+Capstone nêu bảo đảm: mã hóa rồi giải mã trả về chính xác các byte đầu vào. Decoder nối phần mở rộng byte của mọi id theo thứ tự. Vì mỗi id là một byte thô hoặc phần nối của hai id đã biết, phần mở rộng đệ quy chạm đáy ở các byte thô, và phần nối tất cả các token là chuỗi byte gốc. Giải mã UTF-8 sau đó khôi phục văn bản. Bộ kiểm thử ghim đặc tính trên một câu chưa thấy, trên một câu có một emoji, và trên một câu chứa một chuỗi token đặc biệt nguyên văn.
 
 ### Special tokens on the way out
 
-The capstone's decoder checks a special-token table first and appends the marker's UTF-8 bytes, then falls through to the vocabulary, and raises on an id that is in neither. That keeps a reserved id from being looked up as a merge.
+Decoder của capstone kiểm tra một bảng token đặc biệt trước và thêm các byte UTF-8 của dấu, rồi chuyển tiếp tới từ vựng, và phát sinh lỗi trên một id không nằm trong bảng nào. Điều đó giữ một id dành riêng khỏi được tra như một phép gộp.
 
 ### What `errors="replace"` is for
 
-A model can stop in the middle of a character, or a stream can be cut between two tokens that share a character. Strict decoding raises; `replace` emits a replacement character and continues. In a streaming decoder the better pattern is to buffer the trailing bytes until they form a complete character, and to use `replace` only at the final flush.
+Một mô hình có thể dừng giữa một ký tự, hoặc một stream có thể bị cắt giữa hai token chia sẻ một ký tự. Giải mã nghiêm ngặt phát sinh lỗi; `replace` phát một ký tự thay thế và tiếp tục. Trong một decoder streaming, mẫu tốt hơn là đệm các byte cuối cho đến khi chúng tạo một ký tự đầy đủ, và chỉ dùng `replace` ở lần đẩy cuối.
 
 ## Follow-ups
 
-- **Level 2:** Why does `decode_b` pass the English tests? Expected: ASCII characters are single bytes, so no token ever holds a partial character and every piece decodes on its own.
-- **Level 3:** Design the streaming decoder in two sentences. Expected: accumulate bytes and emit only the longest prefix that is complete UTF-8, keeping the remainder; flush with replacement at the end of the stream.
-- **Level 3:** Why can a word-level tokenizer not give the round-trip guarantee? Expected: unseen words map to an unknown id, and the unknown id cannot be mapped back to the original text.
-- **Level 3:** What three inputs does the capstone's test suite use for the round trip? Expected: an unseen sentence, a sentence with an emoji, and a sentence containing the literal special-token string.
+- **Level 2:** Tại sao `decode_b` vượt các kiểm thử tiếng Anh? Expected: các ký tự ASCII là các byte đơn, nên không token nào giữ một ký tự một phần và mọi mảnh tự giải mã được.
+- **Level 3:** Thiết kế decoder streaming trong hai câu. Expected: tích lũy các byte và chỉ phát tiền tố dài nhất là UTF-8 đầy đủ, giữ phần còn lại; đẩy với thay thế ở cuối stream.
+- **Level 3:** Tại sao một tokenizer cấp từ không thể cho bảo đảm round trip? Expected: các từ chưa thấy ánh xạ tới một id không biết, và id không biết không thể được ánh xạ lại thành văn bản gốc.
+- **Level 3:** Bộ kiểm thử capstone dùng ba đầu vào nào cho round trip? Expected: một câu chưa thấy, một câu có một emoji, và một câu chứa chuỗi token đặc biệt nguyên văn.
 
 ## Wrong answers
 
-- "Decode each token to a string and join the strings." A token can hold part of a character, and partial UTF-8 is not a string.
-- "Tell the decoder to ignore errors so nothing ever raises." Ignoring drops bytes silently and the round trip is no longer exact; the replacement character at least marks the loss.
-- "The round trip only matters for the training data." Every generated answer goes through decode, and a server that raises on an emoji drops the request.
+- "Giải mã mỗi token thành một chuỗi và nối các chuỗi." Một token có thể giữ một phần ký tự, và UTF-8 một phần không phải một chuỗi.
+- "Bảo decoder bỏ qua các lỗi để không gì phát sinh lỗi." Bỏ qua loại các byte âm thầm và round trip không còn chính xác; ký tự thay thế ít nhất đánh dấu mất mát.
+- "Round trip chỉ quan trọng cho dữ liệu huấn luyện." Mọi câu trả lời được sinh đi qua decode, và một server phát sinh lỗi trên một emoji làm rớt yêu cầu.
 
 ## Taught in
 
-The [BPE capstone](../../../phases/19-capstone-projects/30-bpe-tokenizer-from-scratch/) states and tests the round-trip guarantee, the [tokenizers lesson](../../../phases/10-llms-from-scratch/01-tokenizers/) gives the join-then-decode function, and the [tokenizer build lesson](../../../phases/10-llms-from-scratch/02-building-a-tokenizer/) gives the byte counts for emoji and other scripts.
+[Capstone BPE](../../../phases/19-capstone-projects/30-bpe-tokenizer-from-scratch/) nêu và kiểm thử bảo đảm round trip, [bài học tokenizer](../../../phases/10-llms-from-scratch/01-tokenizers/) cung cấp hàm nối-rồi-giải-mã, và [bài học xây tokenizer](../../../phases/10-llms-from-scratch/02-building-a-tokenizer/) cung cấp số byte cho emoji và các hệ chữ khác.

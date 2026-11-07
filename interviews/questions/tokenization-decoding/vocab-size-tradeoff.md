@@ -16,11 +16,11 @@ related: [tokenization-decoding/why-subword-tokens]
 updated: 2026-11-03
 ---
 
-A team wants to grow the vocabulary of a new model from 32K to 128K tokens. The embeddings have 4,096 dimensions. Put numbers on what the change costs and on what it buys.
+Một nhóm muốn tăng từ vựng của một mô hình mới từ 32K lên 128K token. Các embedding có 4,096 chiều. Đưa ra các con số cho chi phí của thay đổi và những gì nó mang lại.
 
 ## Short answer
 
-The embedding matrix goes from 32,000 by 4,096, about 131 million parameters, to 128,000 by 4,096, about 524 million, so about 400M more parameters from the tokenizer alone, and an untied output head costs the same again. In return the text compresses: an English paragraph of about 100 tokens at 32K takes about 70 tokens at 128K. Generating that same paragraph then needs about 30 percent fewer forward passes, and non-English scripts gain the most. The lesson's rule of thumb is 32k under 1B parameters, 50 to 100k from 1 to 10B, and 200k and above for multilingual or frontier models.
+Ma trận embedding đi từ 32,000 nhân 4,096, khoảng 131 triệu tham số, tới 128,000 nhân 4,096, khoảng 524 triệu, nên thêm khoảng 400M tham số chỉ từ tokenizer, và một head đầu ra không buộc trọng số tốn tương tự thêm một lần nữa. Đổi lại văn bản nén: một đoạn tiếng Anh khoảng 100 token ở 32K tốn khoảng 70 token ở 128K. Sinh cùng đoạn đó khi đó cần ít lượt truyền xuôi hơn khoảng 30 phần trăm, và các hệ chữ không phải tiếng Anh thu lợi nhiều nhất. Quy tắc kinh nghiệm của bài học là 32k dưới 1B tham số, 50 đến 100k từ 1 đến 10B, và 200k trở lên cho các mô hình đa ngôn ngữ hoặc tiên tiến hàng đầu.
 
 ## Full answer
 
@@ -32,41 +32,41 @@ The embedding matrix goes from 32,000 by 4,096, about 131 million parameters, to
 difference      = about 400M
 ```
 
-Each row is an embedding the model has to learn, and rare rows receive few gradient updates. A small model with a huge vocabulary spends a large share of its parameters in a lookup table.
+Mỗi dòng là một embedding mà mô hình phải học, và các dòng hiếm nhận ít cập nhật gradient. Một mô hình nhỏ với một từ vựng khổng lồ tiêu một tỷ lệ lớn tham số trong một bảng tra.
 
 ### The benefit side
 
-| Vocabulary | Tokens per English word |
+| Từ vựng | Token mỗi từ tiếng Anh |
 |---|---|
-| 30,522 | about 1.4 |
-| 50,257 | about 1.3 |
-| 100,256 | about 1.2 |
-| 128,256 | about 1.1 |
-| 200,019 | about 1.0 |
+| 30,522 | khoảng 1.4 |
+| 50,257 | khoảng 1.3 |
+| 100,256 | khoảng 1.2 |
+| 128,256 | khoảng 1.1 |
+| 200,019 | khoảng 1.0 |
 
-Fewer tokens per word means shorter sequences, so each answer needs fewer forward passes and each context window holds more text. For a model that serves millions of requests, output of that kind needs about 30 percent fewer forward passes.
+Ít token mỗi từ hơn nghĩa là các chuỗi ngắn hơn, nên mỗi câu trả lời cần ít lượt truyền xuôi hơn và mỗi cửa sổ ngữ cảnh giữ nhiều văn bản hơn. Với một mô hình phục vụ hàng triệu yêu cầu, đầu ra loại đó cần ít lượt truyền xuôi hơn khoảng 30 phần trăm.
 
 ### Who gains the most
 
-English already compresses well at 32K. Scripts that an English-heavy vocabulary splits into bytes gain far more, which is why one model family quadrupled its vocabulary from 32K to 128K.
+Tiếng Anh đã nén tốt ở 32K. Các hệ chữ mà một từ vựng thiên tiếng Anh tách thành byte thu lợi nhiều hơn xa, đó là lý do một họ mô hình tăng gấp bốn từ vựng từ 32K lên 128K.
 
 ### The decision
 
-Vocabulary size scales with the model and the language mix. Under 1B parameters, the embedding would dominate the model, so stay near 32k. Between 1 and 10B, 50 to 100k. Multilingual at any scale pushes toward 200k and beyond. Validate the choice with tokens per word on a held-out set, the unknown rate, the compression ratio and a byte-exact round trip.
+Kích thước từ vựng tăng theo mô hình và hỗn hợp ngôn ngữ. Dưới 1B tham số, embedding sẽ chi phối mô hình, nên giữ gần 32k. Giữa 1 và 10B, 50 đến 100k. Đa ngôn ngữ ở bất kỳ quy mô nào đẩy về 200k trở lên. Xác thực lựa chọn bằng token mỗi từ trên một tập giữ lại, tỷ lệ không biết, tỷ lệ nén và một round trip chính xác từng byte.
 
 ## Follow-ups
 
-- **Level 2:** Why do fewer tokens per word make inference faster? Expected: generation is one forward pass per token, so fewer tokens for the same text means fewer passes.
-- **Level 3:** What does a 128K vocabulary do to the output side of the model? Expected: the head has one row per token, so it grows with the embedding, and an untied head doubles the extra parameters.
-- **Level 3:** Why did the model family in the lesson move from 32K to 128K? Expected: fairer compression across languages; the English-heavy vocabulary gave other scripts a context window that was effectively half the size.
-- **Level 4:** How do you validate a vocabulary size before training? Expected: tokens per word per language on held-out text, the unknown rate, the compression ratio against a reference encoder, and a byte-exact round trip.
+- **Level 2:** Tại sao ít token mỗi từ hơn khiến suy luận nhanh hơn? Expected: sinh là một lượt truyền xuôi mỗi token, nên ít token cho cùng văn bản nghĩa là ít lượt hơn.
+- **Level 3:** Một từ vựng 128K làm gì với phía đầu ra của mô hình? Expected: head có một dòng mỗi token, nên nó tăng cùng embedding, và một head không buộc trọng số gấp đôi các tham số thêm.
+- **Level 3:** Tại sao họ mô hình trong bài học chuyển từ 32K lên 128K? Expected: nén công bằng hơn qua các ngôn ngữ; từ vựng thiên tiếng Anh cho các hệ chữ khác một cửa sổ ngữ cảnh thực chất bằng nửa kích thước.
+- **Level 4:** Bạn xác thực một kích thước từ vựng trước huấn luyện bằng cách nào? Expected: token mỗi từ mỗi ngôn ngữ trên văn bản giữ lại, tỷ lệ không biết, tỷ lệ nén so với một bộ mã hóa tham chiếu, và một round trip chính xác từng byte.
 
 ## Wrong answers
 
-- "A bigger vocabulary is always better." Under 1B parameters the extra rows dominate the model and rare rows are undertrained.
-- "The embedding is a rounding error next to the model." At 128K by 4,096 it is about 524M parameters.
-- "Vocabulary size does not affect the cost of a request." Tokens per word set the sequence length, and the sequence length sets the forward passes and the context budget.
+- "Một từ vựng lớn hơn luôn tốt hơn." Dưới 1B tham số, các dòng thêm chi phối mô hình và các dòng hiếm được huấn luyện thiếu.
+- "Embedding là một sai số làm tròn cạnh mô hình." Ở 128K nhân 4,096, nó là khoảng 524M tham số.
+- "Kích thước từ vựng không ảnh hưởng chi phí một yêu cầu." Token mỗi từ đặt độ dài chuỗi, và độ dài chuỗi đặt các lượt truyền xuôi và ngân sách ngữ cảnh.
 
 ## Taught in
 
-The [tokenizers lesson](../../../phases/10-llms-from-scratch/01-tokenizers/) does the embedding arithmetic and gives the fertility table, and the [subword lesson](../../../phases/05-nlp-foundations-to-advanced/19-subword-tokenization/) gives the size heuristic and the validation plan.
+[Bài học tokenizer](../../../phases/10-llms-from-scratch/01-tokenizers/) làm phép tính embedding và cung cấp bảng fertility, và [bài học subword](../../../phases/05-nlp-foundations-to-advanced/19-subword-tokenization/) cung cấp heuristic kích thước và kế hoạch xác thực.

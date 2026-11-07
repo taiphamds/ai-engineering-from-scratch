@@ -16,17 +16,17 @@ related: [tokenization-decoding/why-subword-tokens]
 updated: 2026-11-03
 ---
 
-Walk me through one training step of byte-pair encoding on a small corpus, and tell me what the trained artifact actually is.
+Trình bày cho tôi một bước huấn luyện byte-pair encoding trên một kho ngữ liệu nhỏ, và cho tôi biết artifact đã huấn luyện thực sự là gì.
 
 ## Short answer
 
-Start with every word split into base symbols, bytes or characters. Count every adjacent pair across the corpus, weighted by how often each word appears, merge the most frequent pair into one new symbol with the next free id, rewrite every occurrence, and repeat until the vocabulary reaches the target size. The artifact is the ordered list of merges; the vocabulary follows from it, and the same list applied in the same order is what encoding uses later.
+Bắt đầu với mọi từ được tách thành các symbol cơ sở, byte hoặc ký tự. Đếm mọi cặp liền kề trên kho ngữ liệu, có trọng số theo mức thường xuyên mỗi từ xuất hiện, gộp cặp phổ biến nhất thành một symbol mới với id trống tiếp theo, viết lại mọi lần xuất hiện, và lặp cho đến khi từ vựng đạt kích thước mục tiêu. Artifact là danh sách các phép gộp có thứ tự; từ vựng đi theo nó, và cùng danh sách được áp dụng theo cùng thứ tự là thứ mã hóa dùng sau đó.
 
 ## Full answer
 
 ### A worked step
 
-Corpus: "lower" 5 times, "lowest" 2 times, "newest" 6 times.
+Kho ngữ liệu: "lower" 5 lần, "lowest" 2 lần, "newest" 6 lần.
 
 ```text
 l o w e r      (x5)
@@ -41,35 +41,35 @@ l o we s t     (x2)
 n e we s t     (x6)
 ```
 
-Recount, and the next step sees (we,s) and (s,t) tied at 8. The lesson's implementation breaks ties by sorting on the pair itself, so two runs over the same corpus produce the same table. After enough steps "west" exists as one symbol.
+Đếm lại, và bước tiếp theo thấy (we,s) và (s,t) hòa ở 8. Triển khai của bài học phá hòa bằng cách sắp theo chính cặp, nên hai lần chạy trên cùng kho ngữ liệu tạo cùng bảng. Sau đủ các bước, "west" tồn tại như một symbol.
 
 ### The three facts the loop encodes
 
-1. Frequency weighting makes the pairs of common words win early.
-2. A pre-split on whitespace and punctuation keeps merges inside a word. A word-end marker also keeps "low" as a whole word distinct from "low" as the start of "lower".
-3. The merge list is ordered. Encoding applies merges in training order, so the order is part of the artifact.
+1. Trọng số tần suất khiến các cặp của các từ phổ biến thắng sớm.
+2. Một lần tách trước theo khoảng trắng và dấu câu giữ các phép gộp bên trong một từ. Một dấu kết thúc từ cũng giữ "low" như một từ đầy đủ khác với "low" như phần đầu của "lower".
+3. Danh sách gộp có thứ tự. Mã hóa áp dụng các phép gộp theo thứ tự huấn luyện, nên thứ tự là một phần của artifact.
 
 ### Byte level
 
-With bytes as the base, the first 256 ids are the byte values and merge k gets id 256 plus k. The cost of one step is linear in the corpus as a list of symbol sequences, and the sequences shrink as merges land, so a million words to ten thousand ids runs in seconds.
+Với byte làm cơ sở, 256 id đầu là các giá trị byte và phép gộp k nhận id 256 cộng k. Chi phí của một bước tuyến tính theo kho ngữ liệu như một danh sách các chuỗi symbol, và các chuỗi thu nhỏ khi các phép gộp diễn ra, nên một triệu từ tới mười nghìn id chạy trong vài giây.
 
 ### What you ship
 
-The merge table and the special-token table. The vocabulary of byte strings can be rebuilt from them.
+Bảng gộp và bảng token đặc biệt. Từ vựng các chuỗi byte có thể được xây lại từ chúng.
 
 ## Follow-ups
 
-- **Level 1:** Why weight pairs by word frequency instead of counting each distinct word once? Expected: the merges should serve the text the model will see, and common words appear many times.
-- **Level 2:** Why must a tie in pair counts be broken deterministically? Expected: two training runs on the same corpus must produce the same table, or the same text would get different ids.
-- **Level 2:** What happens to the encoded length of a sentence as the target vocabulary grows from 300 to 600? Expected: it falls, because more merges cover longer pieces; that curve is the compression curve.
-- **Level 3:** Why split the corpus into words before you count pairs? Expected: without it, merges cross word boundaries and the vocabulary fills with whole phrases that do not generalize.
+- **Level 1:** Tại sao đặt trọng số các cặp theo tần suất từ thay vì đếm mỗi từ riêng biệt một lần? Expected: các phép gộp nên phục vụ văn bản mà mô hình sẽ thấy, và các từ phổ biến xuất hiện nhiều lần.
+- **Level 2:** Tại sao một lần hòa số đếm cặp phải được phá một cách xác định? Expected: hai lần huấn luyện trên cùng kho ngữ liệu phải tạo cùng bảng, nếu không cùng văn bản sẽ nhận các id khác nhau.
+- **Level 2:** Điều gì xảy ra với độ dài mã hóa của một câu khi từ vựng mục tiêu tăng từ 300 tới 600? Expected: nó giảm, vì nhiều phép gộp hơn bao phủ các mảnh dài hơn; đường cong đó là đường cong nén.
+- **Level 3:** Tại sao tách kho ngữ liệu thành các từ trước khi đếm các cặp? Expected: không có điều đó, các phép gộp vượt ranh giới từ và từ vựng đầy các cụm từ hoàn chỉnh không khái quát được.
 
 ## Wrong answers
 
-- "BPE picks the pair that makes the most meaningful piece." It picks the most frequent pair; meaning is a side effect, and the likelihood-based variant is a different algorithm.
-- "The vocabulary is the artifact; the merge list can be discarded." Encoding needs the merges in order; the vocabulary alone does not say how to split new text.
-- "All merges are chosen at once from the initial pair counts." Each merge changes the counts, so the loop recounts after every step.
+- "BPE chọn cặp tạo ra mảnh có ý nghĩa nhất." Nó chọn cặp phổ biến nhất; ý nghĩa là một tác dụng phụ, và biến thể dựa trên likelihood là một thuật toán khác.
+- "Từ vựng là artifact; danh sách gộp có thể bị bỏ." Mã hóa cần các phép gộp theo thứ tự; chỉ từ vựng không nói cách tách văn bản mới.
+- "Mọi phép gộp được chọn cùng lúc từ các số đếm cặp ban đầu." Mỗi phép gộp thay đổi các số đếm, nên vòng lặp đếm lại sau mỗi bước.
 
 ## Taught in
 
-The [tokenizers lesson](../../../phases/10-llms-from-scratch/01-tokenizers/) works the example, the [BPE capstone](../../../phases/19-capstone-projects/30-bpe-tokenizer-from-scratch/) builds the loop with deterministic ties, and the [subword lesson](../../../phases/05-nlp-foundations-to-advanced/19-subword-tokenization/) names the three facts.
+[Bài học tokenizer](../../../phases/10-llms-from-scratch/01-tokenizers/) giải ví dụ, [capstone BPE](../../../phases/19-capstone-projects/30-bpe-tokenizer-from-scratch/) xây vòng lặp với phá hòa xác định, và [bài học subword](../../../phases/05-nlp-foundations-to-advanced/19-subword-tokenization/) nêu ba dữ kiện.

@@ -16,51 +16,51 @@ related: [tokenization-decoding/speedup-from-alpha]
 updated: 2026-11-03
 ---
 
-Your creative-writing product samples at a high temperature and speculative decoding gives it no speedup at all, while the same setup flies on code completion. Explain the difference, and describe what the acceptance test becomes at temperature zero.
+Sản phẩm viết sáng tạo của bạn lấy mẫu ở temperature cao và giải mã suy đoán hoàn toàn không cho tăng tốc, trong khi cùng cấu hình chạy rất nhanh trên hoàn thành mã. Giải thích khác biệt, và mô tả kiểm tra chấp nhận trở thành gì ở temperature bằng không.
 
 ## Short answer
 
-Acceptance depends on how often the verifier agrees with what the draft sampled. At a high temperature the target distribution is flat, the draft's samples spread across many tokens, and the acceptance ratio of verifier to draft probability falls toward one over the vocabulary size, so almost every draft is rejected and the draft's cost is paid for nothing. Code and structured output are predictable, so acceptance climbs above 0.9. At temperature zero the rule becomes a comparison: accept if the drafted token equals the verifier's most likely token, otherwise emit that token and stop.
+Sự chấp nhận phụ thuộc vào mức thường xuyên bộ xác minh đồng ý với những gì draft lấy mẫu. Ở temperature cao, phân phối đích phẳng, các mẫu draft trải trên nhiều token, và tỷ số chấp nhận của xác suất bộ xác minh so với draft giảm về một chia kích thước từ vựng, nên gần như mọi draft bị từ chối và chi phí draft được trả vô ích. Mã và đầu ra có cấu trúc có thể dự đoán, nên sự chấp nhận tăng trên 0.9. Ở temperature bằng không, quy tắc trở thành một so sánh: chấp nhận nếu token được draft bằng token có khả năng nhất của bộ xác minh, nếu không thì phát token đó và dừng.
 
 ## Full answer
 
 ### Why temperature is the lever
 
-The acceptance test is `u < min(1, q(d) / p(d))`. When both distributions are peaked on the same token the ratio is near one and the draft is accepted. Raise the temperature and both distributions flatten: the draft now samples tokens that the verifier gives little probability, the ratios shrink, and the rejections pile up. The lesson's exercise runs the loop at a temperature of 1.5 to show the collapse, where the algorithm becomes slower than plain decoding because the draft overhead stays and the accepted tokens vanish.
+Kiểm tra chấp nhận là `u < min(1, q(d) / p(d))`. Khi cả hai phân phối tập trung trên cùng token, tỷ số gần một và draft được chấp nhận. Tăng temperature và cả hai phân phối phẳng đi: draft giờ lấy mẫu các token mà bộ xác minh cho ít xác suất, các tỷ số thu nhỏ, và các lần từ chối chồng lên. Bài tập của bài học chạy vòng lặp ở temperature 1.5 để cho thấy sự sụp đổ, nơi thuật toán trở nên chậm hơn giải mã thuần vì overhead draft giữ lại và các token được chấp nhận biến mất.
 
 ### Why the task matters
 
-| Workload | Measured speedup in the lesson |
+| Workload | Tăng tốc được đo trong bài học |
 |---|---|
-| chat | 2 to 3 times |
-| code generation | 3 to 5 times |
-| creative writing | near zero |
+| chat | 2 đến 3 lần |
+| sinh mã | 3 đến 5 lần |
+| viết sáng tạo | gần không |
 
-Code and structured output have a highly predictable next token, so even an imperfect draft agrees with the verifier most of the time; the EAGLE-3 lesson puts acceptance above 0.9 on such output. Open-ended prose at a high temperature has many acceptable continuations, and the draft rarely picks the one the verifier would.
+Mã và đầu ra có cấu trúc có token tiếp theo rất dễ dự đoán, nên ngay cả một draft không hoàn hảo cũng đồng ý với bộ xác minh phần lớn số lần; bài học EAGLE-3 đặt sự chấp nhận trên 0.9 trên đầu ra như vậy. Văn xuôi mở ở temperature cao có nhiều phần tiếp nối chấp nhận được, và draft hiếm khi chọn đúng token mà bộ xác minh sẽ chọn.
 
 ### The greedy case
 
-With temperature zero both models are deterministic. The test reduces to `argmax(q) == d`: accept on a match, otherwise output `argmax(q)` and stop. The residual distribution is not needed, because the verifier's choice is a single token.
+Với temperature bằng không, cả hai mô hình xác định. Kiểm tra rút gọn thành `argmax(q) == d`: chấp nhận khi khớp, nếu không xuất `argmax(q)` và dừng. Phân phối phần dư không cần, vì lựa chọn của bộ xác minh là một token duy nhất.
 
 ### What to do about it
 
-- Switch speculation off per request when the temperature is high, or route such requests to a plain decode pool; the EAGLE-3 lesson lists temperature-aware switching as a tuning knob.
-- Do not spend the draft on very short outputs of 1 to 5 tokens either; the overhead dominates.
-- Measure the acceptance rate per product surface and keep speculation where it pays; the production lesson's floor is about 0.55 at high concurrency.
+- Tắt suy đoán theo từng yêu cầu khi temperature cao, hoặc định tuyến các yêu cầu như vậy tới một pool giải mã thuần; bài học EAGLE-3 liệt kê chuyển đổi nhận biết temperature như một núm tinh chỉnh.
+- Cũng không tiêu draft cho các đầu ra rất ngắn từ 1 đến 5 token; overhead chi phối.
+- Đo tỷ lệ chấp nhận theo từng bề mặt sản phẩm và giữ suy đoán ở nơi có lợi; sàn của bài học production là khoảng 0.55 ở độ đồng thời cao.
 
 ## Follow-ups
 
-- **Level 2:** What does the acceptance ratio become when the draft and the verifier agree exactly? Expected: one, so every draft is accepted and each pass yields the full draft plus the bonus token.
-- **Level 3:** May the draft sample at a different temperature from the verifier? Expected: yes, as long as p is the distribution the draft actually sampled from; the output still follows the verifier's distribution, but a mismatch lowers acceptance.
-- **Level 3:** How would you implement the switch in a serving layer? Expected: read the request's temperature and output length, and disable speculation above a temperature threshold or below a length threshold, with the thresholds set from measured acceptance.
-- **Level 4:** Why is the loss worse at high concurrency than the formula suggests? Expected: a rejected draft costs a verify and a re-roll that serialize under a full batch, and the batch already fills the memory bandwidth that speculation was exploiting, so the tail latency suffers.
+- **Level 2:** Tỷ số chấp nhận trở thành gì khi draft và bộ xác minh đồng ý chính xác? Expected: một, nên mọi draft được chấp nhận và mỗi lượt cho toàn bộ draft cộng token thưởng.
+- **Level 3:** Draft có được lấy mẫu ở một temperature khác bộ xác minh không? Expected: có, miễn p là phân phối mà draft thực sự lấy mẫu từ đó; đầu ra vẫn theo phân phối bộ xác minh, nhưng một sự không khớp hạ sự chấp nhận.
+- **Level 3:** Bạn triển khai công tắc trong một lớp phục vụ bằng cách nào? Expected: đọc temperature và độ dài đầu ra của yêu cầu, và tắt suy đoán trên một ngưỡng temperature hoặc dưới một ngưỡng độ dài, với các ngưỡng được đặt từ sự chấp nhận được đo.
+- **Level 4:** Tại sao tổn thất tệ hơn ở độ đồng thời cao so với công thức gợi ý? Expected: một draft bị từ chối tốn một lần xác minh và một lần lấy lại nối tiếp dưới một batch đầy, và batch đã lấp băng thông bộ nhớ mà suy đoán khai thác, nên độ trễ đuôi chịu thiệt.
 
 ## Wrong answers
 
-- "Lower the temperature so speculation works." The product chose the temperature for a reason; change the decoding path for those requests, not the product.
-- "The draft is too small; use a bigger draft." Size is not the issue when the target distribution is flat; a larger draft still cannot guess which of many acceptable tokens the verifier samples.
-- "At high temperature speculation changes the output." The rejection rule keeps the output distribution exact at any temperature; what changes is the speed.
+- "Hạ temperature để suy đoán hoạt động." Sản phẩm chọn temperature vì một lý do; thay đường giải mã cho các yêu cầu đó, không phải sản phẩm.
+- "Draft quá nhỏ; dùng một draft lớn hơn." Kích thước không phải vấn đề khi phân phối đích phẳng; một draft lớn hơn vẫn không thể đoán token nào trong nhiều token chấp nhận được mà bộ xác minh lấy mẫu.
+- "Ở temperature cao, suy đoán thay đổi đầu ra." Quy tắc từ chối giữ phân phối đầu ra chính xác ở mọi temperature; điều thay đổi là tốc độ.
 
 ## Taught in
 
-The [Phase 7 speculative decoding lesson](../../../phases/07-transformers-deep-dive/16-speculative-decoding/) ties acceptance to the decoding strategy, the [Phase 10 speculative decoding lesson](../../../phases/10-llms-from-scratch/25-speculative-decoding/) gives the greedy case and the workload table, the [EAGLE-3 lesson](../../../phases/10-llms-from-scratch/15-speculative-decoding-eagle3/) names the switching knob, and the [production EAGLE-3 lesson](../../../phases/17-infrastructure-and-production/05-eagle3-speculative-decoding/) sets the acceptance floor.
+[Bài học giải mã suy đoán Phase 7](../../../phases/07-transformers-deep-dive/16-speculative-decoding/) gắn sự chấp nhận với chiến lược giải mã, [bài học giải mã suy đoán Phase 10](../../../phases/10-llms-from-scratch/25-speculative-decoding/) cung cấp trường hợp tham lam và bảng workload, [bài học EAGLE-3](../../../phases/10-llms-from-scratch/15-speculative-decoding-eagle3/) nêu núm chuyển đổi, và [bài học EAGLE-3 production](../../../phases/17-infrastructure-and-production/05-eagle3-speculative-decoding/) đặt sàn chấp nhận.

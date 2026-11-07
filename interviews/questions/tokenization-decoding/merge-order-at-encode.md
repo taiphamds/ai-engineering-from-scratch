@@ -16,11 +16,11 @@ related: [tokenization-decoding/bpe-training-loop]
 updated: 2026-11-03
 ---
 
-At encode time a BPE tokenizer holds the complete merge table. Why does it have to replay the merges in the order they were learned, and what goes wrong when two merges could fire at the same spot?
+Ở thời điểm mã hóa, một tokenizer BPE giữ bảng gộp hoàn chỉnh. Tại sao nó phải phát lại các phép gộp theo thứ tự chúng được học, và điều gì sai khi hai phép gộp có thể kích hoạt ở cùng một chỗ?
 
 ## Short answer
 
-Encoding must reproduce what training did to the same text, and training saw the merges one at a time in that order. If merge one created "th" and merge five created "the" from "th" plus "e", then "the" can only form after "th" exists. When two merges could apply at one position, the one with the lower rank, learned earlier, wins; change that rule and the same text yields different ids, so the model sees a distribution of ids it was never trained on.
+Mã hóa phải tái tạo điều huấn luyện đã làm với cùng văn bản, và huấn luyện thấy các phép gộp từng cái một theo thứ tự đó. Nếu phép gộp một tạo "th" và phép gộp năm tạo "the" từ "th" cộng "e", thì "the" chỉ có thể hình thành sau khi "th" tồn tại. Khi hai phép gộp có thể áp dụng ở một vị trí, phép có thứ hạng thấp hơn, được học sớm hơn, thắng; thay quy tắc đó và cùng văn bản cho các id khác nhau, nên mô hình thấy một phân phối id nó chưa bao giờ được huấn luyện trên đó.
 
 ## Full answer
 
@@ -39,33 +39,33 @@ def encode_bpe(word, merges):
     return symbols
 ```
 
-It walks the whole table for every word, so the cost is the word length times the number of merges. Correct for a merge table trained on characters, and slow.
+Nó duyệt toàn bộ bảng cho mọi từ, nên chi phí là độ dài từ nhân số phép gộp. Đúng cho một bảng gộp được huấn luyện trên các ký tự, và chậm.
 
 ### The rank-based encoder
 
-The capstone version starts from the byte split and repeats: find the applicable merge with the lowest rank anywhere in the current sequence, apply it, and scan again, until no merge in the table applies. Production encoders keep the same semantics with a rank lookup and a priority queue of candidate pairs, which runs in close to linear time.
+Phiên bản capstone bắt đầu từ phần tách byte và lặp: tìm phép gộp có thể áp dụng với thứ hạng thấp nhất ở bất cứ đâu trong chuỗi hiện tại, áp dụng nó, và quét lại, cho đến khi không phép gộp nào trong bảng áp dụng. Các bộ mã hóa production giữ cùng ngữ nghĩa với một phép tra thứ hạng và một hàng đợi ưu tiên các cặp ứng viên, chạy trong thời gian gần tuyến tính.
 
 ### Why the rule is the contract
 
-The training loop and the encoder share the merge table, and that sharing is the whole contract. Training merged the most frequent pair first, so an input that contains both halves of an early merge was always merged that way in the training data. An encoder that prefers a later merge, or the longest piece, produces a segmentation the model never saw. Nothing crashes; the ids are simply different.
+Vòng lặp huấn luyện và bộ mã hóa dùng chung bảng gộp, và sự dùng chung đó là toàn bộ hợp đồng. Huấn luyện gộp cặp phổ biến nhất trước, nên một đầu vào chứa cả hai nửa của một phép gộp sớm luôn được gộp theo cách đó trong dữ liệu huấn luyện. Một bộ mã hóa ưu tiên một phép gộp sau, hoặc mảnh dài nhất, tạo một phân đoạn mô hình chưa bao giờ thấy. Không có gì gặp sự cố; các id đơn giản là khác.
 
 ### What special tokens do here
 
-Reserved strings such as the end-of-text marker are matched exactly before the merge loop runs and mapped to fixed ids. They never take part in a merge, so no table order can split or join them.
+Các chuỗi dành riêng như dấu kết thúc văn bản được khớp chính xác trước khi vòng lặp gộp chạy và ánh xạ tới các id cố định. Chúng không bao giờ tham gia một phép gộp, nên không thứ tự bảng nào có thể tách hoặc nối chúng.
 
 ## Follow-ups
 
-- **Level 2:** Why is the naive loop slow? Expected: it scans the full merge table for every word, so the cost grows with the table size times the word length.
-- **Level 3:** How do production encoders get close to linear time? Expected: a rank lookup for each adjacent pair and a priority queue that always surfaces the lowest-ranked applicable merge.
-- **Level 3:** Two tokenizers were trained on different corpora to the same vocabulary size. Do they give the same ids? Expected: no; different corpora give different merge tables and different ranks.
-- **Level 3:** What test pins the order? Expected: encode a held-out word and compare with recorded ids; the capstone's tests also pin the round trip and the special-token reservation.
+- **Level 2:** Tại sao vòng lặp ngây thơ chậm? Expected: nó quét toàn bộ bảng gộp cho mọi từ, nên chi phí tăng theo kích thước bảng nhân độ dài từ.
+- **Level 3:** Các bộ mã hóa production đạt thời gian gần tuyến tính bằng cách nào? Expected: một phép tra thứ hạng cho mỗi cặp liền kề và một hàng đợi ưu tiên luôn đưa lên phép gộp có thể áp dụng có thứ hạng thấp nhất.
+- **Level 3:** Hai tokenizer được huấn luyện trên các kho ngữ liệu khác nhau tới cùng kích thước từ vựng. Chúng có cho cùng các id không? Expected: không; các kho ngữ liệu khác nhau cho các bảng gộp khác nhau và các thứ hạng khác nhau.
+- **Level 3:** Kiểm thử nào ghim thứ tự? Expected: mã hóa một từ giữ lại và so với các id được ghi; các kiểm thử của capstone cũng ghim round trip và việc dành riêng token đặc biệt.
 
 ## Wrong answers
 
-- "Greedily take the longest token in the vocabulary that matches." That is a different algorithm and gives a different segmentation from the training run.
-- "Order does not matter because merges commute." A later merge depends on the symbols that earlier merges created, so they do not commute.
-- "Sort the merges by token length." Length is not rank; a long piece may have been learned early and a short one late.
+- "Tham lam lấy token dài nhất trong từ vựng khớp." Đó là một thuật toán khác và cho một phân đoạn khác với lần huấn luyện.
+- "Thứ tự không quan trọng vì các phép gộp giao hoán." Một phép gộp sau phụ thuộc vào các symbol mà các phép gộp trước tạo, nên chúng không giao hoán.
+- "Sắp các phép gộp theo độ dài token." Độ dài không phải thứ hạng; một mảnh dài có thể được học sớm và một mảnh ngắn muộn.
 
 ## Taught in
 
-The [tokenizers lesson](../../../phases/10-llms-from-scratch/01-tokenizers/) explains the ordered table, the [BPE capstone](../../../phases/19-capstone-projects/30-bpe-tokenizer-from-scratch/) implements the rank-based encoder, and the [subword lesson](../../../phases/05-nlp-foundations-to-advanced/19-subword-tokenization/) gives the naive loop and its cost.
+[Bài học tokenizer](../../../phases/10-llms-from-scratch/01-tokenizers/) giải thích bảng có thứ tự, [capstone BPE](../../../phases/19-capstone-projects/30-bpe-tokenizer-from-scratch/) triển khai bộ mã hóa dựa trên thứ hạng, và [bài học subword](../../../phases/05-nlp-foundations-to-advanced/19-subword-tokenization/) cung cấp vòng lặp ngây thơ và chi phí.

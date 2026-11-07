@@ -16,11 +16,11 @@ related: [tokenization-decoding/bpe-training-loop, tokenization-decoding/read-th
 updated: 2026-11-03
 ---
 
-This is a take-home we send: implement a byte-level byte-pair tokenizer with training, encoding and decoding, two reserved special tokens, and a test suite. Describe the design you would submit, the tests you would ship, and the one figure you would include in the write-up.
+Đây là một bài làm ở nhà chúng tôi gửi: triển khai một tokenizer byte-pair cấp byte với huấn luyện, mã hóa và giải mã, hai token đặc biệt dành riêng, và một bộ kiểm thử. Mô tả thiết kế bạn sẽ nộp, các kiểm thử bạn sẽ cung cấp, và một hình bạn sẽ đưa vào báo cáo.
 
 ## Short answer
 
-Reserve ids 0 to 255 for the raw bytes and a small block above them for the end-of-text and pad markers, split the corpus on whitespace and punctuation, train by counting frequency-weighted adjacent pairs and merging the top pair with a deterministic tie-break, encode by applying the lowest-ranked merge that fits until none fits, and decode by joining the byte expansions and decoding UTF-8 once. The tests pin the byte-exact round trip on an unseen sentence, on an emoji and on a literal special-token string with the allow flag on and off, plus the merge-order property and the reserved ids. The figure is the compression curve: the encoded length of a held-out sentence as the target vocabulary grows from 300 to 600.
+Dành các id 0 đến 255 cho các byte thô và một block nhỏ phía trên chúng cho các dấu kết thúc văn bản và pad, tách kho ngữ liệu theo khoảng trắng và dấu câu, huấn luyện bằng cách đếm các cặp liền kề có trọng số tần suất và gộp cặp hàng đầu với phá hòa xác định, mã hóa bằng cách áp dụng phép gộp có thứ hạng thấp nhất khớp cho đến khi không phép nào khớp, và giải mã bằng cách nối các phần mở rộng byte và giải mã UTF-8 một lần. Các kiểm thử ghim round trip chính xác từng byte trên một câu chưa thấy, trên một emoji và trên một chuỗi token đặc biệt nguyên văn với cờ allow bật và tắt, cùng đặc tính thứ tự gộp và các id dành riêng. Hình là đường cong nén: độ dài mã hóa của một câu giữ lại khi từ vựng mục tiêu tăng từ 300 lên 600.
 
 ## Full answer
 
@@ -32,42 +32,42 @@ next few ids      <|endoftext|>, <|pad|>
 then              one id per merge, in training order
 ```
 
-- **Keep the input bytes** as they are, so that the round trip is byte-exact. Compatibility normalization maps a ligature or a fullwidth letter to its plain form and is lossy, so add it only if the write-up limits the round-trip promise to normalized text.
-- **Pre-split** into words and punctuation so that merges stay inside a word; the regex pattern of the large production tokenizers is an optional extension.
-- **Train**: count adjacent pairs across the split corpus weighted by word frequency, merge the top pair into the next free id, record the merge, repeat to the target size. Break ties on the pair itself so two runs give the same table.
-- **Encode**: match special tokens exactly first when the allow flag is on; for ordinary text start from the bytes and repeatedly apply the lowest-ranked applicable merge.
-- **Decode**: special ids map to their marker strings, every other id to its bytes; join all bytes, then decode once with replacement for a partial trailing character.
+- **Giữ các byte đầu vào** nguyên trạng, để round trip chính xác từng byte. Chuẩn hóa tương thích ánh xạ một chữ ghép hoặc một chữ cái toàn chiều rộng về dạng thuần và có mất mát, nên chỉ thêm nó nếu báo cáo giới hạn lời hứa round trip vào văn bản đã chuẩn hóa.
+- **Tách trước** thành các từ và dấu câu để các phép gộp giữ bên trong một từ; mẫu regex của các tokenizer production lớn là một mở rộng tùy chọn.
+- **Huấn luyện**: đếm các cặp liền kề trên kho ngữ liệu đã tách có trọng số theo tần suất từ, gộp cặp hàng đầu thành id trống tiếp theo, ghi phép gộp, lặp tới kích thước mục tiêu. Phá hòa theo chính cặp để hai lần chạy cho cùng bảng.
+- **Mã hóa**: khớp chính xác các token đặc biệt trước khi cờ allow bật; với văn bản thông thường bắt đầu từ các byte và lặp áp dụng phép gộp có thể áp dụng có thứ hạng thấp nhất.
+- **Giải mã**: các id đặc biệt ánh xạ tới các chuỗi dấu, mọi id khác tới các byte; nối mọi byte, rồi giải mã một lần với thay thế cho một ký tự cuối chưa đầy đủ.
 
 ### The tests
 
-1. Round trip on a sentence the tokenizer never saw.
-2. Round trip on a sentence with an emoji, where the character's 4 bytes may span tokens.
-3. Round trip on a sentence containing the literal end-of-text string, with the flag off it becomes bytes and with the flag on it becomes the reserved id.
-4. Merge order: a held-out word encodes to the recorded ids, and a shuffled table does not.
-5. Reserved ids never appear as merge targets and never collide with byte ids.
-6. Determinism: training twice on the same corpus gives the same table.
+1. Round trip trên một câu tokenizer chưa bao giờ thấy.
+2. Round trip trên một câu có một emoji, nơi 4 byte của ký tự có thể trải qua các token.
+3. Round trip trên một câu chứa chuỗi kết thúc văn bản nguyên văn, với cờ tắt nó trở thành các byte và với cờ bật nó trở thành id dành riêng.
+4. Thứ tự gộp: một từ giữ lại mã hóa thành các id được ghi, và một bảng bị xáo trộn không như vậy.
+5. Các id dành riêng không bao giờ xuất hiện như các đích gộp và không bao giờ va chạm với các id byte.
+6. Tính xác định: huấn luyện hai lần trên cùng kho ngữ liệu cho cùng bảng.
 
 ### The figure
 
-Train to several target sizes, encode the same held-out sentence each time, and plot the token count against the vocabulary size. The count falls as merges cover longer pieces. A second line with the compression ratio, tokens over input bytes where 0.50 means half as many tokens as bytes, shows the same thing in a unit that transfers between corpora.
+Huấn luyện tới nhiều kích thước mục tiêu, mã hóa cùng câu giữ lại mỗi lần, và vẽ số token theo kích thước từ vựng. Số lượng giảm khi các phép gộp bao phủ các mảnh dài hơn. Một đường thứ hai với tỷ lệ nén, token chia byte đầu vào nơi 0.50 nghĩa là số token bằng nửa số byte, cho thấy cùng điều trong một đơn vị chuyển được giữa các kho ngữ liệu.
 
 ### What a reviewer grades
 
-Correctness of the round trip, determinism, clean separation of the special-token path from the merge path, the quality of the tests, and a write-up that names the bug the candidate hit. Speed is not graded: Python at this scale finishes in well under a second, and production libraries in compiled languages are 10 to 100 times faster for the same algorithm.
+Tính đúng đắn của round trip, tính xác định, tách sạch đường token đặc biệt khỏi đường gộp, chất lượng các kiểm thử, và một báo cáo nêu bug mà ứng viên gặp. Tốc độ không được chấm: Python ở quy mô này hoàn tất trong dưới một giây khá xa, và các thư viện production bằng ngôn ngữ được biên dịch nhanh hơn 10 đến 100 lần cho cùng thuật toán.
 
 ## Follow-ups
 
-- **Level 2:** Why do the raw bytes take ids 0 to 255 before anything else? Expected: every input can then be expressed in the vocabulary before any merge exists, so nothing is ever unknown.
-- **Level 3:** The input spells out the end-of-text marker as plain text. What does the allow flag change? Expected: off, the string is ordinary bytes and pieces; on, it maps to the reserved id and is skipped by the merge loop.
-- **Level 3:** Why must a tie in pair counts be broken deterministically? Expected: two runs on the same corpus must give the same table, or the same text gets different ids across machines.
-- **Level 4:** Replace the simple split with the production regex pattern. What do you compare? Expected: the vocabularies and the encoded lengths on the same corpus, looking at how contractions, digits and leading spaces are handled.
+- **Level 2:** Tại sao các byte thô lấy id 0 đến 255 trước bất cứ thứ gì? Expected: mọi đầu vào khi đó có thể được biểu diễn trong từ vựng trước khi bất kỳ phép gộp nào tồn tại, nên không có gì không biết.
+- **Level 3:** Đầu vào viết dấu kết thúc văn bản thành văn bản thuần. Cờ allow thay đổi gì? Expected: tắt, chuỗi là các byte và mảnh thông thường; bật, nó ánh xạ tới id dành riêng và được vòng lặp gộp bỏ qua.
+- **Level 3:** Tại sao một lần hòa số đếm cặp phải được phá một cách xác định? Expected: hai lần chạy trên cùng kho ngữ liệu phải cho cùng bảng, nếu không cùng văn bản nhận các id khác qua các máy.
+- **Level 4:** Thay phép tách đơn giản bằng mẫu regex production. Bạn so sánh gì? Expected: các từ vựng và các độ dài mã hóa trên cùng kho ngữ liệu, xem cách xử lý các dạng rút gọn, chữ số và dấu cách đầu.
 
 ## Wrong answers
 
-- "Use Unicode code points as the base symbols." Code points number in the hundreds of thousands and leave gaps for unseen characters; bytes are 256 and complete.
-- "Decode each token to a string and join the strings." A token can hold part of a multi-byte character; join the bytes first and decode once.
-- "Skip the pre-split to get better compression." Merges then cross word boundaries and the vocabulary fills with phrases that do not transfer.
+- "Dùng các code point Unicode làm các symbol cơ sở." Các code point lên tới hàng trăm nghìn và để khoảng trống cho các ký tự chưa thấy; byte là 256 và đầy đủ.
+- "Giải mã mỗi token thành một chuỗi và nối các chuỗi." Một token có thể giữ một phần ký tự nhiều byte; nối các byte trước và giải mã một lần.
+- "Bỏ tách trước để có nén tốt hơn." Các phép gộp khi đó vượt ranh giới từ và từ vựng đầy các cụm từ không chuyển giao.
 
 ## Taught in
 
-The [BPE capstone](../../../phases/19-capstone-projects/30-bpe-tokenizer-from-scratch/) defines the design, the special tokens and the tests, the [tokenizer build lesson](../../../phases/10-llms-from-scratch/02-building-a-tokenizer/) adds normalization and the regex extension, and the [tokenizers lesson](../../../phases/10-llms-from-scratch/01-tokenizers/) defines the compression ratio.
+[Capstone BPE](../../../phases/19-capstone-projects/30-bpe-tokenizer-from-scratch/) định nghĩa thiết kế, các token đặc biệt và các kiểm thử, [bài học xây tokenizer](../../../phases/10-llms-from-scratch/02-building-a-tokenizer/) thêm chuẩn hóa và mở rộng regex, và [bài học tokenizer](../../../phases/10-llms-from-scratch/01-tokenizers/) định nghĩa tỷ lệ nén.

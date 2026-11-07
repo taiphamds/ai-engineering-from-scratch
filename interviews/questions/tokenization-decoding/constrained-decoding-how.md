@@ -16,19 +16,19 @@ related: []
 updated: 2026-11-03
 ---
 
-A classifier prompt asks for one of three labels and the model answers with a paragraph, so the parser crashes. Three layers of fix exist. Explain how the strongest one works at the level of the logits, and why it is often faster than free generation, not slower.
+Một prompt phân loại yêu cầu một trong ba nhãn và mô hình trả lời bằng một đoạn văn, nên parser gặp sự cố. Có ba lớp sửa. Giải thích lớp mạnh nhất hoạt động thế nào ở cấp logits, và tại sao nó thường nhanh hơn sinh tự do, không phải chậm hơn.
 
 ## Short answer
 
-Prompting asks nicely, a vendor's structured-output API does it on the server, and constrained decoding does it locally by editing the logits. At each step a logit processor computes which vocabulary tokens can advance the target grammar, a JSON schema, a regex or a context-free grammar compiled to a state machine, and sets every other logit to minus infinity, so the softmax puts probability only on valid continuations and an invalid output is unreachable. It can be faster because the search space shrinks and because tokens that the grammar forces, such as a fixed key name, are emitted without a model step.
+Prompting hỏi lịch sự, structured-output API của một nhà cung cấp làm trên server, và constrained decoding làm cục bộ bằng cách chỉnh logits. Ở mỗi bước, một bộ xử lý logit tính các token từ vựng nào có thể tiến ngữ pháp mục tiêu, một JSON schema, một regex hoặc một ngữ pháp phi ngữ cảnh được biên dịch thành một máy trạng thái, và đặt mọi logit khác thành âm vô cùng, nên softmax chỉ đặt xác suất trên các phần tiếp nối hợp lệ và một đầu ra không hợp lệ không thể đạt tới. Nó có thể nhanh hơn vì không gian tìm kiếm thu hẹp và vì các token mà ngữ pháp ép buộc, như một tên khóa cố định, được phát ra không cần một bước mô hình.
 
 ## Full answer
 
 ### The three layers
 
-1. **Prompting.** "Return only the JSON object." The lesson puts this at about 80 percent compliance on strong models and lower on small ones. Not a contract.
-2. **Native structured output.** The provider runs the constraint on its side. Reliable for supported schemas; locked to that provider.
-3. **Constrained decoding.** The constraint runs in your own decoding loop and works with any local model.
+1. **Prompting.** "Chỉ trả về đối tượng JSON." Bài học đặt mức này ở khoảng 80 phần trăm tuân thủ trên các mô hình mạnh và thấp hơn trên các mô hình nhỏ. Không phải một hợp đồng.
+2. **Đầu ra có cấu trúc gốc.** Provider chạy ràng buộc phía họ. Đáng tin cậy cho các schema được hỗ trợ; khóa vào provider đó.
+3. **Constrained decoding.** Ràng buộc chạy trong vòng lặp giải mã riêng và hoạt động với bất kỳ mô hình cục bộ nào.
 
 ### The loop
 
@@ -46,33 +46,33 @@ def generate_constrained(model, tokenizer, prompt, fsm):
     return tokenizer.decode(ids)
 ```
 
-The state machine tracks how much of the grammar is satisfied. `valid_tokens` returns the vocabulary tokens that keep the machine on an accepting path; the mask sets the rest to minus infinity. The vocabulary is about 100k tokens, so the mask is computed per state ahead of time.
+Máy trạng thái theo dõi ngữ pháp đã được thỏa mãn bao nhiêu. `valid_tokens` trả về các token từ vựng giữ máy trên một đường dẫn chấp nhận; mask đặt phần còn lại thành âm vô cùng. Từ vựng khoảng 100k token, nên mask được tính trước theo từng trạng thái.
 
 ### State machine or grammar engine
 
-A regex or a flat JSON schema compiles to a finite-state machine with a constant-time lookup of valid tokens per state. Recursive schemas, nested comments or a syntax tree, need a context-free grammar engine, which handles recursion at near-zero decoding overhead in current implementations. Inference servers expose both as guided decoding.
+Một regex hoặc một JSON schema phẳng biên dịch thành một máy trạng thái hữu hạn với một phép tra các token hợp lệ theo từng trạng thái trong thời gian hằng số. Các schema đệ quy, các bình luận lồng nhau hoặc một cây cú pháp, cần một bộ máy ngữ pháp phi ngữ cảnh, xử lý đệ quy với overhead giải mã gần không trong các triển khai hiện tại. Các server suy luận cung cấp cả hai dưới dạng guided decoding.
 
 ### Why it can be faster
 
-Fewer candidate tokens means a smaller effective search at each step. More important, long stretches of the output are fully determined by the grammar: the opening brace, a quoted key, the colon. A good implementation skips the model for those tokens and only calls it where the grammar leaves a choice.
+Ít token ứng viên hơn nghĩa là một tìm kiếm hiệu dụng nhỏ hơn ở mỗi bước. Quan trọng hơn, các đoạn dài của đầu ra được ngữ pháp xác định hoàn toàn: dấu ngoặc nhọn mở, một khóa có dấu ngoặc kép, dấu hai chấm. Một triển khai tốt bỏ mô hình cho các token đó và chỉ gọi nó ở nơi ngữ pháp để lại một lựa chọn.
 
 ### The library that does not touch logits
 
-A retry-based client formats the schema into the prompt, parses the output, and retries on a validation failure, 3 times by default. It works across providers, and each retry costs latency and money. It is a different mechanism, not a weaker version of the same one.
+Một client dựa trên thử lại đưa schema vào prompt, parse đầu ra, và thử lại khi xác thực thất bại, mặc định 3 lần. Nó hoạt động qua các provider, và mỗi lần thử lại tốn độ trễ và tiền. Nó là một cơ chế khác, không phải một phiên bản yếu hơn của cùng cơ chế.
 
 ## Follow-ups
 
-- **Level 2:** When does a finite-state machine not suffice? Expected: for recursive schemas; the machine flattens recursion to a fixed depth, and a context-free grammar engine is needed.
-- **Level 3:** What does a provider's plain JSON mode guarantee, and what does it not? Expected: valid JSON syntax, not conformance to your schema; always send a full schema.
-- **Level 3:** How does the retry library differ from the logit processor? Expected: it never changes the model's distribution; it validates after the fact and retries, which adds latency and cost per failure.
-- **Level 4:** The schema has an enum with 10,000 options and compilation times out. What do you do? Expected: predict a short list of candidates with a retriever first, then constrain the decode to those.
+- **Level 2:** Khi nào một máy trạng thái hữu hạn không đủ? Expected: cho các schema đệ quy; máy làm phẳng đệ quy tới một độ sâu cố định, và cần một bộ máy ngữ pháp phi ngữ cảnh.
+- **Level 3:** Chế độ JSON thuần của một provider bảo đảm gì, và không bảo đảm gì? Expected: cú pháp JSON hợp lệ, không phải tuân thủ schema của bạn; luôn gửi một schema đầy đủ.
+- **Level 3:** Thư viện thử lại khác bộ xử lý logit bằng cách nào? Expected: nó không bao giờ thay đổi phân phối của mô hình; nó xác thực sau đó và thử lại, thêm độ trễ và chi phí mỗi lỗi.
+- **Level 4:** Schema có một enum với 10,000 lựa chọn và biên dịch hết thời gian chờ. Bạn làm gì? Expected: dự đoán một danh sách ngắn ứng viên bằng một retriever trước, rồi ràng buộc giải mã vào các ứng viên đó.
 
 ## Wrong answers
 
-- "Constrained decoding makes the answer correct." It makes the answer valid for the grammar; a well-formed wrong answer still passes.
-- "Checking the grammar at every token makes generation slower." The valid-token sets are precomputed per state, and forced tokens skip the model, so it is often faster.
-- "Enough examples in the prompt reach full compliance." The lesson's figure for prompting alone is about 80 percent; a contract needs the logits or the server.
+- "Constrained decoding khiến câu trả lời đúng." Nó khiến câu trả lời hợp lệ với ngữ pháp; một câu trả lời sai đúng định dạng vẫn qua.
+- "Kiểm tra ngữ pháp ở mọi token khiến sinh chậm hơn." Các tập token hợp lệ được tính trước theo từng trạng thái, và các token bắt buộc bỏ qua mô hình, nên nó thường nhanh hơn.
+- "Đủ ví dụ trong prompt đạt tuân thủ đầy đủ." Con số của bài học cho chỉ prompting là khoảng 80 phần trăm; một hợp đồng cần logits hoặc server.
 
 ## Taught in
 
-The [structured outputs lesson](../../../phases/05-nlp-foundations-to-advanced/20-structured-outputs-constrained-decoding/) builds the logit processor and compares the three layers.
+[Bài học structured outputs](../../../phases/05-nlp-foundations-to-advanced/20-structured-outputs-constrained-decoding/) xây bộ xử lý logit và so sánh ba lớp.

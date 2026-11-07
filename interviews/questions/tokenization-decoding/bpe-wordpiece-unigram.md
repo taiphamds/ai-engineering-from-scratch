@@ -16,11 +16,11 @@ related: [tokenization-decoding/bpe-training-loop]
 updated: 2026-11-03
 ---
 
-Three subword algorithms dominate: byte-pair encoding, WordPiece and Unigram. Contrast how each builds its vocabulary, tell me which one can give two different segmentations of the same word on purpose, and name the libraries you would reach for.
+Ba thuật toán subword chiếm ưu thế: byte-pair encoding, WordPiece và Unigram. Đối chiếu cách mỗi thuật toán xây từ vựng, cho tôi biết thuật toán nào có thể cố ý cho hai cách phân đoạn khác nhau của cùng từ, và nêu các thư viện bạn sẽ dùng.
 
 ## Short answer
 
-Byte-pair encoding merges the most frequent adjacent pair, bottom up. WordPiece also merges bottom up but scores a pair by the count of the merged piece over the product of the counts of its parts, so it prefers pairs that co-occur more than chance, and it marks continuation pieces with a double-hash prefix. Unigram works top down: it starts from a large candidate set, assigns each piece a probability, and prunes the pieces whose removal hurts the corpus likelihood least, which is why it can also sample alternative segmentations for regularization.
+Byte-pair encoding gộp cặp liền kề phổ biến nhất, từ dưới lên. WordPiece cũng gộp từ dưới lên nhưng chấm một cặp bằng số đếm của mảnh được gộp chia tích các số đếm của các phần, nên nó ưu tiên các cặp đồng xuất hiện nhiều hơn ngẫu nhiên, và nó đánh dấu các mảnh tiếp nối bằng một tiền tố hai dấu thăng. Unigram làm từ trên xuống: nó bắt đầu từ một tập ứng viên lớn, gán mỗi mảnh một xác suất, và cắt các mảnh mà việc loại bỏ làm hại likelihood kho ngữ liệu ít nhất, đó là lý do nó cũng có thể lấy mẫu các phân đoạn thay thế để regularization.
 
 ## Full answer
 
@@ -32,41 +32,41 @@ WordPiece merge criterion:  count(AB) / (count(A) * count(B))
 Unigram:                    prune the piece whose removal least lowers the corpus log-likelihood
 ```
 
-The first asks which pair appears most. The second asks which pair appears together more often than you would expect from its parts. The third asks which pieces the corpus can best do without.
+Thuật toán đầu hỏi cặp nào xuất hiện nhiều nhất. Thuật toán thứ hai hỏi cặp nào xuất hiện cùng nhau thường xuyên hơn bạn sẽ mong đợi từ các phần. Thuật toán thứ ba hỏi kho ngữ liệu có thể thiếu các mảnh nào tốt nhất.
 
 ### Who uses what
 
-| Algorithm | Direction | Marker | Used by |
+| Thuật toán | Hướng | Dấu | Được dùng bởi |
 |---|---|---|---|
-| Byte-pair encoding | merge up | leading space kept on word-initial pieces | most decoder families, with vocabularies of 50,257, 128,256 and more |
-| WordPiece | merge up by likelihood ratio | `##` for continuation pieces | the classic encoder with 30,522 tokens |
-| Unigram | prune down | `▁` for a space when trained without pre-tokenization | an encoder-decoder family with 32,000 tokens |
+| Byte-pair encoding | gộp lên | dấu cách đầu được giữ trên các mảnh đầu từ | phần lớn các họ decoder, với từ vựng 50,257, 128,256 và hơn |
+| WordPiece | gộp lên theo tỷ số likelihood | `##` cho các mảnh tiếp nối | encoder cổ điển với 30,522 token |
+| Unigram | cắt xuống | `▁` cho một dấu cách khi được huấn luyện không có tiền token hóa | một họ encoder-decoder với 32,000 token |
 
 ### Sampling segmentations
 
-A Unigram model is probabilistic at inference. It can return the most likely segmentation or sample another one, which gives subword regularization during training: the same word arrives in several forms and the model learns pieces more robustly. The merge-based algorithms are deterministic.
+Một mô hình Unigram mang tính xác suất ở suy luận. Nó có thể trả về phân đoạn có khả năng nhất hoặc lấy mẫu một phân đoạn khác, tạo regularization subword trong huấn luyện: cùng từ đến trong nhiều dạng và mô hình học các mảnh vững hơn. Các thuật toán dựa trên phép gộp là xác định.
 
 ### Libraries
 
-One library trains vocabularies for either the merge or the prune algorithm directly on raw text, encoding the space as a visible symbol and needing no pre-tokenization, which is why it is the default for multilingual work. A second, Rust-backed encoder is fast and matches the vocabularies of a widely used API family, but it only encodes. A third library trains and serves both algorithms in one place.
+Một thư viện huấn luyện các từ vựng cho thuật toán gộp hoặc cắt trực tiếp trên văn bản thô, mã hóa dấu cách như một symbol hiển thị và không cần tiền token hóa, đó là lý do nó là mặc định cho công việc đa ngôn ngữ. Một bộ mã hóa thứ hai, dựa trên Rust, nhanh và khớp các từ vựng của một họ API được dùng rộng rãi, nhưng nó chỉ mã hóa. Một thư viện thứ ba huấn luyện và phục vụ cả hai thuật toán ở một nơi.
 
 ### Picking
 
-Training a monolingual model: byte-pair encoding. Training multilingual: Unigram with a character coverage near 0.9995. Serving against an existing API vocabulary: the encoder-only library. Edge inference with a small model: Unigram with a smaller vocabulary.
+Huấn luyện một mô hình đơn ngữ: byte-pair encoding. Huấn luyện đa ngôn ngữ: Unigram với độ bao phủ ký tự gần 0.9995. Phục vụ theo một từ vựng API hiện có: thư viện chỉ mã hóa. Suy luận edge với một mô hình nhỏ: Unigram với một từ vựng nhỏ hơn.
 
 ## Follow-ups
 
-- **Level 2:** What is subword regularization? Expected: training on sampled segmentations from a Unigram model so the same word appears in several forms.
-- **Level 2:** What does the visible-space symbol buy? Expected: the space becomes an ordinary symbol, so the tokenizer needs no pre-tokenization and works for scripts without spaces.
-- **Level 3:** Which algorithm and setting for a multilingual vocabulary? Expected: Unigram trained on raw text with character coverage near 0.9995, so rare scripts are kept rather than mapped to unknown.
-- **Level 3:** Why can an encode-only library not train your tokenizer? Expected: it ships pre-built vocabularies and a fast encoder; the training step lives in the other two libraries.
+- **Level 2:** Regularization subword là gì? Expected: huấn luyện trên các phân đoạn được lấy mẫu từ một mô hình Unigram để cùng từ xuất hiện trong nhiều dạng.
+- **Level 2:** Symbol dấu cách hiển thị mang lại gì? Expected: dấu cách trở thành một symbol thông thường, nên tokenizer không cần tiền token hóa và hoạt động cho các hệ chữ không có dấu cách.
+- **Level 3:** Thuật toán và thiết lập nào cho một từ vựng đa ngôn ngữ? Expected: Unigram được huấn luyện trên văn bản thô với độ bao phủ ký tự gần 0.9995, để các hệ chữ hiếm được giữ thay vì ánh xạ thành không biết.
+- **Level 3:** Tại sao một thư viện chỉ-mã-hóa không thể huấn luyện tokenizer của bạn? Expected: nó cung cấp các từ vựng được xây sẵn và một bộ mã hóa nhanh; bước huấn luyện nằm trong hai thư viện kia.
 
 ## Wrong answers
 
-- "WordPiece and byte-pair encoding give the same vocabulary on the same corpus." The criteria differ, so the merges differ; the likelihood ratio favors surprising pairs over merely frequent ones.
-- "Unigram is deterministic like the merge algorithms." It is probabilistic and can sample segmentations on purpose.
-- "The library that encodes the space as a symbol is itself an algorithm." It is a library that trains either the merge or the prune algorithm on raw text.
+- "WordPiece và byte-pair encoding cho cùng từ vựng trên cùng kho ngữ liệu." Các tiêu chí khác nhau, nên các phép gộp khác nhau; tỷ số likelihood ưu tiên các cặp bất ngờ hơn các cặp chỉ phổ biến.
+- "Unigram xác định như các thuật toán gộp." Nó mang tính xác suất và có thể cố ý lấy mẫu các phân đoạn.
+- "Thư viện mã hóa dấu cách như một symbol tự nó là một thuật toán." Nó là một thư viện huấn luyện thuật toán gộp hoặc cắt trên văn bản thô.
 
 ## Taught in
 
-The [subword tokenization lesson](../../../phases/05-nlp-foundations-to-advanced/19-subword-tokenization/) contrasts the three algorithms and the libraries, and the [tokenizers lesson](../../../phases/10-llms-from-scratch/01-tokenizers/) gives the merge criteria and the vocabulary sizes.
+[Bài học token hóa subword](../../../phases/05-nlp-foundations-to-advanced/19-subword-tokenization/) đối chiếu ba thuật toán và các thư viện, và [bài học tokenizer](../../../phases/10-llms-from-scratch/01-tokenizers/) cung cấp các tiêu chí gộp và các kích thước từ vựng.

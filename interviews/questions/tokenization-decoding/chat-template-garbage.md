@@ -16,23 +16,23 @@ related: [tokenization-decoding/pre-tokenization-regex]
 updated: 2026-11-03
 ---
 
-A fine-tuned chat model answers well in the training notebook. The deployed service, with identical weights, returns rambling text that runs until the token limit. Where do you look first, and what do you expect to find?
+Một mô hình chat được fine-tune trả lời tốt trong notebook huấn luyện. Dịch vụ đã triển khai, với các trọng số giống hệt, trả về văn bản lan man chạy đến giới hạn token. Bạn xem ở đâu trước, và mong đợi tìm thấy gì?
 
 ## Short answer
 
-At the flat token sequence the model actually receives, not at the list of messages. A chat model was trained on one exact layout of role markers, special tokens and newlines; a missing newline, a swapped marker or an extra space puts the input outside the training distribution, and the end-of-turn token stops being predicted. Print the token ids of the same request from both paths and diff them, and check that the special tokens arrived as their reserved ids and not as the bytes that spell them.
+Ở chuỗi token phẳng mà mô hình thực sự nhận, không phải danh sách thông điệp. Một mô hình chat được huấn luyện trên một bố trí chính xác của các dấu vai trò, token đặc biệt và xuống dòng; một xuống dòng thiếu, một dấu bị đổi hoặc một dấu cách thừa đặt đầu vào ngoài phân phối huấn luyện, và token kết thúc lượt ngừng được dự đoán. In các id token của cùng yêu cầu từ cả hai đường và diff chúng, và kiểm tra các token đặc biệt đến dưới dạng các id dành riêng chứ không dưới dạng các byte đánh vần chúng.
 
 ## Full answer
 
 ### The model never sees the JSON
 
-The service holds a list of role and content pairs. The model sees one flat sequence built by the chat template, which inserts markers such as a begin-of-text token, a header for each role and an end-of-turn token after each message, with specific newlines between them. Every model family lays this out differently. The template is part of the model, in the same way the vocabulary is.
+Dịch vụ giữ một danh sách các cặp vai trò và nội dung. Mô hình thấy một chuỗi phẳng được chat template xây, chèn các dấu như một token bắt đầu văn bản, một header cho mỗi vai trò và một token kết thúc lượt sau mỗi thông điệp, với các xuống dòng cụ thể giữa chúng. Mỗi họ mô hình bố trí điều này khác nhau. Template là một phần của mô hình, theo cùng cách từ vựng là như vậy.
 
 ### The three ways it breaks
 
-1. **A different template.** The service used a generic layout or an older version. Each message now sits in a frame the model never saw, and the end-of-turn marker it learned is absent or misplaced, so it never predicts the stop token.
-2. **Special tokens spelled out.** Special tokens must be matched exactly before the merge loop and mapped to fixed ids. If the service built the prompt as plain text and encoded it with the allow flag off, the marker string became ordinary bytes and pieces. The model sees text that looks like a marker and is not one.
-3. **Stop token mismatch.** The service stops on the generic end-of-sequence id while the model emits its end-of-turn id. Generation continues past the real end.
+1. **Một template khác.** Dịch vụ dùng một bố trí chung hoặc một phiên bản cũ hơn. Mỗi thông điệp giờ nằm trong một khung mô hình chưa bao giờ thấy, và dấu kết thúc lượt nó đã học vắng mặt hoặc sai chỗ, nên nó không bao giờ dự đoán token dừng.
+2. **Các token đặc biệt được viết ra.** Các token đặc biệt phải được khớp chính xác trước vòng lặp gộp và ánh xạ tới các id cố định. Nếu dịch vụ xây prompt như văn bản thuần và mã hóa nó với cờ allow tắt, chuỗi dấu trở thành các byte và mảnh thông thường. Mô hình thấy văn bản trông như một dấu nhưng không phải dấu.
+3. **Không khớp token dừng.** Dịch vụ dừng trên id kết thúc chuỗi chung trong khi mô hình phát ra id kết thúc lượt. Quá trình sinh tiếp tục vượt kết thúc thực.
 
 ### The check that settles it
 
@@ -42,25 +42,25 @@ ids_service  = ids the service sent to the engine
 diff the two lists; the first difference is the bug
 ```
 
-Then decode each id back to its string and look for a marker that decoded as several pieces instead of one reserved id. If the two lists match, the input is fine and the stop token is next: compare the stop ids in the service config with the end-of-turn id that the template puts after each message.
+Rồi giải mã mỗi id trở lại chuỗi và tìm một dấu được giải mã thành nhiều mảnh thay vì một id dành riêng. Nếu hai danh sách khớp, đầu vào ổn và token dừng là thứ tiếp theo: so sánh các id dừng trong cấu hình dịch vụ với id kết thúc lượt mà template đặt sau mỗi thông điệp.
 
 ### The fix
 
-Use the model's own template function, pass special tokens through the reserved-id path, and configure the stop token to the id the template ends a turn with. Freeze the tokenizer file and the template together with the weights.
+Dùng hàm template riêng của mô hình, truyền các token đặc biệt qua đường id dành riêng, và cấu hình token dừng thành id mà template kết thúc một lượt bằng nó. Đóng băng file tokenizer và template cùng với các trọng số.
 
 ## Follow-ups
 
-- **Level 2:** What does the end-of-turn token do at inference? Expected: it is the model's signal that the answer is complete; the server must stop on that id, or generation runs to the limit.
-- **Level 3:** A user types the literal string of a special token into the chat box. What should happen? Expected: with the allow flag off it becomes ordinary bytes, which is the safe default for user text; with it on, the user could inject a control marker.
-- **Level 3:** How do you test a template implementation? Expected: build the sequence for a fixed message list and compare it id by id with the output of the model's own template code.
-- **Level 4:** The template is correct and the ids still differ between notebook and service. What else? Expected: a different tokenizer file version, a different normalization step, or a different setting for adding special tokens at the start; hash the tokenizer file and compare the flags.
+- **Level 2:** Token kết thúc lượt làm gì ở suy luận? Expected: nó là tín hiệu của mô hình rằng câu trả lời hoàn chỉnh; server phải dừng trên id đó, nếu không quá trình sinh chạy đến giới hạn.
+- **Level 3:** Một người dùng gõ chuỗi nguyên văn của một token đặc biệt vào hộp chat. Điều gì nên xảy ra? Expected: với cờ allow tắt nó trở thành các byte thông thường, đó là mặc định an toàn cho văn bản người dùng; với cờ bật, người dùng có thể chèn một dấu điều khiển.
+- **Level 3:** Bạn kiểm thử một triển khai template bằng cách nào? Expected: xây chuỗi cho một danh sách thông điệp cố định và so từng id với đầu ra của mã template riêng của mô hình.
+- **Level 4:** Template đúng và các id vẫn khác giữa notebook và dịch vụ. Còn gì nữa? Expected: một phiên bản file tokenizer khác, một bước chuẩn hóa khác, hoặc một thiết lập khác cho thêm các token đặc biệt ở đầu; băm file tokenizer và so các cờ.
 
 ## Wrong answers
 
-- "The sampling temperature is too high in the service." Temperature changes which token is picked, not whether the stop token is ever predicted; the ids differ before sampling.
-- "The fine-tune overfit." The same weights behave in the notebook; the difference is in the input layout.
-- "Trim the output on the client." That hides the symptom and the model still wastes compute on text it should not generate.
+- "Temperature lấy mẫu quá cao trong dịch vụ." Temperature thay đổi token nào được chọn, không thay đổi liệu token dừng có bao giờ được dự đoán không; các id khác trước khi lấy mẫu.
+- "Fine-tune đã overfit." Cùng các trọng số hành xử trong notebook; khác biệt nằm trong bố trí đầu vào.
+- "Cắt đầu ra trên client." Điều đó giấu triệu chứng và mô hình vẫn lãng phí tính toán trên văn bản nó không nên sinh.
 
 ## Taught in
 
-The [tokenizer build lesson](../../../phases/10-llms-from-scratch/02-building-a-tokenizer/) shows the templates and the special-token path, the [BPE capstone](../../../phases/19-capstone-projects/30-bpe-tokenizer-from-scratch/) explains the allow flag, and the [subword lesson](../../../phases/05-nlp-foundations-to-advanced/19-subword-tokenization/) lists the drift and whitespace pitfalls.
+[Bài học xây tokenizer](../../../phases/10-llms-from-scratch/02-building-a-tokenizer/) cho thấy các template và đường token đặc biệt, [capstone BPE](../../../phases/19-capstone-projects/30-bpe-tokenizer-from-scratch/) giải thích cờ allow, và [bài học subword](../../../phases/05-nlp-foundations-to-advanced/19-subword-tokenization/) liệt kê các cạm bẫy drift và khoảng trắng.
