@@ -16,50 +16,50 @@ related: [sandboxes/deny-wins-and-the-two-scopes, protocols/descriptor-pin-rug-p
 updated: 2026-11-03
 ---
 
-Your composition is one workload and two mixins. Mixin A allows `api.example.com` outright. Mixin B allows `api.example.com` with `methods: [GET]` only and denies `DELETE` on it. Next week mixin A ships a version that removes one of its deny entries and adds a `credential@1`. Predict the merged grant set, say which updates apply silently, and design the review step.
+Composition của bạn là một workload và hai mixin. Mixin A cho phép `api.example.com` hoàn toàn. Mixin B chỉ cho phép `api.example.com` với `methods: [GET]` và từ chối `DELETE` trên nó. Tuần tới mixin A phát hành một phiên bản loại một trong các mục từ chối của nó và thêm một `credential@1`. Dự đoán tập quyền cấp đã gộp, nói những cập nhật nào áp dụng âm thầm, và thiết kế bước review.
 
 ## Short answer
 
-Allow entries union per phase, deny entries union per phase, and deny wins on the result. A's unbounded host allow swallows B's bounded `GET` entry, because the union of an unbounded grant and a bounded one is the unbounded grant, while B's `DELETE` deny survives and wins. Every grant maps onto one normalized set that the consumer stores in its lock file, and a candidate version whose set stays inside the stored set applies silently; any widening stops for approval, and a removed deny and a new credential are both on that list, so A's new version stops twice.
+Các mục cho phép hợp theo từng pha, các mục từ chối hợp theo từng pha, và từ chối thắng trên kết quả. Cho phép host không giới hạn của A nuốt mục `GET` có giới hạn của B, vì hợp của một quyền cấp không giới hạn và một quyền có giới hạn là quyền không giới hạn, trong khi từ chối `DELETE` của B sống sót và thắng. Mọi quyền cấp ánh xạ lên một tập đã chuẩn hóa mà bên tiêu thụ lưu trong lock file, và một phiên bản ứng viên có tập vẫn nằm trong tập đã lưu áp dụng âm thầm; bất kỳ mở rộng nào dừng để phê duyệt, và một từ chối bị loại cùng một thông tin xác thực mới đều nằm trong danh sách đó, nên phiên bản mới của A dừng hai lần.
 
 ## Full answer
 
 ### What a capability is
 
-A kit grants itself nothing. Each entry in `capabilities` is a typed, versioned request, `<namespace>/<name>@<version>`, that the host answers with granted, refused or prompted. The `config` is decoded strictly for the types the specification defines, so an unknown key is an error, and the reason is policy: a misspelled key that the parser ignored would be a policy that is missing without a warning. Unknown types are allowed by design; a required unknown type fails resolution and an optional one is skipped and recorded.
+Một kit không tự cấp gì cho nó. Mỗi mục trong `capabilities` là một yêu cầu có kiểu, có phiên bản, `<namespace>/<name>@<version>`, mà host trả lời bằng được cấp, bị từ chối hoặc được hỏi. `config` được giải mã nghiêm ngặt cho các kiểu mà đặc tả định nghĩa, nên một khóa không xác định là một lỗi, và lý do là chính sách: một khóa viết sai mà parser bỏ qua sẽ là một chính sách bị thiếu mà không có cảnh báo. Các kiểu không xác định được cho phép theo thiết kế; một kiểu không xác định bắt buộc làm phân giải thất bại và một kiểu tùy chọn bị bỏ qua và được ghi lại.
 
 ### network-policy@2 and credential@1
 
-A `network-policy@2` entry is a plain host string, which grants the connection for any protocol, or an object with `hosts`, `methods` and `paths`, which grants those HTTP requests and nothing else on that host. Deny entries list what to refuse, and the runtime answers a refused request with HTTP status `403`. A `credential@1` entry names a `service` and a `phase` and never the place where the secret is kept, and every `inject` domain must appear in the allow list of the same phase.
+Một mục `network-policy@2` là một chuỗi host thuần, cấp kết nối cho bất kỳ giao thức nào, hoặc một đối tượng với `hosts`, `methods` và `paths`, cấp các yêu cầu HTTP đó và không gì khác trên host đó. Các mục từ chối liệt kê những gì phải từ chối, và runtime trả lời một yêu cầu bị từ chối bằng trạng thái HTTP `403`. Một mục `credential@1` nêu một `service` và một `phase` và không bao giờ nơi bí mật được giữ, và mọi domain `inject` phải xuất hiện trong danh sách cho phép của cùng pha.
 
 ### Resolution
 
-A composition has exactly one `workload`, and two kits that provide the same normalized name fail resolution. Inside `sbx`, the grant arrives as a policy rule with `created_via: provisioned` and `editable: false`, which `--source kit` lists, and `check network` answers `allowed: true` for it.
+Một composition có đúng một `workload`, và hai kit cung cấp cùng tên đã chuẩn hóa làm phân giải thất bại. Bên trong `sbx`, quyền cấp đến như một quy tắc chính sách với `created_via: provisioned` và `editable: false`, được `--source kit` liệt kê, và `check network` trả lời `allowed: true` cho nó.
 
 ### Updates and the lock
 
-The widening list is explicit: a new allow entry, a removed deny entry, a new credential, path or port, and write access over a read-only skills path. A removed deny counts because the deny was part of what made the grant acceptable. `optional` does not change the set. Six types contribute nothing to it: `resources@1`, `lifecycle@1`, `agent-context@1`, `agent-sessions@1`, `sbx@1` and `long-running@1`.
+Danh sách mở rộng là tường minh: một mục cho phép mới, một mục từ chối bị loại, một thông tin xác thực, đường dẫn hoặc cổng mới, và quyền ghi trên một đường dẫn skill chỉ đọc. Một từ chối bị loại được tính vì từ chối là một phần của điều khiến quyền cấp chấp nhận được. `optional` không thay đổi tập. Sáu kiểu không đóng góp gì vào nó: `resources@1`, `lifecycle@1`, `agent-context@1`, `agent-sessions@1`, `sbx@1` và `long-running@1`.
 
 ### The review step
 
-1. Build with a `docker-container` builder, because the default driver drops the descriptor annotation and an image without it is not a kit to any consumer.
-2. Pin each kit by digest and store its normalized set; diff the set on every candidate.
-3. Require signatures: set `kit.trustedSigners` before `kit.requireSignature`, or only the vendor's own identities pass.
-4. Let the diff decide: a subset applies, a widening opens a ticket that names the entry, and a removed deny is a widening.
+1. Build bằng một builder `docker-container`, vì driver mặc định bỏ annotation descriptor và một image không có nó không phải một kit đối với bất kỳ bên tiêu thụ nào.
+2. Ghim mỗi kit theo digest và lưu tập đã chuẩn hóa; diff tập trên mọi ứng viên.
+3. Yêu cầu chữ ký: đặt `kit.trustedSigners` trước `kit.requireSignature`, nếu không chỉ các danh tính riêng của nhà cung cấp được qua.
+4. Để diff quyết định: một tập con áp dụng, một sự mở rộng mở một ticket nêu mục đó, và một từ chối bị loại là một sự mở rộng.
 
 ## Follow-ups
 
-- **Level 3:** Why does the strict decoder treat an unknown key as an error instead of a warning? Expected: a silently ignored key is a policy that is absent without anyone knowing.
-- **Level 3:** You want B's `GET`-only grant to hold. What do you change? Expected: remove A's unbounded allow, or add deny entries for the other methods in B, since a deny wins while a bounded allow is swallowed by an unbounded one.
-- **Level 4:** Which capability types never trigger approval on update, and why is that safe? Expected: the six constraint and launch types, because they ask for nothing from the host.
-- **Level 4:** A published kit shows no descriptor annotation on its index. What happened and what does a consumer do? Expected: the default builder dropped it; a consumer that finds no annotation on the index reads the platform manifest, and an image with none anywhere is not a kit.
+- **Level 3:** Tại sao bộ giải mã nghiêm ngặt xem một khóa không xác định là một lỗi thay vì một cảnh báo? Expected: một khóa bị bỏ qua âm thầm là một chính sách vắng mặt mà không ai biết.
+- **Level 3:** Bạn muốn quyền cấp chỉ-`GET` của B giữ vững. Bạn thay đổi gì? Expected: loại cho phép không giới hạn của A, hoặc thêm các mục từ chối cho các phương thức khác trong B, vì một từ chối thắng trong khi một cho phép có giới hạn bị một cho phép không giới hạn nuốt.
+- **Level 4:** Những kiểu capability nào không bao giờ kích hoạt phê duyệt khi cập nhật, và tại sao điều đó an toàn? Expected: sáu kiểu ràng buộc và khởi chạy, vì chúng không yêu cầu gì từ host.
+- **Level 4:** Một kit đã công bố không cho thấy annotation descriptor trên index của nó. Điều gì đã xảy ra và một bên tiêu thụ làm gì? Expected: builder mặc định đã bỏ nó; một bên tiêu thụ không tìm thấy annotation trên index đọc platform manifest, và một image không có ở bất cứ đâu không phải một kit.
 
 ## Wrong answers
 
-- "The narrowest grant wins when kits overlap." Allows union; the unbounded entry swallows the bounded one, and only a deny narrows.
-- "`optional: true` makes a capability safe to add." It changes whether resolution fails, not the grant set.
-- "Every version bump needs approval." A candidate whose set stays inside the stored set applies silently; the lock is what makes that cheap and safe.
+- "Quyền cấp hẹp nhất thắng khi các kit chồng lấn." Các cho phép hợp; mục không giới hạn nuốt mục có giới hạn, và chỉ một từ chối thu hẹp.
+- "`optional: true` khiến một capability an toàn để thêm." Nó thay đổi liệu phân giải thất bại không, không phải tập quyền cấp.
+- "Mọi lần tăng phiên bản cần phê duyệt." Một ứng viên có tập vẫn nằm trong tập đã lưu áp dụng âm thầm; lock là điều khiến việc đó rẻ và an toàn.
 
 ## Taught in
 
-The [capabilities section](../../../manuals/docker-sandboxes-101/sections/4-2-com-docker-sandbox-capabilities.md) gives the union, the deny and the widening list, the [descriptor section](../../../manuals/docker-sandboxes-101/sections/4-1-syntax-docker-sandbox-kit-3-and-kit-yaml.md) shows the strict decode and the dropped annotation, and the [signing section](../../../manuals/docker-sandboxes-101/sections/4-3-sbx-kit-pack-push-sign-and-verify.md) names the signer settings.
+[Phần capability](../../../manuals/docker-sandboxes-101/sections/4-2-com-docker-sandbox-capabilities.md) cung cấp phép hợp, từ chối và danh sách mở rộng, [phần descriptor](../../../manuals/docker-sandboxes-101/sections/4-1-syntax-docker-sandbox-kit-3-and-kit-yaml.md) cho thấy giải mã nghiêm ngặt và annotation bị bỏ, và [phần ký](../../../manuals/docker-sandboxes-101/sections/4-3-sbx-kit-pack-push-sign-and-verify.md) nêu các thiết lập người ký.

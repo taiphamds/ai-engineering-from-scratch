@@ -16,56 +16,56 @@ related: [sandboxes/blocked-host-reads-as-timeout]
 updated: 2026-11-03
 ---
 
-`sbx policy init balanced` gave one global policy with 194 allow entries. A developer adds `example.com` with `--sandbox m101-policy`, later tries a deny for the same host at the same level, and gets a refusal. Explain the rule grammar, the two scopes, and the order in which the authorizer decides one connection.
+`sbx policy init balanced` cho một chính sách toàn cục với 194 mục cho phép. Một lập trình viên thêm `example.com` với `--sandbox m101-policy`, sau đó thử một từ chối cho cùng host ở cùng cấp, và nhận một sự từ chối. Giải thích ngữ pháp quy tắc, hai phạm vi, và thứ tự mà bộ ủy quyền quyết định một kết nối.
 
 ## Short answer
 
-An allow rule is a comma-separated list of hostnames, domains, IP addresses or CIDR prefixes, with globs such as `*.example.com`, `**.example.com`, `api?.example.com`, `example.com:443` and `**` for every host; an allow covers TCP unless `--protocol` says otherwise, and a deny covers TCP and UDP. Rules live in two scopes, global by default and local with `--sandbox`. For the same hostname or CIDR a deny wins over an allow, so the CLI refuses a deny that conflicts with an allow in the same scope and you remove the allow first. The authorizer stops at a matching deny, admits on an allow from any active scope, and otherwise denies as `implicit`.
+Một quy tắc cho phép là một danh sách phân cách bằng dấu phẩy gồm các hostname, domain, địa chỉ IP hoặc tiền tố CIDR, với các glob như `*.example.com`, `**.example.com`, `api?.example.com`, `example.com:443` và `**` cho mọi host; một cho phép bao phủ TCP trừ khi `--protocol` nói khác, và một từ chối bao phủ TCP và UDP. Các quy tắc nằm trong hai phạm vi, toàn cục theo mặc định và cục bộ với `--sandbox`. Với cùng hostname hoặc CIDR, một từ chối thắng một cho phép, nên CLI từ chối một từ chối xung đột với một cho phép trong cùng phạm vi và bạn loại cho phép trước. Bộ ủy quyền dừng tại một từ chối khớp, cho vào khi có một cho phép từ bất kỳ phạm vi hoạt động nào, và nếu không thì từ chối là `implicit`.
 
 ## Full answer
 
 ### What `init` sets
 
-`policy init` sets the first global policy, not a default for each sandbox. It runs once with `allow-all`, `balanced` or `deny-all`, and `sbx policy reset` or `sbx daemon start --policy` starts over. The balanced preset on the recorded host held six network groups and two filesystem rules, all with `created_via: default`. The list changes between releases without a changelog, so read `sbx policy ls --wide --json` before you trust it.
+`policy init` đặt chính sách toàn cục đầu tiên, không phải một mặc định cho mỗi sandbox. Nó chạy một lần với `allow-all`, `balanced` hoặc `deny-all`, và `sbx policy reset` hoặc `sbx daemon start --policy` bắt đầu lại. Preset balanced trên host được ghi lại giữ sáu nhóm mạng và hai quy tắc hệ thống file, tất cả với `created_via: default`. Danh sách thay đổi giữa các bản phát hành không có changelog, nên đọc `sbx policy ls --wide --json` trước khi tin nó.
 
 ### Scope, provenance and who may edit
 
-A rule added with `--sandbox` prints `scope: sandbox:<name>`, `layer: local`, `origin: scoped`, `created_via: added` and `editable: true`. A kit's grant arrives as `created_via: provisioned` with `editable: false`, and `--source kit` lists it. `--deny-network HOST` on `create` or `run` adds a per-sandbox deny at creation, and the help says why that is safe under governance: a local deny can only make egress narrower, never wider.
+Một quy tắc được thêm với `--sandbox` in `scope: sandbox:<name>`, `layer: local`, `origin: scoped`, `created_via: added` và `editable: true`. Một quyền cấp của kit đến dưới dạng `created_via: provisioned` với `editable: false`, và `--source kit` liệt kê nó. `--deny-network HOST` trên `create` hoặc `run` thêm một từ chối theo từng sandbox lúc tạo, và phần trợ giúp nói tại sao điều đó an toàn dưới quản trị: một từ chối cục bộ chỉ có thể làm lưu lượng ra hẹp hơn, không bao giờ rộng hơn.
 
 ### The decision order
 
-1. A matching deny ends the walk at once, and the deny also covers UDP and the name lookup.
-2. An allow from any active scope admits the host.
-3. Nothing matched: `implicit` denial, with the reason `No matching allow rule (default deny)`, which under balanced or deny-all becomes an approval request.
+1. Một từ chối khớp kết thúc việc duyệt ngay, và từ chối cũng bao phủ UDP và tra cứu tên.
+2. Một cho phép từ bất kỳ phạm vi hoạt động nào cho host vào.
+3. Không có gì khớp: từ chối `implicit`, với lý do `No matching allow rule (default deny)`, dưới balanced hoặc deny-all trở thành một yêu cầu phê duyệt.
 
-A host without a port is evaluated at port 443, and `check network` checks network access only, never an HTTP method or path. An allowed hostname is not checked against CIDR rules for the address it resolves to.
+Một host không có cổng được đánh giá ở cổng 443, và `check network` chỉ kiểm tra truy cập mạng, không bao giờ một phương thức hoặc đường dẫn HTTP. Một hostname được cho phép không được kiểm tra theo các quy tắc CIDR cho địa chỉ mà nó phân giải tới.
 
 ### Under organization governance
 
-When an organization policy is active, only organization allow rules grant access. Local and kit allow rules are inactive, and local and kit deny rules still apply. A local deny even beats an organization approval requirement: the request is blocked and no prompt appears.
+Khi một chính sách tổ chức hoạt động, chỉ các quy tắc cho phép của tổ chức cấp truy cập. Các quy tắc cho phép cục bộ và kit không hoạt động, và các quy tắc từ chối cục bộ và kit vẫn áp dụng. Một từ chối cục bộ thậm chí thắng một yêu cầu phê duyệt tổ chức: yêu cầu bị chặn và không lời nhắc nào xuất hiện.
 
-| Rule | Evaluated under governance |
+| Quy tắc | Được đánh giá dưới quản trị |
 |---|---|
-| organization allow | yes |
-| organization deny | yes |
-| local allow | no |
-| local deny | yes |
-| kit allow | no |
-| kit deny | yes |
+| cho phép tổ chức | có |
+| từ chối tổ chức | có |
+| cho phép cục bộ | không |
+| từ chối cục bộ | có |
+| cho phép kit | không |
+| từ chối kit | có |
 
 ## Follow-ups
 
-- **Level 2:** You allow `*.example.com` and deny a CIDR that covers its address. What happens to a connection to `api.example.com`? Expected: it is allowed; an allowed hostname is not checked against CIDR rules for the resolved address.
-- **Level 3:** A kit granted `example.com` to a sandbox and you want it blocked there. What do you do, given the kit rule is not editable? Expected: add a local deny with `--deny-network` or `sbx policy deny network --sandbox`, because a deny wins and a local deny only narrows.
-- **Level 3:** Why can a local deny be trusted under central governance? Expected: it can only reduce egress; it is evaluated while local allows are not, and it even suppresses an organization approval prompt.
-- **Level 4:** How do you keep a recorded policy list honest across releases? Expected: capture `sbx policy ls --wide --json` with the version and the date, because the preset changes without a changelog.
+- **Level 2:** Bạn cho phép `*.example.com` và từ chối một CIDR bao phủ địa chỉ của nó. Điều gì xảy ra với một kết nối tới `api.example.com`? Expected: nó được cho phép; một hostname được cho phép không được kiểm tra theo các quy tắc CIDR cho địa chỉ đã phân giải.
+- **Level 3:** Một kit đã cấp `example.com` cho một sandbox và bạn muốn nó bị chặn ở đó. Bạn làm gì, biết rằng quy tắc kit không thể chỉnh sửa? Expected: thêm một từ chối cục bộ với `--deny-network` hoặc `sbx policy deny network --sandbox`, vì một từ chối thắng và một từ chối cục bộ chỉ thu hẹp.
+- **Level 3:** Tại sao một từ chối cục bộ có thể được tin dưới quản trị trung tâm? Expected: nó chỉ có thể giảm lưu lượng ra; nó được đánh giá trong khi các cho phép cục bộ không được, và nó thậm chí ngăn một lời nhắc phê duyệt tổ chức.
+- **Level 4:** Bạn giữ một danh sách chính sách được ghi lại trung thực qua các bản phát hành bằng cách nào? Expected: ghi lại `sbx policy ls --wide --json` với phiên bản và ngày, vì preset thay đổi không có changelog.
 
 ## Wrong answers
 
-- "The later rule wins, so add the deny after the allow." A deny wins regardless of order, and the CLI refuses the conflicting pair in one scope.
-- "A hostname deny also blocks the address it resolves to." Host rules and CIDR rules are evaluated apart; an allowed hostname skips the CIDR check.
-- "`policy init` sets the default for each new sandbox." It sets one global policy; per-sandbox rules come from `--sandbox`, `--deny-network` or a kit.
+- "Quy tắc sau thắng, nên thêm từ chối sau cho phép." Một từ chối thắng bất kể thứ tự, và CLI từ chối cặp xung đột trong một phạm vi.
+- "Một từ chối hostname cũng chặn địa chỉ mà nó phân giải tới." Các quy tắc host và CIDR được đánh giá riêng; một hostname được cho phép bỏ qua kiểm tra CIDR.
+- "`policy init` đặt mặc định cho mỗi sandbox mới." Nó đặt một chính sách toàn cục; các quy tắc theo từng sandbox đến từ `--sandbox`, `--deny-network` hoặc một kit.
 
 ## Taught in
 
-The [policy section](../../../manuals/docker-sandboxes-101/sections/3-3-sbx-policy-init-allow-deny-and-check-network.md) gives the grammar, the scopes and the recorded conflict, and the [governance section](../../../manuals/docker-sandboxes-101/sections/7-2-org-policies-profiles-and-the-audit-log.md) prints the precedence table.
+[Phần chính sách](../../../manuals/docker-sandboxes-101/sections/3-3-sbx-policy-init-allow-deny-and-check-network.md) cung cấp ngữ pháp, các phạm vi và xung đột được ghi lại, và [phần quản trị](../../../manuals/docker-sandboxes-101/sections/7-2-org-policies-profiles-and-the-audit-log.md) in bảng ưu tiên.

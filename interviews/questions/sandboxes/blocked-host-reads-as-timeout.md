@@ -16,45 +16,45 @@ related: [sandboxes/deny-wins-and-the-two-scopes]
 updated: 2026-11-03
 ---
 
-Your agent reports that `example.com` over HTTPS timed out inside the sandbox, and `npm install` fails with a connection error. The sandbox keeps no shell history. Show how you find out which rule decided, and prove that this was a policy decision and not a network fault.
+Agent của bạn báo rằng `example.com` qua HTTPS hết thời gian chờ bên trong sandbox, và `npm install` thất bại với một lỗi kết nối. Sandbox không giữ lịch sử shell. Cho thấy cách bạn tìm ra quy tắc nào đã quyết định, và chứng minh đây là một quyết định chính sách chứ không phải một lỗi mạng.
 
 ## Short answer
 
-It did not time out: the proxy accepted the `CONNECT`, then answered inside the TLS session with `403 Forbidden` and a 90-byte body that reads `Approval required for example.com:443`. Run `sbx policy log SANDBOX --json` and read the `blocked_hosts` row: `proxy_type`, the `rule` text and the `reason`. Then run `sbx policy check network --sandbox NAME example.com:443 --json` and read `deny_kind`, where `implicit` means no rule matched and the default denied, and `explicit` names the deny rule. Add an allow in the right scope, or remove the deny first.
+Nó không hết thời gian chờ: proxy chấp nhận `CONNECT`, rồi trả lời bên trong phiên TLS bằng `403 Forbidden` và một phần thân 90 byte ghi `Approval required for example.com:443`. Chạy `sbx policy log SANDBOX --json` và đọc dòng `blocked_hosts`: `proxy_type`, văn bản `rule` và `reason`. Rồi chạy `sbx policy check network --sandbox NAME example.com:443 --json` và đọc `deny_kind`, nơi `implicit` nghĩa là không quy tắc nào khớp và mặc định từ chối, và `explicit` nêu quy tắc từ chối. Thêm một cho phép trong đúng phạm vi, hoặc loại từ chối trước.
 
 ## Full answer
 
 ### What curl shows
 
-With `-I`, the request prints two status lines. `HTTP/1.1 200 OK` is the proxy accepting the tunnel. `HTTP/1.1 403 Forbidden` with `Content-Length: 90` arrives inside TLS, under the proxy's own certificate authority, which the guest trusts because `PROXY_CA_CERT_B64` is merged into `/etc/ssl/certs/ca-certificates.crt`. The agent read the body as a failure and called it a timeout.
+Với `-I`, yêu cầu in hai dòng trạng thái. `HTTP/1.1 200 OK` là proxy chấp nhận đường hầm. `HTTP/1.1 403 Forbidden` với `Content-Length: 90` đến bên trong TLS, dưới cơ quan chứng nhận riêng của proxy, được guest tin vì `PROXY_CA_CERT_B64` được gộp vào `/etc/ssl/certs/ca-certificates.crt`. Agent đọc phần thân như một lỗi và gọi nó là timeout.
 
-After `sbx policy allow network --sandbox NAME example.com`, the same request gets `HTTP/1.0 200 Connection established` and then `HTTP/2 200` from the origin. The log classes that one as `forward-bypass`: a tunnel with no inspection and no credential injection. The proxy terminates TLS only when it has to speak, on a blocked host or a host with a bound credential.
+Sau `sbx policy allow network --sandbox NAME example.com`, cùng yêu cầu nhận `HTTP/1.0 200 Connection established` rồi `HTTP/2 200` từ nguồn. Nhật ký phân loại lần đó là `forward-bypass`: một đường hầm không kiểm tra và không chèn thông tin xác thực. Proxy chỉ kết thúc TLS khi nó phải lên tiếng, trên một host bị chặn hoặc một host có thông tin xác thực được gắn.
 
 ### Reading the log
 
-Each `blocked_hosts` row carries `host`, `vm_name`, `proxy_type`, `rule`, `reason`, `last_seen`, `since` and `count_since`. The `rule` text names the operation, `op(action=net:connect:tcp, resource=net:domain:example.com:443)`, and either `no applicable policies` or the rule that matched. An allowed row may carry an empty `rule`, so the log says that a host passed and `check network` says why. `PROXY` takes five values: `forward`, `forward-bypass`, `transparent`, `network` and `browser-open`.
+Mỗi dòng `blocked_hosts` mang `host`, `vm_name`, `proxy_type`, `rule`, `reason`, `last_seen`, `since` và `count_since`. Văn bản `rule` nêu thao tác, `op(action=net:connect:tcp, resource=net:domain:example.com:443)`, và hoặc `no applicable policies` hoặc quy tắc đã khớp. Một dòng được cho phép có thể mang `rule` trống, nên nhật ký nói một host đã được cho qua và `check network` nói tại sao. `PROXY` nhận năm giá trị: `forward`, `forward-bypass`, `transparent`, `network` và `browser-open`.
 
 ### When npm cannot resolve the host
 
-A deny covers more than TCP. Since v0.33.0 a sandboxed process cannot resolve a domain that policy denies, loopback names excepted, and since v0.45.0 DNS stops when no rule permits the host. Outgoing ICMP stays blocked and cannot be allowed. The card so far shows a denial only for `example.com`, and `registry.npmjs.org:443` is on the `balanced` default allowlist, so find the npm host in `blocked_hosts` first. If a row names it, the connection error from npm is the lookup failing, which looks like a network fault and is a policy decision. If no row names it, look for another cause.
+Một từ chối bao phủ nhiều hơn TCP. Từ v0.33.0, một tiến trình trong sandbox không thể phân giải một domain mà chính sách từ chối, ngoại trừ các tên loopback, và từ v0.45.0, DNS dừng khi không quy tắc nào cho phép host. ICMP đi ra vẫn bị chặn và không thể được cho phép. Card cho đến giờ chỉ cho thấy một từ chối đối với `example.com`, và `registry.npmjs.org:443` nằm trên danh sách cho phép mặc định `balanced`, nên trước tiên tìm host npm trong `blocked_hosts`. Nếu một dòng nêu nó, lỗi kết nối từ npm là việc tra cứu thất bại, trông như một lỗi mạng và là một quyết định chính sách. Nếu không dòng nào nêu nó, tìm một nguyên nhân khác.
 
 ### The bypass that is not one
 
-A request to a name listed in `NO_PROXY` skips the forward proxy and opens a plain TCP connection. The transparent path catches it, blocks it, and the log records `transparent`. Both paths enforce the same policy.
+Một yêu cầu tới một tên được liệt kê trong `NO_PROXY` bỏ qua forward proxy và mở một kết nối TCP thuần. Đường trong suốt bắt nó, chặn nó, và nhật ký ghi `transparent`. Cả hai đường thực thi cùng chính sách.
 
 ## Follow-ups
 
-- **Level 2:** An allowed row shows an empty `rule` field. Which command tells you which rule admitted it? Expected: `sbx policy check network` with the same context; the log records that a host passed and the check names the rule.
-- **Level 2:** Is name resolution outside the policy? Expected: no; a denied domain does not resolve, and from v0.45.0 the lookup itself stops when no rule permits it.
-- **Level 3:** `deny_kind` is `explicit`. What changes about the fix? Expected: a deny exists for that host in that scope, and the CLI refuses an allow that conflicts with it, so remove the deny first or move scope.
-- **Level 3:** Why does `curl -I` print a 200 before the 403? Expected: the 200 is the tunnel being accepted, and the 403 is the proxy's own answer inside the TLS session it terminated.
+- **Level 2:** Một dòng được cho phép cho thấy một trường `rule` trống. Lệnh nào cho bạn biết quy tắc nào đã cho nó vào? Expected: `sbx policy check network` với cùng ngữ cảnh; nhật ký ghi một host đã được cho qua và phép kiểm tra nêu quy tắc.
+- **Level 2:** Phân giải tên có nằm ngoài chính sách không? Expected: không; một domain bị từ chối không phân giải, và từ v0.45.0 chính việc tra cứu dừng khi không quy tắc nào cho phép.
+- **Level 3:** `deny_kind` là `explicit`. Điều gì thay đổi về cách sửa? Expected: một từ chối tồn tại cho host đó trong phạm vi đó, và CLI từ chối một cho phép xung đột với nó, nên loại từ chối trước hoặc chuyển phạm vi.
+- **Level 3:** Tại sao `curl -I` in một 200 trước 403? Expected: 200 là đường hầm được chấp nhận, và 403 là câu trả lời riêng của proxy bên trong phiên TLS mà nó đã kết thúc.
 
 ## Wrong answers
 
-- "The network is flaky, retry with a longer timeout." The proxy answered at once with a body that names the approval command; nothing waited.
-- "Put the host in `NO_PROXY` so the request goes around the proxy." The transparent path catches the direct connection and blocks it; the log shows it as `transparent`.
-- "The agent's TLS library is broken because the certificate is unknown." The guest trusts the proxy CA on purpose; that is how the 403 arrives inside TLS.
+- "Mạng chập chờn, thử lại với timeout dài hơn." Proxy trả lời ngay bằng một phần thân nêu lệnh phê duyệt; không có gì chờ.
+- "Đặt host trong `NO_PROXY` để yêu cầu đi vòng proxy." Đường trong suốt bắt kết nối trực tiếp và chặn nó; nhật ký cho thấy nó là `transparent`.
+- "Thư viện TLS của agent hỏng vì chứng chỉ không xác định." Guest tin CA của proxy có chủ đích; đó là cách 403 đến bên trong TLS.
 
 ## Taught in
 
-The [proxy section](../../../manuals/docker-sandboxes-101/sections/3-4-sbx-policy-log-and-the-proxy.md) records the blocked and allowed requests and the log rows, and the [policy section](../../../manuals/docker-sandboxes-101/sections/3-3-sbx-policy-init-allow-deny-and-check-network.md) shows the two kinds of denial from `check network`.
+[Phần proxy](../../../manuals/docker-sandboxes-101/sections/3-4-sbx-policy-log-and-the-proxy.md) ghi lại các yêu cầu bị chặn và được cho phép cùng các dòng nhật ký, và [phần chính sách](../../../manuals/docker-sandboxes-101/sections/3-3-sbx-policy-init-allow-deny-and-check-network.md) cho thấy hai loại từ chối từ `check network`.

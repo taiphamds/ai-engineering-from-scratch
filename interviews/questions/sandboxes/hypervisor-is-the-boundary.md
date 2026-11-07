@@ -16,55 +16,55 @@ related: [protocols/roots-are-not-a-sandbox]
 updated: 2026-11-03
 ---
 
-Inside a Docker sandbox the agent runs as uid 1000 in the `sudo` and `docker` groups, and `docker version` answers with a server. A teammate concludes that the sandbox is no safer than a container running as root. Where is the wall, and what does the agent own inside it?
+Bên trong một Docker sandbox, agent chạy với uid 1000 trong các nhóm `sudo` và `docker`, và `docker version` trả lời với một server. Một đồng đội kết luận sandbox không an toàn hơn một container chạy dưới root. Bức tường ở đâu, và agent sở hữu gì bên trong nó?
 
 ## Short answer
 
-The wall is the hypervisor line under the guest kernel, not the user inside. The documentation puts it plainly: the agent is a non-root user with sudo rights inside the VM, the hypervisor boundary isolates the agent, and privilege separation inside the VM does not. Everything below that line belongs to the agent, including a private Docker Engine whose images never appear in `docker ps` on the host, and the host offers no Docker API to the sandbox at all.
+Bức tường là ranh giới hypervisor dưới kernel guest, không phải người dùng bên trong. Tài liệu nêu rõ: agent là một người dùng không phải root có quyền sudo bên trong VM, ranh giới hypervisor cô lập agent, và phân tách đặc quyền bên trong VM thì không. Mọi thứ dưới ranh giới đó thuộc về agent, bao gồm một Docker Engine riêng có các image không bao giờ xuất hiện trong `docker ps` trên host, và host hoàn toàn không cung cấp Docker API cho sandbox.
 
 ## Full answer
 
 ### Five layers, read from inside
 
-`sbx diagnose` names the platform: `kern.hv_support is 1` is hardware virtualization, and the guest runs on the host hypervisor. From inside, `uname`, `id`, `docker version` and `mount` show a guest kernel on `aarch64` with 16 KiB pages (`getconf PAGESIZE` prints 16384), user `agent` with uid 1000, a Docker Engine server with its own containerd, and the workspace as a `virtiofs` mount at the same absolute path as on the host.
+`sbx diagnose` nêu nền tảng: `kern.hv_support is 1` là ảo hóa phần cứng, và guest chạy trên hypervisor host. Từ bên trong, `uname`, `id`, `docker version` và `mount` cho thấy một kernel guest trên `aarch64` với các trang 16 KiB (`getconf PAGESIZE` in 16384), người dùng `agent` với uid 1000, một server Docker Engine với containerd riêng, và workspace như một mount `virtiofs` tại cùng đường dẫn tuyệt đối như trên host.
 
-The documentation names five isolation layers: hypervisor, network, Docker Engine, workspace and credential. The engine inside is the agent's. Images it builds live in the VM, and the agent cannot reach the daemon on your host. There is no Moby API from the host either, so REST clients that expect one do not work, and `sbx exec` is the way in.
+Tài liệu nêu năm lớp cô lập: hypervisor, mạng, Docker Engine, workspace và thông tin xác thực. Engine bên trong là của agent. Các image nó build nằm trong VM, và agent không thể tiếp cận daemon trên host của bạn. Cũng không có Moby API từ host, nên các client REST mong đợi một API không hoạt động, và `sbx exec` là đường vào.
 
 ### The doors through the wall
 
-Count the lines in the guest environment that cross the line:
+Đếm các dòng trong môi trường guest vượt qua ranh giới:
 
-| Door | The guest line |
+| Cửa | Dòng của guest |
 |---|---|
-| mount | `host on <workspace> type virtiofs (rw,...)`, plus a read-only bind of `/etc/resolv.conf` |
-| network | `HTTPS_PROXY` pointing at `gateway.docker.internal:3128` |
-| secret | a provider key variable set to the sentinel `proxy-managed` |
-| MCP | `MCP_GATEWAY_URL` pointing at `mcp-gateway.docker.internal/mcp` |
-| SSH agent | `SSH_AUTH_SOCK=/run/ssh-agent.sock` forwarded through `gateway.docker.internal:3129` |
+| mount | `host on <workspace> type virtiofs (rw,...)`, cùng một bind chỉ đọc của `/etc/resolv.conf` |
+| mạng | `HTTPS_PROXY` trỏ tới `gateway.docker.internal:3128` |
+| bí mật | một biến khóa nhà cung cấp được đặt thành sentinel `proxy-managed` |
+| MCP | `MCP_GATEWAY_URL` trỏ tới `mcp-gateway.docker.internal/mcp` |
+| SSH agent | `SSH_AUTH_SOCK=/run/ssh-agent.sock` được chuyển tiếp qua `gateway.docker.internal:3129` |
 
-Each door is a place where host policy applies. Nothing the agent does with sudo changes which doors exist.
+Mỗi cửa là một nơi chính sách host áp dụng. Không điều gì agent làm với sudo thay đổi các cửa nào tồn tại.
 
 ### What the teammate gets right
 
-Inside the VM, the agent owns the filesystem, the engine and every process. A build that assumes 4 KiB pages fails on this guest. The VM has limits of its own: memory defaults to half of host memory, clamped between 512 MiB and 32 GiB, and `--cpus 0` means every host CPU, at most 16 on Linux arm64. None of that is a control; it is a budget.
+Bên trong VM, agent sở hữu hệ thống file, engine và mọi tiến trình. Một bản build giả định các trang 4 KiB thất bại trên guest này. VM có các giới hạn riêng: bộ nhớ mặc định bằng một nửa bộ nhớ host, được chặn giữa 512 MiB và 32 GiB, và `--cpus 0` nghĩa là mọi CPU host, nhiều nhất 16 trên Linux arm64. Không thứ nào là một biện pháp kiểm soát; nó là một ngân sách.
 
 ### One thing that is not inside
 
-An MCP server registered on the host with `--command` runs on the host with the permissions of your host user, outside the engine boundary and outside network policy. Only a server the agent starts inside the VM is subject to the sandbox rules.
+Một MCP server được đăng ký trên host bằng `--command` chạy trên host với các quyền của người dùng host của bạn, ngoài ranh giới engine và ngoài chính sách mạng. Chỉ một server mà agent khởi động bên trong VM chịu các quy tắc sandbox.
 
 ## Follow-ups
 
-- **Level 1:** The agent runs `docker build` and the host's `docker ps` shows nothing. Why? Expected: the engine and its image store live inside the VM; the host daemon is a different engine.
-- **Level 2:** A compiled tool crashes inside with a page-size error. What is different about the guest? Expected: the guest kernel uses 16 KiB pages, which `getconf PAGESIZE` reports as 16384, and `sbx diagnose` compares the `mkfs.erofs` block size against it.
-- **Level 2:** Name each path by which something from the host enters the VM. Expected: the workspace mount, the proxy for network, secret sentinels, the MCP gateway URL and the forwarded SSH agent.
-- **Level 3:** Which registered MCP server is not covered by the wall? Expected: one added with `--command`, which runs on the host as your user and is not under network policy.
+- **Level 1:** Agent chạy `docker build` và `docker ps` của host không cho thấy gì. Tại sao? Expected: engine và kho image của nó nằm bên trong VM; daemon host là một engine khác.
+- **Level 2:** Một công cụ đã biên dịch gặp sự cố bên trong với một lỗi kích thước trang. Điều gì khác về guest? Expected: kernel guest dùng các trang 16 KiB, mà `getconf PAGESIZE` báo là 16384, và `sbx diagnose` so sánh kích thước block `mkfs.erofs` với nó.
+- **Level 2:** Nêu từng đường mà một thứ từ host đi vào VM. Expected: mount workspace, proxy cho mạng, các sentinel bí mật, URL MCP gateway và SSH agent được chuyển tiếp.
+- **Level 3:** MCP server được đăng ký nào không được bức tường bao phủ? Expected: một server được thêm bằng `--command`, chạy trên host như người dùng của bạn và không dưới chính sách mạng.
 
 ## Wrong answers
 
-- "sudo inside means root on my laptop." The user inside is a guest user; the hypervisor is the control, and the docs say privilege separation inside is not.
-- "The sandbox shares my Docker daemon." Each sandbox runs its own Docker Engine, and the host offers no API to the VM.
-- "It needs no account because it runs without Docker Desktop." `sbx` runs without Desktop and still refuses to create a sandbox without a sign-in; the FAQ gives the reasons.
+- "Sudo bên trong nghĩa là root trên laptop của tôi." Người dùng bên trong là một người dùng guest; hypervisor là biện pháp kiểm soát, và tài liệu nói phân tách đặc quyền bên trong không phải.
+- "Sandbox dùng chung Docker daemon của tôi." Mỗi sandbox chạy Docker Engine riêng, và host không cung cấp API cho VM.
+- "Nó không cần tài khoản vì nó chạy không có Docker Desktop." `sbx` chạy không có Desktop và vẫn từ chối tạo một sandbox nếu chưa đăng nhập; FAQ đưa ra các lý do.
 
 ## Taught in
 
-The [microVM boundary section](../../../manuals/docker-sandboxes-101/sections/3-1-sbx-diagnose-and-the-microvm-boundary.md) reads the guest from inside and names the five doors, and the [MCP section](../../../manuals/docker-sandboxes-101/sections/3-6-sbx-mcp-add-load-and-static-mcp.md) shows the one server that runs on the host.
+[Phần ranh giới microVM](../../../manuals/docker-sandboxes-101/sections/3-1-sbx-diagnose-and-the-microvm-boundary.md) đọc guest từ bên trong và nêu năm cửa, và [phần MCP](../../../manuals/docker-sandboxes-101/sections/3-6-sbx-mcp-add-load-and-static-mcp.md) cho thấy một server chạy trên host.

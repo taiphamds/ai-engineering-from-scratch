@@ -16,47 +16,47 @@ related: [sandboxes/sentinel-is-not-the-key]
 updated: 2026-11-03
 ---
 
-A teammate spent an hour installing a toolchain inside a sandbox and wants everyone to start from it tomorrow. One option is `sbx template save` and a tar; the other is a kit that declares the install steps. Compare the two, and name what a template carries that a kit never does.
+Một đồng đội đã dành một giờ cài một toolchain bên trong một sandbox và muốn mọi người bắt đầu từ nó ngày mai. Một lựa chọn là `sbx template save` và một tar; lựa chọn kia là một kit khai báo các bước cài đặt. So sánh hai cách, và nêu những gì một template mang mà một kit không bao giờ mang.
 
 ## Short answer
 
-A template is a snapshot of the container filesystem stored as an image, reused with `sbx run --pull never -t TAG AGENT` and carried to another host as an OCI tar through `sbx template load`; it is fast and exact, and it is bytes nobody reviews. A kit declares install commands, files, hosts and credentials, so it is readable, signable and re-resolved at creation, and a template holds none of those runtime settings. The template does hold every file an agent wrote inside, including any key written to disk, which is why credentials belong in `sbx secret` and not in a saved sandbox.
+Một template là một snapshot của hệ thống file container được lưu như một image, dùng lại bằng `sbx run --pull never -t TAG AGENT` và mang sang host khác như một OCI tar thông qua `sbx template load`; nó nhanh và chính xác, và nó là các byte không ai review. Một kit khai báo các lệnh cài đặt, file, host và thông tin xác thực, nên nó đọc được, ký được và được phân giải lại lúc tạo, và một template không giữ thiết lập runtime nào trong số đó. Template có giữ mọi file mà một agent viết bên trong, bao gồm bất kỳ khóa nào được ghi xuống đĩa, đó là lý do thông tin xác thực thuộc về `sbx secret` chứ không trong một sandbox đã lưu.
 
 ## Full answer
 
 ### What a template holds and leaves out
 
-Mounted filesystems are not in it: the host workspace and the engine's store are excluded, so a saved template is not a backup of the whole sandbox. Everything else in the container filesystem is in it. Agent configuration files such as the agent's settings file are rewritten every time a sandbox is created, so edits there do not survive either. The kit still supplies the runtime settings, credentials and network rules; the template supplies image content only.
+Các hệ thống file được mount không nằm trong nó: workspace host và kho của engine bị loại, nên một template đã lưu không phải một bản sao lưu của toàn bộ sandbox. Mọi thứ khác trong hệ thống file container nằm trong nó. Các file cấu hình agent như file thiết lập của agent được viết lại mỗi khi một sandbox được tạo, nên các chỉnh sửa ở đó cũng không tồn tại. Kit vẫn cung cấp các thiết lập runtime, thông tin xác thực và các quy tắc mạng; template chỉ cung cấp nội dung image.
 
 ### The mechanics that trip people
 
-`sbx template save SANDBOX TAG` needs a stopped sandbox; the recorded attempt on a running one printed `cannot save a running sandbox`. The image goes to the sandbox runtime's own store, which is separate from the host daemon's store, so `docker image inspect` on the host finds nothing and `sbx template ls` is the right command. The exported tar had 24 entries in OCI layout, and `sbx template load FILE` imports it on another host with no registry involved. Name the agent the template was built for when you reuse it; a template built for one agent and run as another prints a warning that the sandbox can fail.
+`sbx template save SANDBOX TAG` cần một sandbox đã dừng; lần thử được ghi lại trên một sandbox đang chạy in `cannot save a running sandbox`. Image đi vào kho riêng của runtime sandbox, tách biệt với kho daemon host, nên `docker image inspect` trên host không tìm thấy gì và `sbx template ls` là lệnh đúng. Tar được xuất có 24 mục trong bố trí OCI, và `sbx template load FILE` nhập nó trên một host khác mà không có registry tham gia. Nêu agent mà template được xây cho khi bạn dùng lại; một template được xây cho một agent và chạy như một agent khác in một cảnh báo rằng sandbox có thể thất bại.
 
 ### The same trade in `sbx move`
 
-Moving a sandbox to the cloud captures the filesystem as a template image and uploads it. Kit network rules and the local environment travel inside the image. The host bind mount, the secrets in the store, local policy rules, host port bindings and running processes stay behind. Credential files written by an interactive sign-in are ordinary files, so they travel unless you delete them first. Moving back to local can stage up to 32 GiB in the host's temporary directory.
+Di chuyển một sandbox lên cloud chụp hệ thống file thành một image template và tải nó lên. Các quy tắc mạng kit và môi trường cục bộ đi bên trong image. Bind mount host, các bí mật trong kho, các quy tắc chính sách cục bộ, các binding cổng host và các tiến trình đang chạy ở lại. Các file thông tin xác thực được ghi bởi một lần đăng nhập tương tác là các file thông thường, nên chúng di chuyển trừ khi bạn xóa trước. Di chuyển trở về cục bộ có thể chuẩn bị tối đa 32 GiB trong thư mục tạm của host.
 
 ### The decision
 
-| Need | Pick |
+| Nhu cầu | Chọn |
 |---|---|
-| exact bytes, today, one team | template, with secrets kept out of files |
-| review, signature, re-resolution, policy | kit |
-| a policy or a credential | kit, because a template cannot express it |
+| các byte chính xác, hôm nay, một nhóm | template, với các bí mật được giữ ngoài file |
+| review, chữ ký, phân giải lại, chính sách | kit |
+| một chính sách hoặc một thông tin xác thực | kit, vì một template không thể biểu diễn nó |
 
 ## Follow-ups
 
-- **Level 2:** `sbx template save` on the running sandbox failed. What is the sequence? Expected: `sbx stop`, then save with `--output` for the tar, then `sbx run --pull never -t TAG AGENT` with the same agent.
-- **Level 2:** The host's `docker image ls` does not list the template. Where is it? Expected: in the sandbox runtime's image store, which the host daemon does not share; use `sbx template ls`.
-- **Level 3:** An agent signed in to a service interactively inside the sandbox. What happens to that credential on `sbx move` or `template save`? Expected: it is a file in the container filesystem and travels in the image unless deleted first.
-- **Level 3:** A colleague wants the same allowed hosts as the template's author. Does the template give them that? Expected: no; network rules come from a kit or a policy, and a template carries image content only.
+- **Level 2:** `sbx template save` trên sandbox đang chạy thất bại. Trình tự là gì? Expected: `sbx stop`, rồi lưu với `--output` cho tar, rồi `sbx run --pull never -t TAG AGENT` với cùng agent.
+- **Level 2:** `docker image ls` của host không liệt kê template. Nó ở đâu? Expected: trong kho image của runtime sandbox, mà daemon host không dùng chung; dùng `sbx template ls`.
+- **Level 3:** Một agent đăng nhập vào một dịch vụ một cách tương tác bên trong sandbox. Điều gì xảy ra với thông tin xác thực đó trên `sbx move` hoặc `template save`? Expected: nó là một file trong hệ thống file container và đi trong image trừ khi bị xóa trước.
+- **Level 3:** Một đồng nghiệp muốn cùng các host được cho phép như tác giả template. Template có cho họ điều đó không? Expected: không; các quy tắc mạng đến từ một kit hoặc một chính sách, và một template chỉ mang nội dung image.
 
 ## Wrong answers
 
-- "A template is a backup of the sandbox." Mounted workspaces and the engine's store are excluded.
-- "The template carries the allowed hosts." The kit carries runtime settings; the template carries bytes.
-- "Keys inside are safe because the environment shows `proxy-managed`." The sentinel is safe; a value an agent wrote to a file is copied with the file.
+- "Một template là một bản sao lưu của sandbox." Các workspace được mount và kho của engine bị loại.
+- "Template mang các host được cho phép." Kit mang các thiết lập runtime; template mang các byte.
+- "Các khóa bên trong an toàn vì môi trường hiển thị `proxy-managed`." Sentinel an toàn; một giá trị mà một agent ghi vào một file được sao chép cùng file.
 
 ## Taught in
 
-The [template section](../../../manuals/docker-sandboxes-101/sections/2-3-sbx-template-save-and-load.md) records the refused save, the separate store and the tar, and the [cloud section](../../../manuals/docker-sandboxes-101/sections/7-1-sbx-cloud-run-move-and-ttl.md) lists what `sbx move` carries.
+[Phần template](../../../manuals/docker-sandboxes-101/sections/2-3-sbx-template-save-and-load.md) ghi lại lần lưu bị từ chối, kho riêng và tar, và [phần cloud](../../../manuals/docker-sandboxes-101/sections/7-1-sbx-cloud-run-move-and-ttl.md) liệt kê những gì `sbx move` mang.

@@ -16,43 +16,43 @@ related: [sandboxes/blocked-host-reads-as-timeout, sandboxes/sentinel-is-not-the
 updated: 2026-11-03
 ---
 
-`docker-agent run --sandbox agent.yaml` prints a launch summary, creates the VM, and dies with `Error: creating session store: migration failed even after database reset: failed to create migrations table: attempt to write a readonly database (1032)`. An earlier attempt was refused for `--data-dir` pointing at the home directory, and the very first model call of the day returned `403 Blocked by network policy`. Explain all three, and say what the launch summary should have told you before the run.
+`docker-agent run --sandbox agent.yaml` in một bản tóm tắt khởi chạy, tạo VM, và chết với `Error: creating session store: migration failed even after database reset: failed to create migrations table: attempt to write a readonly database (1032)`. Một lần thử trước bị từ chối vì `--data-dir` trỏ tới thư mục home, và lệnh gọi mô hình đầu tiên trong ngày trả về `403 Blocked by network policy`. Giải thích cả ba, và nói bản tóm tắt khởi chạy lẽ ra phải cho bạn biết gì trước lần chạy.
 
 ## Short answer
 
-Three causes, none of them the agent file. With `--sandbox`, a data directory outside the workspace is refused, because only the workspace is writable from the VM. The 403 means the model host was not on the persistent allowlist: `docker-agent sandbox allow localhost:12434` fixes it, and the port is `localhost` because the proxy rewrites `host.docker.internal` to `localhost` before it checks the rule. The readonly database is SQLite failing to write through the `virtiofs` workspace mount on this host, although `mount` lists it `rw`; a plain Python `sqlite3` write on the same mount fails the same way, and the VM stays running after the error, so you remove it yourself.
+Ba nguyên nhân, không nguyên nhân nào là file agent. Với `--sandbox`, một thư mục dữ liệu ngoài workspace bị từ chối, vì chỉ workspace ghi được từ VM. 403 nghĩa là host mô hình không nằm trên danh sách cho phép bền vững: `docker-agent sandbox allow localhost:12434` sửa nó, và cổng là `localhost` vì proxy viết lại `host.docker.internal` thành `localhost` trước khi kiểm tra quy tắc. Cơ sở dữ liệu chỉ đọc là SQLite không ghi được qua mount workspace `virtiofs` trên host này, dù `mount` liệt kê nó là `rw`; một lần ghi Python `sqlite3` thuần trên cùng mount thất bại theo cùng cách, và VM tiếp tục chạy sau lỗi, nên bạn tự xóa nó.
 
 ## Full answer
 
 ### Read the launch summary first
 
-The summary names everything the run will trust: `Models gateway: none configured`, the catalog host allowlisted for the proxy, the user allowlist with the hosts you added, then the sandbox name, the mounts with their modes, the image, and the resources. In the recorded run the workspace was `rw`, and the agent file's directory, the staged kit under `.m101/cache/sandbox-kits/<hash>` and the config directory were `ro`. The image was `docker/docker-agent-sbx-templates:latest`, with `cpu 10` and `memory 32 GiB`. Every later failure is explained by one of those rows.
+Bản tóm tắt nêu mọi thứ mà lần chạy sẽ tin: `Models gateway: none configured`, host catalog được cho phép cho proxy, danh sách cho phép người dùng với các host bạn đã thêm, rồi tên sandbox, các mount với chế độ, image và các tài nguyên. Trong lần chạy được ghi lại, workspace là `rw`, và thư mục của file agent, kit được chuẩn bị dưới `.m101/cache/sandbox-kits/<hash>` và thư mục config là `ro`. Image là `docker/docker-agent-sbx-templates:latest`, với `cpu 10` và `memory 32 GiB`. Mọi lỗi sau được giải thích bởi một trong các dòng đó.
 
 ### The data directory
 
-The capture kit keeps the runtime out of `~/.cagent` with `--data-dir`, `--cache-dir` and `--config-dir`. With `--sandbox`, the refusal reads `--data-dir must be inside the sandbox's writable workspace`, so all three went under `.m101/` in the workspace. That put the session database on the mount, which is where the third failure comes from.
+Kit ghi lại giữ runtime ngoài `~/.cagent` bằng `--data-dir`, `--cache-dir` và `--config-dir`. Với `--sandbox`, thông báo từ chối là `--data-dir must be inside the sandbox's writable workspace`, nên cả ba đi dưới `.m101/` trong workspace. Điều đó đặt cơ sở dữ liệu phiên trên mount, nơi lỗi thứ ba xuất phát.
 
 ### The model host and the proxy
 
-Inside the VM, `127.0.0.1` is the VM, so the agent file's provider points at `host.docker.internal:12434`. The request leaves through `HTTP_PROXY` at `gateway.docker.internal:3128`, because that host is not in `NO_PROXY`, and the sandbox proxy translates the name to `localhost`. The rule must therefore say `localhost:12434`. The in-VM allowlist reads empty, because allowed hosts arrive as proxy rules on the host, not as a list inside. The provider keys inside read `proxy-managed`.
+Bên trong VM, `127.0.0.1` là VM, nên provider trong file agent trỏ tới `host.docker.internal:12434`. Yêu cầu đi ra qua `HTTP_PROXY` tại `gateway.docker.internal:3128`, vì host đó không có trong `NO_PROXY`, và proxy sandbox dịch tên thành `localhost`. Vì vậy quy tắc phải nói `localhost:12434`. Danh sách cho phép trong VM đọc ra trống, vì các host được cho phép đến như các quy tắc proxy trên host, không phải một danh sách bên trong. Các khóa provider bên trong đọc ra `proxy-managed`.
 
 ### The readonly database
 
-The data directory sits on the workspace mount, listed as `rw`. SQLite could not create its migrations table there, and a Python `sqlite3` probe on the same mount failed identically, so the fault is the write path through `virtiofs` on this host, not the agent. The capture proved the rest of the path by starting the same agent file inside the VM by hand with state under `/tmp/m101`: the model call went out through the proxy and the answer was correct. The runtime exits on the error and does not stop or remove the VM; `sbx ls` still shows it `running`, and `sbx rm --force` ends it. A later run from the same workspace reuses the VM unless the set of mounts changed.
+Thư mục dữ liệu nằm trên mount workspace, được liệt kê là `rw`. SQLite không thể tạo bảng migrations ở đó, và một probe Python `sqlite3` trên cùng mount thất bại giống hệt, nên lỗi là đường ghi qua `virtiofs` trên host này, không phải agent. Bản ghi chứng minh phần còn lại của đường bằng cách khởi động cùng file agent bên trong VM bằng tay với trạng thái dưới `/tmp/m101`: lệnh gọi mô hình đi ra qua proxy và câu trả lời đúng. Runtime thoát khi lỗi và không dừng hoặc xóa VM; `sbx ls` vẫn cho thấy nó `running`, và `sbx rm --force` kết thúc nó. Một lần chạy sau từ cùng workspace dùng lại VM trừ khi tập mount thay đổi.
 
 ## Follow-ups
 
-- **Level 3:** Why does `127.0.0.1:12434` in the agent file fail inside while it works on the host? Expected: loopback inside the VM is the VM; use `host.docker.internal`, and allow `localhost:12434` because the proxy rewrites the name.
-- **Level 3:** You allowed a host and the agent inside prints an empty allowlist. Is the rule missing? Expected: no; the rule lives in the host proxy, and the in-VM list is not where enforcement happens.
-- **Level 4:** How do you prove the SQLite error is the mount? Expected: a Python `sqlite3` write on the same mount fails identically, `mount` still shows `rw`, and the same agent runs with state under `/tmp` inside.
-- **Level 4:** What does the failed run leave behind, and what cleans it? Expected: a running VM that the runtime neither stops nor removes; `sbx rm` the sandbox, or expect the next run to reuse it.
+- **Level 3:** Tại sao `127.0.0.1:12434` trong file agent thất bại bên trong trong khi hoạt động trên host? Expected: loopback bên trong VM là VM; dùng `host.docker.internal`, và cho phép `localhost:12434` vì proxy viết lại tên.
+- **Level 3:** Bạn cho phép một host và agent bên trong in một danh sách cho phép trống. Quy tắc có bị thiếu không? Expected: không; quy tắc nằm trong proxy host, và danh sách trong VM không phải nơi thực thi xảy ra.
+- **Level 4:** Bạn chứng minh lỗi SQLite là do mount bằng cách nào? Expected: một lần ghi Python `sqlite3` trên cùng mount thất bại giống hệt, `mount` vẫn cho thấy `rw`, và cùng agent chạy với trạng thái dưới `/tmp` bên trong.
+- **Level 4:** Lần chạy thất bại để lại gì, và điều gì dọn nó? Expected: một VM đang chạy mà runtime không dừng cũng không xóa; dùng `sbx rm` với sandbox, hoặc dự kiến lần chạy tiếp theo dùng lại nó.
 
 ## Wrong answers
 
-- "The workspace is read-only, so change its permissions." The mount is `rw`; the failure is SQLite's write path through the mount, which a direct probe reproduces.
-- "Point `--data-dir` at the home directory like the help suggests." With `--sandbox` that is refused; only the workspace is writable.
-- "Allow `host.docker.internal:12434`." The proxy translates the name to `localhost` before the check, so the rule must name `localhost`.
+- "Workspace chỉ đọc, nên thay các quyền của nó." Mount là `rw`; lỗi là đường ghi của SQLite qua mount, được một probe trực tiếp tái hiện.
+- "Trỏ `--data-dir` tới thư mục home như phần trợ giúp gợi ý." Với `--sandbox`, điều đó bị từ chối; chỉ workspace ghi được.
+- "Cho phép `host.docker.internal:12434`." Proxy dịch tên thành `localhost` trước kiểm tra, nên quy tắc phải nêu `localhost`.
 
 ## Taught in
 
-The [end-to-end run section](../../../manuals/docker-sandboxes-101/sections/1-2-docker-agent-run-sandbox-end-to-end.md) records all three failures and the launch summary, and the [first section](../../../manuals/docker-sandboxes-101/sections/1-1-sbx-and-docker-agent.md) names the two launch paths.
+[Phần chạy đầu cuối](../../../manuals/docker-sandboxes-101/sections/1-2-docker-agent-run-sandbox-end-to-end.md) ghi lại cả ba lỗi và bản tóm tắt khởi chạy, và [phần đầu](../../../manuals/docker-sandboxes-101/sections/1-1-sbx-and-docker-agent.md) nêu hai đường khởi chạy.

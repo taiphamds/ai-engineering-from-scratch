@@ -16,44 +16,44 @@ related: [sandboxes/hypervisor-is-the-boundary]
 updated: 2026-11-03
 ---
 
-You publish `18081:8080` with `sbx ports`. A client on the host that connects to `[::1]:18081` gets a refused connection, while `127.0.0.1:18081` answers 200. Explain the default, write the spec that fixes it, and name the two other `sbx` verbs whose rules differ from their `docker` counterparts.
+Bạn công bố `18081:8080` bằng `sbx ports`. Một client trên host kết nối tới `[::1]:18081` nhận một kết nối bị từ chối, trong khi `127.0.0.1:18081` trả lời 200. Giải thích mặc định, viết đặc tả sửa được nó, và nêu hai động từ `sbx` khác có quy tắc khác với các đối tác `docker`.
 
 ## Short answer
 
-Without a protocol in the spec, the publish command uses `tcp4`, so the host binding is `127.0.0.1` alone; that changed in v0.42.0, and the recorded `curl` to `::1` failed with exit 7. Publish `8080/tcp` to bind both loopbacks, each on an ephemeral host port, and unpublish without a protocol removes either form. The other two verbs are `sbx exec`, which runs as the `agent` user, starts a stopped sandbox and has no detached mode, and `sbx cp`, which needs one side written as `SANDBOX:PATH` and refuses a copy between two sandboxes.
+Không có giao thức trong đặc tả, lệnh công bố dùng `tcp4`, nên binding host chỉ là `127.0.0.1`; điều đó thay đổi trong v0.42.0, và `curl` tới `::1` được ghi lại thất bại với mã thoát 7. Công bố `8080/tcp` để bind cả hai loopback, mỗi cái trên một cổng host tạm thời, và bỏ công bố không có giao thức loại cả hai dạng. Hai động từ kia là `sbx exec`, chạy như người dùng `agent`, khởi động một sandbox đã dừng và không có chế độ tách rời, và `sbx cp`, cần một phía được viết là `SANDBOX:PATH` và từ chối một lần sao chép giữa hai sandbox.
 
 ## Full answer
 
 ### The address family table
 
-| `PROTOCOL` | Host binding when `HOST_IP` is omitted |
+| `PROTOCOL` | Binding host khi `HOST_IP` bị bỏ qua |
 |---|---|
-| none | `127.0.0.1` as `tcp4`, or `tcp6` on `::1` when `HOST_IP` is an IPv6 address |
-| `tcp`, `udp` | `127.0.0.1` and `::1`, or `127.0.0.1` alone when the sandbox is IPv4-only |
+| không có | `127.0.0.1` dưới dạng `tcp4`, hoặc `tcp6` trên `::1` khi `HOST_IP` là một địa chỉ IPv6 |
+| `tcp`, `udp` | `127.0.0.1` và `::1`, hoặc chỉ `127.0.0.1` khi sandbox chỉ có IPv4 |
 | `tcp4`, `udp4` | `127.0.0.1` |
 | `tcp6`, `udp6` | `::1` |
 
-`sbx ports SANDBOX --json` lists every binding as `host_ip`, `host_port`, `sandbox_port` and `protocol`, and `sbx ls` prints them in its `PORTS` column. `-p` on `sbx run` applies at creation only and is ignored on re-attach, so later changes go through `sbx ports`. Publishing starts a stopped sandbox first. In the cloud a published port gets a public URL and UDP is refused.
+`sbx ports SANDBOX --json` liệt kê mọi binding dưới dạng `host_ip`, `host_port`, `sandbox_port` và `protocol`, và `sbx ls` in chúng trong cột `PORTS`. `-p` trên `sbx run` chỉ áp dụng lúc tạo và bị bỏ qua khi gắn lại, nên các thay đổi sau đi qua `sbx ports`. Công bố khởi động một sandbox đã dừng trước. Trong cloud, một cổng được công bố nhận một URL công khai và UDP bị từ chối.
 
 ### exec and cp
 
-`sbx exec` runs the command as uid 1000 in the `sudo` and `docker` groups, in the workspace directory, and `-u root` is how the help installs packages. `-d` appears in the help only to say that detached exec is not supported, and with `--cloud` the flags `-d`, `--user` and `--privileged` are rejected rather than ignored. Inside, `SANDBOX_NAME` and `SANDBOX_ID` name the sandbox and `WORKSPACE_DIR` names the mount.
+`sbx exec` chạy lệnh như uid 1000 trong các nhóm `sudo` và `docker`, trong thư mục workspace, và `-u root` là cách phần trợ giúp cài các gói. `-d` chỉ xuất hiện trong phần trợ giúp để nói rằng exec tách rời không được hỗ trợ, và với `--cloud`, các cờ `-d`, `--user` và `--privileged` bị từ chối thay vì bị bỏ qua. Bên trong, `SANDBOX_NAME` và `SANDBOX_ID` nêu sandbox và `WORKSPACE_DIR` nêu mount.
 
-`sbx cp SRC DST` takes one sandbox side as `SANDBOX:PATH` and one host side. The recorded copy from one sandbox to another exited 1 with `copying between sandboxes is not supported`, so such a copy goes through the host in two steps. A sandbox path is a container path, so a file under `/tmp` sits outside the workspace mount and disappears with the sandbox. Copy-out had a security history: release v0.38.0 fixed CVE-2026-17106, a flaw that let a copy-out escape its destination.
+`sbx cp SRC DST` nhận một phía sandbox dưới dạng `SANDBOX:PATH` và một phía host. Lần sao chép được ghi lại từ một sandbox sang một sandbox khác thoát với mã 1 cùng `copying between sandboxes is not supported`, nên một lần sao chép như vậy đi qua host trong hai bước. Một đường dẫn sandbox là một đường dẫn container, nên một file dưới `/tmp` nằm ngoài mount workspace và biến mất cùng sandbox. Sao chép ra có một lịch sử bảo mật: bản phát hành v0.38.0 sửa CVE-2026-17106, một lỗi cho phép một lần sao chép ra thoát khỏi đích của nó.
 
 ## Follow-ups
 
-- **Level 2:** You re-attach with `-p 18081:8080` on a sandbox created without it, and nothing is published. Why? Expected: `-p` applies at creation only; use `sbx ports --publish` on the existing sandbox.
-- **Level 3:** `sbx cp a:/tmp/x b:/tmp/x` fails. How do you move the file? Expected: two copies through a host path, because sandbox-to-sandbox copy is not supported.
-- **Level 3:** Why does `--cloud` reject `--privileged` rather than ignore it? Expected: a silently ignored flag would let a script believe it ran privileged; refusal keeps the local and cloud behavior honest.
-- **Level 4:** You bound `8080/tcp` and later unpublish `8080` with no protocol. What remains? Expected: nothing; unpublish without a protocol removes the default form and the dual-stack form alike.
+- **Level 2:** Bạn gắn lại với `-p 18081:8080` trên một sandbox được tạo không có nó, và không có gì được công bố. Tại sao? Expected: `-p` chỉ áp dụng lúc tạo; dùng `sbx ports --publish` trên sandbox hiện có.
+- **Level 3:** `sbx cp a:/tmp/x b:/tmp/x` thất bại. Bạn chuyển file bằng cách nào? Expected: hai lần sao chép qua một đường dẫn host, vì sao chép sandbox-tới-sandbox không được hỗ trợ.
+- **Level 3:** Tại sao `--cloud` từ chối `--privileged` thay vì bỏ qua nó? Expected: một cờ bị bỏ qua âm thầm sẽ để một script tin nó đã chạy có đặc quyền; từ chối giữ hành vi cục bộ và cloud trung thực.
+- **Level 4:** Bạn bind `8080/tcp` rồi sau đó bỏ công bố `8080` không có giao thức. Điều gì còn lại? Expected: không có gì; bỏ công bố không có giao thức loại cả dạng mặc định và dạng dual-stack.
 
 ## Wrong answers
 
-- "IPv6 is turned off inside the VM." The binding family is a host-side choice made by the protocol in the spec.
-- "Unpublish must repeat the protocol you published with." It removes the mapping in both cases without one.
-- "`sbx exec -d` runs the command in the background." Detached exec is not supported; the flag exists in the help to say so.
+- "IPv6 bị tắt bên trong VM." Họ binding là một lựa chọn phía host được quyết định bởi giao thức trong đặc tả.
+- "Bỏ công bố phải lặp giao thức bạn đã công bố." Nó loại ánh xạ trong cả hai trường hợp khi không có giao thức.
+- "`sbx exec -d` chạy lệnh ở nền." Exec tách rời không được hỗ trợ; cờ tồn tại trong phần trợ giúp để nói như vậy.
 
 ## Taught in
 
-The [exec, cp and ports section](../../../manuals/docker-sandboxes-101/sections/2-2-sbx-exec-cp-and-ports.md) records the `tcp4` binding, the two `curl` results and the refused copy.
+[Phần exec, cp và ports](../../../manuals/docker-sandboxes-101/sections/2-2-sbx-exec-cp-and-ports.md) ghi lại binding `tcp4`, hai kết quả `curl` và lần sao chép bị từ chối.
