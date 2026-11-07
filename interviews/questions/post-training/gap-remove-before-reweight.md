@@ -16,56 +16,56 @@ related: [post-training/logprob-gap-at-step-zero]
 updated: 2026-11-03
 ---
 
-Your RL run shows a steady disagreement between trainer and rollout engine on the probability of each sampled token. One engineer wants to turn on a capped importance weighting right away. Another says it is a kernel artifact and should be ignored. Lay out how you decide, and what you would try first.
+Lần chạy RL của bạn cho thấy một bất đồng ổn định giữa trainer và engine rollout về xác suất mỗi token được lấy mẫu. Một kỹ sư muốn bật ngay một cách đặt trọng số importance bị giới hạn. Một người khác nói nó là một tạo tác kernel và nên bị bỏ qua. Trình bày cách bạn quyết định, và bạn sẽ thử gì trước.
 
 ## Short answer
 
-Match the method to the source of the gap. Five sources exist: tokens re-encoded between turns, expert routing on a mixture model, a sampler that cuts the vocabulary, numeric differences between kernels or precisions, and stale samples. The first three have corrections that remove the cause; try those first, because a reweighting such as truncated importance sampling leaves the gap in place and adds variance to the gradient. A flat gap on a dense model with plain sampling is the kernel floor of that setup; measure it, keep it inside your range, and reweight only what remains after the causes are gone.
+Khớp phương pháp với nguồn khoảng cách. Có năm nguồn: token được encode lại giữa các lượt, định tuyến expert trên một mô hình hỗn hợp, một bộ lấy mẫu cắt từ vựng, khác biệt số giữa các kernel hoặc precision, và các mẫu cũ. Ba nguồn đầu có các hiệu chỉnh loại bỏ nguyên nhân; thử chúng trước, vì một cách đặt lại trọng số như truncated importance sampling để khoảng cách nguyên và thêm variance vào gradient. Một khoảng cách phẳng trên một mô hình dense với lấy mẫu thông thường là sàn kernel của thiết lập đó; đo nó, giữ nó trong khoảng của bạn, và chỉ đặt lại trọng số phần còn lại sau khi các nguyên nhân đã hết.
 
 ## Full answer
 
 ### Two kinds of method
 
-A method that removes a cause makes both sides compute the same thing, and that part of the gap is gone. A method that reweights leaves the gap and changes how much each token counts in the loss. Remove causes first.
+Một phương pháp loại bỏ một nguyên nhân khiến cả hai phía tính cùng thứ, và phần khoảng cách đó biến mất. Một phương pháp đặt lại trọng số để lại khoảng cách và thay đổi mỗi token được tính bao nhiêu trong loss. Loại bỏ các nguyên nhân trước.
 
-| Method | Kind | Cause |
+| Phương pháp | Loại | Nguyên nhân |
 |---|---|---|
-| Sampling replay | removes | top-p and top-k cut the vocabulary on the engine side only |
-| Routing replay | removes | a mixture-of-experts router picks different experts on each side |
-| Token-in, token-out sessions | removes | text round trips between agent turns change the tokens |
-| True on-policy mode | removes | all kernel differences, for the models and GPUs it covers |
-| Truncated importance sampling | reweights | any remaining gap |
-| A sample age limit | drops | samples from older weights |
+| Sampling replay | loại bỏ | top-p và top-k chỉ cắt từ vựng ở phía engine |
+| Routing replay | loại bỏ | một router mixture-of-experts chọn các expert khác nhau ở mỗi phía |
+| Các session token-in, token-out | loại bỏ | các vòng đi-về văn bản giữa các lượt agent thay đổi token |
+| Chế độ true on-policy | loại bỏ | tất cả khác biệt kernel, cho các mô hình và GPU nó bao phủ |
+| Truncated importance sampling | đặt lại trọng số | bất kỳ khoảng cách còn lại |
+| Một giới hạn tuổi mẫu | bỏ | các mẫu từ trọng số cũ hơn |
 
 ### What the manual measured
 
-Sampling replay on one seed lowered the median gap from 0.0153 to 0.0135, 11.5 percent. No step of the replay run reached the lowest step of the plain run, and the reward stayed in the same range. The sampler part is not noise: a top-p cut raises the engine's log-probability of a kept token by minus the log of the kept mass, which at a top-p of 0.9 was a median shift of about 0.053 in a check outside the training framework. Deterministic inference removed nothing, because it is not a correction.
+Sampling replay trên một seed giảm khoảng cách trung vị từ 0.0153 xuống 0.0135, 11.5 phần trăm. Không bước nào của lần chạy replay đạt bước thấp nhất của lần chạy thông thường, và reward giữ trong cùng khoảng. Phần bộ lấy mẫu không phải nhiễu: một lần cắt top-p tăng log xác suất của engine cho một token được giữ thêm âm log của khối lượng được giữ, ở top-p 0.9 là một độ dịch trung vị khoảng 0.053 trong một kiểm tra ngoài framework huấn luyện. Suy luận xác định không loại bỏ gì, vì nó không phải một hiệu chỉnh.
 
 ### The kernel floor
 
-On a dense model in BF16 on both sides, the manual's gap stayed at about 0.015 per token in every healthy run. That is the floor of one setup, not a law. A check with FP16 on both sides cut the median gap about 7.8 times, from 0.0073 to 0.00094 on a serving engine against a reference forward pass, and the worst token fell from 0.355 to 0.033. FP16 on one side only did not help. Precision is a lever that removes a cause, and it costs numeric range.
+Trên một mô hình dense trong BF16 ở cả hai phía, khoảng cách của tài liệu giữ ở khoảng 0.015 mỗi token trong mọi lần chạy khỏe mạnh. Đó là sàn của một thiết lập, không phải một quy luật. Một kiểm tra với FP16 ở cả hai phía giảm khoảng cách trung vị khoảng 7.8 lần, từ 0.0073 xuống 0.00094 trên một engine phục vụ đối chiếu một lượt forward tham chiếu, và token tệ nhất giảm từ 0.355 xuống 0.033. FP16 chỉ ở một phía không giúp. Precision là một đòn bẩy loại bỏ một nguyên nhân, và nó tốn khoảng số.
 
 ### When to reweight
 
-Truncated importance sampling weights each token by the ratio of the trainer probability to the engine probability and caps the ratio, with `--use-tis --tis-clip 2.0` as the manual's example. Use it for a gap you cannot remove: a low-precision rollout, where FP8 rounding has no kernel fix, or a mixture model after routing replay. Pair it with the step-0 check, so that the reweighting never hides a setup error.
+Truncated importance sampling đặt trọng số mỗi token bằng tỷ số xác suất trainer trên xác suất engine và giới hạn tỷ số, với `--use-tis --tis-clip 2.0` là ví dụ của tài liệu. Dùng nó cho một khoảng cách bạn không thể loại bỏ: một rollout precision thấp, nơi làm tròn FP8 không có cách sửa kernel, hoặc một mô hình hỗn hợp sau routing replay. Ghép nó với kiểm tra bước-0, để đặt lại trọng số không bao giờ giấu một lỗi thiết lập.
 
 ### How to run the comparison
 
-Same seed, same steps, one change per run, and the gap read at every step. A method that helps shows a lower gap on the same steps. A gap that grows after a change names the cause you added.
+Cùng seed, cùng bước, một thay đổi mỗi lần chạy, và khoảng cách được đọc ở mọi bước. Một phương pháp giúp cho thấy khoảng cách thấp hơn trên cùng các bước. Một khoảng cách tăng sau một thay đổi gọi tên nguyên nhân bạn thêm.
 
 ## Follow-ups
 
-- **Level 3:** Why does a reweighting add variance? Expected: tokens with a large ratio get a large weight, so a few tokens dominate the update; the cap limits that, but does not remove it.
-- **Level 3:** Replay needs both a top-k and a top-p set. Why is the top-k needed? Expected: the framework requires a positive top-k for replay, so a run with top-p alone changes the sampler without replaying the kept set.
-- **Level 4:** FP16 on the engine and BF16 on the trainer did not close the gap. Why? Expected: each side's own rounding sets a floor; the gap closes only when both sides round the same way, so the precision must match on both sides.
-- **Level 4:** When is the bit-exact mode the right answer, and when is it not available? Expected: when you need a gap of zero and your model and GPU are in its contract; it pins one attention kernel and batch-invariant operations for specific dense models on one GPU generation, and refuses the rest.
+- **Level 3:** Tại sao một cách đặt lại trọng số thêm variance? Expected: các token có tỷ số lớn nhận trọng số lớn, nên một vài token chi phối cập nhật; giới hạn hạn chế điều đó, nhưng không loại bỏ nó.
+- **Level 3:** Replay cần cả top-k và top-p được đặt. Tại sao cần top-k? Expected: framework yêu cầu top-k dương cho replay, nên một lần chạy chỉ top-p thay đổi bộ lấy mẫu mà không phát lại tập được giữ.
+- **Level 4:** FP16 trên engine và BF16 trên trainer không khép khoảng cách. Tại sao? Expected: sự làm tròn riêng mỗi phía đặt một sàn; khoảng cách chỉ khép khi cả hai phía làm tròn cùng cách, nên precision phải khớp ở cả hai phía.
+- **Level 4:** Khi nào chế độ chính xác từng bit là đáp án đúng, và khi nào nó không có sẵn? Expected: khi bạn cần một khoảng cách không và mô hình cùng GPU nằm trong hợp đồng của nó; nó ghim một kernel attention và các phép toán batch-invariant cho các mô hình dense cụ thể trên một thế hệ GPU, và từ chối phần còn lại.
 
 ## Wrong answers
 
-- "Turn on importance sampling first; it is cheap." It leaves every cause in place, adds variance, and hides a setup error that the step-0 check would show.
-- "The gap is a kernel artifact, so it never matters." The sampler part was measurable and removable, and a gap that grows after a change is a cause you added.
-- "Deterministic inference is a correction method." It makes the engine repeat itself and leaves the gap where it was; the manual's four runs show the same gap with it on and off.
+- "Bật importance sampling trước; nó rẻ." Nó để mọi nguyên nhân nguyên vẹn, thêm variance, và giấu một lỗi thiết lập mà kiểm tra bước-0 sẽ cho thấy.
+- "Khoảng cách là một tạo tác kernel, nên không bao giờ quan trọng." Phần bộ lấy mẫu đo được và loại bỏ được, và một khoảng cách tăng sau một thay đổi là một nguyên nhân bạn thêm.
+- "Suy luận xác định là một phương pháp hiệu chỉnh." Nó khiến engine lặp lại chính nó và để khoảng cách ở nguyên nơi nó có; bốn lần chạy của tài liệu cho thấy cùng khoảng cách khi bật và tắt nó.
 
 ## Taught in
 
-[Section 8.2 of Miles 101](../../../manuals/miles-101/sections/8-2-the-correction-methods.md) matches each correction to its cause, [section 4.4](../../../manuals/miles-101/sections/4-4-lower-the-logprob-gap.md) measures sampling replay, and [section 8.3](../../../manuals/miles-101/sections/8-3-why-true-on-policy-is-a-contract.md) measures the precision lever.
+[Phần 8.2 của Miles 101](../../../manuals/miles-101/sections/8-2-the-correction-methods.md) khớp mỗi hiệu chỉnh với nguyên nhân, [phần 4.4](../../../manuals/miles-101/sections/4-4-lower-the-logprob-gap.md) đo sampling replay, và [phần 8.3](../../../manuals/miles-101/sections/8-3-why-true-on-policy-is-a-contract.md) đo đòn bẩy precision.

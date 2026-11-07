@@ -16,11 +16,11 @@ related: [post-training/kl-penalty-purpose, post-training/reward-up-humans-flat]
 updated: 2026-11-03
 ---
 
-You need a reward model for a helpfulness objective. A product manager suggests asking raters to score each answer from one to ten and regressing on the scores. Why do most pipelines collect pairwise comparisons instead, and what loss do you train with?
+Bạn cần một reward model cho một mục tiêu tính hữu ích. Một quản lý sản phẩm gợi ý yêu cầu người đánh giá chấm mỗi câu trả lời từ một đến mười và hồi quy trên các điểm. Tại sao phần lớn pipeline thu thập các so sánh ghép cặp thay vào đó, và bạn huấn luyện với loss nào?
 
 ## Short answer
 
-People are poor at absolute scores and good at relative judgments, so pipelines show two answers to one prompt and ask which is better. The reward model is the SFT model with its vocabulary head replaced by a scalar head. It trains with the Bradley-Terry loss, the negative log of the sigmoid of the reward difference between the preferred and the rejected answer. The difference in reward becomes a log-odds of preference, which turns many relative judgments into one consistent scale.
+Con người kém về điểm tuyệt đối và tốt về phán xét tương đối, nên các pipeline cho thấy hai câu trả lời cho một prompt và hỏi câu nào tốt hơn. Reward model là mô hình SFT với head từ vựng được thay bằng một head vô hướng. Nó huấn luyện bằng Bradley-Terry loss, âm log của sigmoid của hiệu reward giữa câu trả lời được thích và câu bị loại. Hiệu reward trở thành một log-odds preference, biến nhiều phán xét tương đối thành một thang nhất quán.
 
 ## Full answer
 
@@ -30,37 +30,37 @@ People are poor at absolute scores and good at relative judgments, so pipelines 
 loss = -log( sigmoid( r(x, y_preferred) - r(x, y_rejected) ) )
 ```
 
-The sigmoid of the difference is the probability that the preferred answer wins. Training pushes the preferred reward up and the rejected reward down. The model reads the hidden state at the last position, because causal attention has seen the whole prompt and answer there, and projects it to one number.
+Sigmoid của hiệu là xác suất câu trả lời được thích thắng. Huấn luyện đẩy reward được thích lên và reward bị loại xuống. Mô hình đọc trạng thái ẩn ở vị trí cuối, vì attention nhân quả đã thấy toàn bộ prompt và câu trả lời ở đó, và chiếu nó thành một số.
 
 ### What accuracy to expect
 
-A random reward model ranks half of the pairs right. The reference pipeline in the RLHF lesson trained its reward model on 33,000 comparisons from 40 raters, about 5 minutes each, and reached about 72 percent accuracy on held-out pairs. That sounds low, but the raters agreed with each other about 73 percent of the time. That agreement estimates the noise in the labels. It is not a hard bound, but a score far above it is a reason to look for a leak.
+Một reward model ngẫu nhiên xếp đúng một nửa các cặp. Pipeline tham chiếu trong bài học RLHF huấn luyện reward model trên 33,000 so sánh từ 40 người đánh giá, khoảng 5 phút mỗi so sánh, và đạt độ chính xác khoảng 72 phần trăm trên các cặp giữ lại. Nghe có vẻ thấp, nhưng người đánh giá đồng ý với nhau khoảng 73 phần trăm thời gian. Sự đồng thuận đó ước lượng nhiễu trong các nhãn. Nó không phải một cận cứng, nhưng một điểm cao hơn nó nhiều là lý do tìm một rò rỉ.
 
 ### Noise in the labels
 
-Roughly 30 percent of human labels are noisy or ambiguous. Filter pairs by rater agreement, or add a temperature to the sigmoid. Pairs where both answers are bad still teach the model which one is less bad.
+Khoảng 30 phần trăm các nhãn con người nhiễu hoặc mơ hồ. Lọc các cặp theo đồng thuận người đánh giá, hoặc thêm một temperature vào sigmoid. Các cặp mà cả hai câu trả lời đều tệ vẫn dạy mô hình câu nào ít tệ hơn.
 
 ### Size
 
-A reward model that is too small cannot score the policy's outputs faithfully. The lesson's table lists a 6B reward model for a 175B policy in one pipeline, and a 52B reward model trained on 22,000 comparisons in another. Larger reward models gave more stable signals to the RL stage.
+Một reward model quá nhỏ không thể chấm trung thực các đầu ra policy. Bảng của bài học liệt kê một reward model 6B cho một policy 175B trong một pipeline, và một reward model 52B được huấn luyện trên 22,000 so sánh trong một pipeline khác. Các reward model lớn hơn cho tín hiệu ổn định hơn đến giai đoạn RL.
 
 ### Where the reward model lives later
 
-The same scalar head powers best-of-N sampling at decode time and the reward side of reasoning pipelines. It is the entry to the whole alignment stack.
+Cùng head vô hướng cung cấp sức mạnh cho lấy mẫu best-of-N lúc decode và phía reward của các pipeline suy luận. Nó là lối vào toàn bộ stack alignment.
 
 ## Follow-ups
 
-- **Level 2:** Why read the last token's hidden state and not a mean over positions? Expected: with a causal mask the last position has attended to the whole sequence, so it holds the most complete summary; mean pooling is an alternative worth a test.
-- **Level 2:** Your reward model ranks 90 percent of the test pairs right. Good news? Expected: suspicious; with rater agreement near 73 percent, that score suggests a leak or a shortcut such as length, so check what the model keys on.
-- **Level 3:** How do you turn comparisons into a reward for several criteria at once? Expected: one reward model per criterion, such as helpfulness and safety, combined with weights; a single model learns a blur of the criteria.
-- **Level 4:** Why does the reward model need protection from the policy later? Expected: it saw only in-distribution answers; a policy under optimization moves off that distribution and finds answers that score high for the wrong reasons, which is why the RL stage carries a KL penalty.
+- **Level 2:** Tại sao đọc trạng thái ẩn của token cuối và không phải trung bình trên các vị trí? Expected: với một mask nhân quả, vị trí cuối đã attend đến toàn bộ chuỗi, nên nó giữ bản tóm tắt đầy đủ nhất; mean pooling là một lựa chọn đáng kiểm thử.
+- **Level 2:** Reward model của bạn xếp đúng 90 phần trăm các cặp kiểm thử. Tin tốt? Expected: đáng nghi; với đồng thuận người đánh giá gần 73 phần trăm, điểm đó gợi ý một rò rỉ hoặc một lối tắt như độ dài, nên kiểm tra mô hình dựa vào gì.
+- **Level 3:** Bạn biến các so sánh thành một reward cho nhiều tiêu chí cùng lúc như thế nào? Expected: một reward model mỗi tiêu chí, như tính hữu ích và an toàn, được kết hợp với các trọng số; một mô hình đơn học một hỗn hợp mờ các tiêu chí.
+- **Level 4:** Tại sao reward model cần được bảo vệ khỏi policy sau đó? Expected: nó chỉ thấy các câu trả lời trong phân phối; một policy dưới tối ưu hóa rời phân phối đó và tìm các câu trả lời đạt điểm cao vì lý do sai, là lý do giai đoạn RL mang một KL penalty.
 
 ## Wrong answers
 
-- "Regress on a one-to-ten score; it is more information per label." Absolute scores drift between raters and sessions; a pairwise judgment is cheap and consistent, and the Bradley-Terry fit recovers a scale from it.
-- "72 percent accuracy means the reward model is broken." The raters agreed only about 73 percent of the time; the model is near the agreement of its labels.
-- "Use a small reward model to save compute." A reward model that cannot represent the policy's outputs gives a noisy signal, and the policy exploits its blind spots.
+- "Hồi quy trên một điểm một-đến-mười; đó là nhiều thông tin hơn mỗi nhãn." Các điểm tuyệt đối trôi giữa người đánh giá và phiên; một phán xét ghép cặp rẻ và nhất quán, và phép khớp Bradley-Terry khôi phục một thang từ nó.
+- "Độ chính xác 72 phần trăm có nghĩa reward model hỏng." Người đánh giá chỉ đồng ý khoảng 73 phần trăm thời gian; mô hình gần mức đồng thuận các nhãn của nó.
+- "Dùng một reward model nhỏ để tiết kiệm tính toán." Một reward model không thể biểu diễn các đầu ra policy cho một tín hiệu nhiễu, và policy khai thác các điểm mù của nó.
 
 ## Taught in
 
-The [RLHF lesson](../../../phases/10-llms-from-scratch/07-rlhf/) builds the reward model and its pairwise loss, and the [reward modeling lesson](../../../phases/09-reinforcement-learning/09-reward-modeling-rlhf/) places it in the full pipeline.
+[Bài học RLHF](../../../phases/10-llms-from-scratch/07-rlhf/) xây reward model và loss ghép cặp của nó, và [bài học reward modeling](../../../phases/09-reinforcement-learning/09-reward-modeling-rlhf/) đặt nó trong pipeline đầy đủ.

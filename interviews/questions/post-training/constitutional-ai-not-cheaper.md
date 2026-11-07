@@ -16,47 +16,47 @@ related: [post-training/reward-model-pairwise]
 updated: 2026-11-03
 ---
 
-Your rater budget is gone. A colleague proposes to replace the human labelers with a model that reads a short list of principles and ranks the pairs, and to run the same RLHF pipeline on those labels. Is this just a cheaper RLHF? What changes?
+Ngân sách người đánh giá của bạn đã hết. Một đồng nghiệp đề xuất thay những người gán nhãn bằng một mô hình đọc một danh sách nguyên tắc ngắn và xếp hạng các cặp, và chạy cùng pipeline RLHF trên các nhãn đó. Đây có phải chỉ là RLHF rẻ hơn? Điều gì thay đổi?
 
 ## Short answer
 
-It is the constitutional recipe, and it changes the failure modes rather than removing them. Phase one has the model critique and revise its own answers against sampled principles and trains on the revisions; phase two trains a reward model on pairs ranked by a feedback model and runs the usual RL stage. Rater psychology stops being the bias, and the reading of the principle set becomes the bias, applied uniformly over the whole dataset. Sycophancy toward a rater drops, and the proxy problem stays.
+Đó là công thức constitutional, và nó thay đổi các chế độ lỗi thay vì loại bỏ chúng. Pha một để mô hình phê bình và sửa các câu trả lời riêng theo các nguyên tắc lấy mẫu và huấn luyện trên các bản sửa; pha hai huấn luyện một reward model trên các cặp được một mô hình phản hồi xếp hạng và chạy giai đoạn RL thông thường. Tâm lý người đánh giá ngừng là bias, và cách đọc tập nguyên tắc trở thành bias, được áp dụng đồng nhất trên toàn bộ tập dữ liệu. Sự xu nịnh với một người đánh giá giảm, và vấn đề proxy ở lại.
 
 ## Full answer
 
 ### The two phases
 
-1. Self-critique and revision. Start from a helpful but not yet harmless SFT model. For a red-team prompt, the model writes an answer, a second pass reads one sampled principle and critiques the answer, and a third pass revises it. The revision is the SFT target. The original work used 16 principles and kept the set small so that critiques stay focused.
-2. RL from AI feedback. Generate pairs, let a feedback model rank them against sampled principles, train a reward model on those rankings, and run PPO against it. Everything after the label is the standard pipeline.
+1. Tự phê bình và sửa đổi. Bắt đầu từ một mô hình SFT hữu ích nhưng chưa vô hại. Với một prompt red-team, mô hình viết một câu trả lời, lượt thứ hai đọc một nguyên tắc lấy mẫu và phê bình câu trả lời, và lượt thứ ba sửa nó. Bản sửa là mục tiêu SFT. Công trình gốc dùng 16 nguyên tắc và giữ tập nhỏ để các phê bình tập trung.
+2. RL từ phản hồi AI. Sinh các cặp, để một mô hình phản hồi xếp hạng chúng theo các nguyên tắc lấy mẫu, huấn luyện một reward model trên các thứ hạng đó, và chạy PPO theo nó. Mọi thứ sau nhãn là pipeline tiêu chuẩn.
 
 ### Why it is not only cheaper
 
-- The bias moves. A human rater is inconsistent and pleased by agreement; a feedback model applies one reading of a principle to every pair, strict or loose, but uniform.
-- The signal is legible. You can read the principle, the critique and the revision for any example; human labels are opaque.
-- Goodhart stays. The proxy is now a model's reading of the principle set, still an imperfect measure, so over-optimization against it is still possible.
-- The labeler is the same class of model you train, so a bias in it can be amplified rather than averaged out.
+- Bias di chuyển. Một người đánh giá không nhất quán và hài lòng bởi đồng ý; một mô hình phản hồi áp dụng một cách đọc nguyên tắc cho mọi cặp, nghiêm hoặc lỏng, nhưng đồng nhất.
+- Tín hiệu đọc được. Bạn có thể đọc nguyên tắc, phê bình và bản sửa cho bất kỳ ví dụ nào; các nhãn con người không rõ.
+- Goodhart ở lại. Proxy giờ là cách đọc tập nguyên tắc của một mô hình, vẫn là một thước đo không hoàn hảo, nên tối ưu hóa quá mức theo nó vẫn có thể.
+- Bên gán nhãn là cùng lớp mô hình bạn huấn luyện, nên một bias trong nó có thể được khuếch đại thay vì được lấy trung bình triệt tiêu.
 
 ### What the original work claimed
 
-The trained model was more harmless and about as helpful as an RLHF model with comparable data. That result has held across labs.
+Mô hình được huấn luyện vô hại hơn và hữu ích gần bằng một mô hình RLHF với dữ liệu tương đương. Kết quả đó đã giữ qua các phòng thí nghiệm.
 
 ### A gate next to the training
 
-A parallel defense trains light classifiers that read the same principles and gate the outputs. The first version cost 23.7 percent extra compute; the later version about 1 percent. Training shapes behavior and classifiers enforce invariants; neither one is enough alone.
+Một phòng vệ song song huấn luyện các bộ phân loại nhẹ đọc cùng các nguyên tắc và kiểm soát các đầu ra. Phiên bản đầu tốn thêm 23.7 phần trăm tính toán; phiên bản sau khoảng 1 phần trăm. Huấn luyện định hình hành vi và các bộ phân loại thực thi các bất biến; không bên nào đủ khi riêng lẻ.
 
 ## Follow-ups
 
-- **Level 2:** Why does the recipe sample one principle per critique instead of giving the model the whole list? Expected: a focused critique is more specific and more useful as a training target; the list as a whole is covered over many samples.
-- **Level 2:** Which parts of the pipeline change and which stay? Expected: the label source and the SFT targets change; the reward model, the RL stage and the KL penalty stay.
-- **Level 3:** Name a sycophancy-like failure that still occurs with an AI labeler, and a check for it. Expected: the feedback model can prefer answers that quote the principles without following them; rate a held-out set with people and compare the two rankings.
-- **Level 4:** How do you argue for a priority order among principles? Expected: conflicts between principles need a resolution rule; a tiered order resolves them top-down, from catastrophic harm to platform rules to general ethics to helpfulness.
+- **Level 2:** Tại sao công thức lấy mẫu một nguyên tắc mỗi phê bình thay vì cho mô hình toàn bộ danh sách? Expected: một phê bình tập trung cụ thể hơn và hữu ích hơn làm mục tiêu huấn luyện; toàn bộ danh sách được bao phủ qua nhiều mẫu.
+- **Level 2:** Các phần nào của pipeline thay đổi và các phần nào giữ nguyên? Expected: nguồn nhãn và các mục tiêu SFT thay đổi; reward model, giai đoạn RL và KL penalty giữ nguyên.
+- **Level 3:** Nêu một lỗi giống xu nịnh vẫn xảy ra với một bên gán nhãn AI, và một kiểm tra cho nó. Expected: mô hình phản hồi có thể thích các câu trả lời trích nguyên tắc mà không theo chúng; để người đánh giá một tập giữ lại và so sánh hai thứ hạng.
+- **Level 4:** Bạn lập luận cho một thứ tự ưu tiên giữa các nguyên tắc như thế nào? Expected: các xung đột giữa nguyên tắc cần một quy tắc giải quyết; một thứ tự theo tầng giải quyết từ trên xuống, từ tác hại thảm họa đến các quy tắc nền tảng đến đạo đức chung đến tính hữu ích.
 
 ## Wrong answers
 
-- "The labels are free now, so collect ten times more pairs." More pairs with the same uniform bias make the bias stronger, not weaker; the volume gain does not fix the proxy.
-- "An AI labeler removes human bias from alignment." It replaces rater bias with principle-interpretation bias; the principles and the labeler's reading of them are now the proxy.
-- "This is only a safety trick; it does not touch helpfulness." The original work reports about the same helpfulness as RLHF with comparable data, and the same critique loop can target any principle you write.
+- "Các nhãn giờ miễn phí, nên thu thập nhiều cặp hơn gấp mười." Nhiều cặp hơn với cùng bias đồng nhất làm bias mạnh hơn, không yếu hơn; mức tăng khối lượng không sửa proxy.
+- "Một bên gán nhãn AI loại bỏ bias con người khỏi alignment." Nó thay bias người đánh giá bằng bias diễn giải nguyên tắc; các nguyên tắc và cách đọc của bên gán nhãn giờ là proxy.
+- "Đây chỉ là một thủ thuật an toàn; nó không chạm tính hữu ích." Công trình gốc báo cáo tính hữu ích gần bằng RLHF với dữ liệu tương đương, và cùng vòng lặp phê bình có thể nhắm bất kỳ nguyên tắc nào bạn viết.
 
 ## Taught in
 
-The [Constitutional AI lesson](../../../phases/18-ethics-safety-alignment/05-constitutional-ai-rlaif/) walks both phases and the shift in failure modes, and the [reward modeling lesson](../../../phases/09-reinforcement-learning/09-reward-modeling-rlhf/) places RLAIF among the sources of a preference signal.
+[Bài học Constitutional AI](../../../phases/18-ethics-safety-alignment/05-constitutional-ai-rlaif/) trình bày cả hai pha và dịch chuyển các chế độ lỗi, và [bài học reward modeling](../../../phases/09-reinforcement-learning/09-reward-modeling-rlhf/) đặt RLAIF giữa các nguồn của một tín hiệu preference.

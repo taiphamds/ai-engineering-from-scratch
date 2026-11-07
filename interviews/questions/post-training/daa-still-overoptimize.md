@@ -16,51 +16,51 @@ related: [post-training/dpo-chosen-logprob-falls, post-training/reward-up-humans
 updated: 2026-11-03
 ---
 
-A staff engineer argues that moving every alignment run from PPO to direct preference methods ends the reward-hacking problem, because there is no reward model left to hack. Make the counter-argument with the mechanism, and say what survives in your pipeline either way.
+Một kỹ sư staff lập luận rằng chuyển mọi lần chạy alignment từ PPO sang các phương pháp preference trực tiếp kết thúc vấn đề reward hacking, vì không còn reward model để hack. Đưa ra phản biện với cơ chế, và nói điều gì ở lại trong pipeline của bạn theo cả hai cách.
 
 ## Short answer
 
-Direct methods remove the explicit reward model, not the proxy. The quantity they optimize is the log ratio of policy to reference, an implicit reward that the preference data pins down only where the data has coverage. Under optimization the policy queries that ratio out of distribution, and the published curves of gold reward against KL show the same peak and then collapse as reward-model pipelines, with the KL regularization failing to stabilize it. What survives: a blind held-out eval, early stopping, broader preference data, and ensembles of signals.
+Các phương pháp trực tiếp loại bỏ reward model tường minh, không phải proxy. Đại lượng chúng tối ưu là tỷ số log của policy trên reference, một reward ngầm mà dữ liệu preference chỉ cố định ở nơi dữ liệu có bao phủ. Dưới tối ưu hóa, policy truy vấn tỷ số đó ngoài phân phối, và các đường cong đã công bố của gold reward theo KL cho thấy cùng đỉnh rồi sụp như các pipeline reward-model, với KL regularization không ổn định được nó. Những gì ở lại: một đánh giá giữ lại mù, early stopping, dữ liệu preference rộng hơn, và các ensemble tín hiệu.
 
 ## Full answer
 
 ### The mechanism
 
-DPO rewrites the reward as beta times the log ratio of policy to reference. That function is fit from pairs, and it is constrained only on the pairs. Everywhere else its value is whatever the parameterization implies. As the policy moves to raise the margin, it samples from regions no pair covered, where the implicit reward is arbitrary. The study of scaling laws for over-optimization in direct alignment trained policies across KL budgets and found the same shape as reward-model over-optimization: the gold reward rises, peaks, and falls as the KL grows.
+DPO viết lại reward thành beta nhân tỷ số log của policy trên reference. Hàm đó được khớp từ các cặp, và chỉ bị ràng buộc trên các cặp. Mọi nơi khác, giá trị của nó là bất cứ thứ gì cách tham số hóa hàm ý. Khi policy di chuyển để tăng margin, nó lấy mẫu từ những vùng không cặp nào bao phủ, nơi reward ngầm tùy ý. Nghiên cứu quy luật scale cho tối ưu hóa quá mức trong direct alignment huấn luyện các policy qua các ngân sách KL và tìm thấy cùng hình dạng như tối ưu hóa quá mức reward-model: gold reward tăng, đạt đỉnh, và giảm khi KL tăng.
 
 ### Where Goodhart bites now
 
-In the PPO stack the proxy is a trained reward model. In the direct stack the proxy is the ratio against the reference. The failures look different: the degraded chosen response, where the chosen answer loses probability while the margin grows; length exploitation, where a longer winner pads the gap; arbitrary rewards on pairs that are rare under the reference. They are one disease in a different organ.
+Trong stack PPO, proxy là một reward model được huấn luyện. Trong stack trực tiếp, proxy là tỷ số đối chiếu reference. Các lỗi trông khác nhau: phản hồi chosen suy giảm, nơi câu trả lời chosen mất xác suất trong khi margin tăng; khai thác độ dài, nơi một bên thắng dài hơn đệm khoảng cách; reward tùy ý trên các cặp hiếm dưới reference. Chúng là một bệnh trong một cơ quan khác.
 
 ### Why the KL does not save it
 
-In PPO the KL term is explicit and tunable, and an adaptive controller holds it near a target. In DPO the anchor is structural: the sigmoid saturates as the ratio grows. The study's result is that this structural regularization does not stop the collapse. Beta changes the speed, not the shape.
+Trong PPO, số hạng KL tường minh và điều chỉnh được, và một bộ điều khiển thích nghi giữ nó gần một mục tiêu. Trong DPO, neo mang tính cấu trúc: sigmoid bão hòa khi tỷ số tăng. Kết quả nghiên cứu là regularization cấu trúc này không dừng sự sụp. Beta thay tốc độ, không phải hình dạng.
 
 ### What survives in any pipeline
 
-- A blind, held-out human or trusted-judge eval on a fixed prompt set, read at every checkpoint. It is the one signal the policy cannot game.
-- Early stopping on that eval, not on the training margin.
-- Data: coverage of the regions the policy drifts into, collected from the current policy's samples.
-- Ensembles: several reward signals or several losses on one battery, because one exploit rarely fits all of them.
-- Logs of the absolute chosen log-probability and of the KL to the reference, so that the drift is visible before the eval falls.
+- Một đánh giá con người hoặc giám khảo tin cậy mù, giữ lại trên một tập prompt cố định, được đọc ở mọi checkpoint. Đó là tín hiệu duy nhất policy không thể chơi.
+- Early stopping trên đánh giá đó, không phải trên margin huấn luyện.
+- Dữ liệu: bao phủ các vùng policy trôi vào, được thu thập từ các mẫu của policy hiện tại.
+- Ensemble: nhiều tín hiệu reward hoặc nhiều loss trên một bộ kiểm tra, vì một cách khai thác hiếm khi phù hợp tất cả.
+- Log của log xác suất chosen tuyệt đối và KL đến reference, để sự trôi nhìn thấy trước khi đánh giá giảm.
 
 ### The honest version of the claim
 
-Direct methods do remove a model to train and host, PPO's instability, and the class of exploits that live in reward model weights. They are the default for most frontier post-training runs for those reasons. They do not remove the need to guard against over-optimization, so the guard moves into the pipeline design.
+Các phương pháp trực tiếp thực sự loại bỏ một mô hình để huấn luyện và host, sự không ổn định của PPO, và lớp khai thác nằm trong các trọng số reward model. Chúng là mặc định cho phần lớn các lần chạy post-training tiên phong vì những lý do đó. Chúng không loại bỏ nhu cầu bảo vệ chống tối ưu hóa quá mức, nên biện pháp bảo vệ chuyển vào thiết kế pipeline.
 
 ## Follow-ups
 
-- **Level 3:** What does DPO remove from the PPO stack, concretely? Expected: a reward model to train and host, the PPO loop with its clip and value head, and an explicit KL coefficient; it keeps the frozen reference.
-- **Level 4:** Which variant bounds the gap, and what does that buy against this failure? Expected: the identity-mapping loss, whose margin target is one over two beta; it stops a weak preference from producing an unbounded implicit reward, which removes one path to collapse but not the out-of-distribution query.
-- **Level 4:** How do you detect over-optimization without a gold reward? Expected: a held-out eval with generation, the absolute chosen log-probability, the KL to the reference, and a comparison across checkpoints; a margin that grows while the eval falls is the signature.
-- **Level 4:** Does iterating, with fresh pairs from the current policy each round, help? Expected: yes, it moves the data coverage to where the policy lives, which is what the reference-ratio proxy lacks; it also reintroduces an online loop that needs its own stop rule.
+- **Level 3:** Cụ thể DPO loại bỏ gì khỏi stack PPO? Expected: một reward model để huấn luyện và host, vòng lặp PPO với clip và value head, và một hệ số KL tường minh; nó giữ reference đóng băng.
+- **Level 4:** Biến thể nào chặn khoảng cách, và điều đó mang lại gì chống lỗi này? Expected: loss ánh xạ đồng nhất, có mục tiêu margin là một chia hai beta; nó ngăn một preference yếu tạo một reward ngầm không giới hạn, loại bỏ một đường đến sụp nhưng không phải truy vấn ngoài phân phối.
+- **Level 4:** Bạn phát hiện tối ưu hóa quá mức không có gold reward như thế nào? Expected: một đánh giá giữ lại có sinh, log xác suất chosen tuyệt đối, KL đến reference, và một so sánh giữa các checkpoint; một margin tăng trong khi đánh giá giảm là dấu hiệu.
+- **Level 4:** Lặp, với các cặp mới từ policy hiện tại mỗi vòng, có giúp không? Expected: có, nó di chuyển độ bao phủ dữ liệu đến nơi policy sống, là điều proxy tỷ số reference thiếu; nó cũng đưa lại một vòng lặp online cần quy tắc dừng riêng.
 
 ## Wrong answers
 
-- "No reward model means nothing to hack." The implicit reward is a function the data pins down only on the pairs; the policy can push it anywhere else.
-- "The structural KL in DPO is enough regularization." The published curves show the same peak and collapse across KL budgets; beta changes the speed, not the shape.
-- "Use a smaller beta so the policy learns faster and you can stop earlier." A smaller beta lets the policy move further from the reference per unit of margin, which is the direction of the failure.
+- "Không có reward model có nghĩa không có gì để hack." Reward ngầm là một hàm dữ liệu chỉ cố định trên các cặp; policy có thể đẩy nó ở bất kỳ nơi khác.
+- "KL cấu trúc trong DPO đủ regularization." Các đường cong đã công bố cho thấy cùng đỉnh và sụp qua các ngân sách KL; beta thay tốc độ, không phải hình dạng.
+- "Dùng beta nhỏ hơn để policy học nhanh hơn và bạn có thể dừng sớm hơn." Một beta nhỏ hơn để policy di chuyển xa reference hơn mỗi đơn vị margin, là hướng của lỗi.
 
 ## Taught in
 
-The [DPO family lesson](../../../phases/18-ethics-safety-alignment/03-direct-preference-optimization-family/) states the universal over-optimization result and the fixes that transfer, and the [reward modeling lesson](../../../phases/09-reinforcement-learning/09-reward-modeling-rlhf/) lists the over-optimization guards that every pipeline keeps.
+[Bài học họ DPO](../../../phases/18-ethics-safety-alignment/03-direct-preference-optimization-family/) nêu kết quả tối ưu hóa quá mức phổ quát và các cách sửa chuyển được, và [bài học reward modeling](../../../phases/09-reinforcement-learning/09-reward-modeling-rlhf/) liệt kê các biện pháp bảo vệ tối ưu hóa quá mức mà mọi pipeline giữ.

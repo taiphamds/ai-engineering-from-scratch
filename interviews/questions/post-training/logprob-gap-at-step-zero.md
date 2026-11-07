@@ -16,56 +16,56 @@ related: [post-training/grpo-groups-teach-nothing]
 updated: 2026-11-03
 ---
 
-You start a GRPO run with a new model checkpoint. At step 0, the metric that compares the trainer's log-probabilities with the rollout engine's reads several times higher than on your earlier runs with the same model family. A colleague suggests turning on the engine's deterministic mode to close it. What do you do?
+Bạn bắt đầu một lần chạy GRPO với một checkpoint mô hình mới. Ở bước 0, chỉ số so sánh các log xác suất của trainer với của engine rollout đọc cao gấp nhiều lần các lần chạy trước với cùng họ mô hình. Một đồng nghiệp đề xuất bật chế độ xác định của engine để khép nó. Bạn làm gì?
 
 ## Short answer
 
-Stop the run before it trains on wrong numbers. At step 0 both sides hold the same weights, so a value far above your healthy range means the two sides do not compute the same model: a wrong checkpoint path on one side, or a format that one side reads differently. Deterministic inference does not help; in the manual's runs it left the gap unchanged at about 0.015 and made the engine repeat itself, which is a different property. Fix the setup, then compare the step-0 value with the range of your healthy runs.
+Dừng lần chạy trước khi nó huấn luyện trên các con số sai. Ở bước 0, cả hai phía giữ cùng trọng số, nên một giá trị vượt xa khoảng khỏe mạnh có nghĩa hai phía không tính cùng mô hình: một đường dẫn checkpoint sai ở một phía, hoặc một định dạng một phía đọc khác. Suy luận xác định không giúp; trong các lần chạy của tài liệu nó để khoảng cách không đổi ở khoảng 0.015 và khiến engine lặp lại chính nó, là một thuộc tính khác. Sửa thiết lập, rồi so sánh giá trị bước-0 với khoảng các lần chạy khỏe mạnh.
 
 ## Full answer
 
 ### What step 0 proves
 
-No training has happened yet. The trainer scores the sampled tokens with the weights the engine used, so every difference comes from the setup. Two values must be exactly 0 at step 0: `train/ppo_kl`, the KL between the trainer's old and new probabilities, and `train/pg_clipfrac`, the share of clipped tokens. The gap itself, `train/train_rollout_logprob_abs_diff`, is never 0 outside the bit-exact mode, because the two sides run different kernels. It must still sit inside your range.
+Chưa có huấn luyện xảy ra. Trainer chấm các token được lấy mẫu bằng trọng số engine đã dùng, nên mọi khác biệt đến từ thiết lập. Hai giá trị phải chính xác bằng 0 ở bước 0: `train/ppo_kl`, KL giữa các xác suất cũ và mới của trainer, và `train/pg_clipfrac`, tỷ phần các token bị clip. Bản thân khoảng cách, `train/train_rollout_logprob_abs_diff`, không bao giờ bằng 0 ngoài chế độ chính xác từng bit, vì hai phía chạy các kernel khác nhau. Nó vẫn phải nằm trong khoảng của bạn.
 
 ### The ranges in the manual
 
-| Setup | Gap at step 0 |
+| Thiết lập | Khoảng cách ở bước 0 |
 |---|---|
-| Qwen3-0.6B, plain sampling, 17 runs | 0.0148 to 0.0157 |
-| Qwen3-0.6B, top-p 0.95 and top-k 64 | 0.0136 |
+| Qwen3-0.6B, lấy mẫu thông thường, 17 lần chạy | 0.0148 đến 0.0157 |
+| Qwen3-0.6B, top-p 0.95 và top-k 64 | 0.0136 |
 | Qwen3-1.7B | 0.0109 |
 
-The gap depends on the model and the sampler, so build the range from your own seeds. A value several times the range points at the model, not at the kernels.
+Khoảng cách phụ thuộc mô hình và bộ lấy mẫu, nên xây khoảng từ các seed riêng của bạn. Một giá trị gấp nhiều lần khoảng chỉ đến mô hình, không phải kernel.
 
 ### Why deterministic mode is the wrong tool
 
-Deterministic inference makes the engine give the same result for a request, whatever the batch around it. In four 12-step runs with one seed, the median gap was 0.01526 with the default engine and 0.01518, 0.01520 and 0.01515 with deterministic kernels on two attention backends. Two deterministic runs repeated the step-0 gap to six decimal places, 0.015404. So the mode buys repeatability, not agreement, and it cost 40 to 45 percent more rollout time on clean steps.
+Suy luận xác định khiến engine cho cùng kết quả cho một yêu cầu, bất kể batch quanh nó. Trong bốn lần chạy 12 bước với một seed, khoảng cách trung vị là 0.01526 với engine mặc định và 0.01518, 0.01520 và 0.01515 với các kernel xác định trên hai backend attention. Hai lần chạy xác định lặp khoảng cách bước-0 đến sáu chữ số thập phân, 0.015404. Vì vậy chế độ mang lại khả năng lặp, không phải đồng thuận, và nó tốn thời gian rollout nhiều hơn 40 đến 45 phần trăm trên các bước sạch.
 
 ### The checks, in order
 
-1. The checkpoint paths of both sides. With the trainer the manual uses, both sides load from one argument; a split layout or a low-precision engine loads two files, and they must hold the same model.
-2. The model format: a conversion step that one side applies and the other does not.
-3. The weight equality check on a two-step run after the first update, with the quantization tolerance on when the engine runs in low precision.
-4. The sampler. A top-p or top-k setting on one run and not on the other moves the gap, as the table shows.
+1. Các đường dẫn checkpoint của cả hai phía. Với trainer tài liệu dùng, cả hai phía nạp từ một đối số; một bố trí tách hoặc một engine precision thấp nạp hai file, và chúng phải giữ cùng mô hình.
+2. Định dạng mô hình: một bước chuyển đổi mà một phía áp dụng và phía kia không.
+3. Kiểm tra bằng nhau trọng số trên một lần chạy hai bước sau cập nhật đầu tiên, với dung sai lượng tử hóa bật khi engine chạy precision thấp.
+4. Bộ lấy mẫu. Một thiết lập top-p hoặc top-k trên một lần chạy và không trên lần khác di chuyển khoảng cách, như bảng cho thấy.
 
 ### What a healthy gap does over a run
 
-It stays flat. In the manual's three baseline seeds, every step over 48 steps stayed between 0.0136 and 0.0164, and the KL between the two sides stayed between 0.00063 and 0.00076. A gap that jumps and stays high after a weight update means the two sides no longer hold the same weights.
+Nó giữ phẳng. Trong ba seed baseline của tài liệu, mọi bước qua 48 bước giữ giữa 0.0136 và 0.0164, và KL giữa hai phía giữ giữa 0.00063 và 0.00076. Một khoảng cách nhảy và giữ cao sau một cập nhật trọng số có nghĩa hai phía không còn giữ cùng trọng số.
 
 ## Follow-ups
 
-- **Level 3:** Why is the gap never zero in a normal run? Expected: the two sides add the same numbers in a different order, with different kernels; across many layers and a large vocabulary the rounding adds up.
-- **Level 3:** What does the deterministic mode buy, then? Expected: the same rollout for the same seed, which is what you need to test a reward function on identical samples.
-- **Level 4:** Which levers move the floor of the gap itself? Expected: the precision on both sides, the tensor-parallel size of the engine, and kernels that add in one fixed order; each costs speed or work.
-- **Level 4:** The gap is fine at step 0 and grows step after step. What is different from the step-0 failure? Expected: the weights diverge after updates, so the weight update path is the suspect, not the checkpoint; read the update logs and run the weight equality check.
+- **Level 3:** Tại sao khoảng cách không bao giờ bằng không trong một lần chạy bình thường? Expected: hai phía cộng cùng các số theo một thứ tự khác, với các kernel khác; qua nhiều lớp và một từ vựng lớn, làm tròn cộng dồn.
+- **Level 3:** Vậy chế độ xác định mang lại gì? Expected: cùng rollout cho cùng seed, là điều bạn cần để kiểm thử một hàm reward trên các mẫu giống hệt.
+- **Level 4:** Các đòn bẩy nào di chuyển sàn của chính khoảng cách? Expected: precision ở cả hai phía, kích thước tensor-parallel của engine, và các kernel cộng theo một thứ tự cố định; mỗi đòn bẩy tốn tốc độ hoặc công việc.
+- **Level 4:** Khoảng cách ổn ở bước 0 và tăng bước này sau bước khác. Điều gì khác với lỗi bước-0? Expected: trọng số phân kỳ sau các cập nhật, nên đường cập nhật trọng số là bên bị nghi, không phải checkpoint; đọc log cập nhật và chạy kiểm tra bằng nhau trọng số.
 
 ## Wrong answers
 
-- "Turn on deterministic inference to close the gap." The manual's four runs show the same gap with and without it; it makes the engine repeat itself and costs rollout time.
-- "A gap is normal; keep training and watch the reward." A step-0 value several times the healthy range means the trainer scores a different model than the one that sampled, so the run trains on wrong numbers from the first update.
-- "Add an importance-sampling correction." A reweighting hides a gap that comes from a setup error; remove the cause first.
+- "Bật suy luận xác định để khép khoảng cách." Bốn lần chạy của tài liệu cho thấy cùng khoảng cách có và không có nó; nó khiến engine lặp lại chính nó và tốn thời gian rollout.
+- "Một khoảng cách là bình thường; tiếp tục huấn luyện và theo dõi reward." Một giá trị bước-0 gấp nhiều lần khoảng khỏe mạnh có nghĩa trainer chấm một mô hình khác với mô hình đã lấy mẫu, nên lần chạy huấn luyện trên các con số sai từ cập nhật đầu.
+- "Thêm một hiệu chỉnh importance-sampling." Một cách đặt lại trọng số giấu một khoảng cách đến từ một lỗi thiết lập; loại bỏ nguyên nhân trước.
 
 ## Taught in
 
-[Section 5.2 of Miles 101](../../../manuals/miles-101/sections/5-2-check-the-first-step.md) gives the step-0 checks and ranges, [section 4.5](../../../manuals/miles-101/sections/4-5-use-deterministic-inference.md) measures what the deterministic mode does and does not fix, and [section 7.1](../../../manuals/miles-101/sections/7-1-troubleshoot-by-symptom.md) lists the symptom.
+[Phần 5.2 của Miles 101](../../../manuals/miles-101/sections/5-2-check-the-first-step.md) đưa ra các kiểm tra và khoảng bước-0, [phần 4.5](../../../manuals/miles-101/sections/4-5-use-deterministic-inference.md) đo chế độ xác định làm gì và không sửa gì, và [phần 7.1](../../../manuals/miles-101/sections/7-1-troubleshoot-by-symptom.md) liệt kê triệu chứng.

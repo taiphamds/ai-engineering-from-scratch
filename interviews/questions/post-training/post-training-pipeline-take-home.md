@@ -16,65 +16,65 @@ related: [post-training/dpo-or-rlhf, post-training/qlora-on-one-gpu, post-traini
 updated: 2026-11-03
 ---
 
-Take-home. A company wants a support assistant built from an open 8B base model. They have about 50,000 past support conversations with customer ratings, two 24 GB GPUs, and three weeks. Write the post-training plan on one page: the stages, the data for each stage, the settings you start from, what you measure after each stage, and the three failure modes you guard against.
+Bài làm ở nhà. Một công ty muốn một trợ lý hỗ trợ được xây từ một mô hình nền 8B mở. Họ có khoảng 50,000 cuộc hội thoại hỗ trợ trước có đánh giá khách hàng, hai GPU 24 GB, và ba tuần. Viết kế hoạch post-training trên một trang: các giai đoạn, dữ liệu cho mỗi giai đoạn, các thiết lập bạn bắt đầu từ, những gì bạn đo sau mỗi giai đoạn, và ba chế độ lỗi bạn bảo vệ chống.
 
 ## Short answer
 
-Three stages: first, SFT with QLoRA on the top-rated conversations in one chat template with the loss masked to the assistant turns, at a low learning rate for one to three epochs with a few percent of raw text mixed in, measured by held-out instruction loss, raw-text drift and a sample read. Second, DPO against the SFT checkpoint as the frozen reference, on pairs built from high- and low-rated answers to the same prompt with a conservative beta, measured by a blind pairwise eval and the absolute chosen log-probability, not the training margin. Third, a release gate: a fixed prompt set rated blind, a refusal set, and a comparison with the base model on tasks the data never covered. The guards are catastrophic forgetting, length and agreement exploits in the ratings, and over-optimization of the preference proxy.
+Ba giai đoạn: đầu tiên, SFT với QLoRA trên các cuộc hội thoại được đánh giá cao nhất trong một mẫu chat với loss được mask đến các lượt assistant, ở learning rate thấp trong một đến ba epoch với vài phần trăm văn bản thô trộn vào, được đo bằng instruction loss giữ lại, sự trôi văn bản thô và đọc một mẫu. Thứ hai, DPO đối chiếu checkpoint SFT làm reference đóng băng, trên các cặp được xây từ các câu trả lời đánh giá cao và thấp cho cùng prompt với một beta thận trọng, được đo bằng một đánh giá ghép cặp mù và log xác suất chosen tuyệt đối, không phải margin huấn luyện. Thứ ba, một cổng phát hành: một tập prompt cố định được chấm mù, một tập từ chối, và một so sánh với mô hình nền trên các tác vụ dữ liệu chưa bao phủ. Các biện pháp bảo vệ là quên thảm họa, khai thác độ dài và đồng ý trong các đánh giá, và tối ưu hóa quá mức proxy preference.
 
 ## Full answer
 
 ### Stage 0: data
 
-- Convert every conversation into one chat template, with a fixed system prompt.
-- SFT set: the top-rated answers, filtered for length, vocabulary diversity and a clean instruction-to-answer ratio. Tens of thousands of clean examples are enough; the reference SFT stage in the lesson used about 27,000.
-- Preference set: for prompts with both a high-rated and a low-rated answer, build prompt, chosen and rejected triples. Where the data is thin, sample the rejected side from the SFT model, so that the pairs are in-distribution for the reference. A rater or a judge must confirm that each sampled answer is worse than the chosen one before it becomes a pair, because the SFT model trained on top-rated answers and its samples can be as good. Aim for the 5,000 to 20,000 pairs where DPO works well.
-- A blind eval set of prompts never used in training, plus a forgetting set of tasks outside support, such as short code and arithmetic.
+- Chuyển mọi cuộc hội thoại thành một mẫu chat, với một system prompt cố định.
+- Tập SFT: các câu trả lời được đánh giá cao nhất, được lọc theo độ dài, đa dạng từ vựng và một tỷ lệ instruction-trên-câu trả lời sạch. Hàng chục nghìn ví dụ sạch là đủ; giai đoạn SFT tham chiếu trong bài học dùng khoảng 27,000.
+- Tập preference: với các prompt có cả câu trả lời đánh giá cao và thấp, xây các bộ ba prompt, chosen và rejected. Nơi dữ liệu mỏng, lấy mẫu phía rejected từ mô hình SFT, để các cặp nằm trong phân phối cho reference. Một người đánh giá hoặc giám khảo phải xác nhận mỗi câu trả lời lấy mẫu tệ hơn chosen trước khi nó thành một cặp, vì mô hình SFT được huấn luyện trên các câu trả lời được đánh giá cao nhất và các mẫu của nó có thể tốt tương đương. Nhắm đến 5,000 đến 20,000 cặp nơi DPO hoạt động tốt.
+- Một tập prompt đánh giá mù chưa bao giờ dùng trong huấn luyện, cộng một tập quên của các tác vụ ngoài hỗ trợ, như mã ngắn và số học.
 
 ### Stage 1: SFT with QLoRA
 
-Two 24 GB cards cannot hold a full update of this model; a 7B full update needs about 56 GB with gradients and optimizer states. QLoRA keeps the base in 4-bit and trains adapters of rank 16 on the attention projections in about 6 GB, so each card runs its own experiment.
+Hai card 24 GB không thể chứa một cập nhật đầy đủ của mô hình này; một cập nhật đầy đủ 7B cần khoảng 56 GB với gradient và trạng thái bộ tối ưu. QLoRA giữ bản nền trong 4-bit và huấn luyện các adapter rank 16 trên các phép chiếu attention trong khoảng 6 GB, nên mỗi card chạy thí nghiệm riêng.
 
-Start from: the lesson's SFT learning rate of 2e-5 for a full update, with a higher rate for adapters as the LoRA lesson's trainer shows; one to three epochs; 2 to 5 percent raw pretraining text mixed into the batches.
+Bắt đầu từ: learning rate SFT 2e-5 của bài học cho một cập nhật đầy đủ, với rate cao hơn cho các adapter như bộ huấn luyện của bài học LoRA cho thấy; một đến ba epoch; 2 đến 5 phần trăm văn bản pretraining thô trộn vào các batch.
 
-Measure: held-out instruction loss, raw-text loss before and after with a budget of a 10 to 15 percent rise, exact match on the templated tasks where it applies, and a read of fifty samples.
+Đo: instruction loss giữ lại, raw-text loss trước và sau với một ngân sách tăng 10 đến 15 phần trăm, exact match trên các tác vụ theo mẫu nơi áp dụng được, và đọc năm mươi mẫu.
 
 ### Stage 2: DPO
 
-Reference: the merged SFT checkpoint, frozen. Policy: a copy with fresh adapters. Beta in the 0.1 to 0.3 range, a few epochs, and the four log-probabilities per pair over the answer tokens only.
+Reference: checkpoint SFT đã merge, đóng băng. Policy: một bản sao với các adapter mới. Beta trong khoảng 0.1 đến 0.3, vài epoch, và bốn log xác suất mỗi cặp chỉ trên các token câu trả lời.
 
-Measure: a blind pairwise eval against the SFT model on the held-out prompts, the implicit reward margin, the absolute chosen log-probability, the response length by checkpoint, and the forgetting set again. Stop on the eval, not on the margin.
+Đo: một đánh giá ghép cặp mù đối chiếu mô hình SFT trên các prompt giữ lại, margin reward ngầm, log xác suất chosen tuyệt đối, độ dài phản hồi theo checkpoint, và tập quên lần nữa. Dừng theo đánh giá, không phải margin.
 
 ### Stage 3: release gate
 
-- A fixed prompt set rated blind by people, against the SFT checkpoint and the base.
-- A refusal and safety set with the expected behavior written down.
-- The forgetting set.
-- Adapters kept separate for a rollback; a merge only for the shipped artifact.
+- Một tập prompt cố định được con người chấm mù, đối chiếu checkpoint SFT và bản nền.
+- Một tập từ chối và an toàn với hành vi kỳ vọng được viết xuống.
+- Tập quên.
+- Các adapter được giữ riêng cho một rollback; chỉ merge cho artifact được phát hành.
 
 ### The three guards
 
-1. Catastrophic forgetting: low rate, short training, a pretraining mix, and a raw-text loss budget.
-2. Exploits of the rating signal: raters liked long and agreeable answers, so watch the length and the agreement with the premise, and filter pairs where length alone separates them.
-3. Over-optimization of the proxy: the DPO ratio can be pushed off the data, so stop early on the blind eval and keep beta conservative.
+1. Quên thảm họa: rate thấp, huấn luyện ngắn, một hỗn hợp pretraining, và một ngân sách raw-text loss.
+2. Khai thác tín hiệu đánh giá: người đánh giá thích các câu trả lời dài và đồng ý, nên quan sát độ dài và sự đồng ý với tiền đề, và lọc các cặp nơi chỉ độ dài phân biệt chúng.
+3. Tối ưu hóa quá mức proxy: tỷ số DPO có thể bị đẩy ra ngoài dữ liệu, nên dừng sớm theo đánh giá mù và giữ beta thận trọng.
 
 ### Schedule
 
-Week one: data and SFT. Week two: DPO and the first blind eval. Week three: the gate, a second seed of the best configuration, and the rollback plan.
+Tuần một: dữ liệu và SFT. Tuần hai: DPO và đánh giá mù đầu tiên. Tuần ba: cổng, một seed thứ hai của cấu hình tốt nhất, và kế hoạch rollback.
 
 ## Follow-ups
 
-- **Level 3:** Why DPO and not a reward model with PPO here? Expected: tens of thousands of pairs, two small GPUs and three weeks fit the DPO regime; a reward model and PPO need three loops and more memory.
-- **Level 4:** The ratings are one to five stars on single answers, not pairs. What changes? Expected: build pairs only where one prompt has answers at both ends of the scale, or use the unpaired loss that works on good and bad labels and keep the pairs for the eval.
-- **Level 4:** How do you prove that the DPO stage did not degrade the SFT behavior? Expected: the blind pairwise eval against the SFT checkpoint, the forgetting set, and the absolute chosen log-probability; a margin that grows while those fall is a stop signal.
-- **Level 4:** What would make you add an RL stage with a verifier? Expected: a part of the task with a checkable answer, such as a correct order number or a passing code snippet, where a binary reward and group-relative advantages give a signal the ratings do not.
+- **Level 3:** Tại sao DPO và không phải một reward model với PPO ở đây? Expected: hàng chục nghìn cặp, hai GPU nhỏ và ba tuần phù hợp chế độ DPO; một reward model và PPO cần ba vòng lặp và nhiều bộ nhớ hơn.
+- **Level 4:** Các đánh giá là một đến năm sao trên các câu trả lời đơn, không phải cặp. Điều gì thay đổi? Expected: chỉ xây các cặp nơi một prompt có câu trả lời ở cả hai đầu thang, hoặc dùng loss không ghép cặp hoạt động trên nhãn tốt và xấu và giữ các cặp cho đánh giá.
+- **Level 4:** Bạn chứng minh giai đoạn DPO không làm suy giảm hành vi SFT như thế nào? Expected: đánh giá ghép cặp mù đối chiếu checkpoint SFT, tập quên, và log xác suất chosen tuyệt đối; một margin tăng trong khi những thứ đó giảm là một tín hiệu dừng.
+- **Level 4:** Điều gì khiến bạn thêm một giai đoạn RL với một bộ xác minh? Expected: một phần tác vụ có một đáp án kiểm tra được, như một mã đơn hàng đúng hoặc một đoạn mã vượt kiểm thử, nơi một reward nhị phân và các advantage tương đối nhóm cho một tín hiệu các đánh giá không cho.
 
 ## Wrong answers
 
-- "Skip SFT and run DPO on the base model." DPO needs a reference that already follows instructions; the single-stage loss is a different method, and the base model's pairs are out of distribution.
-- "Fully fine-tune the 8B model across both GPUs." A full update of a model this size needs about 56 GB with the optimizer states; two 24 GB cards hold it only with adapters and a 4-bit base.
-- "Use the star ratings as the reward and run PPO." A regression on absolute scores is the weak label the lessons warn about, and the full stack does not fit the compute or the timeline.
+- "Bỏ SFT và chạy DPO trên mô hình nền." DPO cần một reference đã theo instruction; loss một giai đoạn là một phương pháp khác, và các cặp của mô hình nền ngoài phân phối.
+- "Fine-tune đầy đủ mô hình 8B trên cả hai GPU." Một cập nhật đầy đủ của một mô hình cỡ này cần khoảng 56 GB với các trạng thái bộ tối ưu; hai card 24 GB chỉ chứa nó với các adapter và một bản nền 4-bit.
+- "Dùng các đánh giá sao làm reward và chạy PPO." Một hồi quy trên các điểm tuyệt đối là nhãn yếu các bài học cảnh báo, và stack đầy đủ không vừa tính toán hoặc thời hạn.
 
 ## Taught in
 
-The [SFT lesson](../../../phases/10-llms-from-scratch/06-instruction-tuning-sft/) sets the SFT data and settings, the [LoRA lesson](../../../phases/11-llm-engineering/08-fine-tuning-lora/) sizes the QLoRA memory, the [DPO lesson](../../../phases/10-llms-from-scratch/08-dpo/) gives the beta range and the eval, and the [reward modeling lesson](../../../phases/09-reinforcement-learning/09-reward-modeling-rlhf/) lists the over-optimization guards.
+[Bài học SFT](../../../phases/10-llms-from-scratch/06-instruction-tuning-sft/) đặt dữ liệu và thiết lập SFT, [bài học LoRA](../../../phases/11-llm-engineering/08-fine-tuning-lora/) định cỡ bộ nhớ QLoRA, [bài học DPO](../../../phases/10-llms-from-scratch/08-dpo/) đưa ra khoảng beta và đánh giá, và [bài học reward modeling](../../../phases/09-reinforcement-learning/09-reward-modeling-rlhf/) liệt kê các biện pháp bảo vệ tối ưu hóa quá mức.

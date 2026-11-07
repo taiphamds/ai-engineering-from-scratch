@@ -16,52 +16,52 @@ related: [post-training/sft-data-quality-wins]
 updated: 2026-11-03
 ---
 
-A colleague copies the pretraining configuration into an SFT run: the same peak learning rate, the same warmup, three epochs over 27,000 examples. The loss on the SFT set drops fast and everyone is happy. What do you expect to see when you test the model, and what do you change?
+Một đồng nghiệp sao chép cấu hình pretraining vào một lần chạy SFT: cùng learning rate đỉnh, cùng warmup, ba epoch trên 27,000 ví dụ. Loss trên tập SFT giảm nhanh và mọi người vui. Bạn kỳ vọng thấy gì khi kiểm thử mô hình, và bạn thay đổi gì?
 
 ## Short answer
 
-Expect catastrophic forgetting: the model answers in the training format, but its loss on raw text rises and it gets worse at code, math and anything outside the set. Pretraining used a peak rate about fifteen times higher than the SFT value in the lesson, 3e-4 against 2e-5. Cut the rate into the 1e-5 to 5e-5 range, keep one to three epochs, and track raw-text loss next to the SFT loss.
+Kỳ vọng quên thảm họa: mô hình trả lời theo định dạng huấn luyện, nhưng loss trên văn bản thô tăng và nó kém hơn ở mã, toán và mọi thứ ngoài tập. Pretraining dùng rate đỉnh cao hơn khoảng mười lăm lần giá trị SFT trong bài học, 3e-4 so với 2e-5. Giảm rate vào khoảng 1e-5 đến 5e-5, giữ một đến ba epoch, và theo dõi raw-text loss cạnh SFT loss.
 
 ## Full answer
 
 ### Two very different regimes
 
-| Setting | Pretraining | SFT |
+| Thiết lập | Pretraining | SFT |
 |---|---|---|
-| Peak learning rate | 3e-4 | 2e-5 |
-| Epochs | 1 | 2 |
-| Warmup steps | 2,000 | 0 to 100 |
-| Data | 2T tokens | 27,000 examples |
+| Learning rate đỉnh | 3e-4 | 2e-5 |
+| Epoch | 1 | 2 |
+| Các bước warmup | 2,000 | 0 đến 100 |
+| Dữ liệu | 2T token | 27,000 ví dụ |
 
-The SFT run adjusts a model that already works. A large step overwrites pretrained features with the patterns of a small set.
+Lần chạy SFT điều chỉnh một mô hình đã hoạt động. Một bước lớn ghi đè các đặc trưng pretrained bằng các mẫu của một tập nhỏ.
 
 ### How to see the damage
 
-Hold out a slice of raw text and measure its next-token loss before and after SFT. The lesson's rule: a rise of more than 10 to 15 percent means the run is too aggressive. Lower the rate or the epochs. Run a small eval on tasks outside the SFT set as well.
+Giữ lại một phần văn bản thô và đo next-token loss trước và sau SFT. Quy tắc của bài học: tăng hơn 10 đến 15 phần trăm có nghĩa lần chạy quá mạnh. Giảm rate hoặc epoch. Cũng chạy một đánh giá nhỏ trên các tác vụ ngoài tập SFT.
 
 ### Three mitigations
 
-1. A low learning rate, 1e-5 to 5e-5.
-2. Short training, 1 to 3 epochs. More than 3 epochs on a small set leads to memorization, and the model repeats training examples word for word.
-3. A mix of 2 to 5 percent raw pretraining text in the SFT batches, with no mask, so that the model keeps its general ability.
+1. Một learning rate thấp, 1e-5 đến 5e-5.
+2. Huấn luyện ngắn, 1 đến 3 epoch. Hơn 3 epoch trên một tập nhỏ dẫn đến ghi nhớ, và mô hình lặp các ví dụ huấn luyện từng từ.
+3. Một hỗn hợp 2 đến 5 phần trăm văn bản pretraining thô trong các batch SFT, không có mask, để mô hình giữ khả năng chung.
 
 ### Why the loss curve misleads
 
-A fast drop in SFT loss at a high rate is overfitting to the set, not learning. The lesson's exercise compares 1e-4, 2e-5 and 1e-6: the high rate falls fast and ends higher, the low rate barely moves, and the middle value is the sweet spot.
+Một mức giảm nhanh trong SFT loss ở rate cao là overfit tập, không phải học. Bài tập của bài học so sánh 1e-4, 2e-5 và 1e-6: rate cao giảm nhanh và kết thúc cao hơn, rate thấp hầu như không thay đổi, và giá trị giữa là điểm tối ưu.
 
 ## Follow-ups
 
-- **Level 2:** Why does a rate that works for pretraining destroy an SFT run? Expected: pretraining starts from noise and averages over trillions of tokens; SFT starts from a working model and a small set, so each large step overwrites features that the set does not cover.
-- **Level 2:** How many epochs, and how do you decide? Expected: one to three; stop when the held-out instruction loss stops improving and the raw-text loss has not risen past the budget.
-- **Level 3:** The raw-text loss rose by a quarter, but the product team likes the answers. Ship it? Expected: not as it is; the model lost general ability that users will hit; rerun with a lower rate or a pretraining mix and compare on an eval outside the set.
-- **Level 3:** How does LoRA change this picture? Expected: the base weights stay frozen, so the damage is bounded to the adapter and a merge is reversible; the adapter also tolerates a higher rate than a full update.
+- **Level 2:** Tại sao một rate hoạt động cho pretraining phá một lần chạy SFT? Expected: pretraining bắt đầu từ nhiễu và lấy trung bình trên hàng nghìn tỷ token; SFT bắt đầu từ một mô hình hoạt động và một tập nhỏ, nên mỗi bước lớn ghi đè các đặc trưng tập không bao phủ.
+- **Level 2:** Bao nhiêu epoch, và bạn quyết định như thế nào? Expected: một đến ba; dừng khi instruction loss giữ lại ngừng cải thiện và raw-text loss chưa tăng qua ngân sách.
+- **Level 3:** Raw-text loss tăng một phần tư, nhưng nhóm sản phẩm thích các câu trả lời. Triển khai? Expected: không ở trạng thái đó; mô hình mất khả năng chung mà người dùng sẽ chạm đến; chạy lại với rate thấp hơn hoặc một hỗn hợp pretraining và so sánh trên một đánh giá ngoài tập.
+- **Level 3:** LoRA thay đổi bức tranh này như thế nào? Expected: các trọng số nền giữ đóng băng, nên thiệt hại bị chặn trong adapter và một merge có thể đảo ngược; adapter cũng chịu được rate cao hơn một cập nhật đầy đủ.
 
 ## Wrong answers
 
-- "The SFT loss dropped, so the run worked." The loss on the set says nothing about what the model forgot; measure the raw-text loss and an eval outside the set.
-- "Warm up for 2,000 steps, like pretraining." The SFT set gives few steps in total; the lesson uses 0 to 100 warmup steps.
-- "Use a higher rate to finish faster, the data is small." A high rate on a small set overfits and overwrites pretrained knowledge; small data needs smaller steps, not larger ones.
+- "SFT loss đã giảm, nên lần chạy hoạt động." Loss trên tập không nói gì về những gì mô hình quên; đo raw-text loss và một đánh giá ngoài tập.
+- "Warm up trong 2,000 bước, như pretraining." Tập SFT cho ít tổng bước; bài học dùng 0 đến 100 bước warmup.
+- "Dùng rate cao hơn để xong nhanh hơn, dữ liệu nhỏ." Một rate cao trên một tập nhỏ overfit và ghi đè tri thức pretrained; dữ liệu nhỏ cần các bước nhỏ hơn, không phải lớn hơn.
 
 ## Taught in
 
-The [SFT lesson](../../../phases/10-llms-from-scratch/06-instruction-tuning-sft/) compares the pretraining and SFT hyperparameters and measures forgetting with a raw-text loss.
+[Bài học SFT](../../../phases/10-llms-from-scratch/06-instruction-tuning-sft/) so sánh các siêu tham số pretraining và SFT và đo quên bằng một raw-text loss.

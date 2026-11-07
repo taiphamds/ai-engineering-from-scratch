@@ -16,11 +16,11 @@ related: [post-training/kl-penalty-purpose]
 updated: 2026-11-03
 ---
 
-DPO is often described as RLHF without a reward model. Walk me through where the reward went. Start from the RLHF objective with its KL term and end at the loss you would implement.
+DPO thường được mô tả là RLHF không có một reward model. Trình bày reward đã đi đâu. Bắt đầu từ mục tiêu RLHF với số hạng KL của nó và kết thúc ở loss bạn sẽ triển khai.
 
 ## Short answer
 
-The penalized objective has a closed-form optimum: the optimal policy equals the reference policy times the exponential of reward over beta, normalized per prompt. Invert it and the reward equals beta times the log ratio of policy to reference, plus a term that depends on the prompt alone. Put that reward into the Bradley-Terry preference probability and the prompt-only term cancels, because both answers share the prompt. What is left is a loss in the policy's own log-probabilities: minus the log sigmoid of beta times the difference of the two log ratios.
+Mục tiêu có phạt có một nghiệm tối ưu dạng đóng: policy tối ưu bằng policy reference nhân hàm mũ của reward chia beta, được chuẩn hóa mỗi prompt. Đảo nó và reward bằng beta nhân tỷ số log của policy trên reference, cộng một số hạng chỉ phụ thuộc prompt. Đặt reward đó vào xác suất preference Bradley-Terry và số hạng chỉ prompt triệt tiêu, vì cả hai câu trả lời chia sẻ prompt. Phần còn lại là một loss trong các log xác suất riêng của policy: âm log sigmoid của beta nhân hiệu hai tỷ số log.
 
 ## Full answer
 
@@ -33,37 +33,37 @@ BT:       P(y_w > y_l | x) = sigmoid( r(x,y_w) - r(x,y_l) )
 loss:     -log sigmoid( beta * [ log pi(y_w|x)/pi_ref(y_w|x) - log pi(y_l|x)/pi_ref(y_l|x) ] )
 ```
 
-The log Z term depends on the prompt alone, so it is the same for the chosen and the rejected answer and drops out of the difference.
+Số hạng log Z chỉ phụ thuộc prompt, nên nó giống nhau cho câu trả lời chosen và rejected và rời khỏi hiệu.
 
 ### What you compute per pair
 
-Four sequence log-probabilities: the policy and the reference on the chosen answer, and both on the rejected answer. Each is the sum of next-token log-probabilities over the answer tokens only, with the prompt positions masked. The reference runs under no gradient.
+Bốn log xác suất chuỗi: policy và reference trên câu trả lời chosen, và cả hai trên câu trả lời rejected. Mỗi giá trị là tổng các log xác suất next-token chỉ trên các token câu trả lời, với các vị trí prompt bị mask. Reference chạy không có gradient.
 
 ### The implicit reward
 
-`beta * (log pi(y|x) - log pi_ref(y|x))` is the reward that DPO assigns to an answer. Log the margin between the chosen and the rejected implicit rewards; it should grow during training. The gradient on the chosen log-probability is `-beta * (1 - sigmoid(z))`, negative for every z, so training pushes the chosen answer up and the rejected answer down.
+`beta * (log pi(y|x) - log pi_ref(y|x))` là reward DPO gán cho một câu trả lời. Ghi log margin giữa các reward ngầm chosen và rejected; nó nên tăng trong huấn luyện. Gradient trên log xác suất chosen là `-beta * (1 - sigmoid(z))`, âm với mọi z, nên huấn luyện đẩy câu trả lời chosen lên và câu trả lời rejected xuống.
 
 ### Where the KL went
 
-No KL term appears in the loss. The constraint is structural: a large move from the reference makes the log ratio large, the sigmoid saturates, and the gradient fades. Beta sets how far the policy may move. The DPO lesson gives 0.1 to 0.5 as the range and 0.1 to 0.3 as the usual sweet spot. A small beta allows large moves and risks degenerate answers; a value near 1.0 pins the policy to the reference.
+Không số hạng KL xuất hiện trong loss. Ràng buộc mang tính cấu trúc: một di chuyển lớn từ reference làm tỷ số log lớn, sigmoid bão hòa, và gradient mờ dần. Beta đặt policy được di chuyển xa bao nhiêu. Bài học DPO đưa ra 0.1 đến 0.5 là khoảng và 0.1 đến 0.3 là điểm tối ưu thông thường. Một beta nhỏ cho phép các di chuyển lớn và rủi ro câu trả lời suy biến; một giá trị gần 1.0 ghim policy vào reference.
 
 ### What it saves
 
-Two models in memory instead of three or four, and one supervised loop instead of PPO. For a 70B model each copy takes 140GB in FP16, so the reward model you never load is a large saving.
+Hai mô hình trong bộ nhớ thay vì ba hoặc bốn, và một vòng lặp có giám sát thay vì PPO. Với một mô hình 70B, mỗi bản sao chiếm 140GB trong FP16, nên reward model bạn không bao giờ nạp là một tiết kiệm lớn.
 
 ## Follow-ups
 
-- **Level 2:** Why must the policy start as a copy of the reference? Expected: the derivation treats the optimum as the reference plus a learned shift, and a copy makes every implicit reward start at zero.
-- **Level 2:** What does a positive log ratio mean? Expected: the policy now gives that answer a higher probability than the reference does.
-- **Level 3:** Why does the derivation need both answers to share one prompt? Expected: the partition term depends on the prompt only; with different prompts it would not cancel, and the implicit rewards would not be comparable.
-- **Level 4:** Which assumptions of the derivation fail in practice? Expected: that the optimum is reachable, that the pairs are in-distribution for the reference, and that the reference is the true anchor; each later method in the family repairs one of them.
+- **Level 2:** Tại sao policy phải bắt đầu như một bản sao của reference? Expected: phép suy ra coi nghiệm tối ưu là reference cộng một dịch chuyển được học, và một bản sao khiến mọi reward ngầm bắt đầu ở không.
+- **Level 2:** Một tỷ số log dương có nghĩa gì? Expected: policy giờ cho câu trả lời đó một xác suất cao hơn reference.
+- **Level 3:** Tại sao phép suy ra cần cả hai câu trả lời chia sẻ một prompt? Expected: số hạng phân hoạch chỉ phụ thuộc prompt; với các prompt khác nhau nó sẽ không triệt tiêu, và các reward ngầm sẽ không so sánh được.
+- **Level 4:** Những giả định nào của phép suy ra thất bại trong thực tế? Expected: nghiệm tối ưu đạt được, các cặp nằm trong phân phối cho reference, và reference là neo thật; mỗi phương pháp sau trong họ sửa một giả định.
 
 ## Wrong answers
 
-- "DPO has no reference model, that is the point." It removes the reward model and PPO; the frozen reference stays in the loss, and the methods that drop it are a later variant.
-- "DPO maximizes the probability of the chosen answer." It maximizes the margin of two log ratios; the chosen absolute probability can fall as long as the rejected falls faster.
-- "Beta is a learning rate." Beta scales the implicit reward and sets how far the policy may move from the reference; the optimizer step size is a separate setting.
+- "DPO không có reference model, đó là mục đích." Nó loại bỏ reward model và PPO; reference đóng băng ở lại trong loss, và các phương pháp bỏ nó là một biến thể sau.
+- "DPO tối đa hóa xác suất câu trả lời chosen." Nó tối đa hóa margin của hai tỷ số log; xác suất tuyệt đối chosen có thể giảm miễn là rejected giảm nhanh hơn.
+- "Beta là một learning rate." Beta điều chỉnh reward ngầm và đặt policy được di chuyển xa reference bao nhiêu; kích thước bước bộ tối ưu là một thiết lập riêng.
 
 ## Taught in
 
-The [DPO lesson](../../../phases/10-llms-from-scratch/08-dpo/) derives the loss and sweeps beta, the [DPO capstone](../../../phases/19-capstone-projects/40-dpo-from-scratch/) checks the gradient sign and the reference invariance, and the [DPO family lesson](../../../phases/18-ethics-safety-alignment/03-direct-preference-optimization-family/) names the assumptions.
+[Bài học DPO](../../../phases/10-llms-from-scratch/08-dpo/) suy ra loss và quét beta, [capstone DPO](../../../phases/19-capstone-projects/40-dpo-from-scratch/) kiểm tra dấu gradient và tính bất biến reference, và [bài học họ DPO](../../../phases/18-ethics-safety-alignment/03-direct-preference-optimization-family/) nêu các giả định.

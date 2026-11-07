@@ -16,51 +16,51 @@ related: [post-training/grpo-groups-teach-nothing]
 updated: 2026-11-03
 ---
 
-You left a one-GPU RL training run alone for an hour. When you come back, the GPU is idle, the process is still alive, and the log file has grown to more than a hundred megabytes. Nothing reports a failure. What happened, how do you confirm it, and what do you put in place so that it cannot happen again?
+Bạn để một lần chạy huấn luyện RL một GPU tự chạy trong một giờ. Khi quay lại, GPU nhàn rỗi, tiến trình vẫn sống, và file log đã tăng hơn một trăm megabyte. Không gì báo cáo một thất bại. Điều gì đã xảy ra, bạn xác nhận nó như thế nào, và bạn đặt gì để nó không thể xảy ra lại?
 
 ## Short answer
 
-The rollout engine died and the trainer never noticed. The engine failed during startup, and the rollout client kept sending requests to it, got a 503 from the router on each one, and retried. The failed run in the manual wrote 200,533 such error lines in 63 minutes and never reported a failure. Confirm it by counting the error lines per minute and by reading the engine lines above the first error, then run every unattended job with a watchdog that stops the container when the errors do not stop.
+Engine rollout chết và trainer không bao giờ nhận thấy. Engine thất bại trong khởi động, và client rollout tiếp tục gửi các yêu cầu đến nó, nhận một 503 từ router trên mỗi yêu cầu, và thử lại. Lần chạy thất bại trong tài liệu ghi 200,533 dòng lỗi như vậy trong 63 phút và không bao giờ báo cáo một thất bại. Xác nhận bằng cách đếm các dòng lỗi mỗi phút và đọc các dòng engine trên lỗi đầu tiên, rồi chạy mọi công việc không giám sát với một watchdog dừng container khi các lỗi không dừng.
 
 ## Full answer
 
 ### What a dead engine looks like
 
-The run that the manual lost asked for an attention backend that its GPU could not run. The engine raised an assertion during startup and exited. The trainer process stayed up and sent generate requests to the router for an hour, and the router returned `503 Service Unavailable` for each one. The first and the last error were 63 minutes apart.
+Lần chạy tài liệu mất yêu cầu một backend attention mà GPU không thể chạy. Engine ném một assertion trong khởi động và thoát. Tiến trình trainer giữ chạy và gửi các yêu cầu generate đến router trong một giờ, và router trả về `503 Service Unavailable` cho mỗi yêu cầu. Lỗi đầu và cuối cách nhau 63 phút.
 
 ### Confirm the cause, in this order
 
-1. Count `503 Service Unavailable` over the whole log. The manual's healthy runs held none at all, with one exception below.
-2. Count the errors per minute. The dead engine wrote at least 2,669 in every full minute. A healthy but busy engine wrote bursts of up to about a minute and then nothing: the run with 16 answers per prompt logged 22,357 errors in bursts of up to 2,209 in one minute, the client retried, and the run finished every step.
-3. Read the engine lines above the first error. The cause lives there, not in the trainer lines.
+1. Đếm `503 Service Unavailable` trên toàn bộ log. Các lần chạy khỏe mạnh của tài liệu không có lỗi nào, với một ngoại lệ bên dưới.
+2. Đếm các lỗi mỗi phút. Engine chết ghi ít nhất 2,669 trong mọi phút đầy đủ. Một engine khỏe mạnh nhưng bận ghi các đợt đến khoảng một phút rồi không gì: lần chạy với 16 câu trả lời mỗi prompt ghi 22,357 lỗi trong các đợt đến 2,209 trong một phút, client thử lại, và lần chạy hoàn tất mọi bước.
+3. Đọc các dòng engine trên lỗi đầu tiên. Nguyên nhân nằm ở đó, không phải trong các dòng trainer.
 
 ### Why a count alone is not enough
 
-A count cannot separate a burst from a death, but time can. The watchdog in the manual reads the last 60 seconds of the container log every 30 seconds and counts the errors. It stops the run only when the count passes 100 in ten checks in a row. Replayed on the real error times of the busy run, a rule with six checks would have stopped that healthy run in 17 of 30 cases, because two bursts came 45 seconds apart. With ten checks it stopped no healthy case and still stops a dead engine in about five minutes.
+Một số đếm không thể tách một đợt khỏi một cái chết, nhưng thời gian có thể. Watchdog trong tài liệu đọc 60 giây cuối của log container mỗi 30 giây và đếm lỗi. Nó chỉ dừng lần chạy khi số đếm vượt 100 trong mười lần kiểm tra liên tiếp. Phát lại trên các thời điểm lỗi thực của lần chạy bận, một quy tắc có sáu kiểm tra sẽ dừng lần chạy khỏe mạnh đó trong 17 trên 30 trường hợp, vì hai đợt đến cách nhau 45 giây. Với mười kiểm tra, nó không dừng trường hợp khỏe mạnh nào và vẫn dừng một engine chết trong khoảng năm phút.
 
 ### What the watchdog cannot see
 
-A run that hangs after a reward module import error writes almost no error lines. The manual's test stayed up for two hours with 44 of them, and the watchdog did not fire. For that symptom, look for `ModuleNotFoundError` with no `rollout 0` line after it.
+Một lần chạy treo sau một lỗi import module reward ghi gần như không có dòng lỗi. Kiểm thử của tài liệu giữ chạy hai giờ với 44 dòng lỗi, và watchdog không kích hoạt. Với triệu chứng đó, tìm `ModuleNotFoundError` không có dòng `rollout 0` sau nó.
 
 ### Practice
 
-- Start the watchdog in a second terminal for every run you leave alone, and test it first on a container that prints the error on purpose; the manual's test stopped a fake dead engine in 183 seconds.
-- Give each run its own container name and its own log file.
-- Read the exit code: 1 means the watchdog stopped the run, 2 means it lost contact with the container runtime and the run had no guard.
+- Khởi động watchdog trong một terminal thứ hai cho mọi lần chạy bạn để tự chạy, và kiểm thử nó trước trên một container cố ý in lỗi; kiểm thử của tài liệu dừng một engine chết giả trong 183 giây.
+- Cấp cho mỗi lần chạy tên container riêng và file log riêng.
+- Đọc mã thoát: 1 có nghĩa watchdog dừng lần chạy, 2 có nghĩa nó mất liên lạc với container runtime và lần chạy không có bảo vệ.
 
 ## Follow-ups
 
-- **Level 2:** Why does the trainer not fail when the engine is gone? Expected: the rollout client treats the 503 as a transient error and retries each request; nothing in the loop limits the retries or the idle time.
-- **Level 2:** Where do you look for the reason the engine died? Expected: the engine lines above the first 503 in the same log; in the manual's case an attention backend assertion for a GPU outside its supported range.
-- **Level 3:** Why did the manual raise the watchdog from six checks to ten? Expected: a replay on a healthy run showed bursts 45 seconds apart that six checks mistook for a death; ten checks never fired on a healthy run and still caught a dead engine in about five minutes.
-- **Level 3:** What does the watchdog miss, and what do you add for it? Expected: a run that hangs with few errors, such as a reward import failure; add a check that the first step line appears within a time limit.
+- **Level 2:** Tại sao trainer không thất bại khi engine đã mất? Expected: client rollout xem 503 là một lỗi tạm thời và thử lại mỗi yêu cầu; không gì trong vòng lặp giới hạn các lần thử lại hoặc thời gian nhàn rỗi.
+- **Level 2:** Bạn tìm lý do engine chết ở đâu? Expected: các dòng engine trên 503 đầu tiên trong cùng log; trong trường hợp tài liệu là một assertion backend attention cho một GPU ngoài khoảng hỗ trợ.
+- **Level 3:** Tại sao tài liệu tăng watchdog từ sáu kiểm tra lên mười? Expected: một lần phát lại trên một lần chạy khỏe mạnh cho thấy các đợt cách nhau 45 giây mà sáu kiểm tra nhầm là chết; mười kiểm tra không bao giờ kích hoạt trên một lần chạy khỏe mạnh và vẫn bắt một engine chết trong khoảng năm phút.
+- **Level 3:** Watchdog bỏ lỡ gì, và bạn thêm gì cho nó? Expected: một lần chạy treo với ít lỗi, như một lỗi import reward; thêm một kiểm tra rằng dòng bước đầu xuất hiện trong một giới hạn thời gian.
 
 ## Wrong answers
 
-- "Kill the run as soon as a 503 appears." A busy engine with hundreds of open requests writes bursts of these errors and recovers; the manual's busy run finished all its steps.
-- "Raise the client retry limit so the run survives." Retries are why the dead run lived for an hour; the engine will not come back by itself, and the GPU sits idle.
-- "The trainer crashed; look at the trainer lines." The trainer was alive and logging errors; the cause is in the engine startup lines above the first error.
+- "Giết lần chạy ngay khi một 503 xuất hiện." Một engine bận với hàng trăm yêu cầu mở ghi các đợt lỗi này và phục hồi; lần chạy bận của tài liệu hoàn tất tất cả bước.
+- "Tăng giới hạn thử lại client để lần chạy sống sót." Các lần thử lại là lý do lần chạy chết sống một giờ; engine sẽ không tự trở lại, và GPU nằm nhàn rỗi.
+- "Trainer crash; xem các dòng trainer." Trainer sống và ghi log lỗi; nguyên nhân nằm trong các dòng khởi động engine trên lỗi đầu tiên.
 
 ## Taught in
 
-[Section 1.2 of Miles 101](../../../manuals/miles-101/sections/1-2-add-a-watchdog.md) replays the watchdog rule on real error times, and [section 7.1](../../../manuals/miles-101/sections/7-1-troubleshoot-by-symptom.md) lists the symptom next to the hang after a reward import error.
+[Phần 1.2 của Miles 101](../../../manuals/miles-101/sections/1-2-add-a-watchdog.md) phát lại quy tắc watchdog trên các thời điểm lỗi thực, và [phần 7.1](../../../manuals/miles-101/sections/7-1-troubleshoot-by-symptom.md) liệt kê triệu chứng cạnh sự treo sau một lỗi import reward.

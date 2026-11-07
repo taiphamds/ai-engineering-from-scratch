@@ -16,11 +16,11 @@ related: [post-training/grpo-groups-teach-nothing]
 updated: 2026-11-03
 ---
 
-Take-home. The RL framework you use scores each sampled answer with a reward function that you swap in by import path. Write a reward for a task with a numeric final answer, write a test plan for it, and explain how you would prove that your reward does not break the GRPO advantages before a long run. Keep the function and the plan short enough to read in five minutes.
+Bài làm ở nhà. Framework RL bạn dùng chấm mỗi câu trả lời lấy mẫu bằng một hàm reward bạn thay bằng đường dẫn import. Viết một reward cho một tác vụ có đáp án cuối dạng số, viết một kế hoạch kiểm thử cho nó, và giải thích cách bạn sẽ chứng minh reward không làm hỏng các advantage GRPO trước một lần chạy dài. Giữ hàm và kế hoạch đủ ngắn để đọc trong năm phút.
 
 ## Short answer
 
-Write an async function that receives the run arguments and one sample, extracts the last number from the answer and from the label, and returns 1.0 for a match and 0.0 otherwise, comparing as values so that 142 never matches 42. Test it on ten answers you scored by hand, with a correct one, a wrong one, an empty one and one cut at the length limit, because a reward that crashes on an empty answer stops the rollout of the whole step. Then check the advantages: a group where every answer gets the same reward must get an advantage of 0 for every member, and a fractional reward can fail that through float32 rounding.
+Viết một hàm async nhận các đối số lần chạy và một mẫu, trích xuất số cuối từ câu trả lời và từ nhãn, và trả về 1.0 nếu khớp và 0.0 nếu không, so sánh như giá trị để 142 không bao giờ khớp 42. Kiểm thử nó trên mười câu trả lời bạn chấm bằng tay, với một câu đúng, một câu sai, một câu trống và một câu bị cắt ở giới hạn độ dài, vì một reward crash trên câu trả lời trống dừng rollout của toàn bộ bước. Sau đó kiểm tra các advantage: một nhóm mà mọi câu trả lời nhận cùng reward phải nhận advantage 0 cho mọi thành viên, và một reward phân số có thể làm điều đó thất bại qua làm tròn float32.
 
 ## Full answer
 
@@ -41,39 +41,39 @@ async def custom_rm(args, sample, **kwargs):
     return 1.0 if answer is not None and answer == label else 0.0
 ```
 
-Three rules from the manual. Write it as `async def`, because the framework awaits the result and a plain function fails at the first call. The function receives the run arguments and one sample, with the answer in `sample.response` and the label in `sample.label`. If it returns a dict, name the field that holds the reward with the reward key flag; with the group flag, the function receives the whole group as a list and returns one reward per sample.
+Ba quy tắc từ tài liệu. Viết nó như `async def`, vì framework await kết quả và một hàm thông thường thất bại ở lời gọi đầu. Hàm nhận các đối số lần chạy và một mẫu, với câu trả lời trong `sample.response` và nhãn trong `sample.label`. Nếu nó trả về một dict, nêu tên trường giữ reward bằng cờ reward key; với cờ group, hàm nhận toàn bộ nhóm như một list và trả về một reward mỗi mẫu.
 
 ### Plug it in
 
-Save the module in the mounted lab folder, put that folder on `PYTHONPATH`, and pass the import path with `--custom-rm-path my_rewards.custom_rm`. When the import works, the first `rollout 0` line shows a reward that your function produced. When it does not, the log shows `ModuleNotFoundError`, and the run does not stop by itself. The manual's test stayed up for two hours with no step, and the watchdog did not fire, because the engine wrote only 44 error lines. Stop the container, fix the path, and start again.
+Lưu module trong thư mục lab được mount, đặt thư mục đó trên `PYTHONPATH`, và truyền đường dẫn import bằng `--custom-rm-path my_rewards.custom_rm`. Khi import hoạt động, dòng `rollout 0` đầu hiển thị một reward hàm của bạn tạo. Khi không, log hiển thị `ModuleNotFoundError`, và lần chạy không tự dừng. Kiểm thử của tài liệu giữ chạy hai giờ không có bước nào, và watchdog không kích hoạt, vì engine chỉ ghi 44 dòng lỗi. Dừng container, sửa đường dẫn, và bắt đầu lại.
 
 ### The test plan
 
-1. One call inside the container on a hand-written sample before any GPU work: the answer "So the answer is 42." with the label "42" must return 1.0.
-2. Ten answers scored by hand: correct, wrong, correct in a different format, a number with a comma, an empty answer, an answer with no number, an answer cut at the length limit, a negative label, a decimal label, and an answer with two numbers where the last is right.
-3. A two-step run with the reward in place; read `rollout/raw_reward` on the first step and compare a few logged samples with your hand scores.
+1. Một lời gọi bên trong container trên một mẫu viết tay trước bất kỳ công việc GPU nào: câu trả lời "Vậy đáp án là 42." với nhãn "42" phải trả về 1.0.
+2. Mười câu trả lời chấm bằng tay: đúng, sai, đúng trong một định dạng khác, một số có dấu phẩy, một câu trả lời trống, một câu trả lời không có số, một câu trả lời bị cắt ở giới hạn độ dài, một nhãn âm, một nhãn thập phân, và một câu trả lời có hai số mà số cuối đúng.
+3. Một lần chạy hai bước với reward được đặt vào; đọc `rollout/raw_reward` ở bước đầu và so sánh một vài mẫu được ghi log với các điểm bằng tay.
 
 ### Prove the advantages
 
-GRPO subtracts the group mean from each reward and divides by the group standard deviation. A binary reward gives an exact mean, so a group of equal rewards gets exactly 0 for every member. A fractional reward can fail: in float32 the mean of 16 rewards of 0.3 is not exactly 0.3, and the division by a standard deviation near 0 inflates the remainder to about 0.029 per answer. If you move to partial credit, use values a float32 holds exactly, such as multiples of 0.25, and check a group of equal rewards for zero advantages before the long run.
+GRPO trừ trung bình nhóm khỏi mỗi reward và chia cho độ lệch chuẩn nhóm. Một reward nhị phân cho một trung bình chính xác, nên một nhóm reward bằng nhau nhận chính xác 0 cho mọi thành viên. Một reward phân số có thể thất bại: trong float32, trung bình của 16 reward 0.3 không chính xác là 0.3, và phép chia cho một độ lệch chuẩn gần 0 làm phần dư phồng lên khoảng 0.029 mỗi câu trả lời. Nếu bạn chuyển sang điểm một phần, dùng các giá trị một float32 giữ chính xác, như các bội của 0.25, và kiểm tra một nhóm reward bằng nhau có các advantage không trước lần chạy dài.
 
 ### Use the smallest hook
 
-A scoring rule needs only the reward hook. The group filter and the generate function stay as they are, so batching, the metrics and the gap checks keep working for you.
+Một quy tắc chấm điểm chỉ cần hook reward. Bộ lọc nhóm và hàm generate giữ nguyên, nên batching, các chỉ số và các kiểm tra khoảng cách tiếp tục hoạt động cho bạn.
 
 ## Follow-ups
 
-- **Level 3:** Why compare the numbers as values and not as strings? Expected: so that a trailing zero or a comma does not fail a right answer, and so that 142 does not match 42 by substring.
-- **Level 3:** The task has a free-text answer. What changes? Expected: the extraction; use a built-in overlap or multiple-choice scorer when one fits, because it is already tested, and keep the same ten-answer test plan.
-- **Level 4:** Which built-in reward gives minus one for a wrong answer, and what does that change downstream? Expected: the DAPO-style reward returns a dict with the score, so it needs the reward key flag; the sign changes the mean, not the zero-advantage property of a two-valued reward.
-- **Level 4:** How would you test a reward change without new rollouts? Expected: save the rollout samples of one run and replay them with the trainer alone, so that every candidate reward scores the same samples.
+- **Level 3:** Tại sao so sánh các số như giá trị và không như chuỗi? Expected: để một số không ở cuối hoặc một dấu phẩy không làm sai một đáp án đúng, và để 142 không khớp 42 bằng chuỗi con.
+- **Level 3:** Tác vụ có một câu trả lời văn bản tự do. Điều gì thay đổi? Expected: việc trích xuất; dùng một bộ chấm overlap hoặc trắc nghiệm tích hợp khi có loại phù hợp, vì nó đã được kiểm thử, và giữ cùng kế hoạch kiểm thử mười câu trả lời.
+- **Level 4:** Reward tích hợp nào cho âm một khi một đáp án sai, và điều đó thay đổi gì phía sau? Expected: reward kiểu DAPO trả về một dict với điểm, nên nó cần cờ reward key; dấu thay đổi trung bình, không phải thuộc tính advantage không của một reward hai giá trị.
+- **Level 4:** Bạn sẽ kiểm thử một thay đổi reward không có rollout mới như thế nào? Expected: lưu các mẫu rollout của một lần chạy và phát lại chúng chỉ với trainer, để mọi reward ứng viên chấm cùng mẫu.
 
 ## Wrong answers
 
-- "Write a plain function; the flag help shows one." The framework awaits the result, so a plain function fails at the first call; write it as an async function.
-- "Return any float between 0 and 1 for partial credit; GRPO handles it." Fractions that float32 cannot hold exactly give groups of equal rewards a nonzero advantage; round to exact values and test such a group.
-- "Skip the empty-answer case; the model always writes something." A cut or empty answer reaches the reward every step, and a crash there stops the whole rollout.
+- "Viết một hàm thông thường; trợ giúp cờ cho thấy một hàm như vậy." Framework await kết quả, nên một hàm thông thường thất bại ở lời gọi đầu; viết nó như một hàm async.
+- "Trả về bất kỳ float nào giữa 0 và 1 cho điểm một phần; GRPO xử lý nó." Các phân số float32 không thể giữ chính xác cho các nhóm reward bằng nhau một advantage khác không; làm tròn về các giá trị chính xác và kiểm thử một nhóm như vậy.
+- "Bỏ trường hợp câu trả lời trống; mô hình luôn viết gì đó." Một câu trả lời bị cắt hoặc trống đến reward mỗi bước, và một crash ở đó dừng toàn bộ rollout.
 
 ## Taught in
 
-[Section 3.5 of Miles 101](../../../manuals/miles-101/sections/3-5-write-a-custom-reward.md) gives the function, the import rules and the float32 advantage check, and [section 8.5](../../../manuals/miles-101/sections/8-5-how-rollout-functions-plug-in.md) explains why the reward hook is the smallest one for this change.
+[Phần 3.5 của Miles 101](../../../manuals/miles-101/sections/3-5-write-a-custom-reward.md) đưa ra hàm, các quy tắc import và kiểm tra advantage float32, và [phần 8.5](../../../manuals/miles-101/sections/8-5-how-rollout-functions-plug-in.md) giải thích tại sao hook reward là hook nhỏ nhất cho thay đổi này.

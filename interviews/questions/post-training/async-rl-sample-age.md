@@ -16,62 +16,62 @@ related: [post-training/gap-remove-before-reweight]
 updated: 2026-11-03
 ---
 
-You move an RL job from one GPU to a cluster where the rollout engines and the trainers run on separate devices. The team wants generation and training to run at the same time, so that neither side waits for the other. Design the async setup: which knobs matter, what new failure appears, and what you watch in the logs.
+Bạn chuyển một công việc RL từ một GPU sang một cụm nơi các engine rollout và các trainer chạy trên các thiết bị riêng. Nhóm muốn sinh và huấn luyện chạy cùng lúc, để không phía nào chờ phía kia. Thiết kế thiết lập async: các núm nào quan trọng, lỗi mới nào xuất hiện, và bạn quan sát gì trong log.
 
 ## Short answer
 
-Async training lets the engines generate the next batch while the trainer updates, at the price of samples that come from older weights. Two modes exist: one step ahead, where every sample is at most one weight version old with the default update interval, and fully async, where a worker keeps generating and the trainer drains a buffer, so the age depends on how fast the trainer drains it. Set a limit on sample age, decide what happens to running requests at each weight update, and lower the learning rate as you allow older samples. Watch the weight version of each sample, the share of dropped samples, the clip fraction, and the gap between the two sides.
+Huấn luyện async cho phép các engine sinh batch tiếp theo trong khi trainer cập nhật, với cái giá các mẫu đến từ trọng số cũ hơn. Có hai chế độ: trước một bước, nơi mọi mẫu cũ tối đa một phiên bản trọng số với khoảng cập nhật mặc định, và async hoàn toàn, nơi một worker tiếp tục sinh và trainer rút từ một buffer, nên tuổi phụ thuộc vào trainer rút nhanh thế nào. Đặt một giới hạn tuổi mẫu, quyết định điều gì xảy ra với các yêu cầu đang chạy ở mỗi cập nhật trọng số, và giảm learning rate khi cho phép các mẫu cũ hơn. Theo dõi phiên bản trọng số của mỗi mẫu, tỷ phần các mẫu bị bỏ, clip fraction, và khoảng cách giữa hai phía.
 
 ## Full answer
 
 ### Why async pays off only on a split layout
 
-With both sides on one GPU they take turns, and generation stops for the whole training window; the colocated fully async mode exists only to learn the settings. On separate devices the trainer idles during rollout and the engines idle during training unless the two overlap. Async removes part of that wait.
+Với cả hai phía trên một GPU, chúng thay phiên nhau, và việc sinh dừng trong toàn bộ cửa sổ huấn luyện; chế độ async hoàn toàn cùng vị trí chỉ tồn tại để học các thiết lập. Trên các thiết bị riêng, trainer nhàn rỗi trong rollout và các engine nhàn rỗi trong huấn luyện trừ khi hai bên chồng lấn. Async loại bỏ một phần thời gian chờ đó.
 
 ### The knobs
 
-| Setting | What it decides |
+| Thiết lập | Nó quyết định gì |
 |---|---|
-| `--update-weights-interval` | how many steps run between weight updates to the engines |
-| `--max-weight-staleness` | the oldest weight version a sample may come from; unset means no limit |
-| `--async-unused-samples-handler` | drop or retry a sample that is too old |
-| `--async-max-concurrent-samples` | how many samples the engines generate at one time |
-| `--pause-generation-mode` | what happens to running requests at a weight update: abort, retract, or in place; retract is the default |
+| `--update-weights-interval` | bao nhiêu bước chạy giữa các cập nhật trọng số đến các engine |
+| `--max-weight-staleness` | phiên bản trọng số cũ nhất một mẫu có thể đến từ; không đặt có nghĩa không giới hạn |
+| `--async-unused-samples-handler` | bỏ hoặc thử lại một mẫu quá cũ |
+| `--async-max-concurrent-samples` | bao nhiêu mẫu các engine sinh cùng lúc |
+| `--pause-generation-mode` | điều gì xảy ra với các yêu cầu đang chạy khi cập nhật trọng số: hủy, rút lại, hoặc tại chỗ; rút lại là mặc định |
 
-The over-sampling batch size has no effect in the fully async mode.
+Kích thước batch lấy mẫu dư không có tác dụng trong chế độ async hoàn toàn.
 
 ### The new failure: stale samples
 
-A sample generated under weights two versions old is off-policy for the trainer. The ratio of trainer probability to engine probability now carries a gap that the kernels did not cause. Two signals show it. The clip fraction, `train/pg_clipfrac`, is 0 in a run with one optimizer update per rollout, because the policy that trains is the one that sampled; a clip fraction above 0 in such a run means the samples did not come from the current weights. The log-probability gap grows with the age for the same reason.
+Một mẫu được sinh dưới trọng số cũ hai phiên bản là off-policy đối với trainer. Tỷ số xác suất trainer trên xác suất engine giờ mang một khoảng cách mà các kernel không gây ra. Hai tín hiệu cho thấy nó. Clip fraction, `train/pg_clipfrac`, bằng 0 trong một lần chạy có một cập nhật bộ tối ưu mỗi rollout, vì policy huấn luyện là policy đã lấy mẫu; một clip fraction trên 0 trong một lần chạy như vậy có nghĩa các mẫu không đến từ trọng số hiện tại. Khoảng cách log xác suất tăng theo tuổi vì cùng lý do.
 
 ### Learning rate follows age
 
-A study of asynchronous GRPO on small models changed the steps between weight updates and the learning rate together, and the largest stable learning rate fell in proportion to the steps between updates: twice the steps, about half the rate. The manual has not tested it and offers it as the starting rule. When you raise the update interval or the age limit, lower the learning rate by the same factor, then watch the gap and the reward.
+Một nghiên cứu về GRPO bất đồng bộ trên các mô hình nhỏ thay đổi số bước giữa các cập nhật trọng số và learning rate cùng nhau, và learning rate ổn định lớn nhất giảm tỷ lệ với số bước giữa các cập nhật: số bước gấp đôi, rate khoảng một nửa. Tài liệu chưa kiểm thử nó và đưa ra như quy tắc bắt đầu. Khi bạn tăng khoảng cập nhật hoặc giới hạn tuổi, giảm learning rate cùng hệ số, rồi theo dõi khoảng cách và reward.
 
 ### What to watch
 
-- The weight version statistics in the rollout metrics: how old the samples are.
-- The share of dropped or retried samples. A high share means the engines work for nothing.
-- `train/pg_clipfrac` and the gap, read against the ranges of your synchronous runs.
-- `perf/update_weights_time` against the step time. On a split layout the update is a transfer over the network, not a copy inside one GPU, and the transfer method is a choice of its own.
+- Các thống kê phiên bản trọng số trong các chỉ số rollout: các mẫu cũ bao nhiêu.
+- Tỷ phần các mẫu bị bỏ hoặc thử lại. Một tỷ phần cao có nghĩa các engine làm việc vô ích.
+- `train/pg_clipfrac` và khoảng cách, được đọc đối chiếu các khoảng của các lần chạy đồng bộ của bạn.
+- `perf/update_weights_time` đối chiếu thời gian bước. Trên một bố trí tách, cập nhật là một lần truyền qua mạng, không phải một bản sao trong một GPU, và phương pháp truyền là một lựa chọn riêng.
 
 ### Corrections for what remains
 
-A sample age limit drops the worst samples. For the rest, the truncated importance-sampling correction reweights each token by the ratio of the two probabilities with a cap. Remove staleness before you reweight it.
+Một giới hạn tuổi mẫu bỏ các mẫu tệ nhất. Với phần còn lại, hiệu chỉnh importance-sampling cắt cụt đặt lại trọng số mỗi token bằng tỷ số hai xác suất với một giới hạn. Loại bỏ độ cũ trước khi đặt lại trọng số nó.
 
 ## Follow-ups
 
-- **Level 3:** Why is the clip fraction exactly 0 in a synchronous run with one update per rollout? Expected: the policy in the trainer is still the policy that produced the samples, so every ratio is 1 and nothing hits the clip range.
-- **Level 4:** Which pause mode do you choose, and what does the wrong one cost? Expected: retract keeps the work of running requests and continues them under new weights, which mixes weight versions inside one answer; abort throws the work away; in place changes the weights under a running request; the fully async mode refuses some of these, so read the flag help of your version.
-- **Level 4:** A partial answer started under version 5 and finished under version 7. Where does that show up? Expected: in the gap, because part of its tokens come from older weights than the trainer holds; watch the gap after you turn on partial rollout or raise the staleness limit.
-- **Level 4:** How does a dedicated evaluation fleet fit this design? Expected: it loads checkpoint snapshots and never takes part in the training weight updates, so its lag is reported in steps; in the version the manual read it does not combine with rollout fault tolerance.
+- **Level 3:** Tại sao clip fraction chính xác bằng 0 trong một lần chạy đồng bộ có một cập nhật mỗi rollout? Expected: policy trong trainer vẫn là policy đã tạo các mẫu, nên mọi tỷ số bằng 1 và không gì chạm khoảng clip.
+- **Level 4:** Bạn chọn chế độ tạm dừng nào, và chế độ sai tốn gì? Expected: rút lại giữ công việc của các yêu cầu đang chạy và tiếp tục chúng dưới trọng số mới, trộn các phiên bản trọng số trong một câu trả lời; hủy bỏ công việc đi; tại chỗ thay trọng số dưới một yêu cầu đang chạy; chế độ async hoàn toàn từ chối một số chế độ này, nên đọc trợ giúp cờ của phiên bản bạn.
+- **Level 4:** Một câu trả lời một phần bắt đầu dưới phiên bản 5 và kết thúc dưới phiên bản 7. Điều đó xuất hiện ở đâu? Expected: trong khoảng cách, vì một phần token của nó đến từ trọng số cũ hơn trainer giữ; theo dõi khoảng cách sau khi bật partial rollout hoặc tăng giới hạn độ cũ.
+- **Level 4:** Một cụm đánh giá chuyên dụng phù hợp thiết kế này như thế nào? Expected: nó nạp các bản chụp checkpoint và không bao giờ tham gia các cập nhật trọng số huấn luyện, nên độ trễ của nó được báo cáo bằng bước; trong phiên bản tài liệu đọc, nó không kết hợp với chịu lỗi rollout.
 
 ## Wrong answers
 
-- "Run fully async on the single GPU too; it is the same code." With one GPU the two sides still take turns and generation stops during training, so you pay the staleness cost and get no overlap.
-- "Leave the staleness limit unset, so that no sample is wasted." Unset means no limit; very old samples pull the update in the wrong direction, and the gap grows without a cause in the kernels.
-- "Keep the learning rate from the synchronous run." The stable rate falls with the age of the samples; raise the update interval and you lower the rate by about the same factor.
+- "Cũng chạy async hoàn toàn trên GPU đơn; đó là cùng mã." Với một GPU, hai phía vẫn thay phiên và sinh dừng trong huấn luyện, nên bạn trả chi phí độ cũ và không có chồng lấn.
+- "Để giới hạn độ cũ không đặt, để không mẫu nào bị lãng phí." Không đặt có nghĩa không giới hạn; các mẫu rất cũ kéo cập nhật theo hướng sai, và khoảng cách tăng mà không có nguyên nhân trong các kernel.
+- "Giữ learning rate từ lần chạy đồng bộ." Rate ổn định giảm theo tuổi các mẫu; tăng khoảng cập nhật và bạn giảm rate cùng khoảng hệ số.
 
 ## Taught in
 
-[Section 4.1 of Miles 101](../../../manuals/miles-101/sections/4-1-run-rollout-and-training-at-once.md) lists the async modes and settings, [section 5.1](../../../manuals/miles-101/sections/5-1-read-the-run.md) reads the clip fraction as a staleness signal, and [section 6.1](../../../manuals/miles-101/sections/6-1-split-rollout-and-training.md) covers the split layout and the weight transfer.
+[Phần 4.1 của Miles 101](../../../manuals/miles-101/sections/4-1-run-rollout-and-training-at-once.md) liệt kê các chế độ và thiết lập async, [phần 5.1](../../../manuals/miles-101/sections/5-1-read-the-run.md) đọc clip fraction như một tín hiệu độ cũ, và [phần 6.1](../../../manuals/miles-101/sections/6-1-split-rollout-and-training.md) trình bày bố trí tách và truyền trọng số.

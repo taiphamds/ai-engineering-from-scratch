@@ -16,47 +16,47 @@ related: [post-training/rl-custom-reward-take-home, post-training/logprob-gap-at
 updated: 2026-11-03
 ---
 
-A GRPO run trains a small model on grade-school math with a binary reward. The reward per step jumps around, and the trend over many steps looks flat. The team wants to raise the learning rate. What do you read first, and what do you suspect?
+Một lần chạy GRPO huấn luyện một mô hình nhỏ trên toán tiểu học với một reward nhị phân. Reward mỗi bước nhảy lên xuống, và xu hướng qua nhiều bước trông phẳng. Nhóm muốn tăng learning rate. Bạn đọc gì trước, và bạn nghi ngờ gì?
 
 ## Short answer
 
-Read the group statistics before you touch the learning rate. GRPO scores each answer against the mean of its group, so a group where every answer is right or every answer is wrong has a zero advantage for every member and teaches nothing. In the manual's runs, 10 of the 32 groups in the first step had one reward for all 8 answers, and about half of the groups did over 12 steps. If most groups are like that, the signal is thin, and the fix is the prompt mix or the dynamic sampling filter, not a bigger step.
+Đọc các thống kê nhóm trước khi chạm learning rate. GRPO chấm mỗi câu trả lời đối chiếu trung bình nhóm của nó, nên một nhóm mà mọi câu trả lời đều đúng hoặc mọi câu trả lời đều sai có advantage bằng không cho mọi thành viên và không dạy gì. Trong các lần chạy của tài liệu, 10 trong 32 nhóm ở bước đầu có một reward cho tất cả 8 câu trả lời, và khoảng một nửa nhóm như vậy qua 12 bước. Nếu phần lớn nhóm như vậy, tín hiệu mỏng, và cách sửa là hỗn hợp prompt hoặc bộ lọc lấy mẫu động, không phải một bước lớn hơn.
 
 ## Full answer
 
 ### Read five numbers, not the reward
 
-The reward of one step moved by up to 0.14 between steps in the first ten steps of the manual's runs, and by up to 0.21 over a long run, so read a mean over five or more steps. Next to it read the answer length, the share of answers cut at the length limit, the log-probability gap between the trainer and the engine, and the KL between them. A flat reward with a flat gap and a normal length points at the signal, not at the kernels.
+Reward của một bước thay đổi đến 0.14 giữa các bước trong mười bước đầu của các lần chạy tài liệu, và đến 0.21 qua một lần chạy dài, nên đọc trung bình trên năm bước hoặc hơn. Cạnh nó, đọc độ dài câu trả lời, tỷ phần câu trả lời bị cắt ở giới hạn độ dài, khoảng cách log xác suất giữa trainer và engine, và KL giữa chúng. Một reward phẳng với khoảng cách phẳng và độ dài bình thường chỉ đến tín hiệu, không phải kernel.
 
 ### Count the groups that carry no advantage
 
-The rollout `perf` line counts groups with a zero standard deviation: `rollout/zero_std/count_1` for all right and `rollout/zero_std/count_0` for all wrong. In the first step of the manual's baseline, 7 groups were all right and 3 were all wrong, 10 of 32. Over 12 steps with one seed, 191 of 384 groups had one reward for every answer, and 142 of those were all right: easy prompts the model already solved.
+Dòng `perf` rollout đếm các nhóm có độ lệch chuẩn bằng không: `rollout/zero_std/count_1` cho tất cả đúng và `rollout/zero_std/count_0` cho tất cả sai. Trong bước đầu baseline của tài liệu, 7 nhóm đều đúng và 3 đều sai, 10 trong 32. Qua 12 bước với một seed, 191 trong 384 nhóm có một reward cho mọi câu trả lời, và 142 trong số đó đều đúng: các prompt dễ mô hình đã giải được.
 
 ### The filter and its cost
 
-The dynamic sampling filter drops those groups and asks the engine for more prompts until the step holds enough groups with a spread. With batches of 48 prompts for 32 kept groups, the manual's steps dropped 16 to 48 groups each, median 36, and most dropped groups were all right. The rollout took 1.5 times as long when one extra batch was enough and 2.8 times as long when a second batch was needed. The sum of the twelve step times went from 60 minutes to 113.
+Bộ lọc lấy mẫu động bỏ những nhóm đó và yêu cầu engine thêm prompt đến khi bước giữ đủ nhóm có độ trải. Với các batch 48 prompt cho 32 nhóm được giữ, các bước của tài liệu mỗi bước bỏ 16 đến 48 nhóm, trung vị 36, và phần lớn nhóm bị bỏ đều đúng. Rollout mất lâu hơn 1.5 lần khi một batch bổ sung là đủ và 2.8 lần khi cần một batch thứ hai. Tổng mười hai thời gian bước tăng từ 60 phút lên 113.
 
 ### Read the reward with the filter on
 
-`rollout/raw_reward` no longer includes the dropped groups, so compare `rollout/raw_reward_unfiltered` instead. Even that number leaned high in the manual's run, 0.686 against 0.657, because the slowest and longest answers were stopped before they counted, and a cut answer usually scores 0. Treat a gain inside the spread of your baseline seeds as noise.
+`rollout/raw_reward` không còn gồm các nhóm bị bỏ, nên thay vào đó so sánh `rollout/raw_reward_unfiltered`. Ngay cả con số đó cũng nghiêng cao trong lần chạy tài liệu, 0.686 so với 0.657, vì các câu trả lời chậm nhất và dài nhất bị dừng trước khi được tính, và một câu trả lời bị cắt thường đạt 0. Xem một mức tăng trong độ trải của các seed baseline là nhiễu.
 
 ### What a higher learning rate would do
 
-A larger step on a thin signal raises the gradient norm and the variance of the update without adding information. The manual's rule for a gradient norm that grows step after step is the opposite: lower the rate.
+Một bước lớn hơn trên một tín hiệu mỏng tăng norm gradient và variance của cập nhật mà không thêm thông tin. Quy tắc của tài liệu cho một norm gradient tăng bước này sau bước khác là ngược lại: giảm rate.
 
 ## Follow-ups
 
-- **Level 2:** Why does a group with one reward give a zero advantage? Expected: GRPO subtracts the group mean and divides by the group standard deviation; equal rewards give a zero numerator for every answer.
-- **Level 2:** What else makes a math reward score 0 besides a wrong answer? Expected: an answer cut at the length limit before its final line; read the cut share next to the reward.
-- **Level 3:** The filter run shows a higher mean reward than the baseline. How do you decide if it learned more? Expected: compare the unfiltered reward, account for the bias from stopped long answers, and run a second seed against the spread of the baseline seeds.
-- **Level 3:** Your reward returns fractions, and a group with identical rewards still shows small nonzero advantages. Why? Expected: float32 rounding of the group mean leaves a remainder that the division by a near-zero standard deviation blows up; round rewards to values a float32 holds exactly.
+- **Level 2:** Tại sao một nhóm có một reward cho một advantage bằng không? Expected: GRPO trừ trung bình nhóm và chia cho độ lệch chuẩn nhóm; các reward bằng nhau cho một tử số không cho mọi câu trả lời.
+- **Level 2:** Ngoài một đáp án sai, điều gì khác khiến một reward toán đạt 0? Expected: một câu trả lời bị cắt ở giới hạn độ dài trước dòng cuối của nó; đọc tỷ phần cắt cạnh reward.
+- **Level 3:** Lần chạy bộ lọc cho thấy reward trung bình cao hơn baseline. Bạn quyết định liệu nó học nhiều hơn như thế nào? Expected: so sánh reward chưa lọc, tính đến bias từ các câu trả lời dài bị dừng, và chạy một seed thứ hai đối chiếu độ trải các seed baseline.
+- **Level 3:** Reward của bạn trả về các phân số, và một nhóm có reward giống nhau vẫn cho advantage nhỏ khác không. Tại sao? Expected: làm tròn float32 của trung bình nhóm để lại một phần dư mà phép chia cho độ lệch chuẩn gần không khuếch đại; làm tròn reward về các giá trị một float32 giữ chính xác.
 
 ## Wrong answers
 
-- "Raise the learning rate; the reward is flat because the steps are small." The signal is thin because many groups carry no advantage; a larger step amplifies noise and raises the gradient norm.
-- "Sample more answers per prompt to get a spread." In the manual's runs, 4, 8 and 16 answers per prompt gave reward gains inside one seed range, and more answers made each rollout longer.
-- "Read the reward of the last step." One step moves by up to a fifth of the scale; read the mean over five or more steps.
+- "Tăng learning rate; reward phẳng vì các bước nhỏ." Tín hiệu mỏng vì nhiều nhóm không mang advantage; một bước lớn hơn khuếch đại nhiễu và tăng norm gradient.
+- "Lấy mẫu thêm câu trả lời mỗi prompt để có độ trải." Trong các lần chạy của tài liệu, 4, 8 và 16 câu trả lời mỗi prompt cho các mức tăng reward trong khoảng một seed, và nhiều câu trả lời hơn làm mỗi rollout lâu hơn.
+- "Đọc reward của bước cuối." Một bước thay đổi đến một phần năm thang; đọc trung bình trên năm bước hoặc hơn.
 
 ## Taught in
 
-[Section 3.2 of Miles 101](../../../manuals/miles-101/sections/3-2-train-with-the-dapo-filter.md) measures the dropped groups and the cost of the filter, [section 1.3](../../../manuals/miles-101/sections/1-3-read-your-first-ten-steps.md) counts the groups that teach nothing, and [section 3.1](../../../manuals/miles-101/sections/3-1-train-math-on-gsm8k.md) compares group sizes.
+[Phần 3.2 của Miles 101](../../../manuals/miles-101/sections/3-2-train-with-the-dapo-filter.md) đo các nhóm bị bỏ và chi phí bộ lọc, [phần 1.3](../../../manuals/miles-101/sections/1-3-read-your-first-ten-steps.md) đếm các nhóm không dạy gì, và [phần 3.1](../../../manuals/miles-101/sections/3-1-train-math-on-gsm8k.md) so sánh các kích thước nhóm.

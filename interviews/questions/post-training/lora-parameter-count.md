@@ -16,11 +16,11 @@ related: [post-training/qlora-on-one-gpu]
 updated: 2026-11-03
 ---
 
-An attention projection in your model is a square matrix with 4,096 rows and 4,096 columns. You add a LoRA adapter of rank 16 to it. How many values does the adapter train, and what share of the frozen matrix is that? Then say what changes when you double the rank.
+Một phép chiếu attention trong mô hình của bạn là một ma trận vuông có 4,096 hàng và 4,096 cột. Bạn thêm một adapter LoRA rank 16 vào nó. Adapter huấn luyện bao nhiêu giá trị, và đó là tỷ phần nào của ma trận đóng băng? Sau đó nói điều gì thay đổi khi bạn tăng gấp đôi rank.
 
 ## Short answer
 
-The adapter is two thin matrices: A with 16 rows and 4,096 columns, and B with 4,096 rows and 16 columns. Each holds 65,536 values, so the adapter trains 131,072 parameters. The frozen matrix holds 16,777,216, so the adapter is 0.78 percent of it. A doubled rank doubles the adapter, because its size is linear in the rank.
+Adapter là hai ma trận mỏng: A có 16 hàng và 4,096 cột, và B có 4,096 hàng và 16 cột. Mỗi ma trận giữ 65,536 giá trị, nên adapter huấn luyện 131,072 tham số. Ma trận đóng băng giữ 16,777,216, nên adapter bằng 0.78 phần trăm của nó. Rank gấp đôi tăng gấp đôi adapter, vì kích thước của nó tuyến tính theo rank.
 
 ## Full answer
 
@@ -37,11 +37,11 @@ share        = 0.78 percent
 
 ### Why so few parameters work
 
-The update that fine-tuning makes to a weight matrix has a low intrinsic rank. A rank of 16 or 32 captures most of it. The lesson reports LoRA at rank 16 within about one point of full fine-tuning on the benchmarks it lists.
+Cập nhật mà fine-tuning tạo cho một ma trận trọng số có rank nội tại thấp. Rank 16 hoặc 32 nắm phần lớn nó. Bài học báo cáo LoRA ở rank 16 nằm trong khoảng một điểm của fine-tuning đầy đủ trên các benchmark nó liệt kê.
 
 ### The rank table
 
-| Rank | Parameters for one 4096 by 4096 matrix |
+| Rank | Tham số cho một ma trận 4096 nhân 4096 |
 |---|---|
 | 4 | 32,768 |
 | 8 | 65,536 |
@@ -51,25 +51,25 @@ The update that fine-tuning makes to a weight matrix has a low intrinsic rank. A
 
 ### Alpha
 
-The scale `alpha / r` sets how much the adapter output counts. With alpha equal to the rank, the scale is one; a common convention sets alpha to twice the rank. Alpha changes the effective step size, not the parameter count.
+Thang `alpha / r` đặt đầu ra adapter được tính bao nhiêu. Với alpha bằng rank, thang là một; một quy ước thông dụng đặt alpha bằng hai lần rank. Alpha thay đổi kích thước bước hiệu dụng, không phải số tham số.
 
 ### Which matrices
 
-The count above is one matrix. Adapters on the query and value projections of every layer are the usual start. Adding the key and output projections and the MLP layers raises quality a little and, on the lesson's 7B table, raises the count from 9.4M to 37.7M.
+Số đếm trên là một ma trận. Các adapter trên phép chiếu query và value của mọi lớp là điểm bắt đầu thông thường. Thêm các phép chiếu key và output và các lớp MLP tăng chất lượng một chút và, trên bảng 7B của bài học, tăng số lượng từ 9.4M lên 37.7M.
 
 ## Follow-ups
 
-- **Level 1:** Why does B start at zero? Expected: the product B A is then zero, so the model starts from its original behavior and learns the change step by step.
-- **Level 2:** How does the count change for a matrix that is not square? Expected: A is r by the input width and B is the output height by r, so the count is r times the sum of the two sides; still linear in the rank.
-- **Level 2:** At what rank does the memory advantage start to fade? Expected: the lesson puts the point of diminishing returns past 64, where quality stops improving and the adapters stop being small.
-- **Level 3:** After training, how do you remove the cost of the second matrix product at inference? Expected: merge, compute W plus alpha over r times B A once, and save a full matrix of the original size.
+- **Level 1:** Tại sao B bắt đầu ở không? Expected: tích B A khi đó bằng không, nên mô hình bắt đầu từ hành vi gốc và học thay đổi từng bước.
+- **Level 2:** Số đếm thay đổi như thế nào cho một ma trận không vuông? Expected: A là r nhân chiều rộng đầu vào và B là chiều cao đầu ra nhân r, nên số đếm là r nhân tổng hai cạnh; vẫn tuyến tính theo rank.
+- **Level 2:** Ở rank nào lợi thế bộ nhớ bắt đầu mờ? Expected: bài học đặt điểm lợi ích giảm dần qua 64, nơi chất lượng ngừng cải thiện và các adapter ngừng nhỏ.
+- **Level 3:** Sau huấn luyện, bạn loại bỏ chi phí của tích ma trận thứ hai khi suy luận như thế nào? Expected: merge, tính W cộng alpha chia r nhân B A một lần, và lưu một ma trận đầy đủ có kích thước gốc.
 
 ## Wrong answers
 
-- "The adapter trains r squared parameters." It trains r times the sum of the two matrix sides; r squared would be a tiny block, not the two thin matrices.
-- "Doubling the rank doubles the quality." The gain flattens fast; the lesson finds rank 16 within about one point of full fine-tuning and little gain past 64.
-- "Alpha adds parameters." Alpha is a fixed scalar on the adapter output; it changes the effective step size, not the count.
+- "Adapter huấn luyện r bình phương tham số." Nó huấn luyện r nhân tổng hai cạnh ma trận; r bình phương sẽ là một block rất nhỏ, không phải hai ma trận mỏng.
+- "Tăng gấp đôi rank tăng gấp đôi chất lượng." Mức tăng phẳng nhanh; bài học thấy rank 16 nằm trong khoảng một điểm của fine-tuning đầy đủ và ít tăng qua 64.
+- "Alpha thêm tham số." Alpha là một vô hướng cố định trên đầu ra adapter; nó thay kích thước bước hiệu dụng, không phải số lượng.
 
 ## Taught in
 
-The [LoRA lesson](../../../phases/11-llm-engineering/08-fine-tuning-lora/) counts the adapter parameters and builds the layer in PyTorch.
+[Bài học LoRA](../../../phases/11-llm-engineering/08-fine-tuning-lora/) đếm các tham số adapter và xây lớp trong PyTorch.

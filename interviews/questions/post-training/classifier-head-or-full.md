@@ -16,47 +16,47 @@ related: [post-training/lora-parameter-count]
 updated: 2026-11-03
 ---
 
-You have a small pretrained transformer and 800 labelled text messages, half of them spam. You need a binary classifier by tomorrow. Do you train only a new classification head, or do you update every weight? Defend the choice.
+Bạn có một transformer pretrained nhỏ và 800 tin nhắn văn bản có nhãn, một nửa là spam. Bạn cần một bộ phân loại nhị phân trước ngày mai. Bạn chỉ huấn luyện một classification head mới, hay cập nhật mọi trọng số? Bảo vệ lựa chọn.
 
 ## Short answer
 
-Swap the language-model head for a two-class linear layer and start with the body frozen. Head-only training is fast, costs almost no memory, and rarely overfits on this little data. Unfreeze the body only when the frozen run leaves accuracy on the table and the domain is far from the pretraining text.
+Đổi head mô hình ngôn ngữ thành một lớp tuyến tính cho hai lớp và bắt đầu với phần thân đóng băng. Huấn luyện chỉ head nhanh, tốn gần như không bộ nhớ, và hiếm khi overfit trên lượng dữ liệu ít này. Chỉ mở đóng băng phần thân khi lần chạy đóng băng còn dư địa độ chính xác và miền xa văn bản pretraining.
 
 ## Full answer
 
 ### Two regimes, one loop
 
-The body maps tokens to hidden states and stays as it is. The head maps a pooled hidden state to two logits and is new. Head-only training sets `requires_grad=False` on the body, so the optimizer sees only the head. Full fine-tuning lets the gradient flow through the whole stack, and the body drifts toward the classification objective.
+Phần thân ánh xạ các token thành trạng thái ẩn và giữ nguyên. Head ánh xạ một trạng thái ẩn pooled thành hai logit và là mới. Huấn luyện chỉ head đặt `requires_grad=False` trên phần thân, nên bộ tối ưu chỉ thấy head. Fine-tuning đầy đủ để gradient chảy qua toàn bộ stack, và phần thân trôi về mục tiêu phân loại.
 
 ### What each one buys
 
-On the fixture in the capstone lesson, head-only training reached a precision near 0.9 and a recall near 0.85 after twenty epochs. Full fine-tuning took about three times longer and landed within a couple of points either way, depending on the seed. With 800 examples the body has little to learn from the labels, and a lot to forget.
+Trên fixture trong bài học capstone, huấn luyện chỉ head đạt precision gần 0.9 và recall gần 0.85 sau hai mươi epoch. Fine-tuning đầy đủ mất lâu hơn khoảng ba lần và nằm trong một vài điểm về hai phía, tùy seed. Với 800 ví dụ, phần thân có ít thứ để học từ các nhãn, và nhiều thứ để quên.
 
 ### Pooling
 
-A classifier needs one vector per sequence. Mean pooling weighted by the attention mask is the simplest choice and gives a stable signal across lengths. A CLS token needs pretraining of that token. Last-token pooling is what decoder-style classifiers use.
+Một bộ phân loại cần một vector mỗi chuỗi. Mean pooling được đặt trọng số bằng mask attention là lựa chọn đơn giản nhất và cho một tín hiệu ổn định qua các độ dài. Một token CLS cần pretraining của token đó. Last-token pooling là điều các bộ phân loại kiểu decoder dùng.
 
 ### Read the numbers, not one accuracy
 
-Report precision, recall, F1 and the confusion matrix on a held-out split with a known balance. The lesson splits 80/20 into 640 training and 160 test messages, stratified so that the test set keeps its balance.
+Báo cáo precision, recall, F1 và confusion matrix trên một phần chia giữ lại có cân bằng đã biết. Bài học chia 80/20 thành 640 tin nhắn huấn luyện và 160 tin nhắn kiểm thử, phân tầng để tập kiểm thử giữ cân bằng.
 
 ### When the full update starts to pay
 
-On 80,000 examples and a larger body, the body has enough signal to move without overfitting, and a domain shift can justify the cost. A middle path unfreezes only the last block.
+Trên 80,000 ví dụ và một phần thân lớn hơn, phần thân có đủ tín hiệu để thay đổi mà không overfit, và một dịch chuyển miền có thể biện minh chi phí. Một đường trung gian chỉ mở đóng băng block cuối.
 
 ## Follow-ups
 
-- **Level 1:** What does `requires_grad=False` on the body do to the optimizer? Expected: the optimizer receives only the head parameters, so the body weights never change.
-- **Level 2:** Why mean pooling and not the last hidden state? Expected: mean pooling with the mask is stable across lengths and needs no special token; last-token pooling suits decoder models that saw that pattern.
-- **Level 2:** Why keep the test split stratified? Expected: a known class balance lets you read precision and recall as honest numbers.
-- **Level 3:** The full update scores lower than the frozen run on this data. What happened? Expected: the body overfit the small set and lost pretrained structure; lower the body learning rate, unfreeze fewer blocks, or stay with the head.
+- **Level 1:** `requires_grad=False` trên phần thân làm gì với bộ tối ưu? Expected: bộ tối ưu chỉ nhận các tham số head, nên các trọng số phần thân không bao giờ thay đổi.
+- **Level 2:** Tại sao mean pooling và không phải trạng thái ẩn cuối? Expected: mean pooling với mask ổn định qua các độ dài và không cần token đặc biệt; last-token pooling phù hợp các mô hình decoder đã thấy mẫu đó.
+- **Level 2:** Tại sao giữ phần chia kiểm thử phân tầng? Expected: một cân bằng lớp đã biết cho phép bạn đọc precision và recall như các con số trung thực.
+- **Level 3:** Cập nhật đầy đủ đạt điểm thấp hơn lần chạy đóng băng trên dữ liệu này. Điều gì đã xảy ra? Expected: phần thân overfit tập nhỏ và mất cấu trúc pretrained; giảm learning rate phần thân, mở đóng băng ít block hơn, hoặc giữ head.
 
 ## Wrong answers
 
-- "Train a fresh classifier from scratch, the model is small anyway." The pretrained body already encodes word identity, position and co-occurrence; a new model from 800 examples throws that away.
-- "Updating every weight is always more accurate, so do it." On 800 examples it lands within a couple of points of the frozen run and costs about three times the training time, with a real risk of overfitting.
-- "Report accuracy, the classes are balanced." Precision and recall tell you which error you make, and the confusion matrix shows the counts behind the score.
+- "Huấn luyện một bộ phân loại mới từ đầu, mô hình dù sao cũng nhỏ." Phần thân pretrained đã encode danh tính từ, vị trí và đồng xuất hiện; một mô hình mới từ 800 ví dụ vứt điều đó đi.
+- "Cập nhật mọi trọng số luôn chính xác hơn, nên làm vậy." Trên 800 ví dụ, nó nằm trong một vài điểm của lần chạy đóng băng và tốn thời gian huấn luyện khoảng gấp ba, với một rủi ro overfitting thực.
+- "Báo cáo độ chính xác, các lớp cân bằng." Precision và recall cho bạn biết bạn mắc lỗi nào, và confusion matrix cho thấy số đếm phía sau điểm.
 
 ## Taught in
 
-The [classifier fine-tuning capstone](../../../phases/19-capstone-projects/38-classifier-finetuning/) builds both regimes on one training loop and reads precision, recall and F1 for each.
+[Capstone fine-tuning bộ phân loại](../../../phases/19-capstone-projects/38-classifier-finetuning/) xây cả hai chế độ trên một vòng lặp huấn luyện và đọc precision, recall và F1 cho mỗi chế độ.
