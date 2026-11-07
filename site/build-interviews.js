@@ -401,20 +401,37 @@ function apiJson(built) {
   };
 }
 
-function loadBuilt(root) {
+// The local translated reader may preview editorial diagnostics. Structural
+// errors still block rendering, and evidence must still match after CRLF/LF
+// normalization. Published builds keep the validator's strict default.
+function localPreviewWarning(problem, root) {
+  if (/^interviews\/questions\/[^:]+\.md: (?:the prompt or a follow-up question shows an answer span: |Short answer must have 2 to 4 sentences; it has \d+$)/.test(problem)) return true;
+  const evidence = /^(interviews\/scenarios\/[^:]+\/evidence\/[^:]+\.txt): the listing does not match .+ byte for byte$/.exec(problem);
+  if (!evidence) return false;
+  try {
+    const parsed = bankLib.parseEvidence(fs.readFileSync(path.join(root, evidence[1]), 'utf8'), evidence[1]);
+    const source = fs.readFileSync(path.join(root, parsed.header.source), 'utf8');
+    const expected = bankLib.expectedBody(source, parsed.header.lines);
+    return !expected.error && parsed.body.replace(/\r\n/g, '\n') === expected.body.replace(/\r\n/g, '\n');
+  } catch (_) {
+    return false;
+  }
+}
+
+function loadBuilt(root, localPreview) {
   const bank = bankLib.loadBank(root);
-  const problems = bank.errors;
+  const problems = bank.errors.filter(problem => !localPreview || !localPreviewWarning(problem, root));
   if (problems.length) throw new Error(`The interview bank has errors. Run node scripts/interviews/validate.js for the full report.\n${problems.join('\n')}`);
   const order = (a, b) => a.data.level - b.data.level || a.data.title.localeCompare(b.data.title);
   const questions = bank.questions.slice().sort(order);
   const scenarios = bank.scenarios.slice().sort(order);
   const items = bank.cards.flatMap(card => questions.concat(scenarios).filter(item => item.card === card.id));
   const byCard = new Map(bank.cards.map(card => [card.id, items.filter(item => item.card === card.id)]));
-  return { root, groups: bank.groups, cards: bank.cards, roles: bank.roles, questions, scenarios, items, byCard, cardMap: new Map(bank.cards.map(card => [card.id, card])), groupMap: new Map(bank.groups.map(group => [group.id, group])) };
+  return { root, warnings: bank.errors.filter(problem => !problems.includes(problem)), groups: bank.groups, cards: bank.cards, roles: bank.roles, questions, scenarios, items, byCard, cardMap: new Map(bank.cards.map(card => [card.id, card])), groupMap: new Map(bank.groups.map(group => [group.id, group])) };
 }
 
-function buildInterviews({ root = REPO_ROOT, siteDir = __dirname } = {}) {
-  const built = loadBuilt(root);
+function buildInterviews({ root = REPO_ROOT, siteDir = __dirname, localPreview = false } = {}) {
+  const built = loadBuilt(root, localPreview);
   const assets = { head: versionHtml(HEAD_ASSETS, siteDir), body: versionHtml(BODY_ASSETS, siteDir) };
   const pages = [{
     file: 'index.html',

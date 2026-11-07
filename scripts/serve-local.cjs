@@ -50,6 +50,24 @@ function localAssets() {
 }
 
 function createServer(assets = localAssets()) {
+  let interviews;
+  function interviewRoutes() {
+    if (interviews) return interviews;
+    const built = require('../site/build-interviews').buildInterviews({root, localPreview:true});
+    const routes = new Map();
+    for (const page of built.pages) {
+      const resource = {body:page.html.replace('<html lang="en"', '<html lang="vi"'), type:'text/html; charset=utf-8'};
+      routes.set(page.href, resource);
+      routes.set('/interviews/' + page.file, resource);
+    }
+    const api = {body:built.api, type:'application/json; charset=utf-8'};
+    routes.set('/interviews.json', api);
+    routes.set('/api/interviews.json', api);
+    for (const [file, body] of built.markdown) routes.set('/agent-pages/interviews/' + file, {body, type:'text/markdown; charset=utf-8'});
+    if (built.warnings.length) console.warn(`Local interview preview: ${built.warnings.length} editorial or line-ending diagnostics; strict build checks are unchanged.`);
+    interviews = routes;
+    return interviews;
+  }
   const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.cjs':'text/javascript; charset=utf-8',
     '.css':'text/css; charset=utf-8','.md':'text/plain; charset=utf-8','.json':'application/json; charset=utf-8',
     '.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp',
@@ -66,7 +84,20 @@ function createServer(assets = localAssets()) {
       let pathname = decodeURIComponent(url.pathname);
       if (pathname === '/') { res.writeHead(302,{Location:'/site/index.html#contents'}); return res.end(); }
       if (pathname.split('/').some(part => part.startsWith('.') || part.includes('\\') || part.includes('\0'))) return send(403,'Forbidden');
-      if (!/^\/(site|phases|glossary|docs|certifications|learning-paths|manuals)\//.test(pathname) && !/^\/(README|ROADMAP)\.md$/.test(pathname)) return send(404,'Not found');
+      const interviewPath = pathname.replace(/^\/site(?=\/interviews(?:\/|$))/, '').replace(/\/$/, '');
+      if (/^\/(?:interviews(?:\/|$)|interviews\.json$|api\/interviews\.json$|agent-pages\/interviews\/)/.test(interviewPath)) {
+        const resource = interviewRoutes().get(interviewPath);
+        if (resource) return send(200,resource.body,resource.type);
+        if (!/^\/interviews\/(?:questions|scenarios)\/.+\.(?:md|txt)$/.test(pathname)) return send(404,'Not found');
+      }
+      // Generated pages use root-relative assets and lesson links, just as on
+      // the author's hosted site. Resolve these against the local site folder.
+      if (/^\/[a-z0-9-]+\.(?:js|css|ico|svg|png)$/.test(pathname) || /^\/(?:assets|fonts)\//.test(pathname)) pathname = '/site' + pathname;
+      else if (/^\/[a-z][a-z0-9-]*(?:\.html)?$/.test(pathname)) {
+        const page = '/site' + pathname + (pathname.endsWith('.html') ? '' : '.html');
+        if (fs.existsSync(path.join(root, page))) pathname = page;
+      }
+      if (!/^\/(site|phases|glossary|docs|certifications|learning-paths|manuals|interviews)\//.test(pathname) && !/^\/(README|ROADMAP)\.md$/.test(pathname)) return send(404,'Not found');
       if (assets.has(pathname)) return send(200,assets.get(pathname),'text/javascript; charset=utf-8');
       if (/^\/site\/(lesson|certification)$/.test(pathname)) pathname += '.html';
       let file = path.resolve(root, '.' + pathname);
