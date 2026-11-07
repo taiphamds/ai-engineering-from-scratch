@@ -16,58 +16,58 @@ related: []
 updated: 2026-11-03
 ---
 
-Your RL trainer shares its GPUs with the vLLM server that generates the rollouts. Between rollout steps the trainer needs the GPU memory back, and after each step the server needs the new weights. What does vLLM give you for this loop, and what can go wrong at the pinned version?
+Trainer RL của bạn chia sẻ các GPU của nó với máy chủ vLLM sinh rollout. Giữa các bước rollout, trainer cần lấy lại bộ nhớ GPU, và sau mỗi bước máy chủ cần các trọng số mới. vLLM cung cấp gì cho vòng lặp này, và điều gì có thể gặp trục trặc ở phiên bản được ghim?
 
 ## Short answer
 
-vLLM has development-mode routes for the loop: sleep mode frees GPU memory on `/sleep` and takes it back on `/wake_up`, `/pause` and `/resume` stop and restart generation, and a weight transfer runs through `/init_weight_transfer_engine`, `/start_weight_update` and `/finish_weight_update`, over NCCL between GPUs or through CUDA memory handles on one machine. At level 1 the sleep keeps the weights, and at level 2 it drops them too, which suits a step where the trainer sends new weights anyway. Three problems are known at 0.31.0: a level 2 wake does not reload a speculative draft, a level 2 sleep clears calibrated KV scales, and a weight update during sleep stops the engine, so wake first, reload, reset the prefix cache and read the acceptance counters.
+vLLM có các route chế độ phát triển cho vòng lặp: chế độ ngủ giải phóng bộ nhớ GPU trên `/sleep` và lấy lại trên `/wake_up`, `/pause` và `/resume` dừng và khởi động lại việc sinh, và một lần truyền trọng số chạy qua `/init_weight_transfer_engine`, `/start_weight_update` và `/finish_weight_update`, qua NCCL giữa các GPU hoặc qua các handle bộ nhớ CUDA trên một máy. Ở mức 1, chế độ ngủ giữ trọng số, và ở mức 2 nó bỏ cả trọng số, phù hợp với một bước mà trainer dù sao cũng gửi trọng số mới. Có ba vấn đề đã biết ở 0.31.0: đánh thức mức 2 không nạp lại bản nháp speculative, ngủ mức 2 xóa các scale KV đã hiệu chuẩn, và cập nhật trọng số trong khi ngủ làm engine dừng, nên đánh thức trước, nạp lại, đặt lại prefix cache và đọc các bộ đếm chấp nhận.
 
 ## Full answer
 
 ### The loop
 
-An RL step has two halves. The rollout half generates answers with the current weights. The training half computes a loss and updates the weights, and the generator needs the new weights before the next rollout. On one set of GPUs the two halves take turns on the same memory, so the generator must give its memory back during training and take it again after.
+Một bước RL có hai nửa. Nửa rollout sinh các câu trả lời với trọng số hiện tại. Nửa huấn luyện tính một loss và cập nhật trọng số, và bộ sinh cần trọng số mới trước rollout tiếp theo. Trên một tập GPU, hai nửa thay phiên nhau trên cùng bộ nhớ, nên bộ sinh phải trả bộ nhớ trong khi huấn luyện và lấy lại sau đó.
 
 ### The pieces
 
-All of these routes exist only when the server starts with `VLLM_SERVER_DEV_MODE=1`. They free memory, replace weights and run methods on every worker, so never expose a server in this mode outside the network of the trainer; bind it to the local host when you try it by hand.
+Tất cả các route này chỉ tồn tại khi máy chủ khởi động với `VLLM_SERVER_DEV_MODE=1`. Chúng giải phóng bộ nhớ, thay trọng số và chạy các phương thức trên mọi worker, nên không bao giờ đưa một máy chủ ở chế độ này ra ngoài mạng của trainer; bind nó vào local host khi bạn thử bằng tay.
 
-- **Sleep mode.** Start with `--enable-sleep-mode`. `/sleep?level=1` frees the KV cache and other memory and keeps the weights; level 2 drops the weights too. `--sleep-preserve-parameter-names` keeps frozen weights on the GPU so that they do not move each step. `/is_sleeping` reports the state.
-- **Pause and resume.** `/pause` stops new generation and can abort the running requests, wait for them or keep them; `/resume` starts again.
-- **Weight updates.** The trainer starts a transfer, calls start, sends the weights, calls finish, and records the version with `/update_weight_version` so that the next rollouts are labelled.
-- **Collective calls.** `/collective_rpc` runs a method on every worker, for setup that vLLM does not cover.
-- **External launch.** With the external launcher backend, a launcher such as torchrun starts the vLLM workers inside the trainer's processes.
+- **Chế độ ngủ.** Khởi động với `--enable-sleep-mode`. `/sleep?level=1` giải phóng KV cache và bộ nhớ khác và giữ trọng số; mức 2 bỏ cả trọng số. `--sleep-preserve-parameter-names` giữ các trọng số đóng băng trên GPU để chúng không di chuyển mỗi bước. `/is_sleeping` báo cáo trạng thái.
+- **Tạm dừng và tiếp tục.** `/pause` dừng việc sinh mới và có thể hủy các yêu cầu đang chạy, chờ chúng hoặc giữ chúng; `/resume` bắt đầu lại.
+- **Cập nhật trọng số.** Trainer bắt đầu một lần truyền, gọi start, gửi trọng số, gọi finish, và ghi phiên bản bằng `/update_weight_version` để các rollout tiếp theo được gắn nhãn.
+- **Các lời gọi tập thể.** `/collective_rpc` chạy một phương thức trên mọi worker, cho thiết lập mà vLLM không bao quát.
+- **Khởi chạy bên ngoài.** Với backend launcher bên ngoài, một launcher như torchrun khởi động các worker vLLM bên trong các tiến trình của trainer.
 
 ### What the manual saw
 
-A level 1 sleep with Qwen3-0.6B on an L4: each POST returned 200 with an empty body, the sleep took 1.9 s, the GPU memory fell from 14,861 to 4,245 MiB and came back after the wake, and the log line read `Sleep mode freed 10.37 GiB memory`. That is the only timing the manual has; a level 2 sleep and a weight update were not timed.
+Một lần ngủ mức 1 với Qwen3-0.6B trên L4: mỗi POST trả về 200 với body trống, lần ngủ mất 1.9 s, bộ nhớ GPU giảm từ 14,861 xuống 4,245 MiB và trở lại sau khi đánh thức, và dòng log ghi `Sleep mode freed 10.37 GiB memory`. Đó là thời gian duy nhất tài liệu có; một lần ngủ mức 2 và một lần cập nhật trọng số không được đo thời gian.
 
 ### What can go wrong at 0.31.0
 
-- A level 2 wake does not reload a speculative draft. The reload covers only the target model, so the target rejects every draft token and decode falls to about the speed with no speculation. The output stays correct and no error appears. The issue is open.
-- A level 2 sleep clears calibrated KV scales on some checkpoints with an FP8 cache. The first request after a reload returned NaN logprobs and a wrong first token. The next release fixes this.
-- A weight update during sleep segfaults the engine. The API server stays up and every later request fails. The issue is open.
+- Đánh thức mức 2 không nạp lại một bản nháp speculative. Việc nạp lại chỉ bao gồm mô hình đích, nên mô hình đích từ chối mọi token nháp và decode giảm xuống khoảng tốc độ khi không có speculation. Đầu ra vẫn đúng và không có lỗi xuất hiện. Issue đang mở.
+- Ngủ mức 2 xóa các scale KV đã hiệu chuẩn trên một số checkpoint có cache FP8. Yêu cầu đầu tiên sau khi nạp lại trả về logprobs NaN và một token đầu tiên sai. Bản phát hành tiếp theo sửa điều này.
+- Một cập nhật trọng số trong khi ngủ gây segfault cho engine. Máy chủ API vẫn hoạt động và mọi yêu cầu sau đó thất bại. Issue đang mở.
 
-So after each level 2 wake, reload the weights, reset the prefix cache and read the speculative acceptance counters. A reload does not bring back cleared KV scales at 0.31.0; release 0.32.0 fixes that case. Always wake the server before the trainer sends weights.
+Vì vậy sau mỗi lần đánh thức mức 2, nạp lại trọng số, đặt lại prefix cache và đọc các bộ đếm chấp nhận speculative. Nạp lại không khôi phục các scale KV đã bị xóa ở 0.31.0; bản phát hành 0.32.0 sửa trường hợp đó. Luôn đánh thức máy chủ trước khi trainer gửi trọng số.
 
 ### The logprob gap
 
-The trainer compares the logprobs that the server returned with the ones it computes itself. They never match exactly, because the kernels differ; a small steady gap is normal, and a growing gap means the weights did not reach the generator. Check which value the server returns first. `--logprobs-mode raw_logprobs`, the default, gives the logprob over the full vocabulary; `processed_logprobs` gives it after the sampling settings change the distribution. With top-p 0.9 the raw mode matched a full-vocabulary reference with a median absolute gap of 0.005, and the processed mode was higher by minus the log of the kept mass, a median shift of about 0.053. Match the mode to the way the trainer scores tokens.
+Trainer so sánh các logprobs mà máy chủ trả về với những logprobs nó tự tính. Chúng không bao giờ khớp chính xác, vì các kernel khác nhau; một khoảng cách nhỏ ổn định là bình thường, và một khoảng cách tăng dần có nghĩa trọng số chưa đến bộ sinh. Kiểm tra giá trị nào máy chủ trả về trước. `--logprobs-mode raw_logprobs`, mặc định, cho logprob trên toàn bộ từ vựng; `processed_logprobs` cho nó sau khi các thiết lập lấy mẫu thay đổi phân phối. Với top-p 0.9, chế độ raw khớp một tham chiếu toàn từ vựng với khoảng cách tuyệt đối trung vị là 0.005, và chế độ processed cao hơn bằng âm log của khối lượng được giữ, một độ dịch trung vị khoảng 0.053. Khớp chế độ với cách trainer chấm điểm token.
 
 ## Follow-ups
 
-- **Level 2:** What is the difference between the two sleep levels? Expected: level 1 frees the KV cache and other memory and keeps the weights; level 2 drops the weights too, which suits a step where new weights arrive anyway and costs a reload.
-- **Level 3:** After a level 2 wake the output is correct but decode runs as slowly as with no speculation. Why? Expected: the weight reload covers only the target model, so the draft is not reloaded and the target rejects every draft token; no error appears, and the acceptance counters show it.
-- **Level 3:** The trainer's logprobs differ from the server's on every token. Bug or not? Expected: a small steady gap is normal because the kernels differ, 0.005 median absolute with raw logprobs; a growing gap means the weights did not arrive, and a constant offset near the log of the kept mass means the server returned processed logprobs under top-p while the trainer scored the full vocabulary.
-- **Level 4:** Order the steps of one RL iteration around these routes. Expected: pause or drain generation, sleep, train, wake, then start and finish the weight update and record the version, reset the prefix cache, reload the draft if speculation is on, read the acceptance counters, resume; never send weights while the server sleeps, because that stops the engine.
+- **Level 2:** Sự khác biệt giữa hai mức ngủ là gì? Expected: mức 1 giải phóng KV cache và bộ nhớ khác và giữ trọng số; mức 2 bỏ cả trọng số, phù hợp với một bước mà trọng số mới dù sao cũng đến và tốn một lần nạp lại.
+- **Level 3:** Sau một lần đánh thức mức 2, đầu ra đúng nhưng decode chạy chậm như khi không có speculation. Tại sao? Expected: việc nạp lại trọng số chỉ bao gồm mô hình đích, nên bản nháp không được nạp lại và mô hình đích từ chối mọi token nháp; không có lỗi xuất hiện, và các bộ đếm chấp nhận cho thấy điều đó.
+- **Level 3:** Logprobs của trainer khác với của máy chủ trên mọi token. Có phải bug không? Expected: một khoảng cách nhỏ ổn định là bình thường vì các kernel khác nhau, tuyệt đối trung vị 0.005 với raw logprobs; một khoảng cách tăng dần có nghĩa trọng số chưa đến, và một độ lệch hằng gần log của khối lượng được giữ có nghĩa máy chủ trả về processed logprobs dưới top-p trong khi trainer chấm điểm toàn bộ từ vựng.
+- **Level 4:** Sắp thứ tự các bước của một vòng lặp RL quanh các route này. Expected: tạm dừng hoặc đợi việc sinh hoàn tất, ngủ, huấn luyện, đánh thức, rồi bắt đầu và hoàn tất cập nhật trọng số và ghi phiên bản, đặt lại prefix cache, nạp lại bản nháp nếu speculation được bật, đọc các bộ đếm chấp nhận, tiếp tục; không bao giờ gửi trọng số trong khi máy chủ ngủ, vì điều đó làm engine dừng.
 
 ## Wrong answers
 
-- "Expose the sleep and weight routes on the public port." They exist only in development mode, and they free memory, replace weights and run methods on every worker; keep them on the trainer's network, bound to the local host when you test by hand.
-- "Send the new weights while the server sleeps to save time." At 0.31.0 that segfaults the engine; the API server stays up and every later request fails, so always wake before the trainer sends weights.
-- "Logprobs from the server and the trainer should match exactly." The kernels differ, so a small steady gap is normal; track it every step and treat a growing gap as a sign that the weights did not reach the generator.
-- "A level 2 wake restores the server to its state before the sleep." It reloads the target weights only; the speculative draft is not reloaded and calibrated KV scales were cleared on some checkpoints, so reload, reset the cache and read the acceptance after each level 2 wake, and on 0.31.0 a reload does not bring back the scales.
+- "Đưa các route ngủ và trọng số ra cổng công khai." Chúng chỉ tồn tại trong chế độ phát triển, và chúng giải phóng bộ nhớ, thay trọng số và chạy các phương thức trên mọi worker; giữ chúng trên mạng của trainer, bind vào local host khi bạn kiểm thử bằng tay.
+- "Gửi trọng số mới trong khi máy chủ ngủ để tiết kiệm thời gian." Ở 0.31.0 điều đó gây segfault cho engine; máy chủ API vẫn hoạt động và mọi yêu cầu sau đó thất bại, nên luôn đánh thức trước khi trainer gửi trọng số.
+- "Logprobs từ máy chủ và trainer phải khớp chính xác." Các kernel khác nhau, nên một khoảng cách nhỏ ổn định là bình thường; theo dõi nó mỗi bước và xem một khoảng cách tăng dần là dấu hiệu trọng số chưa đến bộ sinh.
+- "Đánh thức mức 2 khôi phục máy chủ về trạng thái trước khi ngủ." Nó chỉ nạp lại trọng số đích; bản nháp speculative không được nạp lại và các scale KV đã hiệu chuẩn bị xóa trên một số checkpoint, nên nạp lại, đặt lại cache và đọc tỷ lệ chấp nhận sau mỗi lần đánh thức mức 2, và ở 0.31.0 việc nạp lại không khôi phục các scale.
 
 ## Taught in
 
-[Use vLLM as an RL rollout engine](../../../manuals/vllm-101/sections/3-9-use-vllm-as-an-rl-rollout-engine.md) lists the routes, the sleep check and the known problems.
+[Dùng vLLM làm engine rollout RL](../../../manuals/vllm-101/sections/3-9-use-vllm-as-an-rl-rollout-engine.md) liệt kê các route, kiểm tra ngủ và các vấn đề đã biết.

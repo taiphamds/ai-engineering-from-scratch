@@ -16,71 +16,71 @@ related: []
 updated: 2026-11-03
 ---
 
-Your server queues requests because the KV cache is full. Someone suggests `--kv-cache-dtype fp8`. What does it buy, what can it cost, and how do you check both before production?
+Server của bạn xếp hàng request vì KV cache đầy. Ai đó đề xuất `--kv-cache-dtype fp8`. Nó mang lại gì, có thể tốn gì, và bạn kiểm tra cả hai trước production như thế nào?
 
 ## Short answer
 
-An FP8 KV cache stores each key and value in 1 byte instead of 2, so the same memory holds twice the tokens: for Qwen/Qwen3-8B a token falls from 144 KiB to 72 KiB, and one GiB holds about 14,600 tokens instead of about 7,300. It can cost accuracy, because FP8 needs a scale per tensor and a checkpoint without scales runs with a scale of 1.0, and it can change the attention backend, which on our L4 broke the first start. Check it with an accuracy run on your own task and with the startup log: on 500 GSM8K questions our FP8 KV run scored 90.8 percent against 91.8 in BF16, with overlapping intervals.
+Một KV cache FP8 lưu mỗi key và value trong 1 byte thay vì 2, vì vậy cùng bộ nhớ giữ gấp đôi token: với Qwen/Qwen3-8B một token giảm từ 144 KiB xuống 72 KiB, và một GiB giữ khoảng 14,600 token thay vì khoảng 7,300. Nó có thể tốn độ chính xác, vì FP8 cần một scale mỗi tensor và một checkpoint không có scale chạy với scale 1.0, và nó có thể thay attention backend, điều làm hỏng lần khởi động đầu trên L4 của chúng ta. Kiểm tra bằng một lần chạy độ chính xác trên nhiệm vụ riêng và bằng log khởi động: trên 500 câu hỏi GSM8K lần KV FP8 đạt 90.8 phần trăm so với 91.8 ở BF16, với các khoảng chồng nhau.
 
 ## Full answer
 
 ### What it buys
 
-Only the cache changes; the weights stay in BF16. Use the KV formula with 1 byte per value. Twice the tokens fit, so twice the users fit at the same length, or each user can have a context twice as long.
+Chỉ cache thay đổi; trọng số giữ ở BF16. Dùng công thức KV với 1 byte mỗi giá trị. Gấp đôi token vừa, vì vậy gấp đôi người dùng vừa ở cùng độ dài, hoặc mỗi người có thể có ngữ cảnh dài gấp đôi.
 
-The speed change is small. With the pool held fixed at 24,096 tokens on our L4, one user got a median TPOT of 101.8 ms against 104.1 ms in BF16, 2.3 percent faster at the same 210 MHz clock, and the seed ranges did not overlap. At 32 users the seed ranges overlapped and the FP8 run had a higher clock, so the manual claims no gain there. Two things changed together in that run, the cache dtype and the attention backend.
+Thay đổi tốc độ nhỏ. Với pool giữ cố định 24,096 token trên L4, một người dùng có TPOT trung vị 101.8 ms so với 104.1 ms ở BF16, nhanh hơn 2.3 phần trăm ở cùng xung 210 MHz, và các phạm vi seed không chồng nhau. Ở 32 người dùng các phạm vi seed chồng nhau và lần FP8 có xung cao hơn, vì vậy tài liệu không tuyên bố lợi ích ở đó. Hai thứ thay đổi cùng nhau trong lần đó, dtype cache và attention backend.
 
-A field report shows the capacity effect at scale. With a BF16 cache a service produced 1,558 tokens per second at 32 concurrent requests and ran out of memory at 64. With an FP8 cache it reached 2,192 tokens per second at 64, about 41 percent above the best BF16 result, while it was a few percent slower per token at every concurrency both could run. It won because twice as many requests fit: the context held in memory went from about 686,000 to about 1.37 million tokens.
+Một báo cáo thực địa cho thấy hiệu ứng dung lượng ở quy mô lớn. Với cache BF16 một dịch vụ tạo 1,558 token mỗi giây ở 32 request đồng thời và hết bộ nhớ ở 64. Với cache FP8 nó đạt 2,192 token mỗi giây ở 64, khoảng 41 phần trăm trên kết quả BF16 tốt nhất, trong khi chậm hơn vài phần trăm mỗi token ở mọi mức đồng thời cả hai chạy được. Nó thắng vì gấp đôi request vừa: ngữ cảnh giữ trong bộ nhớ đi từ khoảng 686,000 lên khoảng 1.37 triệu token.
 
 ### What it costs
 
-FP8 needs a scale for each tensor. Without a scale file, every scale is 1.0. vLLM logs `Using KV cache scaling factor 1.0` and SGLang logs `Using FP8 KV cache but no scaling factors provided`. The vLLM team treats a scale of 1.0 as the worst case for accuracy; in their tests most models stayed close to BF16, and one model family on a latent-attention backend did not.
+FP8 cần một scale cho mỗi tensor. Không file scale, mọi scale là 1.0. vLLM ghi `Using KV cache scaling factor 1.0` và SGLang ghi `Using FP8 KV cache but no scaling factors provided`. Nhóm vLLM coi scale 1.0 là trường hợp tệ nhất cho độ chính xác; trong các kiểm thử của họ phần lớn mô hình giữ gần BF16, và một họ mô hình trên backend latent-attention thì không.
 
-Our own check, on 2026-10-23, ran the first 500 GSM8K questions, 8-shot and greedy, on the L4. Qwen3-8B has no KV scales, so the FP8 KV runs used a scale of 1.0:
+Kiểm tra riêng của chúng ta, ngày 2026-10-23, chạy 500 câu hỏi GSM8K đầu, 8-shot và greedy, trên L4. Qwen3-8B không có KV scale, vì vậy các lần KV FP8 dùng scale 1.0:
 
-| Engine | Config | Correct | Accuracy | Wilson 95 percent interval |
+| Engine | Cấu hình | Đúng | Độ chính xác | Khoảng Wilson 95 phần trăm |
 |---|---|---|---|---|
-| vLLM | BF16 | 459/500 | 91.8% | 89.1 to 93.9 |
-| vLLM | FP8 KV cache | 454/500 | 90.8% | 87.9 to 93.0 |
-| SGLang | BF16 | 458/500 | 91.6% | 88.8 to 93.7 |
-| SGLang | FP8 KV cache | 458/500 | 91.6% | 88.8 to 93.7 |
+| vLLM | BF16 | 459/500 | 91.8% | 89.1 đến 93.9 |
+| vLLM | KV cache FP8 | 454/500 | 90.8% | 87.9 đến 93.0 |
+| SGLang | BF16 | 458/500 | 91.6% | 88.8 đến 93.7 |
+| SGLang | KV cache FP8 | 458/500 | 91.6% | 88.8 đến 93.7 |
 
-Every interval overlaps the BF16 interval, so this run did not show a difference. With 500 questions it cannot rule out a loss of a few points. It is one model and one benchmark. A model with a different attention layout can lose more.
+Mọi khoảng chồng khoảng BF16, vì vậy lần chạy này không cho thấy khác biệt. Với 500 câu hỏi nó không thể loại trừ mất vài điểm. Đây là một mô hình và một benchmark. Một mô hình có bố trí attention khác có thể mất nhiều hơn.
 
 ### The backend trap on an L4
 
-The first FP8 start on our L4 failed. FlashAttention in vLLM 0.31.0 reads an FP8 cache only on Hopper and Blackwell data center GPUs, and the L4 is an Ada GPU, SM 8.9. So vLLM moved to FlashInfer, which builds its kernels on the first start, and that build failed on our node. The fix was `--attention-backend TRITON_ATTN`, which reads FP8 and needs no build, with `VLLM_USE_FLASHINFER_SAMPLER=0` for the same reason. Read the attention backend line after every change to the cache dtype.
+Lần khởi động FP8 đầu trên L4 thất bại. FlashAttention trong vLLM 0.31.0 chỉ đọc cache FP8 trên GPU trung tâm dữ liệu Hopper và Blackwell, và L4 là GPU Ada, SM 8.9. Vì vậy vLLM chuyển sang FlashInfer, xây kernel ở lần khởi động đầu, và lần dựng đó thất bại trên node của chúng ta. Cách sửa là `--attention-backend TRITON_ATTN`, đọc FP8 và không cần dựng, với `VLLM_USE_FLASHINFER_SAMPLER=0` vì cùng lý do. Đọc dòng attention backend sau mọi thay đổi dtype cache.
 
 ### Check that your scales load
 
-1. Search the weight index of the checkpoint for tensor names that end in `k_scale` or `v_scale`. For a checkpoint with an index, no output means no scales. A checkpoint with one weight file has no index; for it, list the tensor names with the `safetensors` Python package.
-2. Read the startup log for the scale warning. If the checkpoint has scales and the warning still prints, the loader dropped them. At 0.31.0 one model family never loads its KV scales, and the issue is open.
-3. Run your own prompts with and without FP8 and compare the answers before you go to production.
+1. Tìm weight index checkpoint cho các tên tensor kết thúc bằng `k_scale` hoặc `v_scale`. Với checkpoint có index, không đầu ra nghĩa là không scale. Checkpoint có một file trọng số không có index; với nó, liệt kê tên tensor bằng gói Python `safetensors`.
+2. Đọc log khởi động tìm cảnh báo scale. Nếu checkpoint có scale và cảnh báo vẫn in, loader đã bỏ chúng. Tại 0.31.0 một họ mô hình không bao giờ nạp KV scale, và issue đang mở.
+3. Chạy prompt riêng có và không FP8 và so sánh câu trả lời trước khi lên production.
 
-The FP8 checkpoint of Qwen3-30B-A3B lists weight scales and no KV scales, so weight scales do not imply KV scales.
+Checkpoint FP8 của Qwen3-30B-A3B liệt kê weight scale và không KV scale, vì vậy weight scale không ngụ ý KV scale.
 
 ### The order of checks
 
-1. Is the pool the limit? Read the cache usage and the queue. If the pool has room, keep the model dtype.
-2. Search the checkpoint for KV scales.
-3. Start the server and read the backend line and the scale warning.
-4. Run an accuracy check on your own task.
-5. Measure speed at the same clock, and expect little change per token.
+1. Pool có là giới hạn không? Đọc mức sử dụng cache và hàng đợi. Nếu pool còn chỗ, giữ dtype mô hình.
+2. Tìm KV scale trong checkpoint.
+3. Khởi động server và đọc dòng backend cùng cảnh báo scale.
+4. Chạy phép kiểm tra độ chính xác trên nhiệm vụ riêng.
+5. Đo tốc độ ở cùng xung, và mong đợi ít thay đổi mỗi token.
 
 ## Follow-ups
 
-- **Level 2:** The pool has room and requests do not queue. Do you still switch? Expected: no; the cache dtype is a capacity decision, and with room in the pool it buys nothing and still carries the accuracy and backend risks.
-- **Level 3:** The scale warning prints although the checkpoint has k_scale tensors. What does it mean? Expected: the loader dropped the scales; at 0.31.0 one model family never loads its KV scales and the issue is open, so the server runs with a scale of 1.0 until you change the checkpoint or the version.
-- **Level 3:** Why did the first FP8 start fail on the L4 and not on a data center GPU? Expected: the default attention backend reads an FP8 cache only on Hopper and Blackwell data center GPUs, so vLLM fell back to a backend that compiles its kernels on the first start, and that build failed; the Triton backend reads FP8 and skips the build.
-- **Level 4:** The GSM8K check gave 91.8 against 90.8 percent, and the two intervals overlap. What can you conclude? Expected: this run did not show a difference and cannot rule out a loss of a few points; it is one model and one benchmark, so run the same check on your model and task, and expect a model with another attention layout to lose more.
+- **Level 2:** Pool còn chỗ và request không xếp hàng. Bạn vẫn chuyển không? Expected: không; dtype cache là quyết định dung lượng, và với chỗ trong pool nó không mang lại gì và vẫn mang rủi ro độ chính xác và backend.
+- **Level 3:** Cảnh báo scale in dù checkpoint có các tensor k_scale. Nghĩa là gì? Expected: loader bỏ scale; tại 0.31.0 một họ mô hình không bao giờ nạp KV scale và issue đang mở, vì vậy server chạy với scale 1.0 đến khi bạn đổi checkpoint hoặc phiên bản.
+- **Level 3:** Tại sao lần khởi động FP8 đầu thất bại trên L4 chứ không trên GPU trung tâm dữ liệu? Expected: attention backend mặc định chỉ đọc cache FP8 trên GPU trung tâm dữ liệu Hopper và Blackwell, vì vậy vLLM chuyển dự phòng sang backend biên dịch kernel ở lần khởi động đầu, và lần dựng đó thất bại; backend Triton đọc FP8 và bỏ việc dựng.
+- **Level 4:** Phép kiểm tra GSM8K cho 91.8 so với 90.8 phần trăm, và hai khoảng chồng nhau. Bạn kết luận gì? Expected: lần này không cho thấy khác biệt và không thể loại trừ mất vài điểm; đây là một mô hình và một benchmark, vì vậy chạy cùng phép kiểm tra trên mô hình và nhiệm vụ riêng, và mong đợi mô hình có bố trí attention khác mất nhiều hơn.
 
 ## Wrong answers
 
-- "FP8 KV halves memory, so it doubles throughput." It doubles the tokens that fit; in the field report it was a few percent slower per token at every load both caches could run, and won only because the BF16 cache ran out at 64 requests.
-- "The checkpoint is FP8, so the KV scales are there." Weight scales and KV scales are different tensors; the FP8 checkpoint of Qwen3-30B-A3B lists weight scales and no k_scale or v_scale, so its cache ran with a scale of 1.0.
-- "Accuracy is a property of the model, so test it once." The loss depends on the model, the attention layout and the task; one family that needs calibrated scales lost accuracy with a scale of 1.0 while most models stayed close to BF16 in the same tests.
-- "The attention backend does not matter for a cache dtype." On the L4 the dtype change moved vLLM to another backend and the start failed; read the backend line after every change to the cache dtype.
+- "KV FP8 giảm một nửa bộ nhớ, vì vậy gấp đôi throughput." Nó gấp đôi token vừa; trong báo cáo thực địa nó chậm hơn vài phần trăm mỗi token ở mọi tải cả hai cache chạy được, và chỉ thắng vì cache BF16 cạn ở 64 request.
+- "Checkpoint là FP8, vì vậy có KV scale." Weight scale và KV scale là các tensor khác; checkpoint FP8 của Qwen3-30B-A3B liệt kê weight scale và không k_scale hay v_scale, vì vậy cache chạy với scale 1.0.
+- "Độ chính xác là thuộc tính mô hình, vì vậy kiểm thử một lần." Tổn thất phụ thuộc mô hình, bố trí attention và nhiệm vụ; một họ cần scale được hiệu chuẩn mất độ chính xác với scale 1.0 trong khi phần lớn mô hình giữ gần BF16 trong cùng kiểm thử.
+- "Attention backend không quan trọng cho dtype cache." Trên L4 thay dtype chuyển vLLM sang backend khác và khởi động thất bại; đọc dòng backend sau mọi thay đổi dtype cache.
 
 ## Taught in
 
-[Fit more users with an FP8 KV cache](../../../manuals/vllm-101/sections/2-4-fit-more-users-with-an-fp8-kv-cache.md) and [the SGLang quantization section](../../../manuals/sglang-101/sections/4-3-quantization.md) measure the pool, the speed and the GSM8K accuracy on both engines.
+[Cho thêm người dùng vừa với KV cache FP8](../../../manuals/vllm-101/sections/2-4-fit-more-users-with-an-fp8-kv-cache.md) và [phần lượng tử hóa SGLang](../../../manuals/sglang-101/sections/4-3-quantization.md) đo pool, tốc độ và độ chính xác GSM8K trên cả hai engine.

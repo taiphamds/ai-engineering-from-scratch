@@ -16,57 +16,57 @@ related: []
 updated: 2026-11-03
 ---
 
-Most explanations of continuous batching describe a prefill phase and a decode phase that take turns on the GPU. Describe what the vLLM scheduler does in one step instead. Where does chunked prefill come from in that design, and where do you read the value that controls it?
+Phần lớn các giải thích về continuous batching mô tả một pha prefill và một pha decode thay phiên nhau trên GPU. Thay vào đó, hãy mô tả bộ lập lịch vLLM làm gì trong một bước. Chunked prefill đến từ đâu trong thiết kế đó, và bạn đọc giá trị điều khiển nó ở đâu?
 
 ## Short answer
 
-The scheduler asks the same question of every request: how many tokens does it still need to compute? Each step has a budget of tokens, set by `--max-num-batched-tokens`, and the running requests take their next token first. Waiting prompts fill the rest of the budget, so a long prompt is split over several steps, and chunked prefill needs no extra mechanism.
+Bộ lập lịch đặt cùng một câu hỏi cho mọi yêu cầu: nó còn cần tính bao nhiêu token? Mỗi bước có một ngân sách token, được đặt bằng `--max-num-batched-tokens`, và các yêu cầu đang chạy lấy token tiếp theo của chúng trước. Các prompt đang chờ lấp phần ngân sách còn lại, nên một prompt dài được chia qua nhiều bước, và chunked prefill không cần cơ chế bổ sung.
 
 ## Full answer
 
 ### One question for every request
 
-A new request needs all of its prompt tokens. A running request needs one token, or more with speculative decoding. No prefill phase and no decode phase exist in the code, only a count of tokens still to compute.
+Một yêu cầu mới cần tất cả token prompt của nó. Một yêu cầu đang chạy cần một token, hoặc nhiều hơn với speculative decoding. Không có pha prefill và không có pha decode trong mã, chỉ có số token còn phải tính.
 
 ### The order inside a step
 
-1. Each running request gets the tokens it needs, up to the budget.
-2. Waiting requests are admitted while budget and room remain. `--max-num-seqs` caps the running requests.
+1. Mỗi yêu cầu đang chạy nhận các token nó cần, đến mức ngân sách.
+2. Các yêu cầu đang chờ được tiếp nhận khi còn ngân sách và chỗ trống. `--max-num-seqs` giới hạn các yêu cầu đang chạy.
 
-A prompt that does not fit the rest of the budget gets a part now and the rest in later steps. That is chunked prefill, and it is on by default because the budget design needs nothing else to support it.
+Một prompt không vừa phần ngân sách còn lại nhận một phần bây giờ và phần còn lại trong các bước sau. Đó là chunked prefill, và nó được bật mặc định vì thiết kế ngân sách không cần gì khác để hỗ trợ nó.
 
 ### The default depends on the memory that vLLM reads
 
-| GPU memory that vLLM reads | Budget, `vllm serve` | Budget, `LLM` class | `--max-num-seqs`, both |
+| Bộ nhớ GPU mà vLLM đọc | Ngân sách, `vllm serve` | Ngân sách, lớp `LLM` | `--max-num-seqs`, cả hai |
 |---|---|---|---|
-| 160 GiB or more | 16,384 | 16,384 | 1,024 |
-| 70 GiB or more, but not an A100 | 8,192 | 16,384 | 1,024 |
-| less, or unknown | 2,048 | 8,192 | 256 |
+| 160 GiB trở lên | 16,384 | 16,384 | 1,024 |
+| 70 GiB trở lên, nhưng không phải A100 | 8,192 | 16,384 | 1,024 |
+| ít hơn, hoặc không xác định | 2,048 | 8,192 | 256 |
 
-The unified-memory machine in the manual has 121.69 GiB that the CPU and the GPU share, and its log still shows 2,048, the value for a small or unknown GPU. Read the value that your server uses before you change it. At 0.31.0 the log does not print the budget under its own name; find `compile_ranges_endpoints` in the engine config line, and the largest number in that list is the budget.
+Máy bộ nhớ hợp nhất trong tài liệu có 121.69 GiB mà CPU và GPU dùng chung, và log của nó vẫn hiển thị 2,048, giá trị cho một GPU nhỏ hoặc không xác định. Đọc giá trị mà máy chủ của bạn dùng trước khi thay đổi nó. Ở 0.31.0, log không in ngân sách dưới tên riêng của nó; tìm `compile_ranges_endpoints` trong dòng cấu hình engine, và số lớn nhất trong danh sách đó là ngân sách.
 
 ### Why decode goes first
 
-Running requests come first so that a user who already sees a stream keeps seeing it. A new prompt waits for what is left. A smaller budget gives a smoother stream; a larger one gives a faster first token for long prompts. The small default of 2,048 is a choice for the stream.
+Các yêu cầu đang chạy đến trước để một người dùng đã thấy luồng tiếp tục thấy nó. Một prompt mới chờ phần còn lại. Một ngân sách nhỏ hơn cho một luồng mượt hơn; một ngân sách lớn hơn cho token đầu tiên nhanh hơn đối với prompt dài. Mặc định nhỏ 2,048 là một lựa chọn cho luồng.
 
 ### Why one budget
 
-One budget for every kind of work keeps the scheduler simple. Prefix caching only lowers the count of tokens to compute. Speculative decoding only raises the count for a running request. The same loop serves all of them. The cost is that one number decides the balance between the first token and the stream, and no single value suits every workload.
+Một ngân sách cho mọi loại công việc giữ bộ lập lịch đơn giản. Prefix caching chỉ giảm số token cần tính. Speculative decoding chỉ tăng số lượng cho một yêu cầu đang chạy. Cùng vòng lặp phục vụ tất cả chúng. Cái giá là một con số quyết định sự cân bằng giữa token đầu tiên và luồng, và không có một giá trị duy nhất phù hợp với mọi workload.
 
-The lesson's toy scheduler uses a fixed 512-token chunk. The real engine has no separate chunk size at 0.31.0: the chunk is what is left of the budget in that step.
+Bộ lập lịch đồ chơi của bài học dùng một chunk cố định 512 token. Engine thực không có kích thước chunk riêng ở 0.31.0: chunk là phần ngân sách còn lại trong bước đó.
 
 ## Follow-ups
 
-- **Level 2:** Prefix caching is on, and a request with a 2,048-token prompt finds 1,024 tokens in the cache. What does the scheduler count for it? Expected: 1,024 tokens still to compute; the cache only lowers the count, and the same loop serves the request.
-- **Level 3:** A server with 121.69 GiB of unified memory logs a budget of 2,048. Why not 8,192? Expected: the default comes from the memory that vLLM reads, and the unified machine reads as small or unknown, so it gets the small value; read compile_ranges_endpoints before you change it.
-- **Level 4:** Speculative decoding is on with three draft tokens. How does the budget rule change? Expected: it does not; a running request now needs more than one token per step, so its count rises, and the budget is spent in the same order.
+- **Level 2:** Prefix caching được bật, và một yêu cầu có prompt 2,048 token tìm thấy 1,024 token trong cache. Bộ lập lịch đếm gì cho nó? Expected: 1,024 token còn phải tính; cache chỉ giảm số lượng, và cùng vòng lặp phục vụ yêu cầu.
+- **Level 3:** Một máy chủ có 121.69 GiB bộ nhớ hợp nhất ghi log ngân sách 2,048. Tại sao không phải 8,192? Expected: mặc định đến từ bộ nhớ mà vLLM đọc, và máy hợp nhất được đọc là nhỏ hoặc không xác định, nên nó nhận giá trị nhỏ; đọc compile_ranges_endpoints trước khi thay đổi nó.
+- **Level 4:** Speculative decoding được bật với ba token nháp. Quy tắc ngân sách thay đổi như thế nào? Expected: nó không thay đổi; một yêu cầu đang chạy giờ cần nhiều hơn một token mỗi bước, nên số lượng của nó tăng, và ngân sách được chi theo cùng thứ tự.
 
 ## Wrong answers
 
-- "Chunked prefill is a flag you turn on." It follows from the budget: a prompt that does not fit the rest of the budget gets part now and the rest later, so it is on by default and has no separate mechanism.
-- "New prompts go first so that the first token comes fast." Running requests take their tokens first so that a user who sees a stream keeps seeing it; a new prompt waits for the budget that is left.
-- "The budget is 2,048 on every GPU." It depends on the memory that vLLM reads: 2,048 below 70 GiB, 8,192 at 70 GiB or more, and 16,384 at 160 GiB or more, and the offline LLM class uses larger values.
+- "Chunked prefill là một cờ bạn bật." Nó là hệ quả của ngân sách: một prompt không vừa phần ngân sách còn lại nhận một phần bây giờ và phần còn lại sau, nên nó được bật mặc định và không có cơ chế riêng.
+- "Prompt mới đến trước để token đầu tiên đến nhanh." Các yêu cầu đang chạy lấy token của chúng trước để một người dùng thấy luồng tiếp tục thấy nó; một prompt mới chờ phần ngân sách còn lại.
+- "Ngân sách là 2,048 trên mọi GPU." Nó phụ thuộc vào bộ nhớ mà vLLM đọc: 2,048 dưới 70 GiB, 8,192 ở 70 GiB trở lên, và 16,384 ở 160 GiB trở lên, và lớp LLM offline dùng các giá trị lớn hơn.
 
 ## Taught in
 
-[Why one token budget replaces a prefill phase](../../../manuals/vllm-101/sections/8-2-why-one-token-budget-replaces-a-prefill-phase.md) and [the long prompts section](../../../manuals/vllm-101/sections/3-3-keep-long-prompts-from-stalling-short-ones.md) give the rule and the defaults, and [the serving engine internals lesson](../../../phases/17-infrastructure-and-production/04-vllm-serving-internals/docs/en.md) has the toy scheduler.
+[Tại sao một ngân sách token thay thế một pha prefill](../../../manuals/vllm-101/sections/8-2-why-one-token-budget-replaces-a-prefill-phase.md) và [phần prompt dài](../../../manuals/vllm-101/sections/3-3-keep-long-prompts-from-stalling-short-ones.md) đưa ra quy tắc và các mặc định, và [bài học về nội bộ engine phục vụ](../../../phases/17-infrastructure-and-production/04-vllm-serving-internals/docs/en.md) có bộ lập lịch đồ chơi.

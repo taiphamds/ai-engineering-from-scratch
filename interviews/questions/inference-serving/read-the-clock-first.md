@@ -16,48 +16,48 @@ related: []
 updated: 2026-11-03
 ---
 
-Your first sweep on an L4 says that CUDA graphs do nothing: at one user the median per-token time is 103.4 ms with graphs and 103.4 ms without, and the three seeds at that cap spread from 10.0 to 14.9 tokens per second, half the median. What do you check before you report that graphs do nothing?
+Lượt quét đầu tiên của bạn trên L4 nói rằng CUDA graph không có tác dụng: ở một người dùng, thời gian trung vị mỗi token là 103.4 ms khi có graph và 103.4 ms khi không có, và ba seed ở giới hạn đó trải từ 10.0 đến 14.9 token mỗi giây, bằng một nửa trung vị. Bạn kiểm tra gì trước khi báo cáo rằng graph không có tác dụng?
 
 ## Short answer
 
-Check the GPU clock and the temperature during the run before you believe either number. The manual's L4 sat at 87 C with software thermal slowdown active and an SM clock of 360 MHz out of 2040 during that sweep, so the server under test was not the cause. A sweep with a cool-down to 72 C and the clock recorded gave 60.16 ms per token at one user against 103.38 hot, and 270.11 against 194.16 tokens per second at a cap of 32: the hot sweep reported up to 28 percent less throughput, with the same command on the same card.
+Kiểm tra xung nhịp GPU và nhiệt độ trong lần chạy trước khi tin một trong hai con số. L4 của tài liệu ở 87 C với giảm tốc do nhiệt bằng phần mềm đang hoạt động và xung nhịp SM là 360 MHz trên 2040 trong lượt quét đó, nên máy chủ đang kiểm thử không phải nguyên nhân. Một lượt quét có làm nguội về 72 C và ghi lại xung nhịp cho 60.16 ms mỗi token ở một người dùng so với 103.38 khi nóng, và 270.11 so với 194.16 token mỗi giây ở giới hạn 32: lượt quét nóng báo cáo thông lượng thấp hơn đến 28 phần trăm, với cùng lệnh trên cùng card.
 
 ## Full answer
 
 ### What the telemetry showed
 
-One driver query during the sweep gave the row: 87 C, 58.36 W of a 72.00 W limit, an SM clock of 360 MHz against a maximum of 2040, the software thermal slowdown bit active, and 100 percent utilization. The L4 is a 72 W card with passive cooling, and the second card in the same chassis ran other work at the same time. The sweep had measured a hot GPU.
+Một truy vấn driver trong lượt quét cho dòng: 87 C, 58.36 W trên giới hạn 72.00 W, xung nhịp SM là 360 MHz so với tối đa 2040, bit giảm tốc do nhiệt bằng phần mềm hoạt động, và mức sử dụng 100 phần trăm. L4 là một card 72 W với làm mát thụ động, và card thứ hai trong cùng khung máy chạy công việc khác cùng lúc. Lượt quét đã đo một GPU nóng.
 
 ### The fix in the method
 
-The sweep script now samples the driver once a second into a file beside each run. Before each run it waits up to 900 s for the GPU to cool below a limit, 65 C by default and 72 C for this chassis. The summary adds the median SM clock, the highest temperature and the share of samples with a thermal slowdown bit to each point. A run under a clock floor is set aside and repeated, up to three times.
+Script quét hiện lấy mẫu driver mỗi giây vào một file cạnh mỗi lần chạy. Trước mỗi lần chạy, nó chờ đến 900 s để GPU nguội xuống dưới một giới hạn, mặc định 65 C và 72 C cho khung máy này. Bản tổng hợp thêm xung nhịp SM trung vị, nhiệt độ cao nhất và tỷ lệ mẫu có bit giảm tốc do nhiệt cho mỗi điểm. Một lần chạy dưới ngưỡng xung nhịp được để riêng và lặp lại, tối đa ba lần.
 
-The cooled runs are not at full speed either. Their median SM clock was 1,080 to 1,515 MHz of 2,040, and at caps of 1 and 64 the worst seed still had the thermal bit in 41 to 49 percent of its samples. The cool-down removes the worst error, and the recorded clock tells you how much is left.
+Các lần chạy được làm nguội cũng không ở tốc độ đầy đủ. Xung nhịp SM trung vị của chúng là 1,080 đến 1,515 MHz trên 2,040, và ở các giới hạn 1 và 64, seed tệ nhất vẫn có bit nhiệt trong 41 đến 49 phần trăm mẫu của nó. Việc làm nguội loại bỏ sai số tệ nhất, và xung nhịp được ghi cho bạn biết còn lại bao nhiêu.
 
 ### Overload heats the card
 
-Under a fixed arrival rate the L4 completed fewer requests the more were offered: 2.01 per second at 4 offered, 1.91 at 8 and 1.62 at 16. The median SM clock fell from 1,320 MHz at 4 offered to 465 MHz at 16, and at 16 the thermal bit was set in 70 percent of the samples. On a passively cooled card overload costs throughput as well as latency. The GB10 showed the same at 16 offered per second: 89 C and 7.3 percent of the samples in thermal slowdown, while its clock stayed at 2,496 MHz up to 4 per second.
+Dưới một tốc độ đến cố định, L4 hoàn thành càng ít yêu cầu khi càng nhiều yêu cầu được đưa vào: 2.01 mỗi giây ở mức đưa vào 4, 1.91 ở 8 và 1.62 ở 16. Xung nhịp SM trung vị giảm từ 1,320 MHz ở mức đưa vào 4 xuống 465 MHz ở 16, và ở 16 bit nhiệt được bật trong 70 phần trăm mẫu. Trên một card làm mát thụ động, quá tải đánh đổi cả thông lượng lẫn độ trễ. GB10 cho thấy điều tương tự ở mức đưa vào 16 mỗi giây: 89 C và 7.3 phần trăm mẫu bị giảm tốc do nhiệt, trong khi xung nhịp của nó giữ ở 2,496 MHz đến mức 4 mỗi giây.
 
 ### Lock or record
 
-For a comparison of two configs, lock the SM clock with the driver tool, at 900 MHz in the manual's runs, and release the lock after. A lock sets the highest clock and cannot stop the GPU from throttling below it: one run with no speculation fell to 210 MHz under a 900 MHz lock and was set aside. Compare two runs only at the same clock. When the clocks differ by a little, read the ratio between the runs rather than the absolute times, and say the clock in the report.
+Để so sánh hai cấu hình, khóa xung nhịp SM bằng công cụ driver, ở 900 MHz trong các lần chạy của tài liệu, và bỏ khóa sau đó. Một khóa đặt xung nhịp cao nhất và không thể ngăn GPU giảm xung xuống dưới nó: một lần chạy không có speculation giảm xuống 210 MHz dưới một khóa 900 MHz và được để riêng. Chỉ so sánh hai lần chạy ở cùng xung nhịp. Khi xung nhịp khác nhau một chút, đọc tỷ lệ giữa các lần chạy thay vì thời gian tuyệt đối, và nêu xung nhịp trong báo cáo.
 
-The manual's position: a benchmark without the clock and the temperature of each run is not evidence.
+Quan điểm của tài liệu: một benchmark không có xung nhịp và nhiệt độ của mỗi lần chạy không phải bằng chứng.
 
 ## Follow-ups
 
-- **Level 2:** Which two columns do you add to every result row? Expected: the median SM clock and the highest temperature or the share of samples with the thermal flag, so that a reader can set aside hot runs.
-- **Level 3:** You locked the clock at 900 MHz and one run still reports 210 MHz. How? Expected: a lock sets the highest clock and cannot stop the GPU from throttling below it; set that run aside, repeat it after a cool-down, and compare only runs at the same clock.
-- **Level 3:** Under an open-loop overload the card finished fewer requests as you offered more. Why? Expected: the queue grew and the card heated, so the clock fell from 1,320 to 465 MHz and 70 percent of the samples showed thermal slowdown at 16 per second; on a passively cooled card overload costs throughput as well as latency.
-- **Level 4:** Your chassis cannot cool the card below 72 C. How do you still compare two configs? Expected: run both in one session and alternate them, record the clock for every run, set aside runs under a floor and repeat them, read ratios between runs at similar clocks rather than absolute times, and print the clock next to every number.
+- **Level 2:** Bạn thêm hai cột nào vào mỗi dòng kết quả? Expected: xung nhịp SM trung vị và nhiệt độ cao nhất hoặc tỷ lệ mẫu có cờ nhiệt, để người đọc có thể để riêng các lần chạy nóng.
+- **Level 3:** Bạn khóa xung nhịp ở 900 MHz và một lần chạy vẫn báo cáo 210 MHz. Bằng cách nào? Expected: một khóa đặt xung nhịp cao nhất và không thể ngăn GPU giảm xung xuống dưới nó; để riêng lần chạy đó, lặp lại sau khi làm nguội, và chỉ so sánh các lần chạy ở cùng xung nhịp.
+- **Level 3:** Dưới quá tải vòng hở, card hoàn thành ít yêu cầu hơn khi bạn đưa vào nhiều hơn. Tại sao? Expected: hàng đợi tăng và card nóng lên, nên xung nhịp giảm từ 1,320 xuống 465 MHz và 70 phần trăm mẫu cho thấy giảm tốc do nhiệt ở 16 mỗi giây; trên một card làm mát thụ động, quá tải đánh đổi cả thông lượng lẫn độ trễ.
+- **Level 4:** Khung máy của bạn không thể làm nguội card dưới 72 C. Bạn vẫn so sánh hai cấu hình như thế nào? Expected: chạy cả hai trong một phiên và luân phiên chúng, ghi xung nhịp cho mọi lần chạy, để riêng các lần chạy dưới một ngưỡng và lặp lại chúng, đọc tỷ lệ giữa các lần chạy ở xung nhịp tương tự thay vì thời gian tuyệt đối, và in xung nhịp cạnh mọi con số.
 
 ## Wrong answers
 
-- "The GPU shows 100 percent utilization, so it runs at full speed." Utilization says the GPU was busy, not how fast; the same card read 100 percent at 360 MHz of 2040 with the thermal flag active.
-- "A spread of half the median between seeds is normal noise." On a cool card the bands were inside about 10 percent of their medians; a spread of half the median is a sign of a changing clock, so read the telemetry.
-- "A clock lock makes every run comparable." It caps the clock and cannot stop a throttle; a run under the lock fell to 210 MHz and had to be set aside.
-- "Record the clock once at the start of the sweep." The clock fell from 1,320 to 465 MHz across one open-loop sweep as the queue grew; sample it once a second during every run and report the median per run.
+- "GPU hiển thị mức sử dụng 100 phần trăm, nên nó chạy ở tốc độ đầy đủ." Mức sử dụng nói GPU đã bận, không phải nhanh thế nào; cùng card đọc 100 phần trăm ở 360 MHz trên 2040 với cờ nhiệt hoạt động.
+- "Một độ trải bằng một nửa trung vị giữa các seed là nhiễu bình thường." Trên một card mát, các dải nằm trong khoảng 10 phần trăm của các trung vị của chúng; một độ trải bằng một nửa trung vị là dấu hiệu xung nhịp thay đổi, nên đọc telemetry.
+- "Một khóa xung nhịp khiến mọi lần chạy so sánh được." Nó giới hạn xung nhịp và không thể ngăn giảm xung; một lần chạy dưới khóa giảm xuống 210 MHz và phải được để riêng.
+- "Ghi xung nhịp một lần ở đầu lượt quét." Xung nhịp giảm từ 1,320 xuống 465 MHz qua một lượt quét vòng hở khi hàng đợi tăng; lấy mẫu mỗi giây trong mọi lần chạy và báo cáo trung vị cho mỗi lần chạy.
 
 ## Taught in
 
-[The SGLang benchmark section](../../../manuals/sglang-101/sections/5-1-sglang-benchmark-serving.md) shows the throttled sweep and the telemetry, and [Speed up decode with EAGLE3](../../../manuals/vllm-101/sections/4-1-speed-up-decode-with-eagle3.md) gives the clock lock rule.
+[Phần benchmark của SGLang](../../../manuals/sglang-101/sections/5-1-sglang-benchmark-serving.md) cho thấy lượt quét bị giảm xung và telemetry, và [Tăng tốc decode bằng EAGLE3](../../../manuals/vllm-101/sections/4-1-speed-up-decode-with-eagle3.md) đưa ra quy tắc khóa xung nhịp.

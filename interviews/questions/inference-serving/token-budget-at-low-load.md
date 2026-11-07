@@ -16,19 +16,19 @@ related: []
 updated: 2026-11-03
 ---
 
-A teammate proposes `--max-num-batched-tokens 16384` so that long prompts get their first token sooner. The server runs a model with mixture-of-experts layers on one card. Requests arrive at about half a request per second, with prompts between 1,024 and 4,096 tokens. What do you expect to change, and what would you measure before you accept the change?
+Một đồng đội đề xuất `--max-num-batched-tokens 16384` để các prompt dài nhận token đầu tiên sớm hơn. Máy chủ chạy một mô hình có các lớp mixture-of-experts trên một card. Các yêu cầu đến ở khoảng nửa yêu cầu mỗi giây, với prompt dài từ 1,024 đến 4,096 token. Bạn kỳ vọng gì thay đổi, và bạn sẽ đo gì trước khi chấp nhận thay đổi?
 
 ## Short answer
 
-A larger budget lets a long prompt finish its prefill in fewer steps, but each of those steps takes longer, and every running stream waits for it. At low load I expect a faster first token and a worse P99 ITL, and I would measure both with several seeds at the real request rate. On our GB10 at 0.5 requests per second, 16,384 raised the P99 ITL from 574 to 798 ms, while the first-token gain did not clear the seed spread.
+Một ngân sách lớn hơn cho phép một prompt dài hoàn tất prefill trong ít bước hơn, nhưng mỗi bước đó mất lâu hơn, và mọi luồng đang chạy chờ nó. Ở tải thấp, tôi kỳ vọng token đầu tiên nhanh hơn và P99 ITL tệ hơn, và tôi sẽ đo cả hai với nhiều seed ở tốc độ yêu cầu thực. Trên GB10 của chúng tôi ở 0.5 yêu cầu mỗi giây, 16,384 tăng P99 ITL từ 574 lên 798 ms, trong khi mức cải thiện token đầu tiên không vượt được độ trải seed.
 
 ## Full answer
 
 ### What the manual measured
 
-Budgets of 2,048 and 16,384 tokens on the GB10 with Qwen3-30B-A3B, requests at a fixed rate, three seeds per point, each request asking for 64 to 256 tokens:
+Các ngân sách 2,048 và 16,384 token trên GB10 với Qwen3-30B-A3B, các yêu cầu ở tốc độ cố định, ba seed mỗi điểm, mỗi yêu cầu xin 64 đến 256 token:
 
-| Requests per second | Budget | Median TTFT | Median TPOT | P99 ITL |
+| Yêu cầu mỗi giây | Ngân sách | TTFT trung vị | TPOT trung vị | P99 ITL |
 |---|---|---|---|---|
 | 0.5 | 2,048 | 1,145 ms | 149.3 ms | 574 ms |
 | 0.5 | 16,384 | 906 ms | 139.4 ms | 798 ms |
@@ -37,37 +37,37 @@ Budgets of 2,048 and 16,384 tokens on the GB10 with Qwen3-30B-A3B, requests at a
 | 2 | 2,048 | 560 ms | 205.5 ms | 587 ms |
 | 2 | 16,384 | 595 ms | 205.1 ms | 586 ms |
 
-At 0.5 requests per second the larger budget raised the P99 ITL by 39 percent, and the seed ranges did not overlap. The first token came sooner, but the seed ranges of the first token overlapped. So the cost is clear and the gain is not confirmed. At 1 and 2 requests per second the two budgets gave the same numbers within the seed ranges. All runs held a median clock of 2,398 to 2,411 MHz, so the clock does not explain any row.
+Ở 0.5 yêu cầu mỗi giây, ngân sách lớn hơn tăng P99 ITL thêm 39 phần trăm, và các khoảng seed không chồng lấn. Token đầu tiên đến sớm hơn, nhưng các khoảng seed của token đầu tiên chồng lấn. Vì vậy chi phí rõ ràng và mức tăng chưa được xác nhận. Ở 1 và 2 yêu cầu mỗi giây, hai ngân sách cho cùng các con số trong các khoảng seed. Tất cả lần chạy giữ xung nhịp trung vị từ 2,398 đến 2,411 MHz, nên xung nhịp không giải thích dòng nào.
 
 ### Why the effect fades with the rate
 
-At a higher rate more requests share each step. One long prompt then fills a smaller share of the budget, and how it is chunked matters less. The result is narrow: two budgets, three low rates, one model, one machine. The P-PAS paper found that no single fixed budget was best at every load: a large budget won at low prefill pressure, a small one when several prefills competed with running streams.
+Ở tốc độ cao hơn, nhiều yêu cầu hơn chia sẻ mỗi bước. Một prompt dài khi đó lấp một tỷ phần nhỏ hơn của ngân sách, và cách nó được chia chunk ít quan trọng hơn. Kết quả hẹp: hai ngân sách, ba tốc độ thấp, một mô hình, một máy. Bài báo P-PAS tìm thấy rằng không một ngân sách cố định duy nhất nào tốt nhất ở mọi tải: một ngân sách lớn thắng ở áp lực prefill thấp, một ngân sách nhỏ khi nhiều prefill cạnh tranh với các luồng đang chạy.
 
 ### An open result
 
-The median first token at 0.5 requests per second was slower than at 1 request per second for both budgets. All three seeds at 0.5 were above 900 ms with the 2,048 budget, and all three at 1 were below 600 ms. One slow seed does not explain it. The manual did not find the cause and says so.
+Token đầu tiên trung vị ở 0.5 yêu cầu mỗi giây chậm hơn ở 1 yêu cầu mỗi giây cho cả hai ngân sách. Cả ba seed ở 0.5 đều trên 900 ms với ngân sách 2,048, và cả ba ở 1 đều dưới 600 ms. Một seed chậm không giải thích điều đó. Tài liệu không tìm thấy nguyên nhân và nói rõ như vậy.
 
 ### How to decide
 
-1. Read the budget that your server uses. The run with no flag matched 2,048 on this machine.
-2. If the P99 ITL is too high and long prompts arrive, lower the budget.
-3. If the first token of long prompts is too slow and the P99 ITL has room, raise it.
-4. Measure at your real request rate, and again when your load changes.
+1. Đọc ngân sách mà máy chủ của bạn dùng. Lần chạy không có cờ khớp với 2,048 trên máy này.
+2. Nếu P99 ITL quá cao và các prompt dài đến, giảm ngân sách.
+3. Nếu token đầu tiên của các prompt dài quá chậm và P99 ITL còn dư địa, tăng nó.
+4. Đo ở tốc độ yêu cầu thực của bạn, và một lần nữa khi tải thay đổi.
 
-`--long-prefill-token-threshold` caps the tokens that one long prompt gets in a step when other requests wait. It is off by default and the manual did not test it.
+`--long-prefill-token-threshold` giới hạn các token mà một prompt dài nhận trong một bước khi những yêu cầu khác đang chờ. Nó mặc định tắt và tài liệu không kiểm thử nó.
 
 ## Follow-ups
 
-- **Level 3:** At the two higher rates the budgets tied. Why does the difference vanish as the rate rises? Expected: more requests share each step, so one long prompt fills a smaller share of the budget and its chunking matters less.
-- **Level 3:** Both budgets gave a later first token at the lowest rate than at the next rate up. How do you report that? Expected: all three seeds agreed, so it is not one slow seed; the cause was not found, so it stays an open result and no rule is built on it.
-- **Level 4:** Is there one budget that wins at every load? Expected: no; a large budget wins when prefill pressure is low and a small one when several prefills compete with streams, so the value must move with the load.
+- **Level 3:** Ở hai tốc độ cao hơn, các ngân sách hòa nhau. Tại sao khác biệt biến mất khi tốc độ tăng? Expected: nhiều yêu cầu hơn chia sẻ mỗi bước, nên một prompt dài lấp một tỷ phần nhỏ hơn của ngân sách và cách chia chunk của nó ít quan trọng hơn.
+- **Level 3:** Cả hai ngân sách cho token đầu tiên muộn hơn ở tốc độ thấp nhất so với tốc độ tiếp theo. Bạn báo cáo điều đó như thế nào? Expected: cả ba seed đồng ý, nên đó không phải một seed chậm; nguyên nhân không được tìm thấy, nên nó vẫn là một kết quả mở và không quy tắc nào được xây dựng trên nó.
+- **Level 4:** Có một ngân sách thắng ở mọi tải không? Expected: không; một ngân sách lớn thắng khi áp lực prefill thấp và một ngân sách nhỏ khi nhiều prefill cạnh tranh với các luồng, nên giá trị phải thay đổi theo tải.
 
 ## Wrong answers
 
-- "A larger budget is free because the GPU has spare compute at low load." Each step with a bigger chunk takes longer and every running stream waits for it; the P99 ITL rose 39 percent at 0.5 requests per second.
-- "Set the budget once from the GPU size and leave it." The best value moved with the request rate in these runs, so measure at your real rate and again when the load changes.
-- "The drop from 1,145 to 906 ms proves the first-token gain." The seed ranges of the first token overlapped, so the cost is confirmed and the gain is not.
+- "Một ngân sách lớn hơn không tốn gì vì GPU có tính toán dư ở tải thấp." Mỗi bước có một chunk lớn hơn mất lâu hơn và mọi luồng đang chạy chờ nó; P99 ITL tăng 39 phần trăm ở 0.5 yêu cầu mỗi giây.
+- "Đặt ngân sách một lần từ kích thước GPU rồi để đó." Giá trị tốt nhất thay đổi theo tốc độ yêu cầu trong các lần chạy này, nên đo ở tốc độ thực của bạn và một lần nữa khi tải thay đổi.
+- "Mức giảm từ 1,145 xuống 906 ms chứng minh mức cải thiện token đầu tiên." Các khoảng seed của token đầu tiên chồng lấn, nên chi phí được xác nhận và mức tăng thì không.
 
 ## Taught in
 
-[Keep long prompts from stalling short ones](../../../manuals/vllm-101/sections/3-3-keep-long-prompts-from-stalling-short-ones.md) has the six measured rows and the tuning order.
+[Ngăn prompt dài làm khựng prompt ngắn](../../../manuals/vllm-101/sections/3-3-keep-long-prompts-from-stalling-short-ones.md) có sáu dòng đã đo và thứ tự tinh chỉnh.

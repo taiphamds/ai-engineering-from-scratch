@@ -16,57 +16,57 @@ related: []
 updated: 2026-11-03
 ---
 
-Speculative decoding promises several tokens per step with no change to what the model writes. Explain how the engine keeps that promise, where the speedup comes from, and why the gain shrinks as more users share the server.
+Speculative decoding hứa hẹn vài token mỗi bước mà không thay đổi những gì mô hình viết. Giải thích cách engine giữ lời hứa đó, mức tăng tốc đến từ đâu, và tại sao mức tăng giảm khi có nhiều người dùng hơn cùng chia sẻ máy chủ.
 
 ## Short answer
 
-A cheap proposer guesses the next few tokens, and the target model runs once over all the guesses and computes its own distribution at every position. A rejection sampler keeps each guess that the target supports, samples a correct token from the target at the first rejection, and stops, so one pass gives at least one token and at most the number of guesses plus one, with the same output distribution as plain decoding. The gain comes from idle GPU time: a small decode batch waits for memory, and as the batch grows that idle time goes away, so the checks of rejected guesses start to cost real compute.
+Một bộ đề xuất ít tốn kém đoán vài token tiếp theo, và mô hình đích chạy một lần trên tất cả các dự đoán và tính phân phối riêng của nó tại mỗi vị trí. Một bộ lấy mẫu loại bỏ giữ mỗi dự đoán được mô hình đích hỗ trợ, lấy mẫu một token đúng từ mô hình đích tại lần loại bỏ đầu tiên, rồi dừng, nên một lượt chạy cho ít nhất một token và nhiều nhất bằng số dự đoán cộng một, với cùng phân phối đầu ra như decoding thông thường. Mức tăng đến từ thời gian GPU nhàn rỗi: một batch decode nhỏ chờ bộ nhớ, và khi batch tăng thì thời gian nhàn rỗi đó biến mất, nên các lần kiểm tra dự đoán bị loại bắt đầu tốn tính toán thực sự.
 
 ## Full answer
 
 ### Guess, then check
 
-A decode step on a small batch reads all the weights to produce one token per request, and most of the GPU sits idle while it waits for memory. Speculation uses that idle time. With greedy sampling a guess stays only if it equals the top token of the target at that position. With random sampling the rejection rule keeps the output distribution equal to the target's distribution. In SGLang the accept thresholds default to 1.0, so a greedy request produces the same tokens it would produce without speculation.
+Một bước decode trên một batch nhỏ đọc tất cả trọng số để tạo một token cho mỗi yêu cầu, và phần lớn GPU nhàn rỗi trong khi chờ bộ nhớ. Speculation dùng thời gian nhàn rỗi đó. Với lấy mẫu tham lam, một dự đoán chỉ được giữ nếu nó bằng token đứng đầu của mô hình đích tại vị trí đó. Với lấy mẫu ngẫu nhiên, quy tắc loại bỏ giữ phân phối đầu ra bằng phân phối của mô hình đích. Trong SGLang, các ngưỡng chấp nhận mặc định là 1.0, nên một yêu cầu tham lam tạo ra cùng những token mà nó sẽ tạo khi không có speculation.
 
-The acceptance length is the number of tokens committed per verify pass: the accepted drafts plus one bonus token from the target. One real Qwen3-8B request on our L4 got about 1.8 tokens per pass.
+Độ dài chấp nhận là số token được chốt mỗi lượt xác minh: các bản nháp được chấp nhận cộng một token thưởng từ mô hình đích. Một yêu cầu Qwen3-8B thực trên L4 của chúng tôi đạt khoảng 1.8 token mỗi lượt.
 
 ### The proposers
 
-| Method | Where the guesses come from |
+| Phương pháp | Các dự đoán đến từ đâu |
 |---|---|
-| `ngram` | earlier text in the same request that matches the last few tokens |
-| `suffix` | a suffix tree over earlier prompts and answers |
-| `eagle`, `eagle3` | a small draft head that reads the hidden states of the target |
-| `*_mtp` | extra prediction heads that come with some models |
-| `draft_model` | a separate small model |
+| `ngram` | văn bản trước đó trong cùng yêu cầu khớp với vài token cuối |
+| `suffix` | một cây hậu tố trên các prompt và câu trả lời trước đó |
+| `eagle`, `eagle3` | một đầu nháp nhỏ đọc các trạng thái ẩn của mô hình đích |
+| `*_mtp` | các đầu dự đoán bổ sung đi kèm một số mô hình |
+| `draft_model` | một mô hình nhỏ riêng biệt |
 
-N-gram costs almost nothing and needs no extra weights. It pays when the answer copies the prompt: an edit of a document, a summary that quotes the source, a code change that keeps most lines, extraction from a long input. On our L4 with random prompts it cut the time per token from 241.7 to 76.6 ms at one user, and at four users the P99 ITL rose from 290 to 1,691 ms. It also turns off async scheduling, with only a warning in the log. An EAGLE3 head needs training for your target; the public head for Qwen3-8B has one layer and a draft vocabulary of 32,000 tokens.
+N-gram gần như không tốn gì và không cần thêm trọng số. Nó có lợi khi câu trả lời sao chép prompt: một lần chỉnh sửa tài liệu, một bản tóm tắt trích dẫn nguồn, một thay đổi mã giữ lại phần lớn các dòng, trích xuất từ đầu vào dài. Trên L4 của chúng tôi với prompt ngẫu nhiên, nó giảm thời gian mỗi token từ 241.7 xuống 76.6 ms ở một người dùng, và ở bốn người dùng, P99 ITL tăng từ 290 lên 1,691 ms. Nó cũng tắt lập lịch bất đồng bộ, chỉ với một cảnh báo trong log. Một đầu EAGLE3 cần được huấn luyện cho mô hình đích của bạn; đầu công khai cho Qwen3-8B có một lớp và một từ vựng nháp gồm 32,000 token.
 
 ### Why the gain falls with load
 
-The idle time exists only while the step reads more memory than it computes. As the batch grows, the step does more compute for each byte, and the idle time goes away. The checks of rejected guesses then cost real compute. One report shows both ends on the same GPU and model: at batch 1 output went from 42.0 to 92.5 tokens per second, and at concurrency 20 it fell from 217.8 to 164.4. The maintainer's answer was that speculation is meant for small batches. The dynamic mode follows from this rule: it sets the number of guesses from the batch size and stops guessing for large batches.
+Thời gian nhàn rỗi chỉ tồn tại khi bước đó đọc bộ nhớ nhiều hơn lượng nó tính toán. Khi batch tăng, bước đó thực hiện nhiều tính toán hơn cho mỗi byte, và thời gian nhàn rỗi biến mất. Các lần kiểm tra dự đoán bị loại khi đó tốn tính toán thực sự. Một báo cáo cho thấy cả hai đầu trên cùng GPU và mô hình: ở batch 1, đầu ra tăng từ 42.0 lên 92.5 token mỗi giây, và ở mức đồng thời 20 nó giảm từ 217.8 xuống 164.4. Câu trả lời của người bảo trì là speculation dành cho các batch nhỏ. Chế độ động tuân theo quy tắc này: nó đặt số dự đoán theo kích thước batch và ngừng đoán với các batch lớn.
 
 ### The lesson's arithmetic
 
-Expected tokens per target forward are 1 + K x alpha, with K the draft length and alpha the acceptance rate. For K of 5 and alpha of 0.7, with about 10 percent verify overhead, that is 4.5 divided by 1.1, about 4.1 times. Real gains cluster around 2 to 3 times, because alpha is rarely that high on production traffic and the overhead grows with the batch. The lesson puts the break-even alpha at high concurrency near 0.45 to 0.55.
+Số token kỳ vọng mỗi lượt forward của mô hình đích là 1 + K x alpha, với K là độ dài nháp và alpha là tỷ lệ chấp nhận. Với K bằng 5 và alpha bằng 0.7, với khoảng 10 phần trăm chi phí xác minh bổ sung, đó là 4.5 chia cho 1.1, khoảng 4.1 lần. Mức tăng thực tế tập trung quanh 2 đến 3 lần, vì alpha hiếm khi cao như vậy trên lưu lượng production và chi phí bổ sung tăng theo batch. Bài học đặt alpha hòa vốn ở mức đồng thời cao gần 0.45 đến 0.55.
 
 ### What to watch
 
-The engine exports the proposed and the accepted tokens. Divide accepted by proposed for the acceptance rate, and read the mean tokens per step. A high acceptance rate with no gain in the time per token means the batch is already compute bound.
+Engine xuất các token được đề xuất và được chấp nhận. Chia số được chấp nhận cho số được đề xuất để có tỷ lệ chấp nhận, và đọc số token trung bình mỗi bước. Tỷ lệ chấp nhận cao mà thời gian mỗi token không cải thiện có nghĩa là batch đã bị giới hạn bởi tính toán.
 
 ## Follow-ups
 
-- **Level 2:** Which proposer needs no extra model, and when does it pay? Expected: n-gram, which matches the last tokens of the output against earlier text in the request; it pays for edits, quotes, code changes and extraction, and fails on open chat.
-- **Level 3:** Acceptance is high but the time per token did not fall. What does that tell you? Expected: the batch is already compute bound; the idle memory time that speculation uses is gone, so the checks cost as much as they save.
-- **Level 3:** With greedy sampling, how does the check decide at each position? Expected: a guess stays only if it equals the top token of the target there; the first mismatch is replaced by the target's token and the rest are dropped.
-- **Level 4:** Why can one verify pass never commit more tokens than the draft length plus one? Expected: the target computes a distribution at every draft position and one past the last guess, so when all guesses pass the sampler still draws one bonus token from that last distribution; at a rejection it samples a correct token there and stops.
+- **Level 2:** Bộ đề xuất nào không cần mô hình bổ sung, và khi nào nó có lợi? Expected: n-gram, khớp các token cuối của đầu ra với văn bản trước đó trong yêu cầu; nó có lợi cho chỉnh sửa, trích dẫn, thay đổi mã và trích xuất, và thất bại với chat mở.
+- **Level 3:** Tỷ lệ chấp nhận cao nhưng thời gian mỗi token không giảm. Điều đó cho bạn biết gì? Expected: batch đã bị giới hạn bởi tính toán; thời gian chờ bộ nhớ nhàn rỗi mà speculation sử dụng đã biến mất, nên các lần kiểm tra tốn bằng lượng chúng tiết kiệm.
+- **Level 3:** Với lấy mẫu tham lam, lần kiểm tra quyết định ở mỗi vị trí như thế nào? Expected: một dự đoán chỉ được giữ nếu nó bằng token đứng đầu của mô hình đích ở đó; lần không khớp đầu tiên được thay bằng token của mô hình đích và phần còn lại bị bỏ.
+- **Level 4:** Tại sao một lượt xác minh không bao giờ có thể chốt nhiều token hơn độ dài nháp cộng một? Expected: mô hình đích tính một phân phối tại mỗi vị trí nháp và một vị trí sau dự đoán cuối, nên khi tất cả dự đoán đều qua, bộ lấy mẫu vẫn rút một token thưởng từ phân phối cuối đó; tại một lần loại bỏ nó lấy mẫu một token đúng ở đó và dừng.
 
 ## Wrong answers
 
-- "Speculation changes the output a little, so you trade some quality for speed." With greedy sampling a guess stays only if it equals the target's top token, and with random sampling the rejection rule keeps the output distribution equal to the target's, so the quality does not change, although one sampled run can differ from a run without speculation.
-- "The draft is where the speed comes from, so a faster draft always helps." The gain comes from idle GPU time in a small batch; a fast draft with low acceptance adds checks that cost compute, and at concurrency 20 one report lost a quarter of its throughput.
-- "Turn it on for the stress test too." At batch 1 one report more than doubled its speed and at concurrency 20 it was slower; the maintainer's answer was that speculation is for small batches.
+- "Speculation thay đổi đầu ra một chút, nên bạn đánh đổi một ít chất lượng để lấy tốc độ." Với lấy mẫu tham lam, một dự đoán chỉ được giữ nếu nó bằng token đứng đầu của mô hình đích, và với lấy mẫu ngẫu nhiên, quy tắc loại bỏ giữ phân phối đầu ra bằng phân phối của mô hình đích, nên chất lượng không thay đổi, dù một lần chạy lấy mẫu có thể khác một lần chạy không có speculation.
+- "Bản nháp là nơi tốc độ đến từ đó, nên một bản nháp nhanh hơn luôn có ích." Mức tăng đến từ thời gian GPU nhàn rỗi trong một batch nhỏ; một bản nháp nhanh với tỷ lệ chấp nhận thấp thêm các lần kiểm tra tốn tính toán, và ở mức đồng thời 20, một báo cáo mất một phần tư thông lượng.
+- "Cũng bật nó cho kiểm thử căng thẳng." Ở batch 1, một báo cáo tăng tốc hơn gấp đôi và ở mức đồng thời 20 nó chậm hơn; câu trả lời của người bảo trì là speculation dành cho các batch nhỏ.
 
 ## Taught in
 
-[How speculative decoding checks drafts](../../../manuals/vllm-101/sections/8-7-how-speculative-decoding-checks-drafts.md) and [the SGLang speculative decoding section](../../../manuals/sglang-101/sections/4-4-speculative-decoding.md) explain the rule, [the n-gram section](../../../manuals/vllm-101/sections/4-2-use-n-gram-speculation-for-copy-heavy-work.md) measures the free proposer, and [the EAGLE-3 lesson](../../../phases/17-infrastructure-and-production/05-eagle3-speculative-decoding/docs/en.md) gives the acceptance arithmetic.
+[Cách speculative decoding kiểm tra các bản nháp](../../../manuals/vllm-101/sections/8-7-how-speculative-decoding-checks-drafts.md) và [phần speculative decoding của SGLang](../../../manuals/sglang-101/sections/4-4-speculative-decoding.md) giải thích quy tắc, [phần n-gram](../../../manuals/vllm-101/sections/4-2-use-n-gram-speculation-for-copy-heavy-work.md) đo bộ đề xuất miễn phí, và [bài học EAGLE-3](../../../phases/17-infrastructure-and-production/05-eagle3-speculative-decoding/docs/en.md) đưa ra phép tính chấp nhận.

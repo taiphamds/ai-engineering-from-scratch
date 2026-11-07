@@ -16,52 +16,52 @@ related: [inference-serving/kv-pool-users-fit]
 updated: 2026-11-03
 ---
 
-You serve a chat model on one GPU. A load sweep shows output throughput that still rises at a cap of 64 concurrent requests, so the team wants to set the cap to 64. The product needs the first token in under one second and a steady stream of text after it. Which cap do you pick, and how do you defend it?
+Bạn phục vụ một mô hình chat trên một GPU. Một lượt quét tải cho thấy thông lượng đầu ra vẫn tăng ở mức giới hạn 64 yêu cầu đồng thời, nên nhóm muốn đặt giới hạn là 64. Sản phẩm cần token đầu tiên trong chưa đến một giây và một luồng văn bản đều đặn sau đó. Bạn chọn giới hạn nào, và bạn bảo vệ lựa chọn đó như thế nào?
 
 ## Short answer
 
-Pick the cap from goodput, not from throughput. Goodput counts only the requests that meet every latency target, so it falls to zero long before throughput stops rising. On the sweep in the SGLang manual, BF16 goodput was highest at a cap of 4 and was 0 from a cap of 8. Use the throughput curve only to explain the choice.
+Chọn giới hạn từ goodput, không phải từ thông lượng. Goodput chỉ đếm những yêu cầu đáp ứng mọi mục tiêu độ trễ, nên nó giảm về không rất lâu trước khi thông lượng ngừng tăng. Trong lượt quét ở tài liệu SGLang, goodput BF16 cao nhất ở giới hạn 4 và bằng 0 từ giới hạn 8. Chỉ dùng đường cong thông lượng để giải thích lựa chọn.
 
 ## Full answer
 
 ### Why throughput hides the knee
 
-A large KV pool lets the server admit more requests. On the GB10 in the manual, the pool held 234,600 tokens, so BF16 throughput still rose at a cap of 64. More admitted requests share each decode step, so each request gets fewer tokens per second. Throughput measures the server. Latency measures the user.
+Một pool KV lớn cho phép máy chủ tiếp nhận nhiều yêu cầu hơn. Trên GB10 trong tài liệu, pool chứa 234,600 token, nên thông lượng BF16 vẫn tăng ở giới hạn 64. Nhiều yêu cầu được tiếp nhận hơn chia sẻ mỗi bước decode, nên mỗi yêu cầu nhận ít token mỗi giây hơn. Thông lượng đo máy chủ. Độ trễ đo người dùng.
 
 ### Define the target first
 
-The manual counts a request as good when its first token comes in under 1 s and its mean time per token is under 100 ms. Write the target down before the sweep. A goodput number without its target means nothing.
+Tài liệu tính một yêu cầu là tốt khi token đầu tiên của nó đến trong dưới 1 s và thời gian trung bình mỗi token dưới 100 ms. Viết mục tiêu xuống trước lượt quét. Một con số goodput không có mục tiêu của nó không có ý nghĩa gì.
 
 ### Read the sweep
 
-| Cap | BF16 goodput | BF16 median TPOT | FP8 goodput | FP8 median TPOT |
+| Giới hạn | Goodput BF16 | TPOT trung vị BF16 | Goodput FP8 | TPOT trung vị FP8 |
 |---|---|---|---|---|
 | 4 | 0.44 req/s | 71.01 ms | 0.80 req/s | 38.60 ms |
 | 8 | 0 | 102.21 ms | 1.07 req/s | 54.96 ms |
 | 16 | 0 | 154.24 ms | 1.10 req/s | 81.90 ms |
 | 32 | 0 | 201.91 ms | 0 | 104.12 ms |
 
-At a cap of 8, the median BF16 request already takes more than 100 ms per token. Throughput at that cap is 74.11 tok/s and still rising. FP8 holds the target up to a cap of 16. So the answer depends on the build: about 4 for BF16 and about 16 for FP8 on this machine.
+Ở giới hạn 8, yêu cầu BF16 trung vị đã mất hơn 100 ms mỗi token. Thông lượng ở giới hạn đó là 74.11 tok/s và vẫn tăng. FP8 giữ được mục tiêu đến giới hạn 16. Vì vậy câu trả lời phụ thuộc vào bản dựng: khoảng 4 cho BF16 và khoảng 16 cho FP8 trên máy này.
 
 ### Defend it
 
-- Run three seeds per point and show the band, so that a reviewer can see the gaps are real.
-- Reset the prefix cache before each run. A warm cache makes the first token look fast.
-- A cap is a closed loop. Real users arrive on their own clock, so also run an open-loop sweep with a request rate and check goodput there.
+- Chạy ba seed mỗi điểm và cho thấy dải, để người đánh giá có thể thấy các khoảng cách là có thật.
+- Đặt lại prefix cache trước mỗi lần chạy. Một cache đã được làm nóng khiến token đầu tiên có vẻ nhanh.
+- Một giới hạn là một vòng kín. Người dùng thực đến theo đồng hồ riêng của họ, nên cũng chạy một lượt quét vòng hở với tốc độ yêu cầu và kiểm tra goodput ở đó.
 
 ## Follow-ups
 
-- **Level 2:** What is the difference between throughput and goodput? Expected: throughput counts all tokens or requests per second; goodput counts only the requests that met every latency target.
-- **Level 3:** Why can a closed-loop cap never show a growing queue? Expected: each client waits for its answer before it sends the next request, so the server never receives more work than it finishes.
-- **Level 3:** FP8 holds the target at a cap of 16 and BF16 does not. What do you check before you switch the build? Expected: output quality on your own eval, and the KV pool size, because FP8 frees memory for a larger pool.
-- **Level 4:** The GPU gets hot at high load. How does that change your sweep? Expected: record the GPU clock and the thermal state with every run, and let the GPU cool to a fixed temperature before each run.
+- **Level 2:** Sự khác biệt giữa thông lượng và goodput là gì? Expected: thông lượng đếm tất cả token hoặc yêu cầu mỗi giây; goodput chỉ đếm những yêu cầu đáp ứng mọi mục tiêu độ trễ.
+- **Level 3:** Tại sao một giới hạn vòng kín không bao giờ cho thấy hàng đợi tăng lên? Expected: mỗi client chờ câu trả lời của nó trước khi gửi yêu cầu tiếp theo, nên máy chủ không bao giờ nhận nhiều công việc hơn lượng nó hoàn thành.
+- **Level 3:** FP8 giữ được mục tiêu ở giới hạn 16 còn BF16 thì không. Bạn kiểm tra gì trước khi chuyển bản dựng? Expected: chất lượng đầu ra trên bộ đánh giá riêng của bạn, và kích thước pool KV, vì FP8 giải phóng bộ nhớ cho một pool lớn hơn.
+- **Level 4:** GPU nóng lên ở tải cao. Điều đó thay đổi lượt quét của bạn như thế nào? Expected: ghi lại xung nhịp GPU và trạng thái nhiệt với mỗi lần chạy, và để GPU nguội về một nhiệt độ cố định trước mỗi lần chạy.
 
 ## Wrong answers
 
-- "Set the cap where throughput peaks." The throughput curve had no peak inside the sweep, and every BF16 request missed the target from a cap of 8.
-- "Use the median TTFT alone." A median can hide a slow half of the requests, and the time per token can fail while the first token is fast.
-- "Report goodput from one run." One run can be wrong for reasons you never see, so use three seeds and report the range.
+- "Đặt giới hạn ở nơi thông lượng đạt đỉnh." Đường cong thông lượng không có đỉnh trong lượt quét, và mọi yêu cầu BF16 đều không đạt mục tiêu từ giới hạn 8.
+- "Chỉ dùng TTFT trung vị." Một trung vị có thể che giấu một nửa số yêu cầu chậm, và thời gian mỗi token có thể không đạt trong khi token đầu tiên nhanh.
+- "Báo cáo goodput từ một lần chạy." Một lần chạy có thể sai vì những lý do bạn không bao giờ thấy, nên dùng ba seed và báo cáo khoảng.
 
 ## Taught in
 
-The [benchmark section of SGLang 101](../../../manuals/sglang-101/sections/5-1-sglang-benchmark-serving.md#goodput-finds-the-knee-that-throughput-hides) measures goodput against the cap, and the [inference metrics lesson](../../../phases/17-infrastructure-and-production/08-inference-metrics-goodput/) defines each metric.
+[Phần benchmark của SGLang 101](../../../manuals/sglang-101/sections/5-1-sglang-benchmark-serving.md#goodput-finds-the-knee-that-throughput-hides) đo goodput theo giới hạn, và [bài học về các chỉ số suy luận](../../../phases/17-infrastructure-and-production/08-inference-metrics-goodput/) định nghĩa từng chỉ số.

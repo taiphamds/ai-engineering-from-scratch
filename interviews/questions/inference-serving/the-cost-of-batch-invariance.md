@@ -16,59 +16,59 @@ related: []
 updated: 2026-11-03
 ---
 
-Your evaluation team wants bit-identical outputs from the live server and asks you to enable batch invariance for all traffic. What does it change, what does it cost, and what would you say?
+Nhóm đánh giá của bạn muốn các đầu ra giống hệt từng bit từ máy chủ đang hoạt động và yêu cầu bạn bật batch invariance cho toàn bộ lưu lượng. Nó thay đổi gì, nó tốn gì, và bạn sẽ nói gì?
 
 ## Short answer
 
-The mode replaces the kernels that split their sums by the batch size with kernels that keep one reduction order, so one request gives the same logits alone and in a batch. It costs speed, most at low concurrency: on our L4 the small model paid 2.4 times the time per token at one user and 1.4 times at 32, and Qwen3-8B paid 1.4 times at 8 users with 27 percent less output. I would turn it on for evaluation and rollout servers and leave it off for production traffic, after I measured the cost at the concurrency we serve, because on SGLang with the default backend it also turns prefix caching off.
+Chế độ thay các kernel chia tổng theo kích thước batch bằng các kernel giữ một thứ tự rút gọn, nên một yêu cầu cho cùng logit khi riêng lẻ và trong một batch. Nó tốn tốc độ, nhiều nhất ở mức đồng thời thấp: trên L4 của chúng tôi, mô hình nhỏ trả thời gian mỗi token gấp 2.4 lần ở một người dùng và 1.4 lần ở 32, và Qwen3-8B trả 1.4 lần ở 8 người dùng với đầu ra ít hơn 27 phần trăm. Tôi sẽ bật nó cho các máy chủ đánh giá và rollout và để nó tắt cho lưu lượng production, sau khi đo chi phí ở mức đồng thời chúng tôi phục vụ, vì trên SGLang với backend mặc định nó cũng tắt prefix caching.
 
 ## Full answer
 
 ### What the mode switches
 
-On vLLM, `VLLM_BATCH_INVARIANT=1` needs a GPU of compute capability 8.0 or higher, which includes the L4 and the GB10, and it turns off speed features that change the order of the sums, such as custom all-reduce with tensor parallelism. At 0.31.0 it is in beta.
+Trên vLLM, `VLLM_BATCH_INVARIANT=1` cần một GPU có compute capability 8.0 hoặc cao hơn, bao gồm L4 và GB10, và nó tắt các tính năng tốc độ thay đổi thứ tự các tổng, chẳng hạn all-reduce tùy chỉnh với tensor parallelism. Ở 0.31.0 nó đang beta.
 
-On SGLang, `--enable-deterministic-inference` replaces the matrix multiply, the log-softmax, the mean, the RMS norm and the batched multiply with batch-invariant kernels, forces the plain sampling backend, sets the all-reduce to a tree so that tensor-parallel sums add in a fixed order, accepts only some attention backends, turns the radix cache off unless the backend is one that supports it, and gives every request without a `sampling_seed` the seed 42. The cache rule matters most: with the default backend on the GB10 the log said that the radix cache is not compatible, so every repeated prefix paid its full prefill again. On the L4 the mode picked a different backend that keeps the cache on.
+Trên SGLang, `--enable-deterministic-inference` thay nhân ma trận, log-softmax, trung bình, RMS norm và nhân theo batch bằng các kernel batch-invariant, buộc backend lấy mẫu thông thường, đặt all-reduce thành một cây để các tổng tensor-parallel cộng theo thứ tự cố định, chỉ chấp nhận một số backend attention, tắt radix cache trừ khi backend là một backend hỗ trợ nó, và cấp cho mọi yêu cầu không có `sampling_seed` seed 42. Quy tắc cache quan trọng nhất: với backend mặc định trên GB10, log nói radix cache không tương thích, nên mọi prefix lặp lại trả toàn bộ prefill lần nữa. Trên L4, chế độ chọn một backend khác giữ cache bật.
 
 ### What the manual measured
 
-vLLM on the L4 with the clock locked at 900 MHz, Qwen3-0.6B, runs in the order default, batch-invariant, default again, two seeds each with a cache reset before each run:
+vLLM trên L4 với xung nhịp khóa ở 900 MHz, Qwen3-0.6B, các lần chạy theo thứ tự mặc định, batch-invariant, mặc định lần nữa, mỗi loại hai seed với đặt lại cache trước mỗi lần chạy:
 
-| Users | Median TPOT, default / batch-invariant | Output tok/s, default / batch-invariant |
+| Người dùng | TPOT trung vị, mặc định / batch-invariant | Token đầu ra/s, mặc định / batch-invariant |
 |---|---|---|
-| 1 | 6.9 / 16.9 ms (2.4x) | 140.6 / 58.7 (58% lower) |
-| 8 | 9.9 / 18.2 ms (1.8x) | 755 / 420 (44% lower) |
-| 32 | 18.8 / 25.9 ms (1.4x) | 1,565 / 1,154 (26% lower) |
+| 1 | 6.9 / 16.9 ms (2.4x) | 140.6 / 58.7 (thấp hơn 58%) |
+| 8 | 9.9 / 18.2 ms (1.8x) | 755 / 420 (thấp hơn 44%) |
+| 32 | 18.8 / 25.9 ms (1.4x) | 1,565 / 1,154 (thấp hơn 26%) |
 
-On Qwen3-8B at 8 users the time per token was 1.4 times longer and the output 27 percent lower; at 32 users 1.3 times and 23 percent. The relative cost fell as more users shared each step, and it was larger on the small model.
+Trên Qwen3-8B ở 8 người dùng, thời gian mỗi token dài hơn 1.4 lần và đầu ra thấp hơn 27 phần trăm; ở 32 người dùng là 1.3 lần và 23 phần trăm. Chi phí tương đối giảm khi nhiều người dùng hơn chia sẻ mỗi bước, và nó lớn hơn trên mô hình nhỏ.
 
-SGLang on the GB10 with Qwen3-30B-A3B, one run per server at concurrency 8: output fell from 78.92 to 64.83 tokens per second, 18 percent, and the median time per token rose from 97.30 to 117.43 ms. The radix cache was off in that run, so a workload with shared prefixes pays more than this number shows.
+SGLang trên GB10 với Qwen3-30B-A3B, một lần chạy mỗi máy chủ ở mức đồng thời 8: đầu ra giảm từ 78.92 xuống 64.83 token mỗi giây, 18 phần trăm, và thời gian trung vị mỗi token tăng từ 97.30 lên 117.43 ms. Radix cache tắt trong lần chạy đó, nên một workload có prefix dùng chung trả nhiều hơn con số này cho thấy.
 
 ### What other teams measured
 
-A post on nondeterminism ran 1,000 Qwen3-8B requests on vLLM in 26 s by default, 55 s with batch-invariant kernels, and 42 s with a better attention kernel. A 2026 study measured batch-invariant kernels at more than twice the latency and up to 74 percent less throughput. A verification study found that the modes of both engines gave different logits under some changes in execution, such as prompt chunking and KV cache reuse. The manual did not measure these itself.
+Một bài viết về tính không xác định chạy 1,000 yêu cầu Qwen3-8B trên vLLM trong 26 s theo mặc định, 55 s với các kernel batch-invariant, và 42 s với một kernel attention tốt hơn. Một nghiên cứu năm 2026 đo các kernel batch-invariant có độ trễ hơn gấp đôi và thông lượng thấp hơn đến 74 phần trăm. Một nghiên cứu xác minh tìm thấy rằng các chế độ của cả hai engine cho logit khác nhau dưới một số thay đổi thực thi, chẳng hạn chia chunk prompt và tái sử dụng KV cache. Tài liệu không tự đo những điều này.
 
 ### What the mode does not cover
 
-At 0.31.0 a vLLM model that picks its own attention backend skips the check, so its output can still depend on the batch; the next release checks every attention layer, and a fix for expert models with data, tensor and expert parallelism under compile is not in it. On SGLang a hybrid state-space model was reported as not batch-invariant, some newer architectures are not yet supported, a sliding-window kernel gave several greedy outputs in prefix mode with the issue still open, and one speculative algorithm gave different text after a restart because kernel autotuning picked different tactics on each start.
+Ở 0.31.0, một mô hình vLLM tự chọn backend attention của nó bỏ qua kiểm tra, nên đầu ra của nó vẫn có thể phụ thuộc vào batch; bản phát hành tiếp theo kiểm tra mọi lớp attention, và một bản sửa cho các mô hình expert với data, tensor và expert parallelism dưới compile không nằm trong đó. Trên SGLang, một mô hình hybrid state-space được báo cáo là không batch-invariant, một số kiến trúc mới hơn chưa được hỗ trợ, một kernel sliding-window cho vài đầu ra tham lam trong chế độ prefix với issue vẫn mở, và một thuật toán speculative cho văn bản khác sau khi khởi động lại vì autotuning kernel chọn các tactic khác nhau ở mỗi lần khởi động.
 
 ### What I would say
 
-Use the mode where identical bits are the product: reinforcement learning rollouts and evaluations that must reproduce. Keep production traffic on the default kernels, where prefix caching and faster kernels are worth more than identical bits. Measure the cost at the concurrency you serve, not at one point, and test the exact setup: model, attention backend, parallel layout, chunk size and cache setting. Flush the cache between two runs you compare, and keep the dtype the same.
+Dùng chế độ ở nơi các bit giống nhau là sản phẩm: các rollout học tăng cường và các đánh giá phải tái lập. Giữ lưu lượng production trên các kernel mặc định, nơi prefix caching và các kernel nhanh hơn đáng giá hơn các bit giống nhau. Đo chi phí ở mức đồng thời bạn phục vụ, không phải ở một điểm, và kiểm thử thiết lập chính xác: mô hình, backend attention, bố trí song song, kích thước chunk và thiết lập cache. Xóa cache giữa hai lần chạy bạn so sánh, và giữ dtype giống nhau.
 
 ## Follow-ups
 
-- **Level 3:** Why did the relative cost shrink at higher concurrency? Expected: the invariant kernels give up the fast splits that an idle GPU would use, and that loss is a larger share of a small step; with more rows per step the fixed order costs a smaller share, 1.4 times at 32 users against 2.4 at one.
-- **Level 3:** On SGLang the 18 percent understates the cost for a chat workload. Why? Expected: with the default attention backend deterministic mode turns the radix cache off, so every repeated prefix pays its full prefill again; pick a backend that keeps the cache where the GPU supports it.
-- **Level 4:** Two servers both run the mode and still give different greedy text for one prompt. Name three causes. Expected: different hardware or engine version; a model path the mode does not cover, such as an attention layer that picks its own backend or a hybrid state-space layer; and kernel autotuning that picked different tactics on each start.
+- **Level 3:** Tại sao chi phí tương đối giảm ở mức đồng thời cao hơn? Expected: các kernel bất biến từ bỏ các cách chia nhanh mà một GPU nhàn rỗi sẽ dùng, và mất mát đó là tỷ phần lớn hơn của một bước nhỏ; với nhiều hàng hơn mỗi bước, thứ tự cố định tốn một tỷ phần nhỏ hơn, 1.4 lần ở 32 người dùng so với 2.4 ở một người dùng.
+- **Level 3:** Trên SGLang, con số 18 phần trăm đánh giá thấp chi phí cho một workload chat. Tại sao? Expected: với backend attention mặc định, chế độ xác định tắt radix cache, nên mọi prefix lặp lại trả toàn bộ prefill lần nữa; chọn một backend giữ cache ở nơi GPU hỗ trợ nó.
+- **Level 4:** Hai máy chủ đều chạy chế độ và vẫn cho văn bản tham lam khác nhau cho một prompt. Nêu ba nguyên nhân. Expected: phần cứng hoặc phiên bản engine khác nhau; một đường mô hình mà chế độ không bao quát, chẳng hạn một lớp attention tự chọn backend hoặc một lớp hybrid state-space; và autotuning kernel chọn các tactic khác nhau ở mỗi lần khởi động.
 
 ## Wrong answers
 
-- "The mode has no cost when the GPU is idle." The cost is largest at low concurrency, 2.4 times the time per token at one user on the small model, because the invariant kernels give up the fast splits that an idle GPU would use.
-- "Turn it on for production, because correctness comes first." Production traffic gains more from prefix caching and fast kernels than from identical bits; the manual's position is to use the mode for rollouts and evaluations and to measure the cost at the concurrency you serve.
-- "The flag covers every model." At 0.31.0 a model that picks its own attention backend skips the check, hybrid state-space layers are not covered, and a fix for expert models under compile is not in the next release; test the exact setup.
-- "The seed 42 makes sampled requests reproducible." It makes every request without a sampling_seed draw the same random numbers, which is reproducible and also identical across users; set a sampling_seed per request that must reproduce.
+- "Chế độ không tốn gì khi GPU nhàn rỗi." Chi phí lớn nhất ở mức đồng thời thấp, thời gian mỗi token gấp 2.4 lần ở một người dùng trên mô hình nhỏ, vì các kernel bất biến từ bỏ các cách chia nhanh mà một GPU nhàn rỗi sẽ dùng.
+- "Bật nó cho production, vì tính đúng đắn đến trước." Lưu lượng production được lợi từ prefix caching và kernel nhanh nhiều hơn từ các bit giống nhau; quan điểm của tài liệu là dùng chế độ cho rollout và đánh giá và đo chi phí ở mức đồng thời bạn phục vụ.
+- "Cờ bao quát mọi mô hình." Ở 0.31.0, một mô hình tự chọn backend attention bỏ qua kiểm tra, các lớp hybrid state-space không được bao quát, và một bản sửa cho các mô hình expert dưới compile không có trong bản phát hành tiếp theo; kiểm thử thiết lập chính xác.
+- "Seed 42 khiến các yêu cầu lấy mẫu có thể tái lập." Nó khiến mọi yêu cầu không có sampling_seed rút cùng số ngẫu nhiên, có thể tái lập và cũng giống nhau giữa các người dùng; đặt một sampling_seed cho mỗi yêu cầu phải tái lập.
 
 ## Taught in
 
-[Get reproducible outputs](../../../manuals/vllm-101/sections/3-8-get-reproducible-outputs.md) measures the cost on the L4, and [the SGLang deterministic inference section](../../../manuals/sglang-101/sections/4-6-deterministic-inference-and-logprobs.md) lists what the flag switches.
+[Nhận đầu ra có thể tái lập](../../../manuals/vllm-101/sections/3-8-get-reproducible-outputs.md) đo chi phí trên L4, và [phần suy luận xác định của SGLang](../../../manuals/sglang-101/sections/4-6-deterministic-inference-and-logprobs.md) liệt kê những gì cờ chuyển đổi.

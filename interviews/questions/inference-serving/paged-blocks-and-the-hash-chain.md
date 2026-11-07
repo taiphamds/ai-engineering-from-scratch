@@ -16,50 +16,50 @@ related: []
 updated: 2026-11-03
 ---
 
-Explain how vLLM keeps the KV cache in GPU memory. Why does it not give each request its own buffer, how does it recognize a prompt it has seen before, and what happens when the memory runs out?
+Giải thích cách vLLM giữ KV cache trong bộ nhớ GPU. Tại sao nó không cấp cho mỗi yêu cầu một buffer riêng, nó nhận ra một prompt đã thấy trước đó như thế nào, và điều gì xảy ra khi hết bộ nhớ?
 
 ## Short answer
 
-The KV cache is one pool of 16-token blocks, and a request takes blocks one at a time as it grows, mapped by a small block table. A buffer per request wastes memory twice: on length that the request never reaches, and on gaps between requests of different sizes. Each full block gets a hash that is chained with the hash of the block before it, so one hash names a whole prefix, and a new request walks its chain and stops at the first miss. When no block is free, the scheduler preempts the newest request and computes it again later.
+KV cache là một pool các block 16 token, và một yêu cầu lấy từng block một khi nó tăng lên, được ánh xạ bằng một bảng block nhỏ. Một buffer mỗi yêu cầu lãng phí bộ nhớ hai lần: cho độ dài mà yêu cầu không bao giờ đạt tới, và cho các khoảng trống giữa những yêu cầu có kích thước khác nhau. Mỗi block đầy nhận một hash được nối chuỗi với hash của block trước nó, nên một hash gọi tên cả một prefix, và một yêu cầu mới đi theo chuỗi của nó rồi dừng ở lần cache miss đầu tiên. Khi không có block trống, bộ lập lịch tạm dừng yêu cầu mới nhất và tính lại nó sau.
 
 ## Full answer
 
 ### Blocks, not buffers
 
-At startup vLLM splits the cache into blocks of 16 tokens and keeps all of them in one pool. The blocks of a request do not need to be next to each other. A block table maps the token positions of the request to block numbers. The original paper called this PagedAttention, after the way an operating system pages memory.
+Khi khởi động, vLLM chia cache thành các block 16 token và giữ tất cả trong một pool. Các block của một yêu cầu không cần nằm cạnh nhau. Một bảng block ánh xạ các vị trí token của yêu cầu sang số block. Bài báo gốc gọi cách này là PagedAttention, theo cách một hệ điều hành phân trang bộ nhớ.
 
-The lesson gives the size of the waste that this removes. A classic allocator that reserves the full length for every request loses 60 to 80 percent of the memory to fragmentation. With blocks the waste stays under 4 percent. For a 70B model at 8192 tokens, one reserved sequence is about 1.25 GB in BF16, and a request that uses 1500 tokens wastes about 82 percent of it.
+Bài học đưa ra lượng lãng phí mà cách này loại bỏ. Một bộ cấp phát cổ điển dành toàn bộ độ dài cho mỗi yêu cầu mất 60 đến 80 phần trăm bộ nhớ vì phân mảnh. Với các block, lượng lãng phí giữ dưới 4 phần trăm. Với một mô hình 70B ở 8192 token, một chuỗi được dành sẵn chiếm khoảng 1.25 GB trong BF16, và một yêu cầu dùng 1500 token lãng phí khoảng 82 phần trăm của nó.
 
 ### The hash chain
 
-When a block fills, vLLM hashes its tokens together with the hash of the block before it. The chain means that one hash names a whole prefix, not only 16 tokens. The hash also covers the other inputs that change the keys and values: the LoRA adapter, the images in the prompt, and an optional salt for each request. A new request computes the same chain over its prompt and looks each hash up in a map. Every block before the first miss is a hit and needs no compute. Only full blocks are cached, so the tail of a prompt below 16 tokens is always computed.
+Khi một block đầy, vLLM hash các token của nó cùng với hash của block trước nó. Chuỗi có nghĩa là một hash gọi tên cả một prefix, không chỉ 16 token. Hash cũng bao gồm những đầu vào khác thay đổi các key và value: adapter LoRA, các ảnh trong prompt, và một salt tùy chọn cho mỗi yêu cầu. Một yêu cầu mới tính cùng chuỗi trên prompt của nó và tra từng hash trong một map. Mọi block trước lần cache miss đầu tiên đều là cache hit và không cần tính toán. Chỉ các block đầy được cache, nên phần đuôi prompt dưới 16 token luôn được tính.
 
-Since version 0.11 the hash is SHA-256 by default. A faster hash exists, and the documentation warns that a collision could return the wrong blocks or leak data between tenants.
+Từ phiên bản 0.11, hash mặc định là SHA-256. Có một hash nhanh hơn, và tài liệu cảnh báo rằng một va chạm có thể trả về các block sai hoặc rò rỉ dữ liệu giữa các tenant.
 
 ### Eviction
 
-A block that no request uses goes to a free list and keeps its hash. A later request with the same prefix can still use it. When vLLM needs a new block, it takes the head of the free list, the block unused the longest. Only then does the old content go away. So the cache is the pool: no separate cache memory exists, and a busy server keeps fewer old prefixes than an idle one.
+Một block không có yêu cầu nào sử dụng được đưa vào một danh sách trống và giữ hash của nó. Một yêu cầu sau đó có cùng prefix vẫn có thể dùng nó. Khi vLLM cần một block mới, nó lấy đầu danh sách trống, block không được dùng lâu nhất. Chỉ khi đó nội dung cũ mới biến mất. Vì vậy cache chính là pool: không có bộ nhớ cache riêng, và một máy chủ bận giữ ít prefix cũ hơn một máy chủ nhàn rỗi.
 
 ### When memory runs out
 
-A running request needs a new block every 16 tokens. If none is free, the scheduler preempts a request. Under the default first-come policy it picks the newest running request, frees all of its blocks, and puts it back at the head of the waiting queue. When the request runs again, vLLM computes its tokens again from the start. Older versions could also copy blocks to CPU memory and back; the current engine only recomputes, because the documentation judges that cheaper. The cost shows as a longer time for the preempted request and in the `vllm:num_preemptions` counter.
+Một yêu cầu đang chạy cần một block mới mỗi 16 token. Nếu không có block trống, bộ lập lịch tạm dừng một yêu cầu. Theo chính sách đến trước mặc định, nó chọn yêu cầu đang chạy mới nhất, giải phóng tất cả block của yêu cầu đó, và đưa nó trở lại đầu hàng đợi chờ. Khi yêu cầu chạy lại, vLLM tính lại các token của nó từ đầu. Các phiên bản cũ hơn cũng có thể sao chép block đến bộ nhớ CPU và ngược lại; engine hiện tại chỉ tính lại, vì tài liệu đánh giá cách đó rẻ hơn. Chi phí thể hiện ở thời gian dài hơn cho yêu cầu bị tạm dừng và trong bộ đếm `vllm:num_preemptions`.
 
 ### Hybrid models
 
-A model with sliding-window or state-space layers does not keep one entry per token in every layer. Each kind of layer gets its own group with its own page size and its own rule for a hit. The groups share one pool.
+Một mô hình có các lớp sliding-window hoặc state-space không giữ một mục cho mỗi token trong mọi lớp. Mỗi loại lớp nhận nhóm riêng với kích thước trang riêng và quy tắc riêng cho một cache hit. Các nhóm chia sẻ một pool.
 
 ## Follow-ups
 
-- **Level 2:** Every request starts with the same 25 tokens. How many of them come from the cache? Expected: 16, one full block; the last 9 tokens are computed on every request because only full blocks are cached.
-- **Level 3:** Two tenants send the same system prompt. What can one learn about the other, and what field stops it? Expected: they share blocks, so the timing of one tenant can reveal what the other sent; a cache_salt per tenant goes into the hash, so the two never share a block.
-- **Level 4:** Under the default policy, which request does vLLM preempt when no block is free, and what does it cost? Expected: the newest running request; all of its blocks are freed, it goes to the head of the waiting queue, and its tokens are computed again from the start, which the preemption counter records.
+- **Level 2:** Mọi yêu cầu bắt đầu với cùng 25 token. Bao nhiêu token trong số đó đến từ cache? Expected: 16, một block đầy; 9 token cuối được tính trên mọi yêu cầu vì chỉ các block đầy được cache.
+- **Level 3:** Hai tenant gửi cùng system prompt. Một bên có thể biết gì về bên kia, và trường nào ngăn điều đó? Expected: họ chia sẻ block, nên thời gian của một tenant có thể tiết lộ bên kia đã gửi gì; một cache_salt cho mỗi tenant đi vào hash, nên hai bên không bao giờ chia sẻ một block.
+- **Level 4:** Theo chính sách mặc định, vLLM tạm dừng yêu cầu nào khi không có block trống, và nó tốn gì? Expected: yêu cầu đang chạy mới nhất; tất cả block của nó được giải phóng, nó đi đến đầu hàng đợi chờ, và các token của nó được tính lại từ đầu, điều mà bộ đếm tạm dừng ghi nhận.
 
 ## Wrong answers
 
-- "vLLM swaps preempted requests to CPU memory." Older versions could; the current engine only recomputes, because the documentation judges the recompute cheaper, and the cost shows in the time of that request and in the preemption counter.
-- "The prefix cache has its own memory budget." The cache is the pool; a freed block keeps its hash on the free list until a new block is needed, so a busy server keeps fewer old prefixes than an idle one.
-- "A block hash covers only its own 16 tokens." It is chained with the hash of the block before it, so one hash names a whole prefix, and it also covers the adapter, the images and the salt.
+- "vLLM swap các yêu cầu bị tạm dừng sang bộ nhớ CPU." Các phiên bản cũ hơn có thể làm vậy; engine hiện tại chỉ tính lại, vì tài liệu đánh giá việc tính lại rẻ hơn, và chi phí thể hiện trong thời gian của yêu cầu đó và trong bộ đếm tạm dừng.
+- "Prefix cache có ngân sách bộ nhớ riêng." Cache chính là pool; một block được giải phóng giữ hash của nó trên danh sách trống đến khi cần một block mới, nên một máy chủ bận giữ ít prefix cũ hơn một máy chủ nhàn rỗi.
+- "Một hash block chỉ bao gồm 16 token của chính nó." Nó được nối chuỗi với hash của block trước nó, nên một hash gọi tên cả một prefix, và nó cũng bao gồm adapter, các ảnh và salt.
 
 ## Taught in
 
-[How the block pool manages KV memory](../../../manuals/vllm-101/sections/8-3-how-the-block-pool-manages-kv-memory.md) explains the pool, [the token budget section](../../../manuals/vllm-101/sections/8-2-why-one-token-budget-replaces-a-prefill-phase.md) covers preemption, and [the serving engine internals lesson](../../../phases/17-infrastructure-and-production/04-vllm-serving-internals/docs/en.md) gives the fragmentation numbers.
+[Cách pool block quản lý bộ nhớ KV](../../../manuals/vllm-101/sections/8-3-how-the-block-pool-manages-kv-memory.md) giải thích pool, [phần ngân sách token](../../../manuals/vllm-101/sections/8-2-why-one-token-budget-replaces-a-prefill-phase.md) trình bày việc tạm dừng, và [bài học về nội bộ engine phục vụ](../../../phases/17-infrastructure-and-production/04-vllm-serving-internals/docs/en.md) đưa ra các con số phân mảnh.

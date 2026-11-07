@@ -16,62 +16,62 @@ related: []
 updated: 2026-11-03
 ---
 
-A team runs long agent sessions on SGLang with hierarchical caching on. Their dashboards show `#cached-token: 0` on requests that resend a long history. They have tuned the cache tiers and the write policy, and the hit rate barely moves. The prompt template looks stable to them. Where do you look first, and what do you expect to find?
+Một nhóm chạy các phiên agent dài trên SGLang với caching phân cấp được bật. Dashboard của họ hiển thị `#cached-token: 0` trên những yêu cầu gửi lại lịch sử dài. Họ đã tinh chỉnh các tầng cache và chính sách ghi, và tỷ lệ cache hit hầu như không thay đổi. Mẫu prompt có vẻ ổn định đối với họ. Bạn xem ở đâu trước, và bạn kỳ vọng tìm thấy gì?
 
 ## Short answer
 
-Look at the first tokens of the request as the server sees them, not at the template. A relay or a chat template often adds something that changes on every request near the start, such as a request ID, a session hash or the date, and the tree matches from the first token and stops at the first difference. In the manual's incident a random hash in the system prompt cost 27.6 points of hit rate, and removing it moved the engine hit rate from 66.8 to 94.4 percent.
+Xem các token đầu tiên của yêu cầu như máy chủ nhìn thấy chúng, không phải mẫu. Một relay hoặc một mẫu chat thường thêm thứ gì đó thay đổi ở mỗi yêu cầu gần phần đầu, chẳng hạn ID yêu cầu, hash phiên hoặc ngày, và cây khớp từ token đầu tiên rồi dừng ở khác biệt đầu tiên. Trong sự cố của tài liệu, một hash ngẫu nhiên trong system prompt làm mất 27.6 điểm tỷ lệ cache hit, và loại bỏ nó đưa tỷ lệ cache hit của engine từ 66.8 lên 94.4 phần trăm.
 
 ## Full answer
 
 ### Reproduce it with one identifier in three places
 
-The manual's capture kit sends one 2,999-token system prompt and a short question, five times in each of three forms, with `--enable-cache-report` on so that each response reports its cached tokens:
+Bộ công cụ thu thập của tài liệu gửi một system prompt dài 2,999 token và một câu hỏi ngắn, năm lần ở mỗi dạng trong ba dạng, với `--enable-cache-report` được bật để mỗi phản hồi báo cáo các token đã cache của nó:
 
-| Form | Cached tokens | Prompt tokens | Median TTFT |
+| Dạng | Token đã cache | Token prompt | TTFT trung vị |
 |---|---|---|---|
-| stable system prompt | 2,998 | 2,999 | 45.1 ms |
-| random ID at the start | 5 | 3,034 | 1,255.3 ms |
-| the same ID at the end | 2,985 | 3,028 | 88.2 ms |
+| system prompt ổn định | 2,998 | 2,999 | 45.1 ms |
+| ID ngẫu nhiên ở đầu | 5 | 3,034 | 1,255.3 ms |
+| cùng ID ở cuối | 2,985 | 3,028 | 88.2 ms |
 
-The ID at the start made the first token 28 times slower. The ID at the end cost 43 ms. The tokens are almost the same in the three forms; only their order differs. The ID at the start matched the 5 tokens before the random hex digits and nothing after them.
+ID ở đầu khiến token đầu tiên chậm hơn 28 lần. ID ở cuối tốn 43 ms. Các token gần như giống nhau trong ba dạng; chỉ thứ tự của chúng khác nhau. ID ở đầu khớp với 5 token trước các chữ số hex ngẫu nhiên và không khớp gì sau chúng.
 
 ### Why nothing after a change can match
 
-The attention values of every later token depend on every earlier token. A cache that reused the later tokens would return wrong answers. So the tree is exact, and a change in the system prompt invalidates everything behind it, while a change in the newest message invalidates only that message.
+Các giá trị attention của mọi token phía sau phụ thuộc vào mọi token phía trước. Một cache tái sử dụng các token phía sau sẽ trả về câu trả lời sai. Vì vậy cây là chính xác, và một thay đổi trong system prompt làm mất hiệu lực mọi thứ phía sau nó, trong khi một thay đổi trong tin nhắn mới nhất chỉ làm mất hiệu lực tin nhắn đó.
 
 ### The incident behind the question
 
-The reporter found three causes stacked on each other:
+Người báo cáo tìm thấy ba nguyên nhân chồng lên nhau:
 
-1. The relay put a per-session random hash and a rotating system message into every request. Removing them moved the engine hit rate from 66.8 to 94.4 percent.
-2. The client wrote its task-list snapshot at the end of the system prompt. Every task update changed the system prompt and invalidated more than 100,000 tokens of history behind it.
-3. Hierarchical cache load-back, when it found no room, evicted the prefixes of other sessions. The reporter counted 250,000 evict calls against 376 completed load-backs.
+1. Relay đưa một hash ngẫu nhiên theo phiên và một system message luân phiên vào mỗi yêu cầu. Loại bỏ chúng đưa tỷ lệ cache hit của engine từ 66.8 lên 94.4 phần trăm.
+2. Client ghi bản chụp danh sách tác vụ ở cuối system prompt. Mỗi cập nhật tác vụ thay đổi system prompt và làm mất hiệu lực hơn 100,000 token lịch sử phía sau nó.
+3. Việc nạp lại cache phân cấp, khi không tìm thấy chỗ trống, đã loại các prefix của những phiên khác. Người báo cáo đếm được 250,000 lời gọi loại bỏ so với 376 lần nạp lại hoàn tất.
 
-The first fix was a prompt edit. No cache flag could have recovered the 27.6 points that the hash cost. The lesson tells the same story from another deployment, where moving dynamic content out of the cacheable prefix took the hit rate from 7 to 74 percent.
+Cách sửa đầu tiên là chỉnh sửa prompt. Không cờ cache nào có thể khôi phục 27.6 điểm mà hash làm mất. Bài học kể cùng câu chuyện từ một lần triển khai khác, nơi việc chuyển nội dung động ra khỏi prefix có thể cache đưa tỷ lệ cache hit từ 7 lên 74 phần trăm.
 
 ### The order of checks
 
-1. Dump the exact token sequence of two consecutive requests and compare them from the first token. Include what the relay and the chat template add.
-2. Read `cached_tokens` in the usage block with `--enable-cache-report`, or in `meta_info` of the native `/generate` route.
-3. Read `#new-token` and `#cached-token` in the `Prefill batch` lines.
-4. Read `sglang:cache_hit_rate` from `/metrics`.
-5. With several servers, check routing. A request that lands on a server without its prefix misses whatever the prompt looks like. One report moved from 64.7 to 92.1 percent by routing each conversation to the same server.
+1. Xuất chuỗi token chính xác của hai yêu cầu liên tiếp và so sánh chúng từ token đầu tiên. Bao gồm những gì relay và mẫu chat thêm vào.
+2. Đọc `cached_tokens` trong khối usage với `--enable-cache-report`, hoặc trong `meta_info` của route `/generate` gốc.
+3. Đọc `#new-token` và `#cached-token` trong các dòng `Prefill batch`.
+4. Đọc `sglang:cache_hit_rate` từ `/metrics`.
+5. Với nhiều máy chủ, kiểm tra định tuyến. Một yêu cầu đến máy chủ không có prefix của nó sẽ cache miss bất kể prompt trông như thế nào. Một báo cáo tăng từ 64.7 lên 92.1 phần trăm bằng cách định tuyến mỗi cuộc hội thoại đến cùng máy chủ.
 
-Two server settings look like prompt problems. A request for prompt log probabilities from position k can reuse only the first k tokens. Different LoRA adapters never share tree nodes, because the adapter is part of the tree key.
+Hai thiết lập máy chủ trông giống các vấn đề prompt. Một yêu cầu xác suất log của prompt từ vị trí k chỉ có thể tái sử dụng k token đầu tiên. Các adapter LoRA khác nhau không bao giờ chia sẻ node cây, vì adapter là một phần của khóa cây.
 
 ## Follow-ups
 
-- **Level 2:** The same random ID moves behind the fixed text instead. What does it cost now? Expected: about 45 tokens of prefill instead of about 3,027; in the experiment that was 43 ms more than the stable prompt instead of 28 times longer.
-- **Level 3:** After the prompt fix, one server hits well and the fleet still misses. What next? Expected: routing; a request that lands on a server without its prefix misses, and routing each conversation to the same server moved one report from 64.7 to 92.1 percent.
-- **Level 4:** The host tier still hurts other sessions after the prompt fix. What did the incident count, and what does it mean? Expected: 250,000 evict calls against 376 completed load-backs; a load-back that finds no room evicts other sessions from the GPU pool, so the pool size and the write policy need a look only after the prompt is fixed.
+- **Level 2:** Thay vào đó, cùng ID ngẫu nhiên được chuyển ra sau văn bản cố định. Bây giờ nó tốn gì? Expected: khoảng 45 token prefill thay vì khoảng 3,027; trong thí nghiệm đó là nhiều hơn 43 ms so với prompt ổn định thay vì lâu hơn 28 lần.
+- **Level 3:** Sau khi sửa prompt, một máy chủ cache hit tốt và cả cụm vẫn cache miss. Tiếp theo là gì? Expected: định tuyến; một yêu cầu đến máy chủ không có prefix của nó sẽ cache miss, và định tuyến mỗi cuộc hội thoại đến cùng máy chủ đưa một báo cáo từ 64.7 lên 92.1 phần trăm.
+- **Level 4:** Tầng host vẫn gây hại cho các phiên khác sau khi sửa prompt. Sự cố đã đếm được gì, và điều đó có nghĩa gì? Expected: 250,000 lời gọi loại bỏ so với 376 lần nạp lại hoàn tất; một lần nạp lại không tìm thấy chỗ trống sẽ loại các phiên khác khỏi pool GPU, nên kích thước pool và chính sách ghi chỉ cần được xem xét sau khi prompt được sửa.
 
 ## Wrong answers
 
-- "Raise the hierarchical cache ratio until the hit rate recovers." No cache flag can recover a miss that starts at token 5; the first fix was a prompt edit, worth 27.6 points of hit rate.
-- "The template is stable, so the prompt is stable." The template is not what the server sees; a relay, a gateway or the chat template can insert a hash, a date or a snapshot, so compare the token sequences of two consecutive requests from the start.
-- "A changed field in the middle only costs the tokens of that field." Every token after the change is a different branch of the tree, because the attention values of later tokens depend on every earlier token.
+- "Tăng tỷ lệ cache phân cấp đến khi tỷ lệ cache hit phục hồi." Không cờ cache nào có thể khôi phục một cache miss bắt đầu ở token 5; cách sửa đầu tiên là chỉnh sửa prompt, đáng giá 27.6 điểm tỷ lệ cache hit.
+- "Mẫu ổn định, nên prompt ổn định." Mẫu không phải những gì máy chủ nhìn thấy; một relay, một gateway hoặc mẫu chat có thể chèn hash, ngày hoặc bản chụp, nên so sánh các chuỗi token của hai yêu cầu liên tiếp từ đầu.
+- "Một trường thay đổi ở giữa chỉ tốn các token của trường đó." Mọi token sau thay đổi là một nhánh khác của cây, vì các giá trị attention của các token phía sau phụ thuộc vào mọi token phía trước.
 
 ## Taught in
 
-[Prefix-friendly prompts](../../../manuals/sglang-101/sections/3-4-prefix-friendly-prompts.md) has the three-form experiment and the incident, and [the RadixAttention lesson](../../../phases/17-infrastructure-and-production/06-sglang-radixattention/docs/en.md) states the ordering rule.
+[Prompt thân thiện với prefix](../../../manuals/sglang-101/sections/3-4-prefix-friendly-prompts.md) có thí nghiệm ba dạng và sự cố, và [bài học RadixAttention](../../../phases/17-infrastructure-and-production/06-sglang-radixattention/docs/en.md) nêu quy tắc sắp thứ tự.

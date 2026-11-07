@@ -16,7 +16,7 @@ related: []
 updated: 2026-11-03
 ---
 
-Here are three lines from two serving engines under load. Read each field and tell me what the server was doing, what the users felt, and which number you would act on.
+Đây là ba dòng từ hai engine phục vụ dưới tải. Đọc từng trường và cho tôi biết máy chủ đã làm gì, người dùng cảm nhận gì, và bạn sẽ hành động dựa trên con số nào.
 
 ```text
 [2026-10-16 14:01:00] Prefill batch, #new-seq: 7, #new-token: 955, #cached-token: 15102, token usage: 0.05, #running-req: 1, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 1472.94
@@ -26,55 +26,55 @@ INFO 10-17 22:35:43 [loggers.py:320] Engine 000: Avg prompt throughput: 460.3 to
 
 ## Short answer
 
-The first line is a prefill batch on SGLang that admitted 7 requests and computed 955 new prompt tokens while 15,102 came from the radix cache, with the pool 5 percent full and nothing waiting: a shared-prefix workload with the cache working. The second is one decode step for 8 running requests at 98.37 tokens per second with an empty queue: a healthy, lightly loaded server. The third is vLLM at a full pool: 40 running, 11 waiting, the cache 99.5 percent used and a hit rate of 8.7 percent, so new requests wait for memory, and the number to act on is the pool.
+Dòng đầu tiên là một batch prefill trên SGLang tiếp nhận 7 yêu cầu và tính 955 token prompt mới trong khi 15,102 đến từ radix cache, với pool đầy 5 phần trăm và không có gì đang chờ: một workload có prefix dùng chung với cache đang hoạt động. Dòng thứ hai là một bước decode cho 8 yêu cầu đang chạy ở 98.37 token mỗi giây với hàng đợi trống: một máy chủ khỏe mạnh, tải nhẹ. Dòng thứ ba là vLLM ở một pool đầy: 40 đang chạy, 11 đang chờ, cache được dùng 99.5 phần trăm và tỷ lệ cache hit 8.7 phần trăm, nên các yêu cầu mới chờ bộ nhớ, và con số cần hành động là pool.
 
 ## Full answer
 
 ### The SGLang prefill line, field by field
 
-- `#new-seq` is how many requests this prefill batch admits: 7.
-- `#new-token` is how many prompt tokens it computes: 955. `#cached-token` is how many it reused from the radix tree: 15,102. Seven requests shared one long system prompt that an earlier request had computed, so only their questions were new.
-- `token usage` is the share of the KV pool held by running requests and cached prefixes together: 0.05, so the pool is nearly empty.
-- `#running-req` counts requests that are decoding: 1. `#queue-req` counts requests that wait: 0. `#pending-token` counts tokens of admitted requests that are not yet prefilled: 0.
-- `cuda graph` says whether the step replayed a captured graph. False is expected on a platform without graphs, which is where this line came from.
-- `input throughput` is the prefill speed of this batch: 1,472.94 tokens per second.
+- `#new-seq` là số yêu cầu mà batch prefill này tiếp nhận: 7.
+- `#new-token` là số token prompt nó tính: 955. `#cached-token` là số nó tái sử dụng từ cây radix: 15,102. Bảy yêu cầu chia sẻ một system prompt dài mà một yêu cầu trước đã tính, nên chỉ các câu hỏi của chúng là mới.
+- `token usage` là tỷ phần pool KV mà các yêu cầu đang chạy và các prefix đã cache cùng giữ: 0.05, nên pool gần như trống.
+- `#running-req` đếm các yêu cầu đang decode: 1. `#queue-req` đếm các yêu cầu đang chờ: 0. `#pending-token` đếm các token của các yêu cầu đã được tiếp nhận nhưng chưa prefill: 0.
+- `cuda graph` cho biết bước đó có phát lại một graph đã capture hay không. False được kỳ vọng trên một nền tảng không có graph, là nơi dòng này đến từ đó.
+- `input throughput` là tốc độ prefill của batch này: 1,472.94 token mỗi giây.
 
-The same benchmark without the radix cache filled three prefill batches of up to 4,096 tokens for eight requests, every one with `#cached-token: 0`. The 4,096 is the chunked prefill size.
+Cùng benchmark không có radix cache lấp ba batch prefill lên đến 4,096 token cho tám yêu cầu, mỗi yêu cầu với `#cached-token: 0`. Con số 4,096 là kích thước chunked prefill.
 
 ### The decode line
 
-SGLang prints one line per prefill batch and one decode line every 40 decode steps by default. This one shows 8 requests decoding together, 4,075 tokens held, 2 percent of the pool used, 98.37 output tokens per second, and no queue. The lines before it in the same run show how the batch formed: one request admitted while 7 waited, then the other 7 admitted together with 3,553 new tokens at 1,914 tokens per second, then all 8 decoding as one batch. Batching the prefill is where the throughput comes from, and the log shows it happen.
+SGLang mặc định in một dòng mỗi batch prefill và một dòng decode mỗi 40 bước decode. Dòng này cho thấy 8 yêu cầu decode cùng nhau, 4,075 token được giữ, 2 phần trăm pool được dùng, 98.37 token đầu ra mỗi giây, và không có hàng đợi. Các dòng trước nó trong cùng lần chạy cho thấy batch hình thành thế nào: một yêu cầu được tiếp nhận trong khi 7 chờ, rồi 7 yêu cầu còn lại được tiếp nhận cùng nhau với 3,553 token mới ở 1,914 token mỗi giây, rồi cả 8 decode như một batch. Gom batch prefill là nơi thông lượng đến từ đó, và log cho thấy nó xảy ra.
 
 ### The vLLM stats line
 
-`Running` and `Waiting` are the running and queued requests: 40 and 11. `GPU KV cache usage` is the share of the pool in use: 99.5 percent. `Prefix cache hit rate` is the share of prompt tokens that came from the cache: 8.7 percent. The prompt and generation throughputs say what the engine did in the interval: it prefilled new prompts at 460.3 tokens per second while 40 requests decoded, so each new prefill shared the step with the running streams. In that run, at 64 users on an L4, the median first token was 10,953 ms and the P99 gap between tokens 1,363 ms. The low hit rate is not a fault: the benchmark sent unique prompts, so there was little to share.
+`Running` và `Waiting` là các yêu cầu đang chạy và đang xếp hàng: 40 và 11. `GPU KV cache usage` là tỷ phần pool đang được dùng: 99.5 phần trăm. `Prefix cache hit rate` là tỷ phần token prompt đến từ cache: 8.7 phần trăm. Thông lượng prompt và sinh cho biết engine đã làm gì trong khoảng: nó prefill prompt mới ở 460.3 token mỗi giây trong khi 40 yêu cầu decode, nên mỗi prefill mới chia sẻ bước với các luồng đang chạy. Trong lần chạy đó, ở 64 người dùng trên L4, token đầu tiên trung vị là 10,953 ms và khoảng cách P99 giữa token là 1,363 ms. Tỷ lệ cache hit thấp không phải lỗi: benchmark gửi các prompt riêng biệt, nên có ít thứ để chia sẻ.
 
 ### What to act on
 
-- Line 1: nothing. Confirm that the hits persist as the working set grows, because cached prefixes live in the same pool as running requests.
-- Line 2: nothing. The server has room; a sweep would tell you how much.
-- Line 3: the pool. Grow it with an FP8 cache or FP8 weights, or run fewer users per replica. A cap on the running count would only choose who waits.
+- Dòng 1: không có gì. Xác nhận rằng các cache hit vẫn tồn tại khi tập làm việc tăng, vì các prefix đã cache nằm trong cùng pool với các yêu cầu đang chạy.
+- Dòng 2: không có gì. Máy chủ còn chỗ; một lượt quét sẽ cho bạn biết bao nhiêu.
+- Dòng 3: pool. Tăng nó bằng cache FP8 hoặc trọng số FP8, hoặc chạy ít người dùng hơn mỗi replica. Một giới hạn trên số đang chạy chỉ chọn ai phải chờ.
 
-Read the pool line at startup as well. On the same card it said `GPU KV cache size: 24,096 tokens, Maximum concurrency for 8,192 tokens per request: 2.94x`, and the 2.94 assumes that every request fills the maximum length.
+Đọc cả dòng pool khi khởi động. Trên cùng card, nó ghi `GPU KV cache size: 24,096 tokens, Maximum concurrency for 8,192 tokens per request: 2.94x`, và con số 2.94 giả định rằng mọi yêu cầu lấp đầy độ dài tối đa.
 
 ### What the lines do not show
 
-None of them show the GPU clock, the client that sent the load, or whether the cache was flushed before the run. Those belong in the result next to the lines.
+Không dòng nào cho thấy xung nhịp GPU, client gửi tải, hoặc cache có được xóa trước lần chạy hay không. Những thứ đó thuộc về kết quả cạnh các dòng.
 
 ## Follow-ups
 
-- **Level 2:** In the first line, why is the cached count so much larger than the new count? Expected: the 7 requests shared a long system prompt that an earlier request had already computed, so the tree served it and only the questions were new; the no-cache run of the same benchmark showed batches of 4,096 new tokens and zero cached.
-- **Level 3:** The hit rate in the third line reads 8.7 percent. Is the cache broken? Expected: no; the random benchmark sends unique prompts, so there is little to share; the hit rate is a property of the prompts, and the number that matters in that line is the pool at 99.5 percent with 11 waiting.
-- **Level 3:** What does the token usage field include, and when should it worry you? Expected: the share of the pool held by running requests and by cached prefixes together; near 1.0 the pool is full, new requests queue, and cached prefixes get evicted.
-- **Level 4:** Would a cap on running requests help the server in the third line? Expected: no; the pool is full, so a cap only chooses who waits and moves the wait to the first token; grow the pool with an FP8 cache or FP8 weights, or run fewer users per replica.
+- **Level 2:** Trong dòng đầu tiên, tại sao số đã cache lớn hơn nhiều số mới? Expected: 7 yêu cầu chia sẻ một system prompt dài mà một yêu cầu trước đã tính, nên cây phục vụ nó và chỉ các câu hỏi là mới; lần chạy không cache của cùng benchmark cho thấy các batch 4,096 token mới và không token đã cache.
+- **Level 3:** Tỷ lệ cache hit trong dòng thứ ba đọc 8.7 phần trăm. Cache có hỏng không? Expected: không; benchmark ngẫu nhiên gửi các prompt riêng biệt, nên có ít thứ để chia sẻ; tỷ lệ cache hit là một thuộc tính của các prompt, và con số quan trọng trong dòng đó là pool ở 99.5 phần trăm với 11 đang chờ.
+- **Level 3:** Trường token usage bao gồm gì, và khi nào nó nên khiến bạn lo? Expected: tỷ phần pool mà các yêu cầu đang chạy và các prefix đã cache cùng giữ; gần 1.0 thì pool đầy, các yêu cầu mới xếp hàng, và các prefix đã cache bị loại.
+- **Level 4:** Một giới hạn các yêu cầu đang chạy có giúp máy chủ trong dòng thứ ba không? Expected: không; pool đầy, nên một giới hạn chỉ chọn ai phải chờ và chuyển thời gian chờ sang token đầu tiên; tăng pool bằng cache FP8 hoặc trọng số FP8, hoặc chạy ít người dùng hơn mỗi replica.
 
 ## Wrong answers
 
-- "A hit rate of 8.7 percent means the prefix cache is misconfigured." Unique prompts have little to share; the hit rate reflects the prompts, and the same engine read far higher on a shared-prefix run.
-- "Token usage at 0.05 means the server is almost idle." It means the pool is nearly empty; the GPU can still be busy, as the 1,472.94 prompt tokens per second show; read the running and queue counts for load.
-- "cuda graph: False means something is wrong." It says the step did not replay a captured graph, which is expected on a platform without graphs and during a prefill batch; on CUDA, read it on the decode lines.
-- "Waiting: 11 is a small queue, so ignore it." With the pool at 99.5 percent every waiting request waits for a running request to finish, and at 64 users on that card the median first token was 10,953 ms; the pool is the limit.
+- "Tỷ lệ cache hit 8.7 phần trăm có nghĩa là prefix cache bị cấu hình sai." Các prompt riêng biệt có ít thứ để chia sẻ; tỷ lệ cache hit phản ánh các prompt, và cùng engine đọc cao hơn nhiều trên một lần chạy có prefix dùng chung.
+- "Token usage ở 0.05 có nghĩa là máy chủ gần như nhàn rỗi." Nó có nghĩa là pool gần như trống; GPU vẫn có thể bận, như 1,472.94 token prompt mỗi giây cho thấy; đọc số đang chạy và số xếp hàng để biết tải.
+- "cuda graph: False có nghĩa là có gì đó sai." Nó nói bước đó không phát lại một graph đã capture, điều được kỳ vọng trên một nền tảng không có graph và trong một batch prefill; trên CUDA, đọc nó trên các dòng decode.
+- "Waiting: 11 là một hàng đợi nhỏ, nên bỏ qua nó." Với pool ở 99.5 phần trăm, mọi yêu cầu đang chờ đều chờ một yêu cầu đang chạy hoàn tất, và ở 64 người dùng trên card đó, token đầu tiên trung vị là 10,953 ms; pool là giới hạn.
 
 ## Taught in
 
-[The scheduler loop and --schedule-policy](../../../manuals/sglang-101/sections/2-2-the-scheduler-loop-and-schedule-policy.md) and [RadixCache](../../../manuals/sglang-101/sections/3-3-radixcache.md) explain the SGLang lines, and [Reading other people's SGLang benchmarks](../../../manuals/sglang-101/sections/5-3-reading-other-peoples-benchmarks.md) shows the vLLM stats line at a full pool.
+[Vòng lặp bộ lập lịch và --schedule-policy](../../../manuals/sglang-101/sections/2-2-the-scheduler-loop-and-schedule-policy.md) và [RadixCache](../../../manuals/sglang-101/sections/3-3-radixcache.md) giải thích các dòng SGLang, và [Đọc benchmark SGLang của người khác](../../../manuals/sglang-101/sections/5-3-reading-other-peoples-benchmarks.md) cho thấy dòng thống kê vLLM ở một pool đầy.

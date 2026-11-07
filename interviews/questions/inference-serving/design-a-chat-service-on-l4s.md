@@ -16,62 +16,62 @@ related: []
 updated: 2026-11-03
 ---
 
-Design the serving layer for a chat product on a fleet of L4 cards with Qwen/Qwen3-8B. The target is a first token within 1 second and 100 ms or less per token for the P99 user. Every request shares a 2,048-token system prompt, and sessions run for several turns. How many users per card, which precision, which caps, and what do you measure before launch?
+Thiết kế lớp phục vụ cho một sản phẩm chat trên một đội card L4 với Qwen/Qwen3-8B. Mục tiêu là token đầu tiên trong 1 giây và 100 ms trở xuống mỗi token cho người dùng P99. Mọi request dùng chung một system prompt 2,048 token, và các phiên chạy nhiều lượt. Bao nhiêu người dùng mỗi card, độ chính xác nào, các giới hạn nào, và bạn đo gì trước khi ra mắt?
 
 ## Short answer
 
-Size from the pool and the knee, not from throughput. In BF16 the 24,094-token pool on an L4 holds about 37 requests of 640 tokens, and with a cache reset the P99 gap between tokens at 16 users was already 522 ms, so a BF16 replica meets the target for well under 16 users; the FP8 checkpoint with an FP8 cache grows the pool to 142,369 tokens and served 2.87 requests per second within the same target at 64 users, where BF16 served none. So I would serve FP8 after an accuracy check on our prompts, put the shared system prompt first so that the cache holds it, keep the pool large enough for the sessions that return, cap users per replica at the measured knee in the gateway, and run the sweep with a flush, a clock record and a mixed length distribution before launch.
+Định kích thước từ pool và điểm gối, không từ throughput. Ở BF16 pool 24,094 token trên một L4 giữ khoảng 37 request 640 token, và với đặt lại cache khoảng P99 giữa token ở 16 người dùng đã là 522 ms, vì vậy một replica BF16 đáp ứng mục tiêu cho ít hơn nhiều 16 người dùng; checkpoint FP8 với cache FP8 tăng pool lên 142,369 token và phục vụ 2.87 request mỗi giây trong cùng mục tiêu ở 64 người dùng, nơi BF16 không phục vụ được request nào. Vì vậy tôi sẽ phục vụ FP8 sau một phép kiểm tra độ chính xác trên prompt của chúng ta, đặt system prompt dùng chung trước để cache giữ nó, giữ pool đủ lớn cho các phiên quay lại, giới hạn người dùng mỗi replica tại điểm gối đo được trong gateway, và chạy phép quét với flush, bản ghi xung nhịp và phân phối độ dài hỗn hợp trước ra mắt.
 
 ## Full answer
 
 ### Users per card
 
-The knee on an L4 in BF16 sits between 8 and 16 users once the prefix cache is reset before each run. With the reset, 50 percent of requests met the target at 8 users against 75 to 81 percent without it, and at 16 users the share fell from about 65 percent to 25 percent, with a P99 ITL of 522 ms against 82 to 84 ms unflushed. The median first token with the reset was about 650 ms at 4 users, 951 to 978 ms at 8, and 1,550 to 1,587 ms at 16. Under a fixed arrival rate, both precisions met the target for every request up to 1 request per second; BF16 held 0.88 requests per second within target at 2 offered and none from 4, while FP8 held 3.18 at 4 offered. So a BF16 replica carries a handful of chat users, and an FP8 replica several times more; the sweep decides the exact count.
+Điểm gối trên một L4 ở BF16 nằm giữa 8 và 16 người dùng khi prefix cache được đặt lại trước mỗi lần chạy. Với đặt lại, 50 phần trăm request đạt mục tiêu ở 8 người dùng so với 75 đến 81 phần trăm không đặt lại, và ở 16 người dùng tỷ lệ giảm từ khoảng 65 phần trăm xuống 25 phần trăm, với ITL P99 522 ms so với 82 đến 84 ms chưa flush. Token đầu tiên trung vị với đặt lại khoảng 650 ms ở 4 người dùng, 951 đến 978 ms ở 8, và 1,550 đến 1,587 ms ở 16. Dưới tốc độ đến cố định, cả hai độ chính xác đạt mục tiêu cho mọi request đến 1 request mỗi giây; BF16 giữ 0.88 request mỗi giây trong mục tiêu tại 2 được đưa vào và không còn từ 4, trong khi FP8 giữ 3.18 tại 4 được đưa vào. Vì vậy một replica BF16 mang một số ít người dùng chat, và một replica FP8 nhiều gấp vài lần; phép quét quyết định số chính xác.
 
 ### Precision
 
-On the same L4 the FP8 checkpoint with an FP8 cache changed the shape of the whole curve:
+Trên cùng L4 checkpoint FP8 với cache FP8 thay đổi hình dạng toàn bộ đường cong:
 
-| Concurrency | BF16 output tok/s | FP8 output tok/s | BF16 median TTFT | FP8 median TTFT |
+| Mức đồng thời | BF16 token đầu ra/s | FP8 token đầu ra/s | BF16 TTFT trung vị | FP8 TTFT trung vị |
 |---|---|---|---|---|
 | 1 | 13.42 | 24.53 | 189.16 ms | 140.72 ms |
 | 16 | 201.09 | 313.92 | 211.78 ms | 147.52 ms |
 | 32 | 270.11 | 507.20 | 2,969.61 ms | 199.09 ms |
 | 64 | 250.85 | 735.91 | 18,348.57 ms | 296.42 ms |
 
-The pool explains it: 24,094 tokens against 142,369. At 64 users the BF16 server ran at most 38 requests at a token usage of 0.99 with 26 in the queue; the FP8 server ran all 64 at 0.29 with an empty queue. Goodput at the target was 0 for BF16 at 32 and 64 users and 2.87 requests per second for FP8 at 64. The accuracy check on 500 GSM8K questions gave overlapping intervals for every FP8 configuration, with a KV scale of 1.0 because this model has no scales; run the same check on your own prompts, and read the scale warning in the startup log.
+Pool giải thích điều đó: 24,094 token so với 142,369. Ở 64 người dùng server BF16 chạy tối đa 38 request tại mức sử dụng token 0.99 với 26 trong hàng đợi; server FP8 chạy cả 64 tại 0.29 với hàng đợi rỗng. Goodput tại mục tiêu là 0 cho BF16 ở 32 và 64 người dùng và 2.87 request mỗi giây cho FP8 ở 64. Phép kiểm tra độ chính xác trên 500 câu hỏi GSM8K cho các khoảng chồng nhau cho mọi cấu hình FP8, với scale KV 1.0 vì mô hình này không có scale; chạy cùng phép kiểm tra trên prompt riêng, và đọc cảnh báo scale trong log khởi động.
 
 ### The shared prompt and the sessions that return
 
-Put the shared system prompt first and keep it byte-identical, with the tool list in a fixed order and nothing that changes per request before the user turn. The pool must then hold the working set. On the L4 with a 2,048-token prompt per group of users, the 24,094-token BF16 pool held about 11 such prompts: at 4 groups the median first token was 360 ms, at 16 groups the GPU-only server evicted prompts it needed again and the first token rose to 3,259 ms, and at 32 groups to 5,449 ms. A host tier held the evicted prompts and gave 553 ms at 16 groups and 817 at 32; at 64 groups the prompts needed more than the GPU and host pools together and the host tier only cut the wait to 3,610 ms from 6,821. With FP8 the pool holds far more prompts, so the first fix for the working set is the pool, and the host tier comes after.
+Đặt system prompt dùng chung trước và giữ giống từng byte, với danh sách công cụ theo thứ tự cố định và không gì thay đổi theo request trước lượt người dùng. Pool rồi phải giữ working set. Trên L4 với prompt 2,048 token mỗi nhóm người dùng, pool 24,094 token BF16 giữ khoảng 11 prompt như vậy: ở 4 nhóm token đầu tiên trung vị là 360 ms, ở 16 nhóm server chỉ GPU loại các prompt lại cần và token đầu tiên tăng lên 3,259 ms, và ở 32 nhóm lên 5,449 ms. Một tầng host giữ prompt bị loại và cho 553 ms ở 16 nhóm và 817 ở 32; ở 64 nhóm các prompt cần hơn cả pool GPU và host cùng nhau và tầng host chỉ cắt thời gian chờ xuống 3,610 ms từ 6,821. Với FP8 pool giữ nhiều prompt hơn xa, vì vậy cách sửa đầu cho working set là pool, và tầng host đến sau.
 
-Multi-turn sessions add the same problem over time. In an 8,192-token pool a trace of 24 sessions made the default eviction thrash: the hit rate fell to about 1.5 percent at turns 5 and 6, and a different policy only lifted it to 25 to 34 percent there. A 16,384-token pool reached 0.69 over the whole trace with every policy. Grow the pool before you change the policy, and route each session to the same replica so that its prefix is where it returns.
+Các phiên nhiều lượt thêm cùng vấn đề theo thời gian. Trong pool 8,192 token một trace 24 phiên làm chính sách loại bỏ mặc định thrash: hit rate giảm xuống khoảng 1.5 phần trăm ở lượt 5 và 6, và một chính sách khác chỉ nâng lên 25 đến 34 phần trăm ở đó. Một pool 16,384 token đạt 0.69 trên toàn trace với mọi chính sách. Tăng pool trước khi đổi chính sách, và định tuyến mỗi phiên đến cùng replica để tiền tố nằm nơi nó quay lại.
 
 ### Caps
 
-Enforce the knee in the gateway, not only in the engine. The engine admits until memory runs out, and a cap on the engine only chooses who waits: at 32 users on the L4 a cap of 16 moved the median first token from 1.8 to 12.3 s and cut output by 38 percent. Set the gateway limit one or two steps below the measured knee, and shed or queue above it. A second guard on the engine at the same count does no harm.
+Thực thi điểm gối trong gateway, không chỉ engine. Engine tiếp nhận đến khi hết bộ nhớ, và một giới hạn trên engine chỉ chọn ai chờ: ở 32 người dùng trên L4 một giới hạn 16 chuyển token đầu tiên trung vị từ 1.8 lên 12.3 s và cắt đầu ra 38 phần trăm. Đặt giới hạn gateway thấp hơn một hoặc hai bước so với điểm gối đo được, và bỏ tải hoặc xếp hàng trên đó. Một biện pháp bảo vệ thứ hai trên engine tại cùng số đếm không gây hại.
 
 ### Before launch
 
-1. Sweep concurrency with a flush and a new seed before every run, and record the cached tokens. The unflushed sweep put the knee between 16 and 32 users; the flushed one put it between 8 and 16.
-2. Record the SM clock and the temperature of every run, cool the card between runs, and set aside runs under a clock floor. Under an open-loop overload the L4 fell from 1,320 to 465 MHz with 70 percent of samples in thermal slowdown, so overload costs throughput as well as latency.
-3. Run your real length mix. Fixed lengths form waves and gave a median time to first token of 1,996 ms with a P99 ITL of 82 ms at 16 users; mixed lengths gave 291 ms and 300 ms. The two shapes measure two different servers.
-4. Run a fixed arrival rate as well as the closed loop, because real users do not wait for each other.
-5. Choose the limit from goodput at the target, and read the P99 ITL next to the first token.
+1. Quét mức đồng thời với flush và seed mới trước mọi lần chạy, và ghi các token đã cache. Phép quét chưa flush đặt điểm gối giữa 16 và 32 người dùng; phép đã flush đặt giữa 8 và 16.
+2. Ghi xung SM và nhiệt độ của mọi lần chạy, làm mát card giữa các lần chạy, và để riêng các lần dưới sàn xung. Dưới quá tải vòng mở L4 giảm từ 1,320 xuống 465 MHz với 70 phần trăm mẫu trong thermal slowdown, vì vậy quá tải tốn throughput cũng như độ trễ.
+3. Chạy cơ cấu độ dài thật. Độ dài cố định tạo các đợt và cho thời gian đến token đầu tiên trung vị 1,996 ms với ITL P99 82 ms ở 16 người dùng; độ dài hỗn hợp cho 291 ms và 300 ms. Hai hình dạng đo hai server khác nhau.
+4. Chạy tốc độ đến cố định cũng như vòng kín, vì người dùng thật không chờ nhau.
+5. Chọn giới hạn từ goodput tại mục tiêu, và đọc ITL P99 cạnh token đầu tiên.
 
 ## Follow-ups
 
-- **Level 3:** Why not take the user count from the throughput peak of the sweep? Expected: throughput peaked at 32 users while no request met the target there, and the knee with a reset was between 8 and 16 users; goodput at the target sets the limit and throughput only explains it.
-- **Level 4:** The product adds long sessions that return after minutes. What changes? Expected: the working set grows past the GPU pool, the default eviction drops each session just before it returns, and the hit rate collapses, about 1.5 percent at later turns in an 8,192-token pool; grow the pool first, route each session to the same replica, and add a host tier only when the working set is larger than the GPU pool and smaller than the GPU and host pools together.
-- **Level 4:** Traffic doubles for an hour. What protects the users? Expected: a limit at the gateway that sheds or queues above the knee, because the engine admits until memory runs out and a cap on the engine only moves the wait to the first token, and because a passively cooled L4 under overload also loses clock, from 1,320 to 465 MHz, so overload costs throughput as well as latency.
+- **Level 3:** Tại sao không lấy số người dùng từ đỉnh throughput của phép quét? Expected: throughput đạt đỉnh ở 32 người dùng trong khi không request nào đạt mục tiêu ở đó, và điểm gối với đặt lại nằm giữa 8 và 16 người dùng; goodput tại mục tiêu đặt giới hạn và throughput chỉ giải thích.
+- **Level 4:** Sản phẩm thêm các phiên dài quay lại sau vài phút. Điều gì thay đổi? Expected: working set vượt pool GPU, loại bỏ mặc định bỏ mỗi phiên ngay trước khi quay lại, và hit rate sụp, khoảng 1.5 phần trăm ở các lượt sau trong pool 8,192 token; tăng pool trước, định tuyến mỗi phiên đến cùng replica, và chỉ thêm tầng host khi working set lớn hơn pool GPU và nhỏ hơn pool GPU cùng host.
+- **Level 4:** Lưu lượng gấp đôi trong một giờ. Điều gì bảo vệ người dùng? Expected: một giới hạn tại gateway bỏ tải hoặc xếp hàng trên điểm gối, vì engine tiếp nhận đến hết bộ nhớ và giới hạn trên engine chỉ chuyển thời gian chờ sang token đầu tiên, và vì L4 làm mát thụ động dưới quá tải cũng mất xung, từ 1,320 xuống 465 MHz, vì vậy quá tải tốn throughput cũng như độ trễ.
 
 ## Wrong answers
 
-- "Run 32 users per card; the sweep showed 275 tokens per second there." No request met the target at 32 users, where the P99 ITL was 613 ms; the knee with a cache reset was between 8 and 16 users.
-- "Keep BF16, FP8 is a quality risk we cannot take." On 500 GSM8K questions every FP8 interval overlapped BF16, and FP8 was the difference between zero and 2.87 requests per second within target at 64 users; run the check on your prompts and decide on evidence.
-- "Set the engine cap at the knee and you are done." The engine cap only chooses who waits and moved the first token to 12.3 s at 32 users; enforce the knee in the gateway and shed load above it.
-- "Benchmark with fixed 512-token prompts, that is the standard." Fixed lengths form waves and gave a first token of 1,996 ms with a P99 ITL of 82 ms, while mixed lengths gave 291 and 300 ms; test your real length mix before you set the limit.
+- "Chạy 32 người dùng mỗi card; phép quét cho 275 token mỗi giây ở đó." Không request nào đạt mục tiêu ở 32 người dùng, nơi ITL P99 là 613 ms; điểm gối với đặt lại cache nằm giữa 8 và 16 người dùng.
+- "Giữ BF16, FP8 là rủi ro chất lượng không thể chấp nhận." Trên 500 câu hỏi GSM8K mọi khoảng FP8 chồng BF16, và FP8 là khác biệt giữa không và 2.87 request mỗi giây trong mục tiêu ở 64 người dùng; chạy kiểm tra trên prompt của bạn và quyết định theo bằng chứng.
+- "Đặt giới hạn engine ở điểm gối là xong." Giới hạn engine chỉ chọn ai chờ và chuyển token đầu tiên lên 12.3 s ở 32 người dùng; thực thi điểm gối trong gateway và bỏ tải trên đó.
+- "Benchmark bằng prompt cố định 512 token, đó là chuẩn." Độ dài cố định tạo các đợt và cho token đầu tiên 1,996 ms với ITL P99 82 ms, trong khi độ dài hỗn hợp cho 291 và 300 ms; kiểm thử cơ cấu độ dài thật trước khi đặt giới hạn.
 
 ## Taught in
 
-[Tune chat for many users](../../../manuals/vllm-101/sections/3-1-tune-chat-for-many-users.md) finds the knee, [the SGLang quantization section](../../../manuals/sglang-101/sections/4-3-quantization.md) measures FP8 on the same card, [the SGLang benchmark section](../../../manuals/sglang-101/sections/5-1-sglang-benchmark-serving.md) gives the goodput method, and [Eviction policies and HiCache](../../../manuals/sglang-101/sections/3-5-eviction-policies-and-hicache.md) sizes the working set.
+[Điều chỉnh chat cho nhiều người dùng](../../../manuals/vllm-101/sections/3-1-tune-chat-for-many-users.md) tìm điểm gối, [phần lượng tử hóa SGLang](../../../manuals/sglang-101/sections/4-3-quantization.md) đo FP8 trên cùng card, [phần benchmark SGLang](../../../manuals/sglang-101/sections/5-1-sglang-benchmark-serving.md) đưa ra phương pháp goodput, và [Chính sách loại bỏ và HiCache](../../../manuals/sglang-101/sections/3-5-eviction-policies-and-hicache.md) định kích thước working set.

@@ -16,7 +16,7 @@ related: []
 updated: 2026-11-03
 ---
 
-A team split Qwen/Qwen3-8B into a prefill server and a decode server on two L4s over TCP, ran the open-loop benchmark through the router at 8 requests per second, and posted the result as a win: 751.85 tokens of output per second, against 728.61 for the single FP8 server at the same rate. Here are lines from the prefill log, the decode log and the benchmark summary. Read them and tell me what you see.
+Một nhóm tách Qwen/Qwen3-8B thành một prefill server và một decode server trên hai L4 qua TCP, chạy benchmark vòng mở qua router ở 8 request mỗi giây, và đăng kết quả như một chiến thắng: 751.85 token đầu ra mỗi giây, so với 728.61 cho server FP8 đơn ở cùng rate. Đây là các dòng từ log prefill, log decode và tóm tắt benchmark. Đọc chúng và nói bạn thấy gì.
 
 ```text
 … Decode batch, #running-req: 2, #token: 1206, token usage: 0.41, pre-allocated usage: 0.00, #prealloc-req: 19, #transfer-req: 0, #retracted-req: 0
@@ -30,43 +30,43 @@ Mean TTFT (ms):                          0.00
 
 ## Short answer
 
-The run produced no text. Every request counted as a success through the router, but zero tokens came back when the client retokenized the output, and a mean first-token time of 0.00 ms is not a measurement. The decode log shows why: the decode copy could run only 2 requests while 19 waited for memory, prefill kept producing KV for them, the TCP transfer queue to decode filled and rejected 4096 times, the session failed, and 2902 later transfers failed with it, so the 751.85 figure is the speed at which the router returned empty answers.
+Lần chạy không tạo văn bản. Mọi request được tính là thành công qua router, nhưng không token nào trở lại khi client tokenize lại đầu ra, và thời gian token đầu tiên trung bình 0.00 ms không phải một phép đo. Log decode cho thấy tại sao: bản sao decode chỉ chạy được 2 request trong khi 19 request chờ bộ nhớ, prefill tiếp tục tạo KV cho chúng, hàng đợi truyền TCP đến decode đầy và từ chối 4096 lần, phiên thất bại, và 2902 lần truyền sau thất bại theo nó, vì vậy con số 751.85 là tốc độ router trả các câu trả lời rỗng.
 
 ## Full answer
 
 ### Read the lines in order
 
-1. `#running-req: 2` with `#prealloc-req: 19` at a token usage of 0.41. The decode side runs two requests and 19 more wait for decode memory. That pool is small: the decode server sat on the shared card with 2,925 tokens, against 24,094 on the prefill card.
-2. `TCP lane queue-full rejection count: 4096`. Prefill kept producing KV caches for requests that decode could not take, and the transfer queue to decode filled.
-3. `Session ... failed.` Three minutes into the sweep the transfer session died, and it did not come back.
-4. `Prefill transfer failed lines: 2902`. Every later request failed its transfer.
-5. `Successful requests: 240` with `Total generated tokens (retokenized): 0` and `Mean TTFT (ms): 0.00`. Each failed request still returned HTTP 200 through the router, with no text.
+1. `#running-req: 2` với `#prealloc-req: 19` tại mức sử dụng token 0.41. Phía decode chạy hai request và thêm 19 chờ bộ nhớ decode. Pool đó nhỏ: server decode nằm trên card dùng chung với 2,925 token, so với 24,094 trên card prefill.
+2. `TCP lane queue-full rejection count: 4096`. Prefill tiếp tục tạo KV cache cho các request decode không thể nhận, và hàng đợi truyền đến decode đầy.
+3. `Session ... failed.` Ba phút vào phép quét phiên truyền chết, và không quay lại.
+4. `Prefill transfer failed lines: 2902`. Mọi request sau thất bại việc truyền.
+5. `Successful requests: 240` với `Total generated tokens (retokenized): 0` và `Mean TTFT (ms): 0.00`. Mỗi request thất bại vẫn trả HTTP 200 qua router, không có văn bản.
 
 ### Why the summary lied
 
-The client counts a success on the status code. The throughput line counts the tokens the client asked for, 128 per request with the end token ignored, not the tokens it received. Only two numbers gave the run away: the retokenized output tokens, which count what came back, and a first-token time of zero, which no real request can have. The manual did not publish the throughput figure, and its kit now refuses a run in which every request has a TTFT of 0.
+Client đếm một thành công theo mã trạng thái. Dòng throughput đếm token client yêu cầu, 128 mỗi request với end token bị bỏ qua, không phải token nó nhận. Chỉ hai con số làm lộ lần chạy: token đầu ra tokenize lại, đếm thứ quay về, và thời gian token đầu tiên bằng không, mà không request thật nào có thể có. Tài liệu không công bố con số throughput, và bộ công cụ giờ từ chối một lần chạy mà mọi request có TTFT 0.
 
 ### The swapped split
 
-The team then put decode on the card with the full pool of 24,094 tokens and prefill on the shared card with 2,925. From 1 to 8 users every request came back with text. At 16 users only 2,048 of 8,192 generated tokens came back as text. At 32 users every request came back empty, and the kit stopped the sweep. The original direction failed earlier: at 2 users only 512 of 2,048 generated tokens came back, and at 4 users none did. The manual's conclusion is that it has no measured result for the split under load on this pair of cards, and it does not claim one.
+Nhóm rồi đặt decode trên card có pool đầy đủ 24,094 token và prefill trên card dùng chung với 2,925. Từ 1 đến 8 người dùng mọi request quay về có văn bản. Ở 16 người dùng chỉ 2,048 trong 8,192 token được sinh quay về dưới dạng văn bản. Ở 32 người dùng mọi request quay về rỗng, và bộ công cụ dừng phép quét. Chiều ban đầu thất bại sớm hơn: ở 2 người dùng chỉ 512 trong 2,048 token được sinh quay về, và ở 4 người dùng không còn gì. Kết luận của tài liệu là không có kết quả đo được cho phần tách dưới tải trên cặp card này, và không tuyên bố có.
 
 ### The rule
 
-Check `Total generated tokens (retokenized)` against `Total generated tokens` in every disaggregated benchmark before you read its throughput, and look at the TTFT distribution for values that cannot be real. In production, watch the bootstrap-failed and transfer-failed counters, the transfer latency and speed, and the decode pre-allocation and transfer queue gauges.
+Kiểm tra `Total generated tokens (retokenized)` so với `Total generated tokens` trong mọi benchmark tách rời trước khi đọc throughput, và nhìn phân phối TTFT để tìm các giá trị không thể thật. Trong production, theo dõi các counter bootstrap-failed và transfer-failed, độ trễ và tốc độ truyền, và các gauge pre-allocation decode và hàng đợi truyền.
 
 ## Follow-ups
 
-- **Level 3:** Which two numbers in such a summary must you read before the throughput? Expected: the retokenized output tokens against the generated tokens, and the TTFT distribution; a gap between the two token counts or a first token of zero means requests returned without text.
-- **Level 4:** Why did the decode pool fill while prefill kept working? Expected: the decode copy sat on the shared card with a pool of 2,925 tokens, so it ran 2 requests and 19 waited for memory; prefill had 24,094 tokens and kept producing KV for them, so the transfer queue to decode filled and the session died.
-- **Level 4:** The swapped split served text up to 8 users and lost it at 16 and 32. What does that say about the pair? Expected: the small side limits the pair whichever role it has; with prefill on the small card, 2,048 of 8,192 generated tokens came back at 16 users and none at 32, so there is no measured result for this pair under load, and the honest report says so.
+- **Level 3:** Bạn phải đọc hai con số nào trong một tóm tắt như vậy trước throughput? Expected: token đầu ra tokenize lại so với token được sinh, và phân phối TTFT; một khoảng cách giữa hai số đếm token hoặc token đầu tiên bằng không nghĩa là request trả về không có văn bản.
+- **Level 4:** Tại sao pool decode đầy trong khi prefill tiếp tục hoạt động? Expected: bản sao decode nằm trên card dùng chung với pool 2,925 token, vì vậy nó chạy 2 request và 19 chờ bộ nhớ; prefill có 24,094 token và tiếp tục tạo KV cho chúng, vì vậy hàng đợi truyền đến decode đầy và phiên chết.
+- **Level 4:** Phần tách đảo phục vụ văn bản đến 8 người dùng và mất ở 16 và 32. Điều đó nói gì về cặp? Expected: phía nhỏ giới hạn cặp bất kể vai trò; với prefill trên card nhỏ, 2,048 trong 8,192 token được sinh quay về ở 16 người dùng và không có ở 32, vì vậy không có kết quả đo được cho cặp này dưới tải, và báo cáo trung thực nói vậy.
 
 ## Wrong answers
 
-- "240 of 240 requests succeeded, so the system is healthy." The router returned HTTP 200 with no text for every failed request; zero retokenized tokens and a first token of 0.00 ms show that nothing was generated.
-- "751.85 beats 728.61, so disaggregation won." The figure counts tokens the client asked for, not tokens it received; the manual did not publish it, and its kit now refuses a run in which every request has a TTFT of 0.
-- "The TCP backend is the problem, so use RDMA." The queue filled because decode could not take the KV: it ran 2 requests with 19 waiting for memory on a pool of 2,925 tokens; a faster link does not add memory to the decode side.
-- "Retries would have fixed the failed transfers." The session failed three minutes in and did not come back, so every later transfer failed; the fix is a decode pool that can hold the requests and a check that the output exists.
+- "240 trong 240 request thành công, vì vậy hệ thống khỏe." Router trả HTTP 200 không văn bản cho mọi request thất bại; không token tokenize lại và token đầu tiên 0.00 ms cho thấy không gì được sinh.
+- "751.85 thắng 728.61, vì vậy tách rời thắng." Con số đếm token client yêu cầu, không phải token nhận; tài liệu không công bố nó, và bộ công cụ giờ từ chối một lần chạy mà mọi request có TTFT 0.
+- "Backend TCP là vấn đề, vì vậy dùng RDMA." Hàng đợi đầy vì decode không thể nhận KV: nó chạy 2 request với 19 chờ bộ nhớ trên pool 2,925 token; một kết nối nhanh hơn không thêm bộ nhớ cho phía decode.
+- "Retry đã có thể sửa các lần truyền thất bại." Phiên thất bại ba phút vào lần chạy và không quay lại, vì vậy mọi lần truyền sau thất bại; cách sửa là một pool decode giữ được các request và một phép kiểm tra đầu ra tồn tại.
 
 ## Taught in
 
-[The SGLang disaggregation section](../../../manuals/sglang-101/sections/6-3-prefill-decode-disaggregation.md) has the queue-full listing, the swapped split and the rule to check retokenized tokens.
+[Phần tách rời SGLang](../../../manuals/sglang-101/sections/6-3-prefill-decode-disaggregation.md) có listing đầy hàng đợi, phần tách đảo và quy tắc kiểm tra token tokenize lại.

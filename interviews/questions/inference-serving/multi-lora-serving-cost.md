@@ -16,11 +16,11 @@ related: []
 updated: 2026-11-03
 ---
 
-You have twenty fine-tunes of one base model, each a LoRA adapter, and you want to serve them from one vLLM server. What do you set, what decides the cost, and what else in the server changes when LoRA is on?
+Bạn có hai mươi bản fine-tune của một mô hình nền, mỗi bản là một adapter LoRA, và bạn muốn phục vụ chúng từ một máy chủ vLLM. Bạn đặt gì, điều gì quyết định chi phí, và điều gì khác trong máy chủ thay đổi khi LoRA được bật?
 
 ## Short answer
 
-Turn LoRA on at startup with `--enable-lora`, name the adapters with `--lora-modules`, and let each request pick one in its `model` field. Three limits set the cost: `--max-loras`, which defaults to 1 and caps the adapters that run in one batch, `--max-lora-rank`, which defaults to 16 and reserves memory for the largest rank, and `--max-cpu-loras` for adapters kept in CPU memory ready to load. LoRA also changes the prefix cache, because the adapter is part of every block key, so two adapters never share cached blocks, and it adds CUDA graphs per adapter, so startup takes longer and uses more memory.
+Bật LoRA khi khởi động bằng `--enable-lora`, đặt tên các adapter bằng `--lora-modules`, và để mỗi yêu cầu chọn một adapter trong trường `model` của nó. Ba giới hạn quyết định chi phí: `--max-loras`, mặc định là 1 và giới hạn các adapter chạy trong một batch, `--max-lora-rank`, mặc định là 16 và dành bộ nhớ cho rank lớn nhất, và `--max-cpu-loras` cho các adapter được giữ trong bộ nhớ CPU sẵn sàng nạp. LoRA cũng thay đổi prefix cache, vì adapter là một phần của mọi khóa block, nên hai adapter không bao giờ chia sẻ các block đã cache, và nó thêm CUDA graph cho mỗi adapter, nên khởi động lâu hơn và dùng nhiều bộ nhớ hơn.
 
 ## Full answer
 
@@ -33,48 +33,48 @@ vllm serve Qwen/Qwen3-8B \
   --max-loras 4 --max-lora-rank 64
 ```
 
-Each path is a folder in the PEFT format that most training libraries write: `adapter_config.json` and the weights in `adapter_model.safetensors`, or `adapter_model.bin`. A request picks an adapter by its name in the `model` field, and `/v1/models` lists the base model and each adapter. Requests for different adapters can run in the same batch. The manual ran this with Qwen3-0.6B and two public adapters of rank 8 and rank 64, and a chat request to each adapter returned HTTP 200.
+Mỗi đường dẫn là một thư mục theo định dạng PEFT mà phần lớn thư viện huấn luyện ghi: `adapter_config.json` và trọng số trong `adapter_model.safetensors`, hoặc `adapter_model.bin`. Một yêu cầu chọn adapter theo tên của nó trong trường `model`, và `/v1/models` liệt kê mô hình nền cùng mỗi adapter. Các yêu cầu cho các adapter khác nhau có thể chạy trong cùng batch. Tài liệu chạy cách này với Qwen3-0.6B và hai adapter công khai có rank 8 và rank 64, và một yêu cầu chat đến mỗi adapter trả về HTTP 200.
 
 ### Size the three limits
 
-| Flag | Default | What it limits |
+| Cờ | Mặc định | Nó giới hạn gì |
 |---|---|---|
-| `--max-loras` | 1 | adapters that can run in one batch on the GPU |
-| `--max-lora-rank` | 16 | the largest adapter rank the server accepts |
-| `--max-cpu-loras` | not set | adapters kept in CPU memory, ready to load |
+| `--max-loras` | 1 | các adapter có thể chạy trong một batch trên GPU |
+| `--max-lora-rank` | 16 | rank adapter lớn nhất mà máy chủ chấp nhận |
+| `--max-cpu-loras` | chưa đặt | các adapter được giữ trong bộ nhớ CPU, sẵn sàng nạp |
 
-The default of one adapter per batch is low for a server with many adapters. Requests for a second adapter wait until the batch of the first adapter is done. Raise `--max-loras` to the number of adapters that are busy at the same time. Set `--max-lora-rank` to the largest rank of your adapters and not higher: the server reserves memory for the largest rank it accepts, and the documentation advises against a large default such as 256. Adapters in CPU memory load fast when a request names them, so size `--max-cpu-loras` for the adapters that are warm.
+Mặc định một adapter mỗi batch là thấp cho một máy chủ có nhiều adapter. Các yêu cầu cho adapter thứ hai chờ đến khi batch của adapter đầu tiên hoàn tất. Tăng `--max-loras` lên số adapter bận cùng lúc. Đặt `--max-lora-rank` bằng rank lớn nhất trong các adapter của bạn và không cao hơn: máy chủ dành bộ nhớ cho rank lớn nhất mà nó chấp nhận, và tài liệu khuyên không dùng một mặc định lớn như 256. Các adapter trong bộ nhớ CPU nạp nhanh khi một yêu cầu gọi tên chúng, nên định cỡ `--max-cpu-loras` cho các adapter đã được làm nóng.
 
 ### Load adapters while the server runs
 
-With `VLLM_ALLOW_RUNTIME_LORA_UPDATING=True` you can post to `/v1/load_lora_adapter` with a name and a path, and to `/v1/unload_lora_adapter` to remove it. Turn this on only when you trust every caller of the server, because the route loads files from a path that the caller gives.
+Với `VLLM_ALLOW_RUNTIME_LORA_UPDATING=True` bạn có thể post đến `/v1/load_lora_adapter` với một tên và một đường dẫn, và đến `/v1/unload_lora_adapter` để gỡ nó. Chỉ bật điều này khi bạn tin cậy mọi bên gọi máy chủ, vì route nạp file từ một đường dẫn do bên gọi cung cấp.
 
 ### What changes elsewhere
 
-- **The prefix cache.** The adapter is part of each block key in vLLM and of the tree key in SGLang. Two adapters never share cached blocks, even for the same prompt. A shared system prompt is cached once per adapter, not once.
-- **CUDA graphs.** vLLM captures separate graphs for batches with an adapter. More adapters and more graph sizes add startup time and memory.
-- **Names.** Since 0.31 an adapter cannot have the name of a served model.
+- **Prefix cache.** Adapter là một phần của mỗi khóa block trong vLLM và của khóa cây trong SGLang. Hai adapter không bao giờ chia sẻ các block đã cache, ngay cả với cùng prompt. Một system prompt dùng chung được cache một lần cho mỗi adapter, không phải một lần.
+- **CUDA graph.** vLLM capture các graph riêng cho các batch có adapter. Nhiều adapter hơn và nhiều kích thước graph hơn làm tăng thời gian khởi động và bộ nhớ.
+- **Tên.** Từ 0.31 một adapter không thể có tên của một mô hình được phục vụ.
 
-The manual did not measure the cost of the adapter count or the rank on its hardware.
+Tài liệu không đo chi phí của số lượng adapter hoặc rank trên phần cứng của nó.
 
 ### Pick the base format with LoRA in mind
 
-The lesson's picking guide says that a 4-bit GPTQ base supports LoRA adapters in vLLM, with the fast Marlin kernels, while the microscaling 4-bit formats did not support LoRA at the start of 2026. For a base model plus many fine-tuned variants, GPTQ is the 4-bit path; AWQ is the pick when there is no LoRA, and FP8 when quality must not move.
+Hướng dẫn lựa chọn của bài học nói rằng một mô hình nền GPTQ 4-bit hỗ trợ các adapter LoRA trong vLLM, với các kernel Marlin nhanh, trong khi các định dạng microscaling 4-bit không hỗ trợ LoRA vào đầu năm 2026. Với một mô hình nền cộng nhiều biến thể fine-tune, GPTQ là hướng 4-bit; AWQ là lựa chọn khi không có LoRA, và FP8 khi chất lượng không được thay đổi.
 
 ## Follow-ups
 
-- **Level 2:** Two tenants send the same long system prompt through two different adapters. Does the second request hit the cache? Expected: no; the adapter is part of the block key in vLLM and of the tree key in SGLang, so two adapters never share blocks even for identical tokens.
-- **Level 3:** Requests for the second adapter wait although the GPU is idle. Why? Expected: the adapter cap defaults to 1, so only one adapter runs in a batch and requests for another adapter wait until that batch is done; raise it to the number of adapters that are busy at the same time.
-- **Level 3:** Why not set the rank limit to 256 to be safe? Expected: the server reserves memory for the largest rank it accepts, so a high limit takes memory from the KV pool for adapters you do not have; set it to your largest rank.
-- **Level 4:** You also want 4-bit weights for the base model. Which format, and what does it rule out? Expected: a GPTQ 4-bit base, because it supports LoRA adapters in vLLM with the Marlin kernels; the microscaling 4-bit formats did not support LoRA at the start of 2026, so they are out until they do.
+- **Level 2:** Hai tenant gửi cùng system prompt dài qua hai adapter khác nhau. Yêu cầu thứ hai có cache hit không? Expected: không; adapter là một phần của khóa block trong vLLM và của khóa cây trong SGLang, nên hai adapter không bao giờ chia sẻ block ngay cả với các token giống hệt nhau.
+- **Level 3:** Các yêu cầu cho adapter thứ hai chờ dù GPU nhàn rỗi. Tại sao? Expected: giới hạn adapter mặc định là 1, nên chỉ một adapter chạy trong một batch và các yêu cầu cho adapter khác chờ đến khi batch đó hoàn tất; tăng nó lên số adapter bận cùng lúc.
+- **Level 3:** Tại sao không đặt giới hạn rank là 256 cho chắc? Expected: máy chủ dành bộ nhớ cho rank lớn nhất mà nó chấp nhận, nên giới hạn cao lấy bộ nhớ từ pool KV cho những adapter bạn không có; đặt nó bằng rank lớn nhất của bạn.
+- **Level 4:** Bạn cũng muốn trọng số 4-bit cho mô hình nền. Định dạng nào, và nó loại trừ điều gì? Expected: một mô hình nền GPTQ 4-bit, vì nó hỗ trợ các adapter LoRA trong vLLM với các kernel Marlin; các định dạng microscaling 4-bit không hỗ trợ LoRA vào đầu năm 2026, nên chúng bị loại cho đến khi hỗ trợ.
 
 ## Wrong answers
 
-- "One server per adapter is simpler." Each server would hold its own copy of the base model and its own pool; one base with adapters per request shares both, and requests for different adapters can run in the same batch.
-- "The default limits are fine." One adapter per batch makes requests for a second adapter wait, and a rank limit of 16 rejects a rank-64 adapter; set both from the adapters you serve.
-- "Enable runtime adapter loading so that operators can add adapters without a restart." The load route reads files from a path that the caller gives, so turn it on only when you trust every caller of the server.
-- "LoRA is free for the prefix cache because the base model is the same." The adapter changes the keys and values, so it is part of the block key, and two adapters never share cached blocks.
+- "Một máy chủ cho mỗi adapter thì đơn giản hơn." Mỗi máy chủ sẽ giữ bản sao riêng của mô hình nền và pool riêng của nó; một mô hình nền với adapter theo yêu cầu chia sẻ cả hai, và các yêu cầu cho các adapter khác nhau có thể chạy trong cùng batch.
+- "Các giới hạn mặc định là ổn." Một adapter mỗi batch khiến các yêu cầu cho adapter thứ hai chờ, và một giới hạn rank 16 từ chối một adapter rank-64; đặt cả hai từ các adapter bạn phục vụ.
+- "Bật nạp adapter lúc chạy để người vận hành có thể thêm adapter mà không khởi động lại." Route nạp đọc file từ một đường dẫn do bên gọi cung cấp, nên chỉ bật nó khi bạn tin cậy mọi bên gọi máy chủ.
+- "LoRA không tốn gì cho prefix cache vì mô hình nền giống nhau." Adapter thay đổi các key và value, nên nó là một phần của khóa block, và hai adapter không bao giờ chia sẻ các block đã cache.
 
 ## Taught in
 
-[Serve many fine-tunes with multi-LoRA](../../../manuals/vllm-101/sections/3-7-serve-many-fine-tunes-with-multi-lora.md) gives the flags and limits, [Prefix-friendly prompts](../../../manuals/sglang-101/sections/3-4-prefix-friendly-prompts.md) notes the tree key, and [the production quantization lesson](../../../phases/17-infrastructure-and-production/09-production-quantization/docs/en.md) pairs a 4-bit base with adapters.
+[Phục vụ nhiều bản fine-tune bằng multi-LoRA](../../../manuals/vllm-101/sections/3-7-serve-many-fine-tunes-with-multi-lora.md) đưa ra các cờ và giới hạn, [Prompt thân thiện với prefix](../../../manuals/sglang-101/sections/3-4-prefix-friendly-prompts.md) lưu ý khóa cây, và [bài học lượng tử hóa production](../../../phases/17-infrastructure-and-production/09-production-quantization/docs/en.md) ghép một mô hình nền 4-bit với các adapter.

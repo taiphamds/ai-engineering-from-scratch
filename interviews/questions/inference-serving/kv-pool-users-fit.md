@@ -16,54 +16,54 @@ related: [inference-serving/goodput-sets-the-cap]
 updated: 2026-11-03
 ---
 
-You serve `Qwen/Qwen3-8B` on one GPU with a maximum model length of 8,192 tokens. At startup the server prints a maximum concurrency of 2.94, and a manager asks if the GPU can serve only three users at a time. Your users send about 512 prompt tokens and get about 128 tokens back. How do you answer?
+Bạn phục vụ `Qwen/Qwen3-8B` trên một GPU với độ dài mô hình tối đa là 8,192 token. Khi khởi động, máy chủ in mức đồng thời tối đa là 2.94, và một quản lý hỏi liệu GPU chỉ có thể phục vụ ba người dùng cùng lúc hay không. Người dùng của bạn gửi khoảng 512 token prompt và nhận lại khoảng 128 token. Bạn trả lời như thế nào?
 
 ## Short answer
 
-The startup number assumes that every user fills the full maximum model length, and real users hold much less. Count the KV bytes for one token, divide the KV pool by that number, and then divide the pool by the context that one user really holds. On the L4 in the vLLM manual, the pool of 24,096 tokens fits 37 users with 640 tokens each.
+Con số khởi động giả định rằng mỗi người dùng lấp đầy toàn bộ độ dài mô hình tối đa, và người dùng thực giữ ít hơn nhiều. Tính số byte KV cho một token, chia pool KV cho số đó, rồi chia pool cho ngữ cảnh mà một người dùng thực sự giữ. Trên L4 trong tài liệu vLLM, pool 24,096 token chứa được 37 người dùng với 640 token mỗi người.
 
 ## Full answer
 
 ### Bytes for one token
 
-Every token in a running request keeps its keys and values in GPU memory until the request ends:
+Mỗi token trong một yêu cầu đang chạy giữ các key và value của nó trong bộ nhớ GPU cho đến khi yêu cầu kết thúc:
 
 ```text
 KV bytes per token = layers x KV heads x head size x 2 x bytes per value
 ```
 
-The factor 2 counts the key and the value. `Qwen/Qwen3-8B` has 36 layers, 8 KV heads and a head size of 128. In BF16 a value takes 2 bytes, so one token takes 144 KiB. The KV heads decide this number, not the parameter count: `Qwen/Qwen3-30B-A3B-Instruct-2507` has more weights but takes 96 KiB for each token.
+Hệ số 2 tính key và value. `Qwen/Qwen3-8B` có 36 lớp, 8 đầu KV và kích thước đầu là 128. Trong BF16 một giá trị chiếm 2 byte, nên một token chiếm 144 KiB. Các đầu KV quyết định con số này, không phải số tham số: `Qwen/Qwen3-30B-A3B-Instruct-2507` có nhiều trọng số hơn nhưng chiếm 96 KiB cho mỗi token.
 
 ### From bytes to users
 
-The server gives the KV cache the memory that is left after the weights and the startup profile. The pool line in the log gives the result in tokens:
+Máy chủ dành cho KV cache phần bộ nhớ còn lại sau trọng số và bước profile khi khởi động. Dòng pool trong log cho kết quả bằng token:
 
 ```text
 GPU KV cache size: 24,096 tokens, Maximum concurrency for 8,192 tokens per request: 2.94x
 ```
 
-The 2.94 divides the pool by the full 8,192 tokens. A user with 512 prompt tokens and 128 output tokens holds 640 tokens at the end of the answer. The same pool holds 37 such users. During the load sweep the log showed 40 running requests with the cache 99.5 percent full, because users early in their answer hold fewer tokens.
+Con số 2.94 chia pool cho toàn bộ 8,192 token. Một người dùng với 512 token prompt và 128 token đầu ra giữ 640 token ở cuối câu trả lời. Cùng pool đó chứa được 37 người dùng như vậy. Trong lượt quét tải, log cho thấy 40 yêu cầu đang chạy với cache đầy 99.5 phần trăm, vì người dùng ở đầu câu trả lời của họ giữ ít token hơn.
 
 ### What to change if it is still too small
 
-1. Lower the maximum model length to the longest context that users send. This keeps one long request from taking a large share of the pool. It does not add users here, because the pool stays the same.
-2. Use an FP8 KV cache. It halves the bytes per token.
-3. Use FP8 weights to free memory for the cache.
-4. Use a GPU with more memory, or split the model across GPUs.
+1. Giảm độ dài mô hình tối đa xuống ngữ cảnh dài nhất mà người dùng gửi. Điều này ngăn một yêu cầu dài chiếm một phần lớn của pool. Nó không thêm người dùng ở đây, vì pool vẫn giữ nguyên.
+2. Dùng KV cache FP8. Nó giảm một nửa số byte mỗi token.
+3. Dùng trọng số FP8 để giải phóng bộ nhớ cho cache.
+4. Dùng một GPU có nhiều bộ nhớ hơn, hoặc chia mô hình trên các GPU.
 
 ## Follow-ups
 
-- **Level 2:** What happens to a request that needs more blocks than are free? Expected: it waits in the queue. A running request that needs a block when none is free is stopped and computed again later.
-- **Level 2:** Why does the mixture-of-experts model use less KV memory per token than the dense model? Expected: it has fewer KV heads, and the KV heads, not the weights, set the bytes per token.
-- **Level 3:** How do you check your count after a start? Expected: read the memory line and the pool line in the startup log, and compare them with the count from the model config.
-- **Level 3:** What is the cost of the FP8 KV cache? Expected: a possible loss of quality, so measure it on your own eval before you ship it.
+- **Level 2:** Điều gì xảy ra với một yêu cầu cần nhiều block hơn số còn trống? Expected: nó chờ trong hàng đợi. Một yêu cầu đang chạy cần một block khi không còn block trống sẽ bị dừng và được tính lại sau.
+- **Level 2:** Tại sao mô hình mixture-of-experts dùng ít bộ nhớ KV mỗi token hơn mô hình dense? Expected: nó có ít đầu KV hơn, và các đầu KV, không phải trọng số, quyết định số byte mỗi token.
+- **Level 3:** Bạn kiểm tra phép tính của mình sau khi khởi động như thế nào? Expected: đọc dòng bộ nhớ và dòng pool trong log khởi động, và so sánh chúng với phép tính từ cấu hình mô hình.
+- **Level 3:** Chi phí của KV cache FP8 là gì? Expected: khả năng mất chất lượng, nên đo nó trên bộ đánh giá riêng của bạn trước khi triển khai.
 
 ## Wrong answers
 
-- "Divide the GPU memory by the model size." The weights are only one part. The users that fit depend on the KV pool and on the context per user.
-- "The maximum concurrency in the log is the user limit." It assumes that each user fills the maximum model length, which real users do not.
-- "More parameters always mean more KV memory per token." The bytes per token depend on the layers, the KV heads and the head size.
+- "Chia bộ nhớ GPU cho kích thước mô hình." Trọng số chỉ là một phần. Số người dùng chứa được phụ thuộc vào pool KV và ngữ cảnh mỗi người dùng.
+- "Mức đồng thời tối đa trong log là giới hạn người dùng." Nó giả định rằng mỗi người dùng lấp đầy độ dài mô hình tối đa, điều mà người dùng thực không làm.
+- "Nhiều tham số hơn luôn có nghĩa là nhiều bộ nhớ KV mỗi token hơn." Số byte mỗi token phụ thuộc vào các lớp, các đầu KV và kích thước đầu.
 
 ## Taught in
 
-The [memory section of vLLM 101](../../../manuals/vllm-101/sections/2-1-count-the-memory-before-you-pick-a-gpu.md) counts the pool from the startup log, and the [KV cache lesson](../../../phases/07-transformers-deep-dive/12-kv-cache-flash-attention/) builds the cache.
+[Phần bộ nhớ của vLLM 101](../../../manuals/vllm-101/sections/2-1-count-the-memory-before-you-pick-a-gpu.md) tính pool từ log khởi động, và [bài học KV cache](../../../phases/07-transformers-deep-dive/12-kv-cache-flash-attention/) xây dựng cache.

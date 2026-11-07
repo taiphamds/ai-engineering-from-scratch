@@ -16,69 +16,69 @@ related: []
 updated: 2026-11-03
 ---
 
-You have a model that does not fit on one GPU, or you need more throughput than one GPU gives. Walk me through how you choose between tensor, pipeline and data parallelism, and what each one costs in communication.
+Bạn có một mô hình không vừa trên một GPU, hoặc bạn cần nhiều thông lượng hơn một GPU cung cấp. Trình bày cách bạn chọn giữa tensor, pipeline và data parallelism, và mỗi cách tốn gì về giao tiếp.
 
 ## Short answer
 
-Ask three questions. If the model fits on one GPU with room for the KV cache you need, use data parallelism, one full copy per GPU, and the output grows with the copies. If it does not fit, split it: tensor parallelism inside one machine when the GPUs have a fast link and the GPU count divides the attention heads, and pipeline parallelism when they do not or when the model needs more than one machine. Tensor parallelism talks after every layer, pipeline parallelism once per stage boundary, and data parallelism not at all between copies.
+Đặt ba câu hỏi. Nếu mô hình vừa trên một GPU với chỗ cho KV cache bạn cần, dùng data parallelism, một bản sao đầy đủ mỗi GPU, và đầu ra tăng theo số bản sao. Nếu nó không vừa, chia nó: tensor parallelism trong một máy khi các GPU có liên kết nhanh và số GPU chia hết số đầu attention, và pipeline parallelism khi chúng không như vậy hoặc khi mô hình cần nhiều hơn một máy. Tensor parallelism giao tiếp sau mỗi lớp, pipeline parallelism một lần mỗi ranh giới giai đoạn, và data parallelism hoàn toàn không giao tiếp giữa các bản sao.
 
 ## Full answer
 
 ### Three questions
 
-| Question | If yes | If no |
+| Câu hỏi | Nếu có | Nếu không |
 |---|---|---|
-| Does the model fit on one GPU, with room for the KV cache you need? | Data parallelism: one copy per GPU, `--data-parallel-size N`. | Split the model; the next question decides where. |
-| Does the split model fit inside one machine? | Keep the split inside the machine; the next question picks the layout. | Add pipeline parallelism across machines. |
-| Do the GPUs have NVLink, and does the GPU count divide the model evenly? | Tensor parallelism, `--tensor-parallel-size N`. | Pipeline parallelism inside the machine, `--pipeline-parallel-size N`. |
+| Mô hình có vừa trên một GPU, với chỗ cho KV cache bạn cần không? | Data parallelism: một bản sao mỗi GPU, `--data-parallel-size N`. | Chia mô hình; câu hỏi tiếp theo quyết định ở đâu. |
+| Mô hình đã chia có vừa trong một máy không? | Giữ phần chia trong máy; câu hỏi tiếp theo chọn bố trí. | Thêm pipeline parallelism giữa các máy. |
+| Các GPU có NVLink, và số GPU có chia đều mô hình không? | Tensor parallelism, `--tensor-parallel-size N`. | Pipeline parallelism trong máy, `--pipeline-parallel-size N`. |
 
-Across machines: set the pipeline size to the number of machines and the tensor size to the GPUs in each machine. The tensor size must divide the attention-head count. If the GPUs in a machine do not divide it, use a tensor size of 1 and put the whole GPU count into the pipeline size.
+Giữa các máy: đặt kích thước pipeline bằng số máy và kích thước tensor bằng số GPU trong mỗi máy. Kích thước tensor phải chia hết số đầu attention. Nếu số GPU trong một máy không chia hết nó, dùng kích thước tensor 1 và đưa toàn bộ số GPU vào kích thước pipeline.
 
 ### What each layout costs
 
-| Layout | What it splits | Communication | Best for |
+| Bố trí | Nó chia gì | Giao tiếp | Tốt nhất cho |
 |---|---|---|---|
-| Tensor | each layer across GPUs | after every layer, so it needs a fast link | a model too big for one GPU, inside one machine |
-| Pipeline | the layers into stages | once per stage boundary | a model too big for one machine, or GPUs without a fast link |
-| Data | nothing, each GPU holds a copy | none between copies | more output from a model that fits |
-| Expert | the experts of a mixture-of-experts model | before and after the expert layers | large expert models |
+| Tensor | mỗi lớp trên các GPU | sau mỗi lớp, nên cần một liên kết nhanh | một mô hình quá lớn cho một GPU, trong một máy |
+| Pipeline | các lớp thành các giai đoạn | một lần mỗi ranh giới giai đoạn | một mô hình quá lớn cho một máy, hoặc các GPU không có liên kết nhanh |
+| Data | không gì, mỗi GPU giữ một bản sao | không có giữa các bản sao | thêm đầu ra từ một mô hình vừa |
+| Expert | các expert của một mô hình mixture-of-experts | trước và sau các lớp expert | các mô hình expert lớn |
 
-Tensor parallelism also splits the KV cache, so each GPU has more room for it. When the weights fill most of one GPU, two GPUs can hold several times the pool of one. The exception is a model with multi-head latent attention: it stores one compressed latent per token that cannot be split across heads, so every tensor-parallel rank keeps the full cache and more ranks add no tokens. Attention data parallelism answers that case.
+Tensor parallelism cũng chia KV cache, nên mỗi GPU có nhiều chỗ hơn cho nó. Khi trọng số lấp phần lớn một GPU, hai GPU có thể chứa pool gấp vài lần một GPU. Ngoại lệ là một mô hình có multi-head latent attention: nó lưu một latent nén mỗi token không thể chia qua các đầu, nên mọi rank tensor-parallel giữ toàn bộ cache và thêm rank không thêm token. Attention data parallelism trả lời trường hợp đó.
 
 ### Check the link
 
-Tensor parallelism sends data after every layer. On GPUs joined only by PCIe, such as two L4s in one host, that traffic can cost more than the split saves. The vLLM documentation suggests pipeline parallelism on such a machine, because it sends data only at stage boundaries, and it also accepts a GPU count that does not divide the model evenly. The manual did not run either layout on its two L4s, so measure them against each other before you pick.
+Tensor parallelism gửi dữ liệu sau mỗi lớp. Trên các GPU chỉ nối bằng PCIe, chẳng hạn hai L4 trong một host, lưu lượng đó có thể tốn nhiều hơn lượng phần chia tiết kiệm. Tài liệu vLLM gợi ý pipeline parallelism trên một máy như vậy, vì nó chỉ gửi dữ liệu ở ranh giới giai đoạn, và nó cũng chấp nhận số GPU không chia đều mô hình. Tài liệu không chạy bố trí nào trên hai L4 của nó, nên đo chúng đối chiếu nhau trước khi chọn.
 
 ### Start a second machine
 
-Run the collective test script on both machines first. When the network and the drivers work, each process prints its success lines. Then start the server with a launcher that spans the machines, and start the API on one machine only. The traffic between the machines is not encrypted and can run code on the other side, so keep it on a private network.
+Chạy script kiểm thử collective trên cả hai máy trước. Khi mạng và driver hoạt động, mỗi tiến trình in các dòng thành công của nó. Sau đó khởi động máy chủ với một launcher trải các máy, và chỉ khởi động API trên một máy. Lưu lượng giữa các máy không được mã hóa và có thể chạy mã ở phía bên kia, nên giữ nó trên một mạng riêng.
 
 ### Count the processes
 
-With data parallelism vLLM starts one engine core per copy and one coordinator that keeps them in step. With tensor parallelism it starts one worker per GPU under one engine core. In SGLang the world size is `--tp-size` times `--pp-size`, and `--dp-size` copies get a controller that sends each request to one copy, round robin by default. That controller does not look at pools or queues. On the manual's two L4s, where one card was shared and its copy had a pool of 2,925 tokens against 24,094, the pair served less than one card at every load.
+Với data parallelism, vLLM khởi động một engine core mỗi bản sao và một coordinator giữ chúng đồng bộ. Với tensor parallelism, nó khởi động một worker mỗi GPU dưới một engine core. Trong SGLang, world size là `--tp-size` nhân `--pp-size`, và các bản sao `--dp-size` có một controller gửi mỗi yêu cầu đến một bản sao, mặc định round robin. Controller đó không xem pool hay hàng đợi. Trên hai L4 của tài liệu, nơi một card được chia sẻ và bản sao của nó có pool 2,925 token so với 24,094, cặp đó phục vụ ít hơn một card ở mọi tải.
 
 ### Give a tensor group whole GPUs
 
-Before SGLang loads weights for a tensor group, each rank measures its free memory and the group keeps the smallest value. If that value is under 90 percent of the local free memory, the server stops. On the shared pair the second card had 18.28 GB free against the 19.53 GB that the check required, so `--tp-size 2` refused to start, and no flag turns the check off. Every rank holds the same share of weights and the same pool, so the smallest card sets the size for all of them.
+Trước khi SGLang nạp trọng số cho một nhóm tensor, mỗi rank đo bộ nhớ trống của nó và nhóm giữ giá trị nhỏ nhất. Nếu giá trị đó dưới 90 phần trăm bộ nhớ trống cục bộ, máy chủ dừng. Trên cặp được chia sẻ, card thứ hai có 18.28 GB trống so với 19.53 GB mà kiểm tra yêu cầu, nên `--tp-size 2` từ chối khởi động, và không cờ nào tắt kiểm tra đó. Mọi rank giữ cùng tỷ phần trọng số và cùng pool, nên card nhỏ nhất đặt kích thước cho tất cả.
 
 ### Very long prompts
 
-For prompts of hundreds of thousands of tokens, vLLM can split one sequence across GPUs with context parallelism. Use it when one long request is the problem, not when many short ones are.
+Với prompt hàng trăm nghìn token, vLLM có thể chia một chuỗi trên các GPU bằng context parallelism. Dùng nó khi một yêu cầu dài là vấn đề, không phải khi nhiều yêu cầu ngắn là vấn đề.
 
 ## Follow-ups
 
-- **Level 2:** Two GPUs in one host joined by PCIe only, and the model fits on one. What do you run? Expected: data parallelism, two full copies, because nothing moves between copies; tensor parallelism would pay after every layer over the slow link.
-- **Level 3:** The model needs two machines of 8 GPUs. How do you set the sizes, and what do you check first? Expected: pipeline size 2 for the machines and tensor size 8 inside each, with 8 dividing the attention heads; run the collective test on both machines first and keep the traffic on a private network, because it is not encrypted.
-- **Level 3:** Tensor parallelism on two GPUs where one is shared with another job. What does SGLang do at startup? Expected: it measures free memory on each rank, keeps the smallest, and stops if that is under 90 percent of the local free memory, because every rank holds the same share and pool; give the group whole GPUs.
-- **Level 4:** Why does tensor parallelism add no KV capacity when the attention keeps one latent per token? Expected: that attention stores one compressed latent per token that cannot be split across heads, so every rank keeps the full cache; attention data parallelism gives each group its own requests and cache, so capacity grows with the groups.
+- **Level 2:** Hai GPU trong một host chỉ nối bằng PCIe, và mô hình vừa trên một GPU. Bạn chạy gì? Expected: data parallelism, hai bản sao đầy đủ, vì không có gì di chuyển giữa các bản sao; tensor parallelism sẽ trả chi phí sau mỗi lớp qua liên kết chậm.
+- **Level 3:** Mô hình cần hai máy có 8 GPU. Bạn đặt các kích thước như thế nào, và kiểm tra gì trước? Expected: kích thước pipeline 2 cho các máy và kích thước tensor 8 trong mỗi máy, với 8 chia hết số đầu attention; chạy kiểm thử collective trên cả hai máy trước và giữ lưu lượng trên một mạng riêng, vì nó không được mã hóa.
+- **Level 3:** Tensor parallelism trên hai GPU mà một GPU được chia sẻ với công việc khác. SGLang làm gì khi khởi động? Expected: nó đo bộ nhớ trống trên mỗi rank, giữ giá trị nhỏ nhất, và dừng nếu giá trị đó dưới 90 phần trăm bộ nhớ trống cục bộ, vì mọi rank giữ cùng tỷ phần và pool; cấp cho nhóm các GPU nguyên vẹn.
+- **Level 4:** Tại sao tensor parallelism không thêm dung lượng KV khi attention giữ một latent mỗi token? Expected: attention đó lưu một latent nén mỗi token không thể chia qua các đầu, nên mọi rank giữ toàn bộ cache; attention data parallelism cấp cho mỗi nhóm các yêu cầu và cache riêng, nên dung lượng tăng theo các nhóm.
 
 ## Wrong answers
 
-- "Tensor parallelism is the default way to use more GPUs." It is the way to make a model fit; when the model fits, data parallelism adds output with no traffic between copies, and tensor parallelism over PCIe can cost more than it saves.
-- "More copies always mean more throughput." Only when every copy has about the same pool; a pair where one copy had an eighth of the pool served less than one card, because the round-robin controller fed it half the requests.
-- "Pipeline parallelism is only for several machines." Inside one machine it is the choice when the GPUs lack a fast link or when the GPU count does not divide the model evenly.
-- "Any GPU count works with tensor parallelism." The size must divide the attention-head count of the model; otherwise use a tensor size of 1 and put the whole count into the pipeline size.
+- "Tensor parallelism là cách mặc định để dùng thêm GPU." Nó là cách khiến một mô hình vừa; khi mô hình vừa, data parallelism thêm đầu ra mà không có lưu lượng giữa các bản sao, và tensor parallelism qua PCIe có thể tốn nhiều hơn lượng nó tiết kiệm.
+- "Nhiều bản sao hơn luôn có nghĩa nhiều thông lượng hơn." Chỉ khi mọi bản sao có pool gần bằng nhau; một cặp mà một bản sao có một phần tám pool phục vụ ít hơn một card, vì controller round-robin đưa cho nó một nửa yêu cầu.
+- "Pipeline parallelism chỉ dành cho nhiều máy." Trong một máy, nó là lựa chọn khi các GPU thiếu liên kết nhanh hoặc khi số GPU không chia đều mô hình.
+- "Số GPU nào cũng dùng được với tensor parallelism." Kích thước phải chia hết số đầu attention của mô hình; nếu không dùng kích thước tensor 1 và đưa toàn bộ số lượng vào kích thước pipeline.
 
 ## Taught in
 
-[Choose tensor, pipeline, or data parallelism](../../../manuals/vllm-101/sections/6-1-choose-tensor-pipeline-or-data-parallelism.md) gives the decision tree, and [the SGLang parallelism section](../../../manuals/sglang-101/sections/6-1-tp-size-dp-size-and-attn-dp-size.md) adds the memory balance check and the unequal pair.
+[Chọn tensor, pipeline hoặc data parallelism](../../../manuals/vllm-101/sections/6-1-choose-tensor-pipeline-or-data-parallelism.md) đưa ra cây quyết định, và [phần parallelism của SGLang](../../../manuals/sglang-101/sections/6-1-tp-size-dp-size-and-attn-dp-size.md) thêm kiểm tra cân bằng bộ nhớ và cặp không đồng đều.
