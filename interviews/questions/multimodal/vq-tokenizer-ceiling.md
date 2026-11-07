@@ -16,53 +16,53 @@ related: [multimodal/emu3-generation-cost, multimodal/early-or-late-fusion]
 updated: 2026-11-03
 ---
 
-In the unified-generation family, the quality of a generated image is said to be capped by the tokenizer, not by the transformer. Explain why, show what moved the cap between two generations of models, and say which design avoids the cap entirely and at what cost.
+Trong họ sinh thống nhất, chất lượng một ảnh được sinh được nói là bị chặn bởi tokenizer, không phải transformer. Giải thích tại sao, cho thấy điều gì di chuyển trần giữa hai thế hệ mô hình, và nói thiết kế nào tránh hoàn toàn trần và với chi phí nào.
 
 ## Short answer
 
-A discrete image tokenizer is lossy: the decoder can only render what the codes carry, so the best image the model can ever produce is the tokenizer's own reconstruction of a real image. The first shared-vocabulary model used 1024 codes per 512 by 512 image from a codebook of 8192 and reconstructed at about 26 to 28 dB; the next generation used four times the codes, 4096, and a codebook four times larger, 32768, and reached 30.5 dB, close to the 32 dB of continuous latent diffusion. The design that avoids the cap keeps image patches continuous and trains a diffusion loss on them next to the text loss in one transformer; it drops the quantizer and gains fidelity, and pays with two losses on different scales to balance and a sampling loop at generation time.
+Một tokenizer ảnh rời rạc mất mát: decoder chỉ có thể render những gì mã mang, nên ảnh tốt nhất mô hình có thể từng tạo là tái dựng của chính tokenizer trên một ảnh thực. Mô hình từ vựng dùng chung đầu tiên dùng 1024 mã mỗi ảnh 512 nhân 512 từ một codebook 8192 và tái dựng ở khoảng 26 đến 28 dB; thế hệ tiếp theo dùng số mã gấp bốn, 4096, và một codebook lớn gấp bốn, 32768, và đạt 30.5 dB, gần 32 dB của continuous latent diffusion. Thiết kế tránh trần giữ các patch ảnh liên tục và huấn luyện một diffusion loss trên chúng cạnh text loss trong một transformer; nó bỏ bộ lượng tử hóa và tăng độ trung thực, và trả bằng hai loss trên các thang khác nhau để cân bằng và một vòng lặp lấy mẫu lúc sinh.
 
 ## Full answer
 
 ### Why the cap exists
 
-The transformer predicts codes. The decoder turns codes into pixels with no other input. Whatever detail the quantizer threw away at encoding time cannot come back: a perfect transformer that predicts the exact codes of a real image renders the tokenizer's reconstruction of that image, nothing better. The reconstruction quality is therefore an upper bound on fidelity to a real image, which is what the dB figures below measure. Distribution metrics measure a different property and do not share this bound.
+Transformer dự đoán mã. Decoder biến mã thành pixel mà không có đầu vào khác. Bất kỳ chi tiết nào bộ lượng tử hóa bỏ đi lúc encode không thể trở lại: một transformer hoàn hảo dự đoán chính xác các mã của một ảnh thực render tái dựng của tokenizer trên ảnh đó, không gì tốt hơn. Chất lượng tái dựng do đó là một cận trên cho độ trung thực với một ảnh thực, là điều các con số dB bên dưới đo. Các chỉ số phân phối đo một thuộc tính khác và không chia sẻ cận này.
 
 ### What moved the cap
 
-| Model generation | Codes per 512 by 512 image | Codebook | Reconstruction |
+| Thế hệ mô hình | Mã mỗi ảnh 512 nhân 512 | Codebook | Tái dựng |
 |---|---|---|---|
-| the first shared-vocabulary model | 1024 | 8192 | about 26 to 28 dB |
-| the next-token generation model | 4096 | 32768 | 30.5 dB |
-| continuous latent diffusion, for reference | continuous | none | about 32 dB |
+| mô hình từ vựng dùng chung đầu tiên | 1024 | 8192 | khoảng 26 đến 28 dB |
+| mô hình sinh next-token | 4096 | 32768 | 30.5 dB |
+| continuous latent diffusion, để tham chiếu | liên tục | không có | khoảng 32 dB |
 
-Four times the codes carry four times the spatial detail, and a codebook four times larger carries finer values per code. The newer model's main contribution is a better tokenizer, and with it next-token prediction matched a diffusion model on an image generation benchmark.
+Số mã gấp bốn mang chi tiết không gian gấp bốn, và một codebook lớn gấp bốn mang các giá trị mịn hơn mỗi mã. Đóng góp chính của mô hình mới hơn là một tokenizer tốt hơn, và với nó dự đoán next-token ngang một mô hình diffusion trên một benchmark sinh ảnh.
 
 ### The cost of more codes
 
-Each code is one decode pass in plain next-token generation, so four times the codes is four times the generation time. Masked parallel decoding keeps discrete codes and predicts all masked positions at once in about 16 passes, which pays back the cost of the larger grid.
+Mỗi mã là một lượt decode trong sinh next-token thông thường, nên số mã gấp bốn là thời gian sinh gấp bốn. Masked parallel decoding giữ mã rời rạc và dự đoán tất cả vị trí bị mask cùng lúc trong khoảng 16 lượt, trả lại chi phí của lưới lớn hơn.
 
 ### The design without a cap
 
-Keep the image continuous. Project patches with a linear layer, as a vision transformer does at its input, and train one transformer with two losses: cross-entropy on text tokens and a flow-matching loss on noisy image patches. There is no quantizer to bound the detail. The paper reports a better image score than a same-size discrete model by 3 to 5 points. The price: two losses of different magnitude whose weights need tuning, a block-triangular attention mask, and a denoising loop of a few dozen steps per image at generation time.
+Giữ ảnh liên tục. Chiếu các patch bằng một lớp tuyến tính, như một vision transformer làm ở đầu vào, và huấn luyện một transformer với hai loss: cross-entropy trên các token văn bản và một flow-matching loss trên các patch ảnh nhiễu. Không có bộ lượng tử hóa để chặn chi tiết. Bài báo báo cáo một điểm ảnh tốt hơn một mô hình rời rạc cùng kích thước 3 đến 5 điểm. Cái giá: hai loss khác độ lớn có các trọng số cần tinh chỉnh, một mask attention tam giác khối, và một vòng lặp khử nhiễu vài chục bước mỗi ảnh lúc sinh.
 
 ### Which to pick
 
-Discrete codes when one next-token stack must handle understanding and the generation of images and video with one loss, and you accept the tokenizer's ceiling. Continuous patches when image fidelity is the priority and the two-loss plumbing is acceptable.
+Mã rời rạc khi một stack next-token phải xử lý hiểu và sinh ảnh cùng video với một loss, và bạn chấp nhận trần tokenizer. Patch liên tục khi độ trung thực ảnh là ưu tiên và phần nối ghép hai loss chấp nhận được.
 
 ## Follow-ups
 
-- **Level 3:** Why is the reconstruction score of the tokenizer the right number to read before you train the transformer? Expected: it is the ceiling; no amount of transformer scale lifts a generated image above what the decoder can render from the codes.
-- **Level 3:** What else besides the codebook and the code count lifts a tokenizer? Expected: the quantizer design; the newer models use an inverse-bottleneck quantizer family that uses the larger codebook well, where a naive larger codebook leaves codes unused.
-- **Level 4:** How does the attention mask differ in the continuous design? Expected: causal over text tokens, bidirectional among the patches of one image, text attends to images that closed before it, and image patches attend to the preceding text; a block-triangular mask.
-- **Level 4:** Which side of this trade-off does the masked discrete design sit on? Expected: discrete, with the tokenizer ceiling, but with parallel decoding in a few passes; it trades the fidelity of continuous diffusion for simpler training and fast sampling.
+- **Level 3:** Tại sao điểm tái dựng của tokenizer là con số đúng để đọc trước khi huấn luyện transformer? Expected: nó là trần; không lượng scale transformer nào nâng một ảnh được sinh trên những gì decoder có thể render từ mã.
+- **Level 3:** Ngoài codebook và số mã, điều gì nâng một tokenizer? Expected: thiết kế bộ lượng tử hóa; các mô hình mới hơn dùng một họ bộ lượng tử hóa inverse-bottleneck sử dụng tốt codebook lớn hơn, nơi một codebook lớn hơn ngây thơ để các mã không được dùng.
+- **Level 4:** Mask attention khác như thế nào trong thiết kế liên tục? Expected: nhân quả trên token văn bản, hai chiều giữa các patch của một ảnh, văn bản attend đến các ảnh đã đóng trước nó, và các patch ảnh attend đến văn bản đi trước; một mask tam giác khối.
+- **Level 4:** Thiết kế rời rạc có mask nằm ở phía nào của sự đánh đổi này? Expected: rời rạc, với trần tokenizer, nhưng với decoding song song trong vài lượt; nó đánh đổi độ trung thực của diffusion liên tục lấy huấn luyện đơn giản hơn và lấy mẫu nhanh.
 
 ## Wrong answers
 
-- "Scale the transformer and the images get sharper." The transformer predicts codes; sharpness beyond the tokenizer's reconstruction does not exist in the codes to predict.
-- "A bigger codebook is enough." The code count sets the spatial detail and the codebook sets the value detail; the newer tokenizer raised both, and the quantizer design decides whether a large codebook is used.
-- "Continuous patches are strictly better, so discrete codes are obsolete." Continuous patches cost two losses to balance and a denoising loop per image; the discrete family keeps one loss and one decoder for every modality, which is why both survive.
+- "Scale transformer và các ảnh sắc hơn." Transformer dự đoán mã; độ sắc vượt tái dựng của tokenizer không tồn tại trong các mã để dự đoán.
+- "Một codebook lớn hơn là đủ." Số mã đặt chi tiết không gian và codebook đặt chi tiết giá trị; tokenizer mới hơn tăng cả hai, và thiết kế bộ lượng tử hóa quyết định liệu một codebook lớn có được dùng.
+- "Các patch liên tục tốt hơn tuyệt đối, nên mã rời rạc lỗi thời." Patch liên tục tốn hai loss để cân bằng và một vòng lặp khử nhiễu mỗi ảnh; họ rời rạc giữ một loss và một decoder cho mọi phương thức, là lý do cả hai sống sót.
 
 ## Taught in
 
-The [Chameleon lesson](../../../phases/12-multimodal-ai/11-chameleon-early-fusion-tokens/) names the tokenizer as the reconstruction ceiling, the [Emu3 lesson](../../../phases/12-multimodal-ai/12-emu3-next-token-for-generation/) shows how a better tokenizer moved it, and the [Transfusion lesson](../../../phases/12-multimodal-ai/13-transfusion-autoregressive-diffusion/) gives the continuous design and its costs.
+[Bài học Chameleon](../../../phases/12-multimodal-ai/11-chameleon-early-fusion-tokens/) nêu tokenizer là trần tái dựng, [bài học Emu3](../../../phases/12-multimodal-ai/12-emu3-next-token-for-generation/) cho thấy một tokenizer tốt hơn di chuyển nó như thế nào, và [bài học Transfusion](../../../phases/12-multimodal-ai/13-transfusion-autoregressive-diffusion/) đưa ra thiết kế liên tục và các chi phí.

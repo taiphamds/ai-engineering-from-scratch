@@ -16,55 +16,55 @@ related: [multimodal/vlm-three-parts]
 updated: 2026-11-03
 ---
 
-A warehouse team wants a general vision-language model to answer "which shelf is the item on" and "is the box on top of or under the pallet" from camera frames. They plan to ship as soon as a demo works on ten images. What do you tell them?
+Một nhóm kho hàng muốn một mô hình thị giác-ngôn ngữ tổng quát trả lời "vật phẩm ở kệ nào" và "hộp nằm trên hay dưới pallet" từ các khung hình camera. Họ dự định triển khai ngay khi một demo hoạt động trên mười ảnh. Bạn nói gì với họ?
 
 ## Short answer
 
-Spatial relations are the weak spot of today's general-purpose vision-language models: on benchmarks of above and below, left and right, counting and distance they score about 50 to 60 percent, below human level. A demo on ten images proves nothing about that distribution. Build a labelled eval of a few hundred frames with the exact questions first, measure the model, and compare it with a specialised detection or depth model whose box geometry you post-process; if the general model stays, fine-tune it on the task and keep a human-review route for low-confidence answers.
+Các quan hệ không gian là điểm yếu của các mô hình thị giác-ngôn ngữ đa dụng hiện nay: trên các benchmark về trên và dưới, trái và phải, đếm và khoảng cách, chúng đạt khoảng 50 đến 60 phần trăm, dưới mức con người. Một demo trên mười ảnh không chứng minh gì về phân phối đó. Xây một bộ đánh giá có nhãn vài trăm khung hình với các câu hỏi chính xác trước, đo mô hình, và so sánh nó với một mô hình phát hiện hoặc độ sâu chuyên biệt có hình học box được bạn hậu xử lý; nếu mô hình tổng quát ở lại, fine-tune nó trên tác vụ và giữ một route đánh giá con người cho các câu trả lời độ tự tin thấp.
 
 ## Full answer
 
 ### Why the general model struggles
 
-The model sees projected patch tokens and reasons in language. It learned what is in an image from caption pairs that rarely say where exactly. The lesson's figure for spatial reasoning benchmarks is 50 to 60 percent, and its recommended alternatives for pure spatial tasks are a keypoint or pose estimator, a depth model, or a detector with the box geometry post-processed.
+Mô hình thấy các token patch được chiếu và suy luận bằng ngôn ngữ. Nó học có gì trong một ảnh từ các cặp caption hiếm khi nói chính xác ở đâu. Con số của bài học cho các benchmark suy luận không gian là 50 đến 60 phần trăm, và các lựa chọn được khuyến nghị cho các tác vụ thuần không gian là một bộ ước lượng keypoint hoặc pose, một mô hình độ sâu, hoặc một detector với hình học box được hậu xử lý.
 
 ### What a real eval looks like
 
-- A few hundred frames from the warehouse cameras, not stock photos, with the two question types written the way the operators will ask them.
-- Labels from two people, with the agreement measured.
-- A split by lighting and camera position, because the demo images will not cover them.
-- A confusion matrix per question type, not one accuracy number.
+- Vài trăm khung hình từ các camera kho hàng, không phải ảnh có sẵn, với hai loại câu hỏi được viết theo cách người vận hành sẽ hỏi.
+- Nhãn từ hai người, với mức đồng thuận được đo.
+- Một phép chia theo ánh sáng và vị trí camera, vì các ảnh demo sẽ không bao phủ chúng.
+- Một confusion matrix mỗi loại câu hỏi, không phải một con số độ chính xác.
 
 ### The alternatives
 
-| Approach | Strength | Cost |
+| Cách tiếp cận | Điểm mạnh | Chi phí |
 |---|---|---|
-| Detector plus box geometry | exact image-plane above, under, left and right from coordinates | labels for the object classes; no language interface |
-| Depth model plus detector | distance and stacking | calibration per camera |
-| General VLM, zero-shot | any question in plain language | weak on spatial relations; hallucination risk |
-| General VLM, fine-tuned | a plain-language interface with the domain learned | 5,000 to 50,000 labelled examples and hours of GPU time |
+| Detector cộng hình học box | trên, dưới, trái và phải chính xác trong mặt phẳng ảnh từ tọa độ | nhãn cho các lớp đối tượng; không có giao diện ngôn ngữ |
+| Mô hình độ sâu cộng detector | khoảng cách và xếp chồng | hiệu chuẩn mỗi camera |
+| VLM tổng quát, zero-shot | bất kỳ câu hỏi nào bằng ngôn ngữ thông thường | yếu về các quan hệ không gian; rủi ro ảo giác |
+| VLM tổng quát, fine-tuned | một giao diện ngôn ngữ thông thường với miền được học | 5,000 đến 50,000 ví dụ có nhãn và nhiều giờ GPU |
 
 ### If the VLM stays
 
-Fine-tune with low-rank adapters on the attention and projector layers, which the lesson sizes at rank 16 to 64 on one datacenter GPU for 2 to 10 hours. Then monitor hallucination in production: a cross-modal error rate flags answers where the text confidence is high but the image-text similarity is low, and routes them to review.
+Fine-tune với các adapter hạng thấp trên các lớp attention và projector, mà bài học định cỡ ở rank 16 đến 64 trên một GPU trung tâm dữ liệu trong 2 đến 10 giờ. Sau đó theo dõi ảo giác trong production: một tỷ lệ lỗi xuyên phương thức gắn cờ các câu trả lời nơi độ tự tin văn bản cao nhưng độ tương tự ảnh-văn bản thấp, và định tuyến chúng đến đánh giá.
 
 ### What to tell them
 
-Ship a measured system, not a demo. Ten images is a smoke test. The eval decides between the detector route and the fine-tuned model, and the hallucination monitor stays whichever route wins.
+Triển khai một hệ thống được đo, không phải một demo. Mười ảnh là một smoke test. Đánh giá quyết định giữa route detector và mô hình fine-tuned, và bộ theo dõi ảo giác ở lại bất kể route nào thắng.
 
 ## Follow-ups
 
-- **Level 2:** Why does a model that captions well fail at which object is on top? Expected: captions describe content, not geometry; the training pairs rarely contain precise relations, and fine position fades as the language model reasons over projected tokens.
-- **Level 2:** What does the detector route lose? Expected: the plain-language interface and the open vocabulary; it answers only the relations you compute from boxes, for the classes you labelled.
-- **Level 3:** How many frames does the eval need, and how do you decide? Expected: enough that each question type and each camera condition has tens of examples; a few hundred in total is the floor, and you grow it where the confusion matrix is unstable.
-- **Level 3:** How does a stronger encoder change the picture? Expected: self-supervised encoders carry more dense spatial features and lead vision-centric benchmarks; swapping the encoder and retraining the projector is the lesson's hard exercise for these tasks.
+- **Level 2:** Tại sao một mô hình tạo caption tốt thất bại ở đối tượng nào nằm trên? Expected: caption mô tả nội dung, không phải hình học; các cặp huấn luyện hiếm khi chứa quan hệ chính xác, và vị trí tinh mờ dần khi mô hình ngôn ngữ suy luận trên các token được chiếu.
+- **Level 2:** Route detector mất gì? Expected: giao diện ngôn ngữ thông thường và từ vựng mở; nó chỉ trả lời các quan hệ bạn tính từ box, cho các lớp bạn gán nhãn.
+- **Level 3:** Bộ đánh giá cần bao nhiêu khung hình, và bạn quyết định như thế nào? Expected: đủ để mỗi loại câu hỏi và mỗi điều kiện camera có hàng chục ví dụ; vài trăm tổng cộng là sàn, và bạn tăng nó nơi confusion matrix không ổn định.
+- **Level 3:** Một encoder mạnh hơn thay đổi bức tranh như thế nào? Expected: các encoder tự giám sát mang nhiều đặc trưng không gian dày đặc hơn và dẫn các benchmark tập trung thị giác; đổi encoder và huấn luyện lại projector là bài tập khó của bài học cho các tác vụ này.
 
 ## Wrong answers
 
-- "The demo worked on ten images, so it works." Ten images cannot cover the cameras, the lighting or the relation types; the benchmark figure for this kind of question is near a coin flip for some relations.
-- "A bigger VLM will fix spatial reasoning." Size lifts language reasoning more than geometry; the lesson's advice for pure spatial tasks is a specialised model.
-- "Fine-tune on the demo images." Tens of examples teach nothing and overfit; the fine-tuning route needs thousands of labelled frames and an eval that is separate from them.
+- "Demo hoạt động trên mười ảnh, nên nó hoạt động." Mười ảnh không thể bao phủ camera, ánh sáng hoặc các loại quan hệ; con số benchmark cho loại câu hỏi này gần tung đồng xu với một số quan hệ.
+- "Một VLM lớn hơn sẽ sửa suy luận không gian." Kích thước nâng suy luận ngôn ngữ nhiều hơn hình học; lời khuyên của bài học cho các tác vụ thuần không gian là một mô hình chuyên biệt.
+- "Fine-tune trên các ảnh demo." Hàng chục ví dụ không dạy gì và overfit; route fine-tuning cần hàng nghìn khung hình có nhãn và một bộ đánh giá tách biệt với chúng.
 
 ## Taught in
 
-The [vision-language models lesson](../../../phases/04-computer-vision/25-vision-language-models/) gives the spatial reasoning figure, the fine-tuning budget and the cross-modal error rate.
+[Bài học các mô hình thị giác-ngôn ngữ](../../../phases/04-computer-vision/25-vision-language-models/) đưa ra con số suy luận không gian, ngân sách fine-tuning và tỷ lệ lỗi xuyên phương thức.

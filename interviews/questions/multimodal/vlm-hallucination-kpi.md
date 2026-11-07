@@ -16,17 +16,17 @@ related: [multimodal/spatial-reasoning-limit]
 updated: 2026-11-03
 ---
 
-Your deployed vision-language model answers questions about product photos. Support tickets say that it invents objects and misreads numbers, but the offline benchmark score is fine. Design the production monitoring and the response plan.
+Mô hình thị giác-ngôn ngữ đã triển khai của bạn trả lời các câu hỏi về ảnh sản phẩm. Các ticket hỗ trợ nói nó bịa đối tượng và đọc sai các con số, nhưng điểm benchmark offline ổn. Thiết kế việc theo dõi production và kế hoạch phản ứng.
 
 ## Short answer
 
-Treat hallucination as a production metric, not as a model property. Score every answer with a cross-modal error rate: embed the image and the generated text with an independent contrastive checker, and flag outputs where the text confidence is high but the image-text similarity is low. Track that rate per endpoint, per prompt type and per customer, alert on a rise, and route the flagged answers to human review instead of to the user. The team that introduced the metric cut its hallucination rate by about 35 percent this way, without a model change.
+Xem ảo giác là một chỉ số production, không phải một thuộc tính mô hình. Chấm mọi câu trả lời bằng một tỷ lệ lỗi xuyên phương thức: embed ảnh và văn bản được sinh bằng một bộ kiểm tra tương phản độc lập, và gắn cờ các đầu ra nơi độ tự tin văn bản cao nhưng độ tương tự ảnh-văn bản thấp. Theo dõi tỷ lệ đó theo endpoint, loại prompt và khách hàng, cảnh báo khi tăng, và định tuyến các câu trả lời được gắn cờ đến đánh giá con người thay vì đến người dùng. Nhóm giới thiệu chỉ số giảm tỷ lệ ảo giác khoảng 35 phần trăm theo cách này, không thay mô hình.
 
 ## Full answer
 
 ### Why the benchmark does not see it
 
-About 12 percent of the image and text pairs in crawled training data describe things that are not fully in the image. A model trained on them learns to say plausible things the image does not support, and benchmarks built from the same kind of data reward plausibility. In production the inputs are your photos, your questions and your numbers, and this failure is the dominant one.
+Khoảng 12 phần trăm các cặp ảnh và văn bản trong dữ liệu huấn luyện thu thập mô tả những thứ không hoàn toàn có trong ảnh. Một mô hình được huấn luyện trên chúng học nói những điều hợp lý ảnh không hỗ trợ, và các benchmark được xây từ cùng loại dữ liệu thưởng tính hợp lý. Trong production, đầu vào là ảnh, câu hỏi và con số của bạn, và lỗi này là lỗi chi phối.
 
 ### The metric
 
@@ -39,39 +39,39 @@ def cross_modal_error_rate(image_emb, text_emb, text_confidence, sim_threshold=0
     return high_conf_low_sim.float().mean().item()
 ```
 
-The text confidence is the mean per-token probability of the answer. The checker is a contrastive image-text model that is independent of the generator. The two thresholds come from your own data: calibrate them on a labelled sample of grounded and hallucinated answers.
+Độ tự tin văn bản là xác suất trung bình mỗi token của câu trả lời. Bộ kiểm tra là một mô hình ảnh-văn bản tương phản độc lập với bộ sinh. Hai ngưỡng đến từ dữ liệu riêng của bạn: hiệu chuẩn chúng trên một mẫu có nhãn các câu trả lời có grounding và ảo giác.
 
 ### The dashboard
 
-- The rate per endpoint, per prompt type and per customer, over time.
-- The rate split by image source and resolution, because a new camera or a new upload path shifts it.
-- A sample of flagged answers for a weekly read, with the label a reviewer gave.
-- An alert on a rise above a baseline window.
+- Tỷ lệ theo endpoint, loại prompt và khách hàng, theo thời gian.
+- Tỷ lệ được chia theo nguồn ảnh và độ phân giải, vì một camera mới hoặc một đường tải lên mới làm nó dịch chuyển.
+- Một mẫu các câu trả lời được gắn cờ để đọc hằng tuần, với nhãn một người đánh giá đã cho.
+- Một cảnh báo khi tăng trên một cửa sổ baseline.
 
 ### The response plan
 
-1. Route. A flagged answer goes to a review queue, or returns a hedged response that shows the image region, not a confident wrong number. An answer whose numbers fail the text-recognition check also goes to the review queue, even when the whole-image rate does not flag it.
-2. Read. The weekly sample tells you which prompt types fail: numbers, counts, small text.
-3. Fix at the data level. Add grounded examples for the failing prompt types, and tiling or a higher resolution for small text and numbers.
-4. Re-measure with the same metric before and after each change.
+1. Định tuyến. Một câu trả lời được gắn cờ đến một hàng đợi đánh giá, hoặc trả về một phản hồi dè dặt cho thấy vùng ảnh, không phải một con số sai tự tin. Một câu trả lời có các con số không vượt qua kiểm tra nhận dạng văn bản cũng đến hàng đợi đánh giá, ngay cả khi tỷ lệ toàn ảnh không gắn cờ nó.
+2. Đọc. Mẫu hằng tuần cho bạn biết các loại prompt nào thất bại: số, số đếm, văn bản nhỏ.
+3. Sửa ở cấp dữ liệu. Thêm các ví dụ có grounding cho các loại prompt thất bại, và chia ô hoặc một độ phân giải cao hơn cho văn bản nhỏ và các con số.
+4. Đo lại bằng cùng chỉ số trước và sau mỗi thay đổi.
 
 ### Limits of the metric
 
-A contrastive checker scores whole-image similarity, so it misses a wrong digit in an otherwise matching description. Pair it with task checks: parse the numbers in the answer and compare them with a text-recognition pass, or ask the model for the region it read and check that the region is not empty.
+Một bộ kiểm tra tương phản chấm độ tương tự toàn ảnh, nên nó bỏ lỡ một chữ số sai trong một mô tả còn lại khớp. Ghép nó với các kiểm tra tác vụ: phân tích các con số trong câu trả lời và so sánh chúng với một lượt nhận dạng văn bản, hoặc hỏi mô hình vùng nó đã đọc và kiểm tra vùng không trống.
 
 ## Follow-ups
 
-- **Level 3:** Why an independent checker and not the model's own confidence? Expected: the model is confident when it hallucinates, which is the failure; the checker gives a second opinion that does not share the generator's blind spots.
-- **Level 3:** How do you set the two thresholds? Expected: label a few hundred answers as grounded or not, sweep the thresholds, and pick the pair that catches most hallucinations at a review load the team can afford.
-- **Level 4:** The rate rises for one customer only. What do you check? Expected: their image source: resolution, lighting, a new product line with text the model misreads; the per-customer split exists for that reason.
-- **Level 4:** How do you decide between a model change and a routing change? Expected: routing is cheap and immediate and protects users today; a model change needs grounded data and a re-measurement; do both in that order and let the metric arbitrate.
+- **Level 3:** Tại sao một bộ kiểm tra độc lập và không phải độ tự tin riêng của mô hình? Expected: mô hình tự tin khi ảo giác, chính là lỗi; bộ kiểm tra cho một ý kiến thứ hai không chia sẻ các điểm mù của bộ sinh.
+- **Level 3:** Bạn đặt hai ngưỡng như thế nào? Expected: gắn nhãn vài trăm câu trả lời là có grounding hoặc không, quét các ngưỡng, và chọn cặp bắt phần lớn ảo giác ở một tải đánh giá nhóm có thể chi trả.
+- **Level 4:** Tỷ lệ chỉ tăng cho một khách hàng. Bạn kiểm tra gì? Expected: nguồn ảnh của họ: độ phân giải, ánh sáng, một dòng sản phẩm mới có văn bản mô hình đọc sai; phép chia theo khách hàng tồn tại vì lý do đó.
+- **Level 4:** Bạn quyết định giữa một thay đổi mô hình và một thay đổi định tuyến như thế nào? Expected: định tuyến rẻ và tức thì và bảo vệ người dùng hôm nay; một thay đổi mô hình cần dữ liệu có grounding và một phép đo lại; làm cả hai theo thứ tự đó và để chỉ số phân xử.
 
 ## Wrong answers
 
-- "Raise the benchmark score and the hallucinations will go away." The benchmark rewards plausible text; the production failure is confident text the image does not support, which the benchmark does not measure.
-- "Add a system prompt that says do not hallucinate." The model does not know when it hallucinates; a prompt does not create grounding, and only a measurement and a review route reduce the harm.
-- "Block every answer with a low image-text similarity." Low similarity with low confidence is often a right answer about a hard image; the signal is high confidence with low similarity.
+- "Tăng điểm benchmark và các ảo giác sẽ biến mất." Benchmark thưởng văn bản hợp lý; lỗi production là văn bản tự tin ảnh không hỗ trợ, điều benchmark không đo.
+- "Thêm một system prompt nói không ảo giác." Mô hình không biết khi nào nó ảo giác; một prompt không tạo grounding, và chỉ một phép đo cùng một route đánh giá giảm tác hại.
+- "Chặn mọi câu trả lời có độ tương tự ảnh-văn bản thấp." Độ tương tự thấp với độ tự tin thấp thường là một đáp án đúng về một ảnh khó; tín hiệu là độ tự tin cao với độ tương tự thấp.
 
 ## Taught in
 
-The [vision-language models lesson](../../../phases/04-computer-vision/25-vision-language-models/) defines the cross-modal error rate, gives the code, and reports the production result.
+[Bài học các mô hình thị giác-ngôn ngữ](../../../phases/04-computer-vision/25-vision-language-models/) định nghĩa tỷ lệ lỗi xuyên phương thức, đưa ra mã, và báo cáo kết quả production.

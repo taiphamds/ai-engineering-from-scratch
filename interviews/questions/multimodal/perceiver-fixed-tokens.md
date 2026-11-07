@@ -16,51 +16,51 @@ related: [multimodal/image-tokens-per-image]
 updated: 2026-11-03
 ---
 
-A model must take a prompt with any number of images, some small and some large, interleaved with text, and then caption the last image from a few in-context examples. Explain the module that makes the number and the size of the images manageable, and how a text token knows which image to look at.
+Một mô hình phải nhận một prompt với bất kỳ số ảnh nào, một số nhỏ và một số lớn, xen kẽ với văn bản, rồi tạo caption cho ảnh cuối từ vài ví dụ trong ngữ cảnh. Giải thích module khiến số lượng và kích thước ảnh quản lý được, và cách một token văn bản biết nhìn ảnh nào.
 
 ## Short answer
 
-A resampler with a fixed set of learned latent vectors turns the patch tokens of each image into a fixed number of visual tokens. In the reference design, 64 latents attend over however many patches the encoder produced, 196 for a small image or 900 for a large one, through six blocks of cross-attention and self-attention, and every image exits as 64 tokens of one width. Text tokens then read those tokens through gated cross-attention layers inserted between the frozen language model blocks, and a mask lets each text token attend only to the latents of the most recent image before it in the sequence.
+Một resampler với một tập cố định các vector latent được học biến các token patch của mỗi ảnh thành một số token thị giác cố định. Trong thiết kế tham chiếu, 64 latent attend trên bất cứ bao nhiêu patch encoder tạo ra, 196 cho một ảnh nhỏ hoặc 900 cho một ảnh lớn, qua sáu block cross-attention và self-attention, và mọi ảnh đi ra thành 64 token cùng một chiều rộng. Các token văn bản sau đó đọc những token đó qua các lớp gated cross-attention được chèn giữa các block mô hình ngôn ngữ đóng băng, và một mask chỉ cho mỗi token văn bản attend đến các latent của ảnh gần nhất trước nó trong chuỗi.
 
 ## Full answer
 
 ### The resampler
 
-Each block does two things. The K latents cross-attend to the N patch tokens, with queries from the latents and keys and values from the patches; then the latents run self-attention and a feed-forward layer among themselves. After six blocks the output is K tokens of width 1024, whatever N was. For video the resampler runs on each frame, with a temporal position encoding, so the frame count times 64 is the token count of the clip.
+Mỗi block làm hai việc. K latent cross-attend đến N token patch, với query từ latent và key cùng value từ patch; rồi các latent chạy self-attention và một lớp feed-forward giữa chúng. Sau sáu block, đầu ra là K token chiều rộng 1024, bất kể N là gì. Với video, resampler chạy trên mỗi khung hình, với một mã hóa vị trí thời gian, nên số khung hình nhân 64 là số token của clip.
 
 ### Why fixed matters
 
-Interleaved prompts have zero, one or many images. With a fixed count per image, what any one text token sees in cross-attention has the same shape whatever the prompt. The total grows with the image count, but each text token reads one image's latents.
+Các prompt xen kẽ có không, một hoặc nhiều ảnh. Với một số lượng cố định mỗi ảnh, những gì bất kỳ token văn bản nào thấy trong cross-attention có cùng shape bất kể prompt. Tổng tăng theo số ảnh, nhưng mỗi token văn bản đọc các latent của một ảnh.
 
 ### The gated bridge
 
-Between every fourth block of the frozen language model sits a new cross-attention layer with a residual gate: the output equals the block output plus the hyperbolic tangent of a learned scalar times the cross-attention. The scalar starts at zero, so at initialization the new layers do nothing, and the model is exactly the pretrained text model.
+Giữa mỗi block thứ tư của mô hình ngôn ngữ đóng băng là một lớp cross-attention mới với một gate residual: đầu ra bằng đầu ra block cộng hyperbolic tangent của một vô hướng được học nhân cross-attention. Vô hướng bắt đầu ở không, nên khi khởi tạo các lớp mới không làm gì, và mô hình chính xác là mô hình văn bản pretrained.
 
 ### The mask
 
-In a sequence like image A, caption A, image B, caption B, image C, question, a text token attends only to the resampler tokens of the most recent image before it; the other images are masked. Attending to all preceding images is a valid alternative; the reference design chose the most recent one.
+Trong một chuỗi như ảnh A, caption A, ảnh B, caption B, ảnh C, câu hỏi, một token văn bản chỉ attend đến các token resampler của ảnh gần nhất trước nó; các ảnh khác bị mask. Attend đến tất cả ảnh đi trước là một lựa chọn hợp lệ; thiết kế tham chiếu chọn ảnh gần nhất.
 
 ### In-context few-shot
 
-Three image and caption pairs followed by a new image form a prompt that the frozen language model already knows how to complete. The gated layers feed it image content, and its in-context learning carries over without a gradient step. That is the point of keeping the language model frozen and the gate at zero.
+Ba cặp ảnh và caption theo sau bởi một ảnh mới tạo một prompt mà mô hình ngôn ngữ đóng băng đã biết cách hoàn tất. Các lớp có gate cấp nội dung ảnh cho nó, và khả năng học trong ngữ cảnh của nó chuyển sang mà không có một bước gradient. Đó là mục đích của việc giữ mô hình ngôn ngữ đóng băng và gate ở không.
 
 ### Against the single-input bridge
 
-The query-based bridge from the earlier lesson also uses learned queries, but once, at the input layer, with 32 queries. The resampler plus gated cross-attention reads the latents every few layers, which costs more parameters and compute and buys interleaving and few-shot behavior.
+Cầu nối dựa trên query từ bài học trước cũng dùng các query được học, nhưng một lần, ở lớp đầu vào, với 32 query. Resampler cộng gated cross-attention đọc các latent mỗi vài lớp, tốn nhiều tham số và tính toán hơn và mang lại xen kẽ và hành vi few-shot.
 
 ## Follow-ups
 
-- **Level 2:** Why does the latent side supply the query vectors and the patch side the rest, not the other way around? Expected: the output has one row per query, so queries from the latents give a fixed number of rows; the reverse would give one row per patch again.
-- **Level 2:** What does the temporal encoding do for video? Expected: each frame gives the same 64 latents, so without a time signal the model cannot tell the first frame from the last; the encoding marks the frame index.
-- **Level 3:** Why mask to the most recent image instead of all preceding images? Expected: it keeps the shape each text token sees constant and matches the interleaved reading order, where a caption describes the image before it; seeing all images is the alternative with a different trade-off.
-- **Level 3:** A fine-tune of a model like this lost text-only quality. Where do you look? Expected: the gate; if it opened too wide too fast, visual noise overwrote the text residual stream, so compare the gate values by layer with the base.
+- **Level 2:** Tại sao phía latent cung cấp các vector query và phía patch cung cấp phần còn lại, không phải ngược lại? Expected: đầu ra có một hàng mỗi query, nên query từ latent cho một số hàng cố định; chiều ngược sẽ lại cho một hàng mỗi patch.
+- **Level 2:** Mã hóa thời gian làm gì cho video? Expected: mỗi khung hình cho cùng 64 latent, nên không có tín hiệu thời gian, mô hình không thể phân biệt khung hình đầu với cuối; mã hóa đánh dấu chỉ số khung hình.
+- **Level 3:** Tại sao mask đến ảnh gần nhất thay vì tất cả ảnh đi trước? Expected: nó giữ shape mà mỗi token văn bản thấy cố định và khớp thứ tự đọc xen kẽ, nơi một caption mô tả ảnh trước nó; thấy tất cả ảnh là lựa chọn với sự đánh đổi khác.
+- **Level 3:** Một lần fine-tune của một mô hình như thế này mất chất lượng chỉ văn bản. Bạn xem ở đâu? Expected: gate; nếu nó mở quá rộng quá nhanh, nhiễu thị giác ghi đè luồng residual văn bản, nên so sánh các giá trị gate theo lớp với bản nền.
 
 ## Wrong answers
 
-- "Pad every image to the same number of patches." Padding wastes compute on large images and loses detail on small ones; the resampler gives a fixed count without either.
-- "Let the text tokens attend to all image patches directly." The count then varies per image and per prompt, and a prompt with many images floods the attention; the latents keep it fixed.
-- "Initialize the gate open so that the model learns faster." An open gate at step zero destroys the frozen language model's text behavior; a start at zero is what preserves it.
+- "Pad mọi ảnh đến cùng số patch." Padding lãng phí tính toán trên các ảnh lớn và mất chi tiết trên các ảnh nhỏ; resampler cho một số lượng cố định mà không có cả hai.
+- "Để các token văn bản attend trực tiếp đến tất cả patch ảnh." Số lượng khi đó thay đổi mỗi ảnh và mỗi prompt, và một prompt nhiều ảnh làm ngập attention; các latent giữ nó cố định.
+- "Khởi tạo gate mở để mô hình học nhanh hơn." Một gate mở ở bước không phá hành vi văn bản của mô hình ngôn ngữ đóng băng; bắt đầu ở không là điều bảo tồn nó.
 
 ## Taught in
 
-The [Flamingo lesson](../../../phases/12-multimodal-ai/04-flamingo-gated-cross-attention/) walks the resampler, the gated layers and the interleaved mask, and the [BLIP-2 lesson](../../../phases/12-multimodal-ai/03-blip2-qformer-bridge/) gives the query bridge that it is compared with.
+[Bài học Flamingo](../../../phases/12-multimodal-ai/04-flamingo-gated-cross-attention/) trình bày resampler, các lớp có gate và mask xen kẽ, và [bài học BLIP-2](../../../phases/12-multimodal-ai/03-blip2-qformer-bridge/) đưa ra cầu nối query được so sánh với nó.

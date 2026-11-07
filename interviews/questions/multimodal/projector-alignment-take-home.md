@@ -16,11 +16,11 @@ related: [multimodal/train-only-the-projector]
 updated: 2026-11-03
 ---
 
-Take-home. You get a frozen vision encoder that emits 197 tokens of width 768 per image and a frozen text embedding table of width 512. Build the smallest module that lets the two talk, train it on paired samples, and ship tests that prove it works. Describe the design, the loss, how you train it, and the tests.
+Bài làm ở nhà. Bạn nhận một encoder thị giác đóng băng xuất 197 token chiều rộng 768 mỗi ảnh và một bảng embedding văn bản đóng băng chiều rộng 512. Xây module nhỏ nhất để hai bên giao tiếp, huấn luyện nó trên các mẫu ghép cặp, và bàn giao các kiểm thử chứng minh nó hoạt động. Mô tả thiết kế, loss, cách bạn huấn luyện nó, và các kiểm thử.
 
 ## Short answer
 
-Pool the 197 image tokens to one vector, pass it through a two-layer MLP, 768 to 1024 to 512 with a GELU between, and compare it with the mean-pooled caption embedding through a cosine alignment loss, one minus the cosine. Train only the MLP, about 1.3M parameters, with the encoder and the table frozen, for a few hundred steps over a few dozen pairs. The tests: the output shape equals the text width, the frozen parts have no trainable parameters, the loss is zero on identical vectors and two on opposite vectors, a gradient reaches the projector after one backward pass, and the loss at the last step is lower than at the first.
+Pool 197 token ảnh thành một vector, truyền nó qua một MLP hai lớp, 768 đến 1024 đến 512 với một GELU ở giữa, và so sánh nó với embedding caption mean-pooled qua một cosine alignment loss, một trừ cosine. Chỉ huấn luyện MLP, khoảng 1.3M tham số, với encoder và bảng đóng băng, trong vài trăm bước trên vài chục cặp. Các kiểm thử: shape đầu ra bằng chiều rộng văn bản, các phần đóng băng không có tham số huấn luyện được, loss bằng không trên các vector giống nhau và hai trên các vector đối nhau, một gradient đến projector sau một lượt backward, và loss ở bước cuối thấp hơn bước đầu.
 
 ## Full answer
 
@@ -33,54 +33,54 @@ caption ids -> frozen table -> mean over tokens -> (B, 512)
 loss = 1 - cos(image_emb, text_emb)
 ```
 
-Pooling: the first token is the simplest choice; a mean over the 196 patch tokens is the alternative, and the exercise compares them. Two layers, because one linear map cannot bend the space; the GELU gives the one bend that aligns the two bases.
+Pooling: token đầu tiên là lựa chọn đơn giản nhất; trung bình trên 196 token patch là lựa chọn khác, và bài tập so sánh chúng. Hai lớp, vì một ánh xạ tuyến tính không thể uốn không gian; GELU cho một lần uốn căn chỉnh hai cơ sở.
 
 ### Parameters
 
-| Layer | Shape | Parameters |
+| Lớp | Shape | Tham số |
 |---|---|---|
-| first linear | 768 by 1024 | 768 times 1024, plus 1024 |
+| tuyến tính đầu | 768 nhân 1024 | 768 nhân 1024, cộng 1024 |
 | GELU | | 0 |
-| second linear | 1024 by 512 | 1024 times 512, plus 512 |
+| tuyến tính thứ hai | 1024 nhân 512 | 1024 nhân 512, cộng 512 |
 
-About 1.3M in total, next to an encoder of 86M. Both big parts have `requires_grad=False` on every parameter.
+Tổng cộng khoảng 1.3M, cạnh một encoder 86M. Cả hai phần lớn có `requires_grad=False` trên mọi tham số.
 
 ### Training loop
 
-- Build 32 synthetic pairs from a seed when no dataset is allowed, and cycle them.
-- One optimizer over the projector parameters only.
-- Run 200 steps and print the loss every 25 steps. The capstone's run falls from about 1.07 to about 0.80.
-- Print the final cosine per pair.
+- Xây 32 cặp tổng hợp từ một seed khi không được phép dùng tập dữ liệu, và lặp vòng chúng.
+- Một bộ tối ưu chỉ trên các tham số projector.
+- Chạy 200 bước và in loss mỗi 25 bước. Lần chạy của capstone giảm từ khoảng 1.07 xuống khoảng 0.80.
+- In cosine cuối mỗi cặp.
 
 ### Tests
 
-1. The projector output shape matches the configured output width.
-2. The frozen text table and the frozen vision encoder have zero parameters that require a gradient.
-3. The cosine loss is 0 on identical vectors and 2 on anti-parallel vectors.
-4. A gradient reaches the projector weights after one backward pass.
-5. The loss at step 200 is lower than at step 0.
+1. Shape đầu ra projector khớp chiều rộng đầu ra được cấu hình.
+2. Bảng văn bản đóng băng và encoder thị giác đóng băng có không tham số cần gradient.
+3. Cosine loss bằng 0 trên các vector giống nhau và 2 trên các vector ngược hướng.
+4. Một gradient đến các trọng số projector sau một lượt backward.
+5. Loss ở bước 200 thấp hơn ở bước 0.
 
 ### What you ship
 
-The projector weights are the only new artifact. At inference the encoder still runs its forward pass, then the projector, and the output lands in the text space. The same shape appears in every open adapter model: pool, project, train alone.
+Các trọng số projector là artifact mới duy nhất. Khi suy luận, encoder vẫn chạy lượt forward của nó, rồi projector, và đầu ra rơi vào không gian văn bản. Cùng hình dạng xuất hiện trong mọi mô hình adapter mở: pool, chiếu, huấn luyện riêng.
 
 ### The next step, for the discussion
 
-The per-pair cosine aligns direction; a contrastive batch loss would also push each image away from the other captions in the batch. For a decoder that grounds each word, cross-attention from text queries into the 197 image tokens replaces the pooled vector; that is the following capstone.
+Cosine mỗi cặp căn chỉnh hướng; một contrastive batch loss cũng sẽ đẩy mỗi ảnh xa các caption khác trong batch. Với một decoder grounding mỗi từ, cross-attention từ các query văn bản vào 197 token ảnh thay vector pooled; đó là capstone tiếp theo.
 
 ## Follow-ups
 
-- **Level 2:** Why cosine and not mean squared error? Expected: alignment means the same direction in the joint space, not equal vectors; cosine is scale-invariant, so the projector is not punished for a norm the text table happens to have.
-- **Level 2:** What does a learned temperature on the cosine change? Expected: a sharper or flatter loss surface; too small gives noisy gradients and too large plateaus high, as the exercise shows.
-- **Level 3:** The capstone's run stops near 0.80 after 200 steps. Is that a floor? Expected: no; it is the loss of one run at 200 steps. The projector has 1024 hidden units for 32 pairs, so more steps or a different rate can push the loss lower; on natural pairs, the encoder features set how far the alignment can go.
-- **Level 3:** How does this module relate to a query-based bridge? Expected: that bridge ends in the same kind of projection to the text width; the difference is that it first compresses the tokens through learned queries instead of pooling.
+- **Level 2:** Tại sao cosine và không phải mean squared error? Expected: alignment có nghĩa cùng hướng trong không gian chung, không phải các vector bằng nhau; cosine bất biến theo thang, nên projector không bị phạt vì một norm mà bảng văn bản tình cờ có.
+- **Level 2:** Một temperature được học trên cosine thay đổi gì? Expected: một bề mặt loss sắc hơn hoặc phẳng hơn; quá nhỏ cho gradient nhiễu và quá lớn đạt bình nguyên cao, như bài tập cho thấy.
+- **Level 3:** Lần chạy của capstone dừng gần 0.80 sau 200 bước. Đó có phải một sàn không? Expected: không; đó là loss của một lần chạy ở 200 bước. Projector có 1024 đơn vị ẩn cho 32 cặp, nên nhiều bước hơn hoặc một rate khác có thể đẩy loss thấp hơn; trên các cặp tự nhiên, các đặc trưng encoder đặt alignment có thể đi xa đến đâu.
+- **Level 3:** Module này liên hệ với một cầu nối dựa trên query như thế nào? Expected: cầu nối đó kết thúc bằng cùng loại phép chiếu đến chiều rộng văn bản; khác biệt là nó trước tiên nén các token qua các query được học thay vì pooling.
 
 ## Wrong answers
 
-- "Fine-tune the encoder as well; it is only 86M parameters." The take-home gives frozen parts for a reason: a few dozen pairs cannot teach the encoder anything, and the test that checks the frozen table would fail.
-- "Use a single linear layer; it is enough for a rotation." The two bases differ by more than a rotation; the non-linearity is what lets one bend close the gap.
-- "Skip the tests; the loss went down." The loss can fall through a shape bug or a leak into the frozen parts; the tests pin the contract that the loss alone cannot.
+- "Fine-tune cả encoder; nó chỉ có 86M tham số." Bài làm ở nhà cho các phần đóng băng vì một lý do: vài chục cặp không thể dạy encoder gì, và kiểm thử kiểm tra bảng đóng băng sẽ thất bại.
+- "Dùng một lớp tuyến tính duy nhất; nó đủ cho một phép quay." Hai cơ sở khác nhau hơn một phép quay; phi tuyến là thứ cho phép một lần uốn thu hẹp khoảng cách.
+- "Bỏ các kiểm thử; loss đã giảm." Loss có thể giảm qua một bug shape hoặc một rò rỉ vào các phần đóng băng; các kiểm thử ghim hợp đồng mà chỉ loss không thể.
 
 ## Taught in
 
-The [projection capstone](../../../phases/19-capstone-projects/60-projection-layer-modality-align/) specifies the module, the loss, the loop and the five tests, and the [cross-attention fusion capstone](../../../phases/19-capstone-projects/61-cross-attention-fusion/) is the step after it.
+[Capstone phép chiếu](../../../phases/19-capstone-projects/60-projection-layer-modality-align/) đặc tả module, loss, vòng lặp và năm kiểm thử, và [capstone hợp nhất cross-attention](../../../phases/19-capstone-projects/61-cross-attention-fusion/) là bước sau nó.

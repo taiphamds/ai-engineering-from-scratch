@@ -16,62 +16,62 @@ related: [multimodal/which-knob-first, multimodal/spatial-reasoning-limit]
 updated: 2026-11-03
 ---
 
-Design a vision-language model for an on-device mobile assistant that reads the phone screen and taps, types and scrolls. Keep the language model at about 2B parameters. Choose the encoder, the bridge, the resolution plan and the data mix, justify each choice with the ablation evidence, and name the capability you would guard against over-promising.
+Thiết kế một mô hình thị giác-ngôn ngữ cho một trợ lý di động trên thiết bị đọc màn hình điện thoại và chạm, gõ và cuộn. Giữ mô hình ngôn ngữ khoảng 2B tham số. Chọn encoder, cầu nối, kế hoạch độ phân giải và hỗn hợp dữ liệu, biện minh mỗi lựa chọn bằng bằng chứng ablation, và nêu khả năng bạn sẽ thận trọng để không hứa quá mức.
 
 ## Short answer
 
-Encoder: the stronger contrastive encoder at native resolution, with a self-supervised encoder's features concatenated for a dense spatial signal, because the encoder explains about 20 percent of the variance and self-supervised features lead vision-centric tests. Bridge: a two-layer MLP, since the connector explains about 5 percent, with features from several encoder depths stacked so that fine position reaches the language model. Resolution: a ramp from low to high, with dynamic resolution up to about 1280 pixels on the long side, because screens are text-dense and reading gains most from pixels. Data: dense human descriptions of screens plus grounded action traces, not distilled captions; and guard the promise on spatial relations, where general models score 50 to 60 percent and the agent must hit the right element every time.
+Encoder: encoder tương phản mạnh hơn ở độ phân giải gốc, với các đặc trưng của một encoder tự giám sát được nối cho một tín hiệu không gian dày đặc, vì encoder giải thích khoảng 20 phần trăm variance và các đặc trưng tự giám sát dẫn các kiểm thử tập trung thị giác. Cầu nối: một MLP hai lớp, vì connector giải thích khoảng 5 phần trăm, với các đặc trưng từ nhiều độ sâu encoder được xếp chồng để vị trí tinh đến mô hình ngôn ngữ. Độ phân giải: tăng dần từ thấp lên cao, với độ phân giải động đến khoảng 1280 pixel trên cạnh dài, vì các màn hình dày đặc văn bản và đọc được lợi nhiều nhất từ pixel. Dữ liệu: các mô tả con người dày đặc về màn hình cộng các trace hành động có grounding, không phải caption chưng cất; và thận trọng với lời hứa về quan hệ không gian, nơi các mô hình tổng quát đạt 50 đến 60 phần trăm và agent phải chạm đúng phần tử mỗi lần.
 
 ## Full answer
 
 ### Constraints first
 
-A 2B language model sets a low reasoning ceiling: a larger language model adds points on reasoning benchmarks, and this design cannot grow it. So every other axis must carry more, and the task must be framed as perception plus short actions, not long reasoning.
+Một mô hình ngôn ngữ 2B đặt một trần suy luận thấp: một mô hình ngôn ngữ lớn hơn thêm điểm trên các benchmark suy luận, và thiết kế này không thể tăng nó. Vì vậy mọi trục khác phải gánh nhiều hơn, và tác vụ phải được định hình là nhận thức cộng các hành động ngắn, không phải suy luận dài.
 
 ### Encoder
 
-| Choice | Why |
+| Lựa chọn | Tại sao |
 |---|---|
-| The strong contrastive encoder at native resolution | adds 3 or more points over the common one in the ablations; native resolution keeps screen text legible |
-| Concatenated self-supervised features | lead vision-centric benchmarks by 5 to 7 points over the contrastive one; UI grounding is vision-centric |
-| Features from several encoder depths | deep layers carry semantics and shallow layers carry fine position; stacking both tightens grounding, which an agent that taps needs |
+| Encoder tương phản mạnh ở độ phân giải gốc | thêm 3 điểm hoặc hơn so với loại thông dụng trong các ablation; độ phân giải gốc giữ văn bản màn hình đọc được |
+| Các đặc trưng tự giám sát được nối | dẫn các benchmark tập trung thị giác 5 đến 7 điểm so với encoder tương phản; grounding UI tập trung thị giác |
+| Các đặc trưng từ nhiều độ sâu encoder | các lớp sâu mang ngữ nghĩa và các lớp nông mang vị trí tinh; xếp chồng cả hai thắt chặt grounding, điều một agent chạm cần |
 
 ### Bridge
 
-A two-layer MLP. The connector explains about 5 percent of the variance at a fixed token count, and the MLP is the simplest to retrain when the encoder or the language model changes. The token count is the knob that matters: screens are documents, so budget toward the upper end of the 576 to 1024 sweet spot, and above it for dense screens.
+Một MLP hai lớp. Connector giải thích khoảng 5 phần trăm variance ở số token cố định, và MLP là loại đơn giản nhất để huấn luyện lại khi encoder hoặc mô hình ngôn ngữ thay đổi. Số token là núm điều chỉnh quan trọng: màn hình là tài liệu, nên lập ngân sách về đầu trên của điểm tối ưu 576 đến 1024, và trên nó cho các màn hình dày đặc.
 
 ### Resolution schedule
 
-Start low and ramp. Flat low-resolution training plateaus; a ramp trains faster and ends higher. Dynamic resolution with a minimum of 256 and a maximum near 1280 pixels on the long side handles the range of screen densities, and the document-reading gains of 3 to 5 points from splitting apply to screens.
+Bắt đầu thấp và tăng dần. Huấn luyện độ phân giải thấp phẳng đạt bình nguyên; một lịch trình tăng dần huấn luyện nhanh hơn và kết thúc cao hơn. Độ phân giải động với tối thiểu 256 và tối đa gần 1280 pixel trên cạnh dài xử lý dải mật độ màn hình, và các mức tăng đọc tài liệu 3 đến 5 điểm từ việc chia áp dụng cho màn hình.
 
 ### Data mix
 
-- Dense human descriptions of screens: what is on the screen, where, and what is interactive. Dense human captions beat distillation across the board in the reference comparison.
-- Grounded action traces: screenshot, instruction, the element and the action, with coordinates. The visual-agent benchmark that frontier models lead has this shape.
-- Task-specific instruction data for the app families you ship to.
-- Synthetic data only where a human description anchors it, filtered for grounding.
+- Các mô tả con người dày đặc về màn hình: có gì trên màn hình, ở đâu, và cái gì tương tác được. Các caption con người dày đặc thắng chưng cất trên mọi mặt trong so sánh tham chiếu.
+- Các trace hành động có grounding: ảnh chụp màn hình, chỉ dẫn, phần tử và hành động, với tọa độ. Benchmark agent thị giác mà các mô hình tiên phong dẫn có hình dạng này.
+- Dữ liệu instruction theo tác vụ cho các họ ứng dụng bạn triển khai đến.
+- Dữ liệu tổng hợp chỉ nơi một mô tả con người neo nó, được lọc cho grounding.
 
 ### The capability to guard
 
-Spatial relations. General models score 50 to 60 percent on above, below, left, right and counting, and an agent that taps the wrong element fails the task. Build the eval from real screens with the exact element-selection questions, measure it before any promise, and keep a verification step in the agent loop: read the screen back after the action and check the state.
+Các quan hệ không gian. Các mô hình tổng quát đạt 50 đến 60 phần trăm trên trên, dưới, trái, phải và đếm, và một agent chạm sai phần tử thất bại tác vụ. Xây đánh giá từ các màn hình thật với các câu hỏi chọn phần tử chính xác, đo nó trước bất kỳ lời hứa nào, và giữ một bước xác minh trong vòng lặp agent: đọc lại màn hình sau hành động và kiểm tra trạng thái.
 
 ### Serving on the device
 
-A 2B language model and a strong encoder at a high resolution still need the visual token budget counted per screen; measure the latency per step at your resolution before you set the schedule.
+Một mô hình ngôn ngữ 2B và một encoder mạnh ở độ phân giải cao vẫn cần đếm ngân sách token thị giác mỗi màn hình; đo độ trễ mỗi bước ở độ phân giải của bạn trước khi đặt lịch trình.
 
 ## Follow-ups
 
-- **Level 3:** Why stack shallow and deep encoder layers for an agent and not for a captioner? Expected: a captioner needs semantics; an agent needs where exactly, which the shallow layers carry and the last layer blurs.
-- **Level 4:** The language model is fixed at 2B. Which axis do you lean on hardest, and what is its limit? Expected: resolution and token count, because screens are text-dense; the limit is the latency per step on the device, which the token count sets.
-- **Level 4:** How do you make the agent robust to being wrong about an element? Expected: a read-back after each action that compares the new screen with the expected state, and a stop when they do not match; the model's own confidence is not a safe signal.
-- **Level 4:** What does the ablation evidence not tell you about this design? Expected: it comes from general benchmarks on datacenter GPUs; the device latency, the UI domain and the action format need your own ablation, one axis per run.
+- **Level 3:** Tại sao xếp chồng các lớp encoder nông và sâu cho một agent mà không cho một bộ tạo caption? Expected: một bộ tạo caption cần ngữ nghĩa; một agent cần chính xác ở đâu, điều các lớp nông mang và lớp cuối làm mờ.
+- **Level 4:** Mô hình ngôn ngữ cố định ở 2B. Bạn dựa mạnh nhất vào trục nào, và giới hạn của nó là gì? Expected: độ phân giải và số token, vì màn hình dày đặc văn bản; giới hạn là độ trễ mỗi bước trên thiết bị, mà số token đặt.
+- **Level 4:** Bạn khiến agent vững trước việc sai về một phần tử như thế nào? Expected: một lần đọc lại sau mỗi hành động so sánh màn hình mới với trạng thái kỳ vọng, và dừng khi chúng không khớp; độ tự tin riêng của mô hình không phải một tín hiệu an toàn.
+- **Level 4:** Bằng chứng ablation không cho bạn biết gì về thiết kế này? Expected: nó đến từ các benchmark tổng quát trên GPU trung tâm dữ liệu; độ trễ thiết bị, miền UI và định dạng hành động cần ablation riêng của bạn, một trục mỗi lần chạy.
 
 ## Wrong answers
 
-- "Use a query-based bridge to save tokens on the device." It caps the tokens at a count too low for dense screen text, and the ablations put 64 tokens as too few for reading; spend tokens here and save elsewhere.
-- "Generate the screen descriptions with a strong proprietary model." Distilled descriptions inherit hallucinations, and an agent that taps a hallucinated element fails; dense human descriptions won the reference comparison.
-- "A 2B model with a great encoder matches a 70B agent." The language model sets the reasoning ceiling; frame the task as perception plus short actions and verify each step, instead of promising long reasoning.
+- "Dùng một cầu nối dựa trên query để tiết kiệm token trên thiết bị." Nó giới hạn token ở một số lượng quá thấp cho văn bản màn hình dày đặc, và các ablation đặt 64 token là quá ít cho đọc; dùng token ở đây và tiết kiệm nơi khác.
+- "Sinh các mô tả màn hình bằng một mô hình độc quyền mạnh." Các mô tả chưng cất kế thừa ảo giác, và một agent chạm một phần tử ảo giác thất bại; các mô tả con người dày đặc thắng so sánh tham chiếu.
+- "Một mô hình 2B với một encoder tuyệt vời ngang một agent 70B." Mô hình ngôn ngữ đặt trần suy luận; định hình tác vụ là nhận thức cộng hành động ngắn và xác minh mỗi bước, thay vì hứa suy luận dài.
 
 ## Taught in
 
-The [open-weight recipes lesson](../../../phases/12-multimodal-ai/07-open-weight-vlm-recipes/) supplies the ablation evidence for each axis and sets this exercise, and the [vision-language models lesson](../../../phases/04-computer-vision/25-vision-language-models/) covers multi-level features, visual agents and the spatial reasoning limit.
+[Bài học các công thức trọng số mở](../../../phases/12-multimodal-ai/07-open-weight-vlm-recipes/) cung cấp bằng chứng ablation cho mỗi trục và đặt bài tập này, và [bài học các mô hình thị giác-ngôn ngữ](../../../phases/04-computer-vision/25-vision-language-models/) trình bày các đặc trưng nhiều cấp, agent thị giác và giới hạn suy luận không gian.

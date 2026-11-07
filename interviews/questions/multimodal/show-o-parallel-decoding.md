@@ -16,53 +16,53 @@ related: [multimodal/emu3-generation-cost, multimodal/vq-tokenizer-ceiling]
 updated: 2026-11-03
 ---
 
-Your team needs one open model for answering questions about images, text-to-image generation and inpainting, with a usable generation latency. One candidate generates images one code at a time; another denoises continuous patches; a third stays with discrete codes and fills them in parallel over a few passes. Compare the three on passes, training complexity and what comes for free.
+Nhóm của bạn cần một mô hình mở cho trả lời câu hỏi về ảnh, sinh văn bản thành ảnh và inpainting, với một độ trễ sinh dùng được. Một ứng viên sinh ảnh từng mã một; ứng viên khác khử nhiễu các patch liên tục; ứng viên thứ ba giữ mã rời rạc và lấp chúng song song qua vài lượt. So sánh ba loại về số lượt, độ phức tạp huấn luyện và những gì có miễn phí.
 
 ## Short answer
 
-Next-token generation over codes needs one pass per code, 1024 to 4096 passes per image, with one simple loss. Continuous diffusion in a shared transformer needs about 20 passes, but it trains two losses on different scales. Masked discrete decoding keeps codes and one cross-entropy loss, predicts all masked positions at once and commits the most confident ones each pass, so an image takes about 16 passes; inpainting is free, because the training objective is to fill masked codes from the rest. For a product that wants all three tasks in one open model at a usable latency, the masked discrete design is the fit, and the continuous design is the pick when fidelity is paramount.
+Sinh next-token trên mã cần một lượt mỗi mã, 1024 đến 4096 lượt mỗi ảnh, với một loss đơn giản. Diffusion liên tục trong một transformer dùng chung cần khoảng 20 lượt, nhưng nó huấn luyện hai loss trên các thang khác nhau. Decoding rời rạc có mask giữ mã và một cross-entropy loss, dự đoán tất cả vị trí bị mask cùng lúc và chốt các vị trí tự tin nhất mỗi lượt, nên một ảnh mất khoảng 16 lượt; inpainting miễn phí, vì mục tiêu huấn luyện là lấp các mã bị mask từ phần còn lại. Với một sản phẩm muốn cả ba tác vụ trong một mô hình mở ở độ trễ dùng được, thiết kế rời rạc có mask phù hợp, và thiết kế liên tục là lựa chọn khi độ trung thực là tối quan trọng.
 
 ## Full answer
 
 ### How masked discrete decoding works
 
-Training samples a masking ratio uniformly, masks that share of an image's codes, and trains the transformer to recover them. That generalizes next-token prediction: for text only the last position is masked, for an image a random subset is. At inference, start from a fully masked grid, predict every masked position in parallel, keep the most confident predictions, re-mask the rest, and repeat on a schedule. A cosine schedule, the mask ratio as the cosine of pi times the step over twice the total steps, concentrates the work at mid-range ratios where predictions are most informative.
+Huấn luyện lấy mẫu một tỷ lệ masking đều, mask tỷ phần đó của các mã ảnh, và huấn luyện transformer khôi phục chúng. Điều đó tổng quát hóa dự đoán next-token: với văn bản chỉ vị trí cuối bị mask, với ảnh một tập con ngẫu nhiên bị mask. Khi suy luận, bắt đầu từ một lưới bị mask hoàn toàn, dự đoán mọi vị trí bị mask song song, giữ các dự đoán tự tin nhất, mask lại phần còn lại, và lặp theo một lịch trình. Một lịch trình cosine, tỷ lệ mask là cosine của pi nhân bước chia hai lần tổng bước, tập trung công việc ở các tỷ lệ tầm giữa nơi các dự đoán mang nhiều thông tin nhất.
 
 ### The attention mask
 
-Text tokens are causal. Image codes attend to every other code of the same image, so a masked position can see all of its neighbors. Text attends to prior images, and image codes attend to prior text.
+Các token văn bản có tính nhân quả. Các mã ảnh attend đến mọi mã khác của cùng ảnh, nên một vị trí bị mask có thể thấy tất cả láng giềng. Văn bản attend đến các ảnh trước, và các mã ảnh attend đến văn bản trước.
 
 ### The comparison
 
-| Design | Passes per image | Losses | Free extras |
+| Thiết kế | Lượt mỗi ảnh | Loss | Phần thêm miễn phí |
 |---|---|---|---|
-| Next-token over codes | one per code, 1024 to 4096 | one cross-entropy | video with a 3D tokenizer; one stack for everything |
-| Continuous diffusion in the transformer | about 20 | cross-entropy plus a diffusion loss on patches | the highest fidelity, no quantizer |
-| Masked discrete decoding | about 16 | one cross-entropy on masked positions | inpainting; one checkpoint for answering, writing and generating |
+| Next-token trên mã | một mỗi mã, 1024 đến 4096 | một cross-entropy | video với một tokenizer 3D; một stack cho mọi thứ |
+| Diffusion liên tục trong transformer | khoảng 20 | cross-entropy cộng một diffusion loss trên patch | độ trung thực cao nhất, không có bộ lượng tử hóa |
+| Decoding rời rạc có mask | khoảng 16 | một cross-entropy trên các vị trí bị mask | inpainting; một checkpoint cho trả lời, viết và sinh |
 
-Per pass, the masked design is cheaper than continuous diffusion, because it emits discrete logits rather than a continuous regression at every patch.
+Mỗi lượt, thiết kế có mask rẻ hơn diffusion liên tục, vì nó xuất các logit rời rạc thay vì một hồi quy liên tục ở mọi patch.
 
 ### What the masked design pays
 
-It keeps the tokenizer ceiling of every discrete design: the image can be no better than the quantizer's reconstruction. Unmasking everything in one pass fails, because the codes are predicted independently and the result is incoherent; the schedule exists so that committed codes condition the rest.
+Nó giữ trần tokenizer của mọi thiết kế rời rạc: ảnh không thể tốt hơn tái dựng của bộ lượng tử hóa. Bỏ mask mọi thứ trong một lượt thất bại, vì các mã được dự đoán độc lập và kết quả không nhất quán; lịch trình tồn tại để các mã đã chốt điều kiện hóa phần còn lại.
 
 ### Inpainting for free
 
-Mask the codes of a region, feed the rest plus a text prompt, and predict the masked ones. No new objective and no new head: the training task was exactly this.
+Mask các mã của một vùng, đưa vào phần còn lại cộng một prompt văn bản, và dự đoán các mã bị mask. Không có mục tiêu mới và không có head mới: tác vụ huấn luyện chính xác là điều này.
 
 ## Follow-ups
 
-- **Level 3:** Why can the model not unmask everything in one pass? Expected: each masked position is predicted from a marginal that ignores the others, so the sampled codes do not agree; committing the confident ones first gives the rest conditioning.
-- **Level 3:** Why does a cosine schedule beat a linear one? Expected: it spends more steps at the mid-range ratios where each prediction is most informative, while a linear schedule plateaus earlier.
-- **Level 4:** Where does the per-step cost differ between masked discrete and continuous diffusion? Expected: both are full transformer passes, but the discrete head emits logits over the codebook while the continuous head regresses a velocity for every patch; the discrete pass is cheaper per step.
-- **Level 4:** What would make you give up the one-model simplicity for a specialist? Expected: a fidelity requirement above the tokenizer ceiling, or a latency budget that even sixteen full passes cannot meet, where a dedicated continuous generator wins.
+- **Level 3:** Tại sao mô hình không thể bỏ mask mọi thứ trong một lượt? Expected: mỗi vị trí bị mask được dự đoán từ một phân phối biên bỏ qua các vị trí khác, nên các mã lấy mẫu không thống nhất; chốt các mã tự tin trước cho phần còn lại điều kiện.
+- **Level 3:** Tại sao một lịch trình cosine thắng một lịch trình tuyến tính? Expected: nó dành nhiều bước hơn ở các tỷ lệ tầm giữa nơi mỗi dự đoán mang nhiều thông tin nhất, trong khi một lịch trình tuyến tính đạt bình nguyên sớm hơn.
+- **Level 4:** Chi phí mỗi bước khác nhau ở đâu giữa rời rạc có mask và diffusion liên tục? Expected: cả hai là các lượt transformer đầy đủ, nhưng head rời rạc xuất logit trên codebook trong khi head liên tục hồi quy một vận tốc cho mọi patch; lượt rời rạc rẻ hơn mỗi bước.
+- **Level 4:** Điều gì khiến bạn bỏ sự đơn giản một mô hình để lấy một mô hình chuyên biệt? Expected: một yêu cầu độ trung thực trên trần tokenizer, hoặc một ngân sách độ trễ mà ngay cả mười sáu lượt đầy đủ không thể đáp ứng, nơi một bộ sinh liên tục chuyên dụng thắng.
 
 ## Wrong answers
 
-- "Masked decoding is diffusion, so it needs a noise schedule." It is discrete: positions are masked, not noised, and the schedule sets how many codes to commit per pass.
-- "Next-token generation is the fastest because each pass is small." Each pass is a full transformer pass over the sequence, and there are thousands of them per image.
-- "Inpainting needs a separate model." The masked objective is inpainting; masking a region at inference is the task the model trained on.
+- "Decoding có mask là diffusion, nên cần một lịch trình nhiễu." Nó rời rạc: các vị trí bị mask, không phải thêm nhiễu, và lịch trình đặt bao nhiêu mã để chốt mỗi lượt.
+- "Sinh next-token nhanh nhất vì mỗi lượt nhỏ." Mỗi lượt là một lượt transformer đầy đủ trên chuỗi, và có hàng nghìn lượt mỗi ảnh.
+- "Inpainting cần một mô hình riêng." Mục tiêu có mask là inpainting; mask một vùng khi suy luận là tác vụ mô hình đã huấn luyện.
 
 ## Taught in
 
-The [Show-o lesson](../../../phases/12-multimodal-ai/14-show-o-discrete-diffusion-unified/) walks the masked decoding, the schedule and the task list, the [Emu3 lesson](../../../phases/12-multimodal-ai/12-emu3-next-token-for-generation/) gives the per-code cost, and the [Transfusion lesson](../../../phases/12-multimodal-ai/13-transfusion-autoregressive-diffusion/) gives the continuous alternative.
+[Bài học Show-o](../../../phases/12-multimodal-ai/14-show-o-discrete-diffusion-unified/) trình bày decoding có mask, lịch trình và danh sách tác vụ, [bài học Emu3](../../../phases/12-multimodal-ai/12-emu3-next-token-for-generation/) đưa ra chi phí mỗi mã, và [bài học Transfusion](../../../phases/12-multimodal-ai/13-transfusion-autoregressive-diffusion/) đưa ra lựa chọn liên tục.

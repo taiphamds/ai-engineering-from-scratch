@@ -16,55 +16,55 @@ related: [multimodal/image-tokens-per-image]
 updated: 2026-11-03
 ---
 
-You are choosing the bridge between a frozen vision encoder and a language model that stays frozen, for a new product. One architect wants a query-based transformer that compresses each image to a fixed set of tokens. Another wants a plain MLP that passes every patch through. How do you decide?
+Bạn đang chọn cầu nối giữa một encoder thị giác đóng băng và một mô hình ngôn ngữ giữ đóng băng, cho một sản phẩm mới. Một kiến trúc sư muốn một transformer dựa trên query nén mỗi ảnh thành một tập token cố định. Một người khác muốn một MLP thông thường truyền mọi patch qua. Bạn quyết định như thế nào?
 
 ## Short answer
 
-Decide on the token budget, not on quality in the abstract. At a fixed number of visual tokens, the ablation studies find the connector architecture a wash, within about a point between an MLP on mean-pooled patches, a query bridge and a resampler; a full-patch MLP spends more tokens, so it sits at a different budget. The query bridge caps an image at 32 tokens whatever its resolution and costs 188M parameters plus a two-stage pretraining of its own; the MLP emits every patch, 576 for a 336-pixel image, with about 22M parameters and one language-modeling loss. Pick the compressing bridge when context binds, as with long video or many images; pick the MLP when quality per token and simplicity matter and the context is long enough.
+Quyết định theo ngân sách token, không phải chất lượng trừu tượng. Ở một số token thị giác cố định, các nghiên cứu ablation thấy kiến trúc connector hòa nhau, trong khoảng một điểm giữa một MLP trên các patch mean-pooled, một cầu nối query và một resampler; một MLP toàn patch dùng nhiều token hơn, nên nó nằm ở một ngân sách khác. Cầu nối query giới hạn một ảnh ở 32 token bất kể độ phân giải và tốn 188M tham số cộng một pretraining hai giai đoạn riêng; MLP xuất mọi patch, 576 cho một ảnh 336 pixel, với khoảng 22M tham số và một loss mô hình hóa ngôn ngữ. Chọn cầu nối nén khi ngữ cảnh ràng buộc, như với video dài hoặc nhiều ảnh; chọn MLP khi chất lượng mỗi token và tính đơn giản quan trọng và ngữ cảnh đủ dài.
 
 ## Full answer
 
 ### The two bridges
 
-| | Query bridge | MLP |
+| | Cầu nối query | MLP |
 |---|---|---|
-| Visual tokens per image | 32, fixed | 576 at 336 pixels, about 2880 with tiling |
-| Trainable parameters, language model frozen | 188M | about 22M |
-| Pretraining | a representation stage with contrastive, matching and generation losses, then a generative stage | the language-modeling loss throughout |
-| Swap the language model | retrain the bridge | retrain a small head |
-| Many images and video | awkward, but cheap in tokens | natural concatenation, expensive in tokens |
+| Token thị giác mỗi ảnh | 32, cố định | 576 ở 336 pixel, khoảng 2880 với chia ô |
+| Tham số huấn luyện được, mô hình ngôn ngữ đóng băng | 188M | khoảng 22M |
+| Pretraining | một giai đoạn biểu diễn với các loss tương phản, matching và sinh, rồi một giai đoạn sinh | loss mô hình hóa ngôn ngữ xuyên suốt |
+| Đổi mô hình ngôn ngữ | huấn luyện lại cầu nối | huấn luyện lại một head nhỏ |
+| Nhiều ảnh và video | bất tiện, nhưng rẻ về token | nối tự nhiên, đắt về token |
 
 ### What the ablations say
 
-Several controlled studies reached one result. At a fixed visual-token count, the connector explains about 5 percent of the variance in benchmark scores, the per-image token count about 60 percent, and the encoder about 20. An MLP on pooled patches lands within 1 point of a 32-query bridge at the same budget. So the question is how many tokens you can afford, and which encoder you use.
+Nhiều nghiên cứu có kiểm soát đạt một kết quả. Ở một số token thị giác cố định, connector giải thích khoảng 5 phần trăm variance trong điểm benchmark, số token mỗi ảnh khoảng 60 phần trăm, và encoder khoảng 20. Một MLP trên các patch pooled nằm trong 1 điểm của một cầu nối 32 query ở cùng ngân sách. Vì vậy câu hỏi là bạn có thể trả cho bao nhiêu token, và bạn dùng encoder nào.
 
 ### Why the field split
 
-The compressing bridge wins where the token budget binds: long video, many images in one prompt, small contexts. The MLP won the single-image case once contexts grew to 32k and beyond, because every patch stays visible to the language model and the recipe has no stage-one losses to tune. Token budgets from the ablations: 64 per image is too few for reading text, 576 to 1024 is the sweet spot for most tasks, and 2048 and above pays only for documents and charts.
+Cầu nối nén thắng nơi ngân sách token ràng buộc: video dài, nhiều ảnh trong một prompt, ngữ cảnh nhỏ. MLP thắng trường hợp một ảnh khi các ngữ cảnh tăng đến 32k và hơn, vì mọi patch giữ nhìn thấy với mô hình ngôn ngữ và công thức không có các loss giai đoạn một để tinh chỉnh. Các ngân sách token từ ablation: 64 mỗi ảnh là quá ít để đọc văn bản, 576 đến 1024 là điểm tối ưu cho phần lớn tác vụ, và 2048 trở lên chỉ có lợi cho tài liệu và biểu đồ.
 
 ### Hidden costs of the query bridge
 
-Its queries learn an intermediate representation that the language model must then decode, so information is lost in the bottleneck. Change the language model or the encoder, and you retrain it. An instruction-aware variant feeds the instruction into the queries so that they can specialize per question, which recovers some of the loss.
+Các query của nó học một biểu diễn trung gian mà mô hình ngôn ngữ sau đó phải decode, nên thông tin mất trong nút thắt. Thay mô hình ngôn ngữ hoặc encoder, và bạn huấn luyện lại nó. Một biến thể nhận biết instruction đưa instruction vào các query để chúng có thể chuyên biệt theo câu hỏi, khôi phục một phần mất mát.
 
 ### A decision rule
 
-1. Count the tokens per image at your resolution and multiply by the images per prompt.
-2. If it fits the context with room for text, use the MLP and spend the effort on the encoder and the data.
-3. If it does not, use a compressing bridge, and accept the retraining cost when parts change.
+1. Đếm token mỗi ảnh ở độ phân giải của bạn và nhân với số ảnh mỗi prompt.
+2. Nếu nó vừa ngữ cảnh với chỗ cho văn bản, dùng MLP và dành nỗ lực cho encoder và dữ liệu.
+3. Nếu không, dùng một cầu nối nén, và chấp nhận chi phí huấn luyện lại khi các phần thay đổi.
 
 ## Follow-ups
 
-- **Level 2:** Why does the query bridge need a pretraining stage of its own? Expected: its queries start random and must learn to pull text-relevant content from the patches before the language model can use them; the MLP starts from patches that already carry the image.
-- **Level 2:** What do the three stage-one losses do? Expected: contrastive alignment of pooled queries with text, a matching classifier with hard negatives, and image-grounded text generation that forces the queries to encode what text needs.
-- **Level 3:** A team picked the MLP and now serves ten-minute videos. What do they hit first? Expected: the context; tokens per frame times frames exceeds any window, so they need heavy frame sampling or a compressing bridge after all.
-- **Level 3:** If the connector barely matters, where does the quality come from? Expected: the encoder, the token count, the data mix and the resolution schedule; the recipes lesson's decomposition puts the connector last.
+- **Level 2:** Tại sao cầu nối query cần một giai đoạn pretraining riêng? Expected: các query của nó bắt đầu ngẫu nhiên và phải học kéo nội dung liên quan văn bản từ patch trước khi mô hình ngôn ngữ có thể dùng chúng; MLP bắt đầu từ các patch đã mang ảnh.
+- **Level 2:** Ba loss giai đoạn một làm gì? Expected: alignment tương phản của các query pooled với văn bản, một bộ phân loại matching với hard negative, và sinh văn bản có grounding ảnh buộc các query encode điều văn bản cần.
+- **Level 3:** Một nhóm chọn MLP và giờ phục vụ video mười phút. Họ chạm gì trước? Expected: ngữ cảnh; token mỗi khung hình nhân số khung hình vượt bất kỳ cửa sổ nào, nên rốt cuộc họ cần lấy mẫu khung hình mạnh hoặc một cầu nối nén.
+- **Level 3:** Nếu connector hầu như không quan trọng, chất lượng đến từ đâu? Expected: encoder, số token, hỗn hợp dữ liệu và lịch trình độ phân giải; phân rã của bài học công thức đặt connector cuối.
 
 ## Wrong answers
 
-- "The query bridge is more advanced, so it gives better answers." At the same token count the two are within about a point; its advantage is compression, not quality.
-- "The MLP is always better because it keeps every patch." Keeping every patch costs tokens; with many images or video the context runs out before quality matters.
-- "Pick the bridge first and the encoder later." The encoder and the token count explain most of the variance; the bridge is the last knob to turn.
+- "Cầu nối query tiên tiến hơn, nên cho câu trả lời tốt hơn." Ở cùng số token, hai loại nằm trong khoảng một điểm; lợi thế của nó là nén, không phải chất lượng.
+- "MLP luôn tốt hơn vì giữ mọi patch." Giữ mọi patch tốn token; với nhiều ảnh hoặc video, ngữ cảnh hết trước khi chất lượng quan trọng.
+- "Chọn cầu nối trước và encoder sau." Encoder và số token giải thích phần lớn variance; cầu nối là núm cuối cùng để chỉnh.
 
 ## Taught in
 
-The [BLIP-2 lesson](../../../phases/12-multimodal-ai/03-blip2-qformer-bridge/) explains the query bridge and its two-stage training, the [LLaVA lesson](../../../phases/12-multimodal-ai/05-llava-visual-instruction-tuning/) tabulates the two bridges, and the [recipes lesson](../../../phases/12-multimodal-ai/07-open-weight-vlm-recipes/) gives the ablation results.
+[Bài học BLIP-2](../../../phases/12-multimodal-ai/03-blip2-qformer-bridge/) giải thích cầu nối query và huấn luyện hai giai đoạn của nó, [bài học LLaVA](../../../phases/12-multimodal-ai/05-llava-visual-instruction-tuning/) lập bảng hai cầu nối, và [bài học công thức](../../../phases/12-multimodal-ai/07-open-weight-vlm-recipes/) đưa ra các kết quả ablation.

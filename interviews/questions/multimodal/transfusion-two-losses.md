@@ -16,17 +16,17 @@ related: [multimodal/vq-tokenizer-ceiling, multimodal/show-o-parallel-decoding]
 updated: 2026-11-03
 ---
 
-Explain how a single transformer can train the text objective of next-token prediction together with a denoising loss on images in one gradient step. Cover the input representation, the attention mask, how the loss is routed per position, and the balance problem that follows. Then say what a sibling architecture changed.
+Giải thích cách một transformer đơn có thể huấn luyện mục tiêu văn bản của dự đoán next-token cùng một loss khử nhiễu trên ảnh trong một bước gradient. Bao phủ biểu diễn đầu vào, mask attention, cách loss được định tuyến theo vị trí, và vấn đề cân bằng theo sau. Sau đó nói một kiến trúc anh em thay đổi gì.
 
 ## Short answer
 
-Text enters as discrete tokens through the embedding table; images enter as continuous 16 by 16 pixel patches through a linear projection, bracketed by image start and end tags. One forward pass runs over the mixed sequence, and the loss is picked per position: cross-entropy on the vocabulary head for text positions, and a flow-matching regression for image patches, which predicts the velocity from a noised patch toward the clean one at a sampled time. The mask is block-triangular, causal over text and bidirectional among the patches of one image, with text attending to images that closed before it and patches attending to the preceding text. Both losses backpropagate through the same weights, so their relative magnitude must be balanced by hand; the sibling architecture keeps the joint attention but gives text and image their own weights in every block.
+Văn bản đi vào như các token rời rạc qua bảng embedding; ảnh đi vào như các patch liên tục 16 nhân 16 pixel qua một phép chiếu tuyến tính, được bao bởi các tag bắt đầu và kết thúc ảnh. Một lượt forward chạy trên chuỗi hỗn hợp, và loss được chọn theo vị trí: cross-entropy trên head từ vựng cho các vị trí văn bản, và một hồi quy flow-matching cho các patch ảnh, dự đoán vận tốc từ một patch được thêm nhiễu về phía patch sạch tại một thời điểm lấy mẫu. Mask là tam giác khối, nhân quả trên văn bản và hai chiều giữa các patch của một ảnh, với văn bản attend đến các ảnh đã đóng trước nó và patch attend đến văn bản đi trước. Cả hai loss backpropagate qua cùng trọng số, nên độ lớn tương đối của chúng phải được cân bằng bằng tay; kiến trúc anh em giữ attention chung nhưng cho văn bản và ảnh trọng số riêng trong mọi block.
 
 ## Full answer
 
 ### The input
 
-Two kinds of positions in one sequence. A text position holds a token id and goes through the embedding table. An image position holds a real-valued patch vector, projected into the hidden size by a linear layer, the way a vision transformer embeds its input. Tags mark where an image starts and ends.
+Hai loại vị trí trong một chuỗi. Một vị trí văn bản giữ một token id và đi qua bảng embedding. Một vị trí ảnh giữ một vector patch giá trị thực, được chiếu vào kích thước ẩn bằng một lớp tuyến tính, theo cách một vision transformer embed đầu vào. Các tag đánh dấu nơi ảnh bắt đầu và kết thúc.
 
 ### The mask
 
@@ -38,44 +38,44 @@ M[i, j] = 1 if
   or i is a patch, j is text, and j precedes the image start
 ```
 
-Teacher forcing on text requires the causal part. An image is one snapshot, so its patches may all see each other.
+Teacher forcing trên văn bản yêu cầu phần nhân quả. Một ảnh là một ảnh chụp, nên các patch của nó đều có thể thấy nhau.
 
 ### The loss per position
 
-- Text: the cross-entropy of the vocabulary head against the next token.
-- Image: sample a time t, interpolate between the clean patch and noise with weight t, feed the noisy patch, and regress the velocity, the noise minus the clean patch, with a mean squared error.
+- Văn bản: cross-entropy của head từ vựng đối chiếu token tiếp theo.
+- Ảnh: lấy mẫu một thời điểm t, nội suy giữa patch sạch và nhiễu với trọng số t, đưa vào patch nhiễu, và hồi quy vận tốc, nhiễu trừ patch sạch, bằng một mean squared error.
 
-Both terms add into one loss and one backward pass; the shared body receives both gradients.
+Cả hai số hạng cộng vào một loss và một lượt backward; phần thân dùng chung nhận cả hai gradient.
 
 ### Generation
 
-Text decodes token by token. When the model emits the image start tag, generation switches to a denoising loop over the image patches, conditioned on the text so far, for a few dozen steps, then returns to text.
+Văn bản decode từng token. Khi mô hình xuất tag bắt đầu ảnh, việc sinh chuyển sang một vòng lặp khử nhiễu trên các patch ảnh, được điều kiện hóa trên văn bản đến lúc đó, trong vài chục bước, rồi trở lại văn bản.
 
 ### The balancing problem
 
-The two losses live on different scales. The lesson's exercise poses a mix of 70 percent text and 30 percent image positions where the image loss is about ten times the text loss in magnitude; without weights, one head dominates the shared gradient. The weights, and any mismatch in schedules between the two objectives, are a search of their own, which is the price of avoiding a quantizer. The reward is image quality above a discrete model of the same size, by 3 to 5 points on the standard image score in the paper.
+Hai loss nằm trên các thang khác nhau. Bài tập của bài học đặt một hỗn hợp 70 phần trăm vị trí văn bản và 30 phần trăm vị trí ảnh nơi image loss khoảng gấp mười lần text loss về độ lớn; không có trọng số, một head chi phối gradient dùng chung. Các trọng số, và bất kỳ sự không khớp lịch trình nào giữa hai mục tiêu, là một cuộc tìm kiếm riêng, là cái giá tránh một bộ lượng tử hóa. Phần thưởng là chất lượng ảnh trên một mô hình rời rạc cùng kích thước, thêm 3 đến 5 điểm trên điểm ảnh tiêu chuẩn trong bài báo.
 
 ### The sibling
 
-The multimodal diffusion transformer behind a well-known image generator keeps the joint attention across modalities but gives text and image their own query, key, value and MLP weights in every block, trains with rectified flow, and ships in 2B and 8B parameter variants. Separate weights remove some of the balancing pressure at the cost of more parameters.
+Multimodal diffusion transformer đằng sau một bộ sinh ảnh nổi tiếng giữ attention chung xuyên phương thức nhưng cho văn bản và ảnh các trọng số query, key, value và MLP riêng trong mọi block, huấn luyện bằng rectified flow, và được cung cấp ở các biến thể 2B và 8B tham số. Các trọng số riêng loại bỏ một phần áp lực cân bằng với cái giá nhiều tham số hơn.
 
 ### Where it sits
 
-Discrete-code designs trade this plumbing for one loss and a tokenizer ceiling; the masked discrete design keeps one loss and parallel decoding. This design is the pick when fidelity is paramount and the two-loss recipe is acceptable.
+Các thiết kế mã rời rạc đánh đổi phần nối ghép này lấy một loss và một trần tokenizer; thiết kế rời rạc có mask giữ một loss và decoding song song. Thiết kế này là lựa chọn khi độ trung thực là tối quan trọng và công thức hai loss chấp nhận được.
 
 ## Follow-ups
 
-- **Level 3:** Why may image patches attend bidirectionally when text may not? Expected: text is generated left to right under teacher forcing, so a token must not see its target; an image is produced as one snapshot, and its patches have no order.
-- **Level 4:** How would you set the loss weights? Expected: measure the magnitude and the gradient norm of each loss on a held-out batch, scale them to comparable contributions, and tune from there against a text eval and an image eval together, because one can improve while the other regresses.
-- **Level 4:** What does the sampled time t do in the training loss? Expected: it picks how much noise the patch carries, so the model learns the whole path from noise to clean; at generation each step moves along that path.
-- **Level 4:** What does the sibling's per-modality weight set cost and buy? Expected: more parameters per block; it buys separate capacity for two very different input statistics and eases the balance, while the joint attention still lets the modalities condition each other.
+- **Level 3:** Tại sao các patch ảnh có thể attend hai chiều khi văn bản không thể? Expected: văn bản được sinh trái sang phải dưới teacher forcing, nên một token không được thấy mục tiêu của nó; một ảnh được tạo như một ảnh chụp, và các patch không có thứ tự.
+- **Level 4:** Bạn sẽ đặt các trọng số loss như thế nào? Expected: đo độ lớn và norm gradient của mỗi loss trên một batch giữ lại, điều chỉnh chúng đến các đóng góp tương đương, và tinh chỉnh từ đó theo một đánh giá văn bản và một đánh giá ảnh cùng nhau, vì một bên có thể cải thiện trong khi bên kia suy giảm.
+- **Level 4:** Thời điểm lấy mẫu t làm gì trong training loss? Expected: nó chọn patch mang bao nhiêu nhiễu, nên mô hình học toàn bộ đường từ nhiễu đến sạch; khi sinh mỗi bước di chuyển dọc đường đó.
+- **Level 4:** Tập trọng số theo phương thức của kiến trúc anh em tốn gì và mang lại gì? Expected: nhiều tham số hơn mỗi block; nó mang lại năng lực riêng cho hai thống kê đầu vào rất khác và giảm cân bằng, trong khi attention chung vẫn cho các phương thức điều kiện hóa nhau.
 
 ## Wrong answers
 
-- "One transformer can only have one loss." The loss is a function of the outputs per position; routing a different loss to different positions is one summed objective with one backward pass.
-- "Use a causal mask everywhere for simplicity." Causal attention inside an image hides part of each image from its own patches and hurts generation; the mask must be bidirectional inside an image block.
-- "The two losses balance themselves because they share the weights." Shared weights are the problem: the larger loss dominates the shared gradient until you weight them.
+- "Một transformer chỉ có thể có một loss." Loss là một hàm của các đầu ra theo vị trí; định tuyến một loss khác đến các vị trí khác là một mục tiêu được lấy tổng với một lượt backward.
+- "Dùng mask nhân quả ở mọi nơi cho đơn giản." Attention nhân quả bên trong một ảnh giấu một phần mỗi ảnh khỏi các patch của chính nó và gây hại sinh; mask phải hai chiều bên trong một block ảnh.
+- "Hai loss tự cân bằng vì chúng chia sẻ trọng số." Trọng số dùng chung là vấn đề: loss lớn hơn chi phối gradient dùng chung đến khi bạn đặt trọng số chúng.
 
 ## Taught in
 
-The [Transfusion lesson](../../../phases/12-multimodal-ai/13-transfusion-autoregressive-diffusion/) builds the two-loss trainer and the mask and names its sibling design, and the [Show-o lesson](../../../phases/12-multimodal-ai/14-show-o-discrete-diffusion-unified/) places it against the discrete designs.
+[Bài học Transfusion](../../../phases/12-multimodal-ai/13-transfusion-autoregressive-diffusion/) xây bộ huấn luyện hai loss và mask và nêu thiết kế anh em của nó, và [bài học Show-o](../../../phases/12-multimodal-ai/14-show-o-discrete-diffusion-unified/) đặt nó đối chiếu các thiết kế rời rạc.

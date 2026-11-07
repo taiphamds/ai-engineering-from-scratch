@@ -16,11 +16,11 @@ related: [multimodal/early-or-late-fusion]
 updated: 2026-11-03
 ---
 
-A unified next-token model generates a 512 by 512 image as a sequence of discrete codes. Estimate how long one image takes at a typical decode speed, compare it with a diffusion model, and say what a four-second video clip at low resolution costs in codes. Then name the levers that change the answer.
+Một mô hình next-token thống nhất sinh một ảnh 512 nhân 512 như một chuỗi mã rời rạc. Ước lượng một ảnh mất bao lâu ở tốc độ decode điển hình, so sánh với một mô hình diffusion, và nói một clip video bốn giây ở độ phân giải thấp tốn bao nhiêu mã. Sau đó nêu các đòn bẩy thay đổi đáp án.
 
 ## Short answer
 
-The reference model's tokenizer reduces 8 by 8 pixels to one code, so a 512 by 512 image is 4096 codes; at about 30 codes per second that is about 2 minutes per image, against 2 to 5 seconds for a diffusion model of the same quality tier. A 4-second clip at 8 frames per second is 32 frames; with the same 8 times spatial reduction and a 4-frame temporal reduction, a 256 by 256 clip is 32 times 32 times 8, which is 8,192 codes. The levers are the codes per image, the decode speed through speculative decoding or the KV cache, and a different decoding scheme such as masked parallel decoding, which needs about 16 passes instead of one pass per code.
+Tokenizer của mô hình tham chiếu giảm 8 nhân 8 pixel thành một mã, nên một ảnh 512 nhân 512 là 4096 mã; ở khoảng 30 mã mỗi giây, đó là khoảng 2 phút mỗi ảnh, so với 2 đến 5 giây cho một mô hình diffusion cùng bậc chất lượng. Một clip 4 giây ở 8 khung hình mỗi giây là 32 khung hình; với cùng mức giảm không gian 8 lần và mức giảm thời gian 4 khung hình, một clip 256 nhân 256 là 32 nhân 32 nhân 8, tức là 8,192 mã. Các đòn bẩy là số mã mỗi ảnh, tốc độ decode qua speculative decoding hoặc KV cache, và một sơ đồ decoding khác như masked parallel decoding, cần khoảng 16 lượt thay vì một lượt mỗi mã.
 
 ## Full answer
 
@@ -32,11 +32,11 @@ The reference model's tokenizer reduces 8 by 8 pixels to one code, so a 512 by 5
 4096 codes at about 30 per second = about 2 minutes
 ```
 
-A diffusion model samples a continuous latent in a few dozen steps and finishes in 2 to 5 seconds. Autoregressive image generation is compute-heavy by construction: one pass per code.
+Một mô hình diffusion lấy mẫu một latent liên tục trong vài chục bước và hoàn tất trong 2 đến 5 giây. Sinh ảnh tự hồi quy nặng tính toán theo cấu tạo: một lượt mỗi mã.
 
 ### The video
 
-The video tokenizer is three-dimensional: one code covers 4 frames by 8 by 8 pixels.
+Tokenizer video là ba chiều: một mã bao phủ 4 khung hình nhân 8 nhân 8 pixel.
 
 ```text
 frames: 4 s x 8 per second = 32
@@ -45,31 +45,31 @@ codes: (256 / 8) x (256 / 8) x (32 / 4) = 32 x 32 x 8 = 8,192
 
 ### Why the model pays this price
 
-The same weights do image generation, image understanding and video with one next-token loss, no diffusion schedule and no separate text encoder. The tokenizer's quality is the ceiling: the reference reports a reconstruction of 30.5 dB against about 32 for a continuous latent space, with four times the codes and four times the codebook of the earlier early-fusion model.
+Cùng trọng số làm sinh ảnh, hiểu ảnh và video với một next-token loss, không có lịch trình diffusion và không có encoder văn bản riêng. Chất lượng tokenizer là trần: tham chiếu báo cáo một tái dựng 30.5 dB so với khoảng 32 cho một không gian latent liên tục, với số mã gấp bốn lần và codebook gấp bốn lần mô hình early-fusion trước.
 
 ### The inference knobs
 
-- Classifier-free guidance: generate with and without the caption and mix the logits with a weight, typically 3.0 to 7.0; it doubles the forward passes per code.
-- Temperature: 0.8 for image generation and 1.0 for understanding in the reference recipe.
-- Speculative decoding narrows the gap to diffusion, and so does the KV cache, but neither closes it.
+- Classifier-free guidance: sinh có và không có caption và trộn các logit với một trọng số, thường là 3.0 đến 7.0; nó tăng gấp đôi các lượt forward mỗi mã.
+- Temperature: 0.8 cho sinh ảnh và 1.0 cho hiểu trong công thức tham chiếu.
+- Speculative decoding thu hẹp khoảng cách với diffusion, và KV cache cũng vậy, nhưng không cái nào xóa nó.
 
 ### A different decoding scheme
 
-Masked parallel decoding keeps discrete codes but predicts all masked positions at once and commits the most confident ones, in about 16 passes for an image, against about 20 for continuous diffusion and one pass per code for plain next-token generation.
+Masked parallel decoding giữ mã rời rạc nhưng dự đoán tất cả vị trí bị mask cùng lúc và chốt những vị trí tự tin nhất, trong khoảng 16 lượt cho một ảnh, so với khoảng 20 cho diffusion liên tục và một lượt mỗi mã cho sinh next-token thông thường.
 
 ## Follow-ups
 
-- **Level 2:** Why does guidance double the cost? Expected: each step needs a conditional and an unconditional forward pass to mix.
-- **Level 2:** What happens to the per-image time at 1024 by 1024? Expected: four times the codes at the same reduction, so about four times the decode time; the lesson's exercise asks for that count.
-- **Level 3:** Where does the quality ceiling of this model sit, and what moved it up from the first shared-vocabulary model? Expected: in the tokenizer's reconstruction; four times the codes per image and a four times larger codebook lifted it to 30.5 dB.
-- **Level 3:** When do you still pick this over a diffusion model? Expected: when one model must understand and generate across image, video and text with one loss, and the latency budget allows minutes per image or a batch pipeline.
+- **Level 2:** Tại sao guidance tăng gấp đôi chi phí? Expected: mỗi bước cần một lượt forward có điều kiện và một lượt không điều kiện để trộn.
+- **Level 2:** Điều gì xảy ra với thời gian mỗi ảnh ở 1024 nhân 1024? Expected: số mã gấp bốn lần ở cùng mức giảm, nên thời gian decode khoảng gấp bốn lần; bài tập của bài học yêu cầu số đếm đó.
+- **Level 3:** Trần chất lượng của mô hình này nằm ở đâu, và điều gì nâng nó từ mô hình từ vựng dùng chung đầu tiên? Expected: trong tái dựng của tokenizer; số mã mỗi ảnh gấp bốn lần và một codebook lớn gấp bốn lần nâng nó lên 30.5 dB.
+- **Level 3:** Khi nào bạn vẫn chọn nó thay vì một mô hình diffusion? Expected: khi một mô hình phải hiểu và sinh xuyên ảnh, video và văn bản với một loss, và ngân sách độ trễ cho phép nhiều phút mỗi ảnh hoặc một pipeline batch.
 
 ## Wrong answers
 
-- "An image is a few hundred tokens, like a VLM input." Those are projected encoder tokens for understanding; generation needs discrete codes at the tokenizer's density, 4096 for this image size.
-- "Diffusion is slower because it iterates." Diffusion takes a few dozen passes over all pixels at once; next-token generation takes one pass per code, thousands per image.
-- "A larger codebook makes generation faster." It raises the reconstruction quality; the pass count is set by the number of codes, not by the codebook size.
+- "Một ảnh là vài trăm token, như một đầu vào VLM." Đó là các token encoder được chiếu cho hiểu; sinh cần các mã rời rạc ở mật độ của tokenizer, 4096 cho kích thước ảnh này.
+- "Diffusion chậm hơn vì nó lặp." Diffusion mất vài chục lượt trên tất cả pixel cùng lúc; sinh next-token mất một lượt mỗi mã, hàng nghìn mỗi ảnh.
+- "Một codebook lớn hơn khiến sinh nhanh hơn." Nó tăng chất lượng tái dựng; số lượt được đặt bởi số mã, không phải kích thước codebook.
 
 ## Taught in
 
-The [Emu3 lesson](../../../phases/12-multimodal-ai/12-emu3-next-token-for-generation/) counts the image and video codes and gives the decode cost, and the [Show-o lesson](../../../phases/12-multimodal-ai/14-show-o-discrete-diffusion-unified/) compares the pass counts of the three decoding schemes.
+[Bài học Emu3](../../../phases/12-multimodal-ai/12-emu3-next-token-for-generation/) đếm các mã ảnh và video và đưa ra chi phí decode, và [bài học Show-o](../../../phases/12-multimodal-ai/14-show-o-discrete-diffusion-unified/) so sánh số lượt của ba sơ đồ decoding.

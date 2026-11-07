@@ -16,51 +16,51 @@ related: [multimodal/vq-tokenizer-ceiling]
 updated: 2026-11-03
 ---
 
-You pretrain an early-fusion model on interleaved text and image codes. The small runs are fine, but the large run's loss spikes and diverges after a while, and the attention scores climb from layer to layer. What is happening, and what did the published recipe change to make such a run converge?
+Bạn pretrain một mô hình early-fusion trên các mã ảnh và văn bản xen kẽ. Các lần chạy nhỏ ổn, nhưng loss của lần chạy lớn tăng vọt và phân kỳ sau một thời gian, và các điểm attention tăng từ lớp này sang lớp khác. Điều gì đang xảy ra, và công thức đã công bố thay đổi gì để khiến một lần chạy như vậy hội tụ?
 
 ## Short answer
 
-Early-fusion training at scale is unstable because image codes and text tokens share one softmax and one residual stream, and their gradients and norms differ; the attention logits grow with depth until the softmax saturates and the loss blows up. The published recipe at 34B parameters diverged at several checkpoints without three changes: normalization of the query and key projections before the dot product, dropout after every residual addition rather than only after attention and the MLP, and pre-normalization on the residual branch plus an extra normalization on the skip connection of the last block. The training recipe is as much of the contribution as the architecture.
+Huấn luyện early-fusion ở quy mô lớn không ổn định vì các mã ảnh và token văn bản chia sẻ một softmax và một luồng residual, và các gradient cùng norm của chúng khác nhau; các logit attention tăng theo độ sâu đến khi softmax bão hòa và loss bùng nổ. Công thức đã công bố ở 34B tham số phân kỳ tại nhiều checkpoint khi không có ba thay đổi: chuẩn hóa các phép chiếu query và key trước tích vô hướng, dropout sau mọi phép cộng residual thay vì chỉ sau attention và MLP, và pre-normalization trên nhánh residual cộng một chuẩn hóa bổ sung trên kết nối skip của block cuối. Công thức huấn luyện cũng là phần đóng góp nhiều như kiến trúc.
 
 ## Full answer
 
 ### The signature
 
-Norm growth. The query and key vectors grow in magnitude through the layers, the attention logits grow with them, the softmax turns into a near one-hot, and the gradients become spiky. Small runs do not reach the depth or the step count where this compounds; the large run does.
+Sự tăng norm. Các vector query và key tăng về độ lớn qua các lớp, các logit attention tăng theo chúng, softmax biến thành gần one-hot, và các gradient trở nên tăng vọt. Các lần chạy nhỏ không đạt độ sâu hoặc số bước nơi điều này tích lũy; lần chạy lớn thì có.
 
 ### Why early fusion makes it worse
 
-A shared vocabulary of 65,536 entries holds the text tokens and 8192 image codes, and one image is 1024 codes in a row. Long runs of image codes carry gradients on a different scale from text, and they can dominate an update. The two modalities also occupy different regions of the hidden space, which pushes the norms apart.
+Một từ vựng dùng chung 65,536 mục chứa các token văn bản và 8192 mã ảnh, và một ảnh là 1024 mã liên tiếp. Các chuỗi mã ảnh dài mang gradient ở thang khác văn bản, và chúng có thể chi phối một cập nhật. Hai phương thức cũng chiếm các vùng khác nhau của không gian ẩn, đẩy các norm tách xa nhau.
 
 ### The three changes
 
-1. QK-Norm. Apply layer normalization to the query and key projections inside attention, before the dot product. It bounds the logit magnitude at every depth, and several large models after this adopted it.
-2. Dropout placement. Dropout after every residual addition, not only after attention and after the MLP. More regularization where image-code gradients can dominate.
-3. Normalization ordering. Pre-normalization on the residual branch, which is standard, plus an extra normalization on the skip connection of the last block, which stabilizes the gradient flow at the final layer.
+1. QK-Norm. Áp dụng layer normalization cho các phép chiếu query và key bên trong attention, trước tích vô hướng. Nó chặn độ lớn logit ở mọi độ sâu, và nhiều mô hình lớn sau đó áp dụng nó.
+2. Vị trí dropout. Dropout sau mọi phép cộng residual, không chỉ sau attention và sau MLP. Thêm regularization nơi gradient mã ảnh có thể chi phối.
+3. Thứ tự chuẩn hóa. Pre-normalization trên nhánh residual, là tiêu chuẩn, cộng một chuẩn hóa bổ sung trên kết nối skip của block cuối, ổn định luồng gradient ở lớp cuối.
 
 ### How you would confirm it on your run
 
-- Log the norm of the queries and keys and the maximum attention logit per layer over training; the divergence should follow growth in the deep layers.
-- Log the gradient norm split by the modality of the token; a dominance of image-code gradients points at the second change.
-- Restart from a checkpoint before the spike with QK-Norm on, and compare the logit curves.
+- Ghi log norm của các query và key và logit attention lớn nhất mỗi lớp trong huấn luyện; phân kỳ nên theo sau sự tăng trong các lớp sâu.
+- Ghi log norm gradient được chia theo phương thức của token; sự chi phối của gradient mã ảnh chỉ đến thay đổi thứ hai.
+- Khởi động lại từ một checkpoint trước đợt tăng với QK-Norm bật, và so sánh các đường cong logit.
 
 ### The alternative family
 
-A continuous design that trains a diffusion loss on image patches next to the text loss avoids the shared softmax over image codes, but it has a balance problem of its own: the two losses live on different scales, and the weights between them are a search of their own.
+Một thiết kế liên tục huấn luyện một diffusion loss trên các patch ảnh cạnh text loss tránh softmax dùng chung trên các mã ảnh, nhưng nó có một vấn đề cân bằng riêng: hai loss nằm trên các thang khác nhau, và các trọng số giữa chúng là một cuộc tìm kiếm riêng.
 
 ## Follow-ups
 
-- **Level 3:** Why does normalizing the queries and keys bound the logits? Expected: the dot product of two normalized vectors is bounded by their scale, so the logits cannot grow without limit as the residual stream grows.
-- **Level 3:** Why not lower the learning rate instead? Expected: a lower rate slows the growth but does not remove the mechanism; the norms still drift with depth, and the run pays in steps for a problem that normalization removes.
-- **Level 4:** What did the paper report at 34B without the changes? Expected: repeated divergence at several checkpoints, driven by growth of the attention logits, a norm explosion, which the three changes removed.
-- **Level 4:** How does the two-loss continuous design trade this problem for another? Expected: it removes the shared softmax over image codes but introduces two losses of different magnitude, where one head can dominate without careful loss weights and schedules.
+- **Level 3:** Tại sao chuẩn hóa các query và key chặn các logit? Expected: tích vô hướng của hai vector được chuẩn hóa bị chặn bởi thang của chúng, nên các logit không thể tăng vô hạn khi luồng residual tăng.
+- **Level 3:** Tại sao không giảm learning rate thay vào đó? Expected: một rate thấp hơn làm chậm sự tăng nhưng không loại bỏ cơ chế; các norm vẫn trôi theo độ sâu, và lần chạy trả bằng các bước cho một vấn đề mà chuẩn hóa loại bỏ.
+- **Level 4:** Bài báo báo cáo gì ở 34B khi không có các thay đổi? Expected: phân kỳ lặp lại tại nhiều checkpoint, do tăng các logit attention, một sự bùng nổ norm, mà ba thay đổi loại bỏ.
+- **Level 4:** Thiết kế liên tục hai loss đánh đổi vấn đề này lấy vấn đề khác như thế nào? Expected: nó loại bỏ softmax dùng chung trên các mã ảnh nhưng đưa vào hai loss khác độ lớn, nơi một head có thể chi phối nếu không có trọng số loss và lịch trình cẩn thận.
 
 ## Wrong answers
 
-- "Early fusion is unstable by nature; use smaller models." The published recipe converged at 34B with the three changes; the instability is a recipe problem.
-- "Clip the gradients harder." Clipping bounds the update, not the logit growth that causes the saturation; the norms keep drifting under a clip.
-- "Use post-normalization everywhere; it is more stable." The recipe kept pre-normalization on the residual branch and added normalization where the norms grew: the queries, the keys, and the skip of the last block.
+- "Early fusion không ổn định về bản chất; dùng các mô hình nhỏ hơn." Công thức đã công bố hội tụ ở 34B với ba thay đổi; sự không ổn định là một vấn đề công thức.
+- "Clip gradient mạnh hơn." Clipping chặn cập nhật, không phải sự tăng logit gây bão hòa; các norm tiếp tục trôi dưới một clip.
+- "Dùng post-normalization ở mọi nơi; nó ổn định hơn." Công thức giữ pre-normalization trên nhánh residual và thêm chuẩn hóa nơi các norm tăng: query, key, và skip của block cuối.
 
 ## Taught in
 
-The [Chameleon lesson](../../../phases/12-multimodal-ai/11-chameleon-early-fusion-tokens/) documents the three stability changes and the divergence at scale, and the [Transfusion lesson](../../../phases/12-multimodal-ai/13-transfusion-autoregressive-diffusion/) gives the continuous alternative and its own balance problem.
+[Bài học Chameleon](../../../phases/12-multimodal-ai/11-chameleon-early-fusion-tokens/) ghi lại ba thay đổi ổn định và sự phân kỳ ở quy mô lớn, và [bài học Transfusion](../../../phases/12-multimodal-ai/13-transfusion-autoregressive-diffusion/) đưa ra lựa chọn liên tục và vấn đề cân bằng riêng.

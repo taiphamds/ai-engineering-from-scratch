@@ -16,50 +16,50 @@ related: [multimodal/vlm-three-parts]
 updated: 2026-11-03
 ---
 
-In the first training stage of most open vision-language models, both the vision encoder and the decoder are frozen, and only the small projector learns. A junior engineer asks why anyone would train the smallest part first instead of the parts that matter. Answer them.
+Trong giai đoạn huấn luyện đầu của phần lớn mô hình thị giác-ngôn ngữ mở, cả encoder thị giác và decoder đóng băng, và chỉ projector nhỏ học. Một kỹ sư mới hỏi tại sao ai đó lại huấn luyện phần nhỏ nhất trước thay vì các phần quan trọng. Trả lời họ.
 
 ## Short answer
 
-The two big parts already work: the encoder represents images, and the language model writes text. What is missing is a translation between their two vector spaces, and that translation is small. Training only the bridge costs a few hundred steps on one GPU, cannot damage either pretrained part, and gives the language model inputs it can read before anyone unfreezes it. Unfreezing the language model comes in the second stage, once the bridge produces tokens that look like language.
+Hai phần lớn đã hoạt động: encoder biểu diễn ảnh, và mô hình ngôn ngữ viết văn bản. Điều thiếu là một phép dịch giữa hai không gian vector của chúng, và phép dịch đó nhỏ. Chỉ huấn luyện cầu nối tốn vài trăm bước trên một GPU, không thể làm hại phần pretrained nào, và cho mô hình ngôn ngữ các đầu vào nó có thể đọc trước khi ai đó mở đóng băng nó. Mở đóng băng mô hình ngôn ngữ đến ở giai đoạn thứ hai, một khi cầu nối tạo các token trông như ngôn ngữ.
 
 ## Full answer
 
 ### What the projector is
 
-A two-layer MLP: linear, GELU, linear. The capstone's head maps 768 to 1024 to 512 and holds about 1.3M parameters next to an encoder of 86M. The reference open recipe's head maps 1024 to 4096 to 4096, about 22M parameters next to a 303M encoder and a 7B language model.
+Một MLP hai lớp: tuyến tính, GELU, tuyến tính. Head của capstone ánh xạ 768 đến 1024 đến 512 và giữ khoảng 1.3M tham số cạnh một encoder 86M. Head của công thức mở tham chiếu ánh xạ 1024 đến 4096 đến 4096, khoảng 22M tham số cạnh một encoder 303M và một mô hình ngôn ngữ 7B.
 
 ### Why the frozen big parts are the point
 
-- Stability. Gradients from a few thousand noisy pairs would overwrite features that the encoder learned from hundreds of millions of images.
-- Cost. The alignment stage of the reference recipe trains on 558k caption pairs in a few hours at a batch of 128. The capstone's version drives its loss from about 1.07 to about 0.80 in 200 steps.
-- A clean signal. With both big parts fixed, the loss moves only through the bridge, so you can read whether the two spaces align.
-- Swappability. Change the language model and retrain the bridge; the encoder stays.
+- Ổn định. Các gradient từ vài nghìn cặp nhiễu sẽ ghi đè các đặc trưng encoder đã học từ hàng trăm triệu ảnh.
+- Chi phí. Giai đoạn alignment của công thức tham chiếu huấn luyện trên 558k cặp caption trong vài giờ ở batch 128. Phiên bản capstone đẩy loss từ khoảng 1.07 xuống khoảng 0.80 trong 200 bước.
+- Một tín hiệu sạch. Với cả hai phần lớn cố định, loss chỉ di chuyển qua cầu nối, nên bạn có thể đọc liệu hai không gian có căn chỉnh.
+- Khả năng hoán đổi. Thay mô hình ngôn ngữ và huấn luyện lại cầu nối; encoder ở lại.
 
 ### What the loss is
 
-The reference recipe uses the language-modeling loss on the caption, conditioned on the projected image tokens. The capstone uses a per-pair cosine alignment loss, one minus the cosine between a pooled image vector and a mean-pooled caption embedding, so that the dynamics stay visible; a contrastive batch version is the next lesson.
+Công thức tham chiếu dùng loss mô hình hóa ngôn ngữ trên caption, được điều kiện hóa trên các token ảnh được chiếu. Capstone dùng một cosine alignment loss mỗi cặp, một trừ cosine giữa một vector ảnh pooled và một embedding caption mean-pooled, để động lực giữ nhìn thấy; một phiên bản batch tương phản là bài học tiếp theo.
 
 ### What comes after
 
-Stage two unfreezes the language model, fully or through adapters, keeps the bridge trainable, and trains on instruction data. A bridge that was never aligned first gives the language model noise at the start of that stage.
+Giai đoạn hai mở đóng băng mô hình ngôn ngữ, đầy đủ hoặc qua adapter, giữ cầu nối huấn luyện được, và huấn luyện trên dữ liệu instruction. Một cầu nối chưa từng được căn chỉnh trước cho mô hình ngôn ngữ nhiễu ở đầu giai đoạn đó.
 
 ### The other kind of bridge
 
-A query-based bridge with a fixed set of learned vectors compresses the image to a fixed token count. It is larger, 188M parameters in the original, and it still trains with the backbones frozen; the principle is the same.
+Một cầu nối dựa trên query với một tập cố định các vector được học nén ảnh thành một số token cố định. Nó lớn hơn, 188M tham số trong bản gốc, và nó vẫn huấn luyện với các backbone đóng băng; nguyên tắc giống nhau.
 
 ## Follow-ups
 
-- **Level 1:** What does a frozen parameter mean in code? Expected: `requires_grad=False`, so the optimizer never sees it, and no memory goes to its gradient or optimizer state.
-- **Level 2:** Why pool the image tokens before the cosine loss in the capstone? Expected: the caption side is one vector, so the image side needs one vector too; the first token or the mean over all tokens are the usual choices.
-- **Level 2:** One linear layer would be smaller still. Why two? Expected: a single linear map can rotate and rescale but cannot bend; the GELU between two layers gives the one non-linear bend that aligns contrastive vision features to language embeddings.
-- **Level 3:** What breaks if you skip the alignment stage and start with instruction tuning with everything unfrozen? Expected: the language model receives unaligned inputs, and its gradients on a small set damage its text ability; the two stages exist to give it readable inputs first.
+- **Level 1:** Một tham số đóng băng có nghĩa gì trong mã? Expected: `requires_grad=False`, nên bộ tối ưu không bao giờ thấy nó, và không bộ nhớ nào dành cho gradient hoặc trạng thái bộ tối ưu của nó.
+- **Level 2:** Tại sao pool các token ảnh trước cosine loss trong capstone? Expected: phía caption là một vector, nên phía ảnh cũng cần một vector; token đầu tiên hoặc trung bình trên tất cả token là các lựa chọn thông thường.
+- **Level 2:** Một lớp tuyến tính sẽ còn nhỏ hơn. Tại sao hai? Expected: một ánh xạ tuyến tính duy nhất có thể quay và đổi tỷ lệ nhưng không thể uốn; GELU giữa hai lớp cho một lần uốn phi tuyến căn chỉnh các đặc trưng thị giác tương phản với embedding ngôn ngữ.
+- **Level 3:** Điều gì hỏng nếu bạn bỏ giai đoạn alignment và bắt đầu bằng instruction tuning với mọi thứ mở đóng băng? Expected: mô hình ngôn ngữ nhận các đầu vào chưa căn chỉnh, và các gradient của nó trên một tập nhỏ làm hại khả năng văn bản; hai giai đoạn tồn tại để cho nó các đầu vào đọc được trước.
 
 ## Wrong answers
 
-- "Train the encoder; it is the part that sees." It already sees, and a small dataset cannot teach it more than it loses by overwriting features; the missing part is the translation.
-- "The projector is too small to carry an image." It does not carry the image; it maps tokens that already encode the image into the space the language model reads.
-- "Freezing is only a memory trick." Memory is one gain; the larger ones are stability, a clean training signal, and the ability to swap the language model.
+- "Huấn luyện encoder; nó là phần nhìn." Nó đã nhìn, và một tập dữ liệu nhỏ không thể dạy nó nhiều hơn lượng nó mất do ghi đè đặc trưng; phần thiếu là phép dịch.
+- "Projector quá nhỏ để mang một ảnh." Nó không mang ảnh; nó ánh xạ các token đã encode ảnh vào không gian mô hình ngôn ngữ đọc.
+- "Đóng băng chỉ là một thủ thuật bộ nhớ." Bộ nhớ là một lợi ích; các lợi ích lớn hơn là ổn định, một tín hiệu huấn luyện sạch, và khả năng đổi mô hình ngôn ngữ.
 
 ## Taught in
 
-The [projection capstone](../../../phases/19-capstone-projects/60-projection-layer-modality-align/) trains the bridge alone with a cosine loss, the [LLaVA lesson](../../../phases/12-multimodal-ai/05-llava-visual-instruction-tuning/) gives the two-stage recipe and its parameter counts, and the [BLIP-2 lesson](../../../phases/12-multimodal-ai/03-blip2-qformer-bridge/) explains the frozen-backbone economics.
+[Capstone phép chiếu](../../../phases/19-capstone-projects/60-projection-layer-modality-align/) huấn luyện riêng cầu nối bằng một cosine loss, [bài học LLaVA](../../../phases/12-multimodal-ai/05-llava-visual-instruction-tuning/) đưa ra công thức hai giai đoạn và số tham số của nó, và [bài học BLIP-2](../../../phases/12-multimodal-ai/03-blip2-qformer-bridge/) giải thích tính kinh tế của backbone đóng băng.
