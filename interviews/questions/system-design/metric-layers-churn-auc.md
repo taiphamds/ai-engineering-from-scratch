@@ -16,51 +16,51 @@ related: [system-design/churn-model-system, system-design/when-not-ml]
 updated: 2026-11-03
 ---
 
-A data scientist reports a churn classifier with an AUC of 0.91. Three months after launch, nobody on the retention team uses the scores. The algorithm was fine. Name the design decisions that were missing, and say which metric should have been reported instead.
+Một nhà khoa học dữ liệu báo cáo một bộ phân loại churn có AUC 0.91. Ba tháng sau ra mắt, không ai trong nhóm giữ chân dùng các điểm. Thuật toán vẫn ổn. Nêu các quyết định thiết kế đã thiếu, và nói chỉ số nào lẽ ra nên được báo cáo thay vào đó.
 
 ## Short answer
 
-The failures happened before training: nobody named the action a score starts, the scores arrived weekly while the team called customers daily, a feature leaked the label through the cancellation reason, and nobody compared the model with the rule the team already used. AUC averages over every threshold including ones never used; the decision was to contact the top 5 percent each night, so the right offline number was precision in that top 5 percent, paired with online, business and guardrail metrics.
+Các lỗi xảy ra trước huấn luyện: không ai nêu hành động mà một điểm khởi động, các điểm đến hàng tuần trong khi nhóm gọi khách hàng hàng ngày, một feature làm rò rỉ nhãn qua lý do hủy, và không ai so sánh mô hình với quy tắc nhóm đã dùng. AUC lấy trung bình trên mọi ngưỡng bao gồm những ngưỡng không bao giờ dùng; quyết định là liên hệ top 5 phần trăm mỗi đêm, nên con số offline đúng là precision trong top 5 phần trăm đó, đi cùng các chỉ số online, kinh doanh và guardrail.
 
 ## Full answer
 
 ### Four layers of metrics
 
-| Layer | When measured | Churn example |
+| Lớp | Khi đo | Ví dụ churn |
 |---|---|---|
-| Offline | Before launch, on held-out past data | Precision in the top 5 percent at the offer threshold |
-| Online | During launch, on live traffic | Offer acceptance rate, share of users scored |
-| Business | Weeks later, with an experiment | 30-day churn in the treated group versus a holdout |
-| Guardrail | All the time | Offer cost per saved user, unsubscribe rate, p99 latency |
+| Offline | Trước ra mắt, trên dữ liệu quá khứ giữ lại | Precision trong top 5 phần trăm tại ngưỡng ưu đãi |
+| Online | Trong ra mắt, trên lưu lượng trực tiếp | Tỷ lệ chấp nhận ưu đãi, tỷ lệ người dùng được chấm điểm |
+| Kinh doanh | Vài tuần sau, với một thí nghiệm | Churn 30 ngày trong nhóm được can thiệp so với một nhóm giữ lại |
+| Guardrail | Mọi lúc | Chi phí ưu đãi mỗi người dùng được giữ, tỷ lệ hủy nhận tin, độ trễ p99 |
 
-The layers disagree often. The offline score comes from a past that did not contain the model. The online metric depends on how people react to the decision. The business metric moves slowly and carries noise from everything else in the company. The guardrails must not get worse.
+Các lớp thường bất đồng. Điểm offline đến từ một quá khứ không chứa mô hình. Chỉ số online phụ thuộc vào cách mọi người phản ứng với quyết định. Chỉ số kinh doanh dịch chuyển chậm và mang nhiễu từ mọi thứ khác trong công ty. Các guardrail không được tệ hơn.
 
 ### Pick the offline metric from the decision
 
-The job contacts a fixed share of users, so the metric is the precision of that share. AUC ranks every pair of users, most of which never reach the decision. The rules guide quoted in the lesson puts it first: design the metrics before deciding what the system does.
+Công việc liên hệ một tỷ lệ người dùng cố định, nên chỉ số là precision của tỷ lệ đó. AUC xếp hạng mọi cặp người dùng, phần lớn không bao giờ đến quyết định. Hướng dẫn quy tắc được trích trong bài học đặt điều đó trước: thiết kế các chỉ số trước khi quyết định hệ thống làm gì.
 
 ### Baselines
 
-An F1 of 0.56 is good against a best alternative of 0.30 and poor against a rule that reaches 0.60. Three baselines are needed: the trivial one, a heuristic such as the idle-days rule the support team used, and the current system. The lift is measured against the strongest one, and a minimum lift is set before the results are seen.
+Một F1 0.56 là tốt so với một lựa chọn thay thế tốt nhất 0.30 và kém so với một quy tắc đạt 0.60. Cần ba baseline: baseline tầm thường, một heuristic như quy tắc số-ngày-không-hoạt-động mà nhóm hỗ trợ dùng, và hệ thống hiện tại. Mức tăng được đo so với baseline mạnh nhất, và một mức tăng tối thiểu được đặt trước khi các kết quả được thấy.
 
 ### The other three failures
 
-- Freshness: weekly scores for a daily process means the team acted on stale numbers.
-- Leakage: a feature written after the outcome contained the answer, so the offline score was inflated.
-- Decision: a score with no action attached cannot change a business metric.
+- Độ tươi: các điểm hàng tuần cho một quy trình hàng ngày nghĩa là nhóm hành động trên các con số cũ.
+- Rò rỉ: một feature được ghi sau kết quả chứa câu trả lời, nên điểm offline bị thổi phồng.
+- Quyết định: một điểm không có hành động gắn vào không thể thay đổi một chỉ số kinh doanh.
 
 ## Follow-ups
 
-- **Level 1:** Why is a 30-day churn label slow to evaluate? Expected: the label arrives at the end of the horizon, so the business metric lags the launch by at least that long.
-- **Level 2:** Which guardrail would catch a model that saves users at any price? Expected: offer cost per saved user.
-- **Level 2:** The heuristic baseline beats the model by a small margin. What ships? Expected: the rule, because it is cheaper to run and explain, unless the model clears the minimum lift.
+- **Level 1:** Tại sao một nhãn churn 30 ngày chậm để đánh giá? Expected: nhãn đến ở cuối chân trời, nên chỉ số kinh doanh trễ hơn ra mắt ít nhất lâu như vậy.
+- **Level 2:** Guardrail nào sẽ bắt một mô hình giữ người dùng bằng mọi giá? Expected: chi phí ưu đãi mỗi người dùng được giữ.
+- **Level 2:** Baseline heuristic đánh bại mô hình một biên nhỏ. Điều gì được phát hành? Expected: quy tắc, vì nó rẻ hơn để chạy và giải thích, trừ khi mô hình vượt mức tăng tối thiểu.
 
 ## Wrong answers
 
-- "A higher AUC would have fixed adoption." Adoption failed on freshness, action and trust, not on ranking quality.
-- "Business metrics are enough; skip the offline one." The business metric arrives weeks later and is noisy; the offline metric gates the launch.
-- "Guardrails are a product concern, not a model concern." A model that moves a guardrail the wrong way is rolled back no matter its offline score.
+- "Một AUC cao hơn lẽ ra đã sửa việc áp dụng." Việc áp dụng thất bại ở độ tươi, hành động và sự tin cậy, không phải chất lượng xếp hạng.
+- "Các chỉ số kinh doanh là đủ; bỏ chỉ số offline." Chỉ số kinh doanh đến vài tuần sau và nhiễu; chỉ số offline chặn qua cổng ra mắt.
+- "Các guardrail là mối quan tâm sản phẩm, không phải mối quan tâm mô hình." Một mô hình dịch chuyển một guardrail theo hướng sai bị rollback bất kể điểm offline.
 
 ## Taught in
 
-The [ML system design lesson](../../../phases/02-ml-fundamentals/19-ml-system-design/) opens with the churn model that nobody used and defines the four metric layers and the baselines.
+[Bài học thiết kế hệ thống ML](../../../phases/02-ml-fundamentals/19-ml-system-design/) mở đầu bằng mô hình churn không ai dùng và định nghĩa bốn lớp chỉ số cùng các baseline.

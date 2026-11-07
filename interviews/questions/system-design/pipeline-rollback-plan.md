@@ -16,53 +16,53 @@ related: [system-design/eval-platform-ship-gate, system-design/finetune-pipeline
 updated: 2026-11-03
 ---
 
-A twelve-stage training pipeline runs from tokenizer to inference server, and the pre-training stage costs weeks and millions of dollars. Before the run starts you must write what happens when each stage fails. Lay out the plan, explain how the orchestrator computes what to rerun, and say what "reproduce the run" can and cannot promise.
+Một pipeline huấn luyện mười hai giai đoạn chạy từ tokenizer tới server suy luận, và giai đoạn tiền huấn luyện tốn nhiều tuần và hàng triệu đô la. Trước khi lần chạy bắt đầu, bạn phải viết điều xảy ra khi mỗi giai đoạn thất bại. Trình bày kế hoạch, giải thích bộ điều phối tính những gì phải chạy lại bằng cách nào, và nói "tái lập lần chạy" có thể và không thể hứa gì.
 
 ## Short answer
 
-Sort the stages by the cost to rerun them: tokenizer, evaluation, quantization and the server are cheap and rerun in hours, supervised tuning and alignment take days, so the base checkpoint is kept and only those stages rerun, and pre-training takes weeks and a budget in the millions, so the plan is the last good checkpoint plus revised downstream stages. The rerun set falls out of the typed, hashed dependency graph: invalidate the failed stage and every descendant. A replay promises the same code, recipe and source data hashes and the same headline metrics, not bit-identical weights or the same output hashes.
+Sắp các giai đoạn theo chi phí chạy lại: tokenizer, đánh giá, lượng tử hóa và server rẻ và chạy lại trong vài giờ, tinh chỉnh có giám sát và alignment mất nhiều ngày, nên checkpoint cơ sở được giữ và chỉ các giai đoạn đó chạy lại, và tiền huấn luyện mất nhiều tuần cùng một ngân sách hàng triệu, nên kế hoạch là checkpoint tốt cuối cùng với các giai đoạn phía sau được sửa đổi. Tập chạy lại rút ra từ đồ thị phụ thuộc có kiểu, có hash: vô hiệu hóa giai đoạn thất bại và mọi hậu duệ. Một lần phát lại hứa cùng mã, công thức và các hash dữ liệu nguồn cùng các chỉ số chính, không phải các trọng số giống hệt từng bit hoặc cùng các hash đầu ra.
 
 ## Full answer
 
 ### Three cost classes
 
-| Class | Stages | Plan on failure |
+| Lớp | Các giai đoạn | Kế hoạch khi thất bại |
 |---|---|---|
-| Cheap, hours | Tokenizer, eval, quantization, inference server | Rerun |
-| Medium, days | SFT, DPO, constitutional refinement | Keep the base model, rerun alignment |
-| Expensive, weeks and millions | Pre-training | Last good checkpoint plus revised downstream stages |
+| Rẻ, vài giờ | Tokenizer, đánh giá, lượng tử hóa, server suy luận | Chạy lại |
+| Trung bình, nhiều ngày | SFT, DPO, tinh luyện hiến pháp | Giữ mô hình cơ sở, chạy lại alignment |
+| Đắt, nhiều tuần và hàng triệu | Tiền huấn luyện | Checkpoint tốt cuối cùng cùng các giai đoạn phía sau được sửa đổi |
 
-Writing this before the run means nobody improvises at four in the morning with an exhausted team.
+Viết điều này trước lần chạy nghĩa là không ai ứng biến lúc bốn giờ sáng với một nhóm kiệt sức.
 
 ### How the rerun set is computed
 
-Every stage has typed inputs and outputs, and the output hash of a stage is the input hash of the next. A failure at the SFT stage invalidates it and every descendant: the reward model, the DPO policy, the refined policy, the eval report, the quantized weights and the server, which is stages six through twelve. A failure at quantization invalidates only quantization and the server. The orchestrator reads the graph from the manifest, so the rollback set is computed, not remembered. A change to the tokenizer invalidates everything downstream; a change to the eval set invalidates only the ship decision.
+Mọi giai đoạn có các đầu vào và đầu ra có kiểu, và hash đầu ra của một giai đoạn là hash đầu vào của giai đoạn tiếp theo. Một lỗi ở giai đoạn SFT vô hiệu hóa nó và mọi hậu duệ: mô hình phần thưởng, policy DPO, policy tinh luyện, báo cáo đánh giá, các trọng số lượng tử hóa và server, tức các giai đoạn sáu đến mười hai. Một lỗi ở lượng tử hóa chỉ vô hiệu hóa lượng tử hóa và server. Bộ điều phối đọc đồ thị từ manifest, nên tập rollback được tính, không được nhớ. Một thay đổi tokenizer vô hiệu hóa mọi thứ phía sau; một thay đổi tập đánh giá chỉ vô hiệu hóa quyết định phát hành.
 
 ### Why hashes make it safe
 
-Artifacts live in an immutable store addressed by content hash, never by a name such as latest. A partial rerun checks whether each expected output already exists at the right hash and skips the stage if it does. That is also how a partial rollback saves most of the wall clock: stages one through eight stay cached while nine through twelve rerun. The pipeline lesson's exercise measures exactly that saving.
+Các artifact nằm trong một kho bất biến được định địa chỉ theo hash nội dung, không bao giờ theo một tên như latest. Một lần chạy lại một phần kiểm tra liệu mỗi đầu ra mong đợi đã tồn tại ở hash đúng chưa và bỏ qua giai đoạn nếu có. Đó cũng là cách một rollback một phần tiết kiệm phần lớn thời gian thực: các giai đoạn một đến tám giữ được cache trong khi chín đến mười hai chạy lại. Bài tập của bài học pipeline đo đúng khoản tiết kiệm đó.
 
 ### What reproduce means
 
-Reproducible: the same manifest, code and infrastructure give a checkpoint with equivalent downstream metrics. Deterministic: bit-identical output. Distributed reduce order, kernel nondeterminism and mixed precision rounding make modern training reproducible but not deterministic; weights differ at a level around 1e-5 between runs while the metrics do not move. The cure is to log the input hash, the output hash and the headline metrics per stage. If the code, recipe and source data hashes and the headline metrics match, the run is reproduced even when a weight artifact and the input hashes after it get new values, and a bit-level diff is the wrong debugging tool. The lesson's rule that the input hash, the output hash and the metrics all match holds in full for the stages with deterministic output, such as the tokenizer and the eval data; for a weight artifact, which cannot be bit-identical, the metrics carry the check.
+Có thể tái lập: cùng manifest, mã và hạ tầng cho một checkpoint với các chỉ số phía sau tương đương. Xác định: đầu ra giống hệt từng bit. Thứ tự reduce phân tán, tính không xác định của kernel và làm tròn mixed precision khiến huấn luyện hiện đại có thể tái lập nhưng không xác định; các trọng số khác nhau ở mức khoảng 1e-5 giữa các lần chạy trong khi các chỉ số không dịch chuyển. Cách khắc phục là ghi nhật ký hash đầu vào, hash đầu ra và các chỉ số chính theo từng giai đoạn. Nếu mã, công thức và các hash dữ liệu nguồn cùng các chỉ số chính khớp, lần chạy được tái lập ngay cả khi một artifact trọng số và các hash đầu vào sau nó nhận giá trị mới, và một diff cấp bit là công cụ gỡ lỗi sai. Quy tắc của bài học rằng hash đầu vào, hash đầu ra và các chỉ số đều khớp giữ đầy đủ cho các giai đoạn có đầu ra xác định, như tokenizer và dữ liệu đánh giá; với một artifact trọng số, vốn không thể giống hệt từng bit, các chỉ số gánh phép kiểm tra.
 
 ### Budget as part of the plan
 
-The pre-run cost estimate uses six times parameters times tokens for the training compute, divided by peak throughput and utilization, at the rental rate. If the estimate exceeds the cost gate the pipeline refuses to start. After each stage the remaining budget is rechecked, so an overrun in one stage changes the gate for the next instead of being discovered when the money is gone.
+Ước lượng chi phí trước chạy dùng sáu nhân tham số nhân token cho tính toán huấn luyện, chia thông lượng đỉnh và mức sử dụng, ở đơn giá thuê. Nếu ước lượng vượt cổng chi phí, pipeline từ chối bắt đầu. Sau mỗi giai đoạn, ngân sách còn lại được kiểm tra lại, nên một vượt chi ở một giai đoạn thay đổi cổng cho giai đoạn tiếp theo thay vì được phát hiện khi tiền đã hết.
 
 ## Follow-ups
 
-- **Level 3:** Why not name artifacts by version string? Expected: two artifacts can share a name and differ in content; the hash is the identity, and a name like latest is a trap.
-- **Level 4:** The reward model and the DPO policy both depend on the SFT checkpoint. What can run in parallel and what must wait? Expected: the two can run together after SFT; the refined policy waits for both, and its input hash must be a deterministic combination of both outputs.
-- **Level 4:** A corrupted checkpoint is discovered after alignment finished. Which plan applies? Expected: the expensive class; take the last good pre-training checkpoint and rerun the medium and cheap stages, never the full pre-training.
-- **Level 4:** A teammate reports that their replay has different weights. Is the run broken? Expected: not by itself; compare the code, recipe and source data hashes and the headline metrics, and only a mismatch there means the run is not reproduced.
+- **Level 3:** Tại sao không đặt tên các artifact theo chuỗi phiên bản? Expected: hai artifact có thể chung một tên và khác nội dung; hash là định danh, và một tên như latest là một cái bẫy.
+- **Level 4:** Mô hình phần thưởng và policy DPO đều phụ thuộc vào checkpoint SFT. Điều gì có thể chạy song song và điều gì phải chờ? Expected: hai thứ có thể chạy cùng nhau sau SFT; policy tinh luyện chờ cả hai, và hash đầu vào của nó phải là một tổ hợp xác định của cả hai đầu ra.
+- **Level 4:** Một checkpoint hỏng được phát hiện sau khi alignment hoàn tất. Kế hoạch nào áp dụng? Expected: lớp đắt; lấy checkpoint tiền huấn luyện tốt cuối cùng và chạy lại các giai đoạn trung bình và rẻ, không bao giờ toàn bộ tiền huấn luyện.
+- **Level 4:** Một đồng đội báo lần phát lại có các trọng số khác. Lần chạy có hỏng không? Expected: không phải tự nó; so sánh mã, công thức và các hash dữ liệu nguồn cùng các chỉ số chính, và chỉ một không khớp ở đó nghĩa là lần chạy chưa được tái lập.
 
 ## Wrong answers
 
-- "Rerun from the start to be safe." The expensive stage costs weeks; the typed graph tells you exactly which stages are invalid.
-- "Keep the latest checkpoint file and overwrite it each step." A mutable name cannot be verified or replayed; content addressing is what makes the rollback set trustworthy.
-- "If the weights are not bit-identical, the pipeline is not reproducible." Distributed training is not deterministic; reproducibility is defined on the code, recipe and source data hashes and the metrics.
+- "Chạy lại từ đầu cho an toàn." Giai đoạn đắt tốn nhiều tuần; đồ thị có kiểu cho bạn biết chính xác các giai đoạn nào không hợp lệ.
+- "Giữ file checkpoint mới nhất và ghi đè nó mỗi bước." Một tên có thể thay đổi không thể được xác minh hoặc phát lại; định địa chỉ theo nội dung là điều khiến tập rollback đáng tin.
+- "Nếu các trọng số không giống hệt từng bit, pipeline không thể tái lập." Huấn luyện phân tán không xác định; tính tái lập được định nghĩa trên mã, công thức và các hash dữ liệu nguồn cùng các chỉ số.
 
 ## Taught in
 
-The [complete LLM pipeline lesson](../../../phases/10-llms-from-scratch/13-building-complete-llm-pipeline/) gives the three cost classes, the descendant rule, the content-addressed store and the distinction between reproducible and deterministic.
+[Bài học pipeline LLM hoàn chỉnh](../../../phases/10-llms-from-scratch/13-building-complete-llm-pipeline/) cung cấp ba lớp chi phí, quy tắc hậu duệ, kho định địa chỉ theo nội dung và phân biệt giữa có thể tái lập và xác định.

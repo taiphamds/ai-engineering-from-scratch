@@ -16,54 +16,54 @@ related: [system-design/churn-model-system, system-design/fraud-check-100ms]
 updated: 2026-11-03
 ---
 
-A feed ranking score must be no more than two hours old for 5,000,000 items, and the serving peak is 120 requests per second. Price batch and online serving with the lesson's cost model, pick one, and say what would flip the choice.
+Một điểm xếp hạng feed phải không cũ hơn hai giờ cho 5,000,000 mục, và đỉnh phục vụ là 120 yêu cầu mỗi giây. Tính giá phục vụ batch và online bằng mô hình chi phí của bài học, chọn một cách, và nói điều gì sẽ đảo lựa chọn.
 
 ## Short answer
 
-With a one-hour batch job and a two-hour staleness limit, the job must run every hour, which the lesson's cost model prices at 24.0 runs per day over 5,000,000 items for $48.50 a day. Two online replicas sized for 120 peak QPS cost $24.00 a day and serve the freshest data. Online wins here; the choice flips when the freshness limit relaxes enough to cut the runs, or when peak traffic grows enough to need many replicas.
+Với một công việc batch một giờ và một giới hạn lỗi thời hai giờ, công việc phải chạy mỗi giờ, được mô hình chi phí của bài học tính giá ở 24.0 lần chạy mỗi ngày trên 5,000,000 mục cho $48.50 một ngày. Hai replica online được định cỡ cho 120 QPS đỉnh tốn $24.00 một ngày và phục vụ dữ liệu mới nhất. Online thắng ở đây; lựa chọn đảo khi giới hạn độ tươi nới đủ để cắt các lần chạy, hoặc khi lưu lượng đỉnh tăng đủ để cần nhiều replica.
 
 ## Full answer
 
 ### How each plan is priced
 
-| Property | Batch | Online |
+| Thuộc tính | Batch | Online |
 |---|---|---|
-| Freshness | As old as the last run plus the run time | The data of the request |
-| Request latency | One key-value read, a few milliseconds | Feature fetch plus model time, 35 ms in the model |
-| Cost driver | Entities times runs per day | Replicas sized for peak QPS, minimum of two |
-| New entities | No score until the next run | Scored on the first request |
-| When it breaks | Old scores stay readable | Requests fail or time out |
+| Độ tươi | Cũ bằng lần chạy cuối cộng thời gian chạy | Dữ liệu của yêu cầu |
+| Độ trễ yêu cầu | Một lần đọc key-value, vài mili giây | Lấy feature cộng thời gian mô hình, 35 ms trong mô hình |
+| Yếu tố chi phí | Số thực thể nhân số lần chạy mỗi ngày | Các replica được định cỡ cho QPS đỉnh, tối thiểu hai |
+| Các thực thể mới | Không có điểm cho đến lần chạy tiếp theo | Được chấm điểm ở yêu cầu đầu |
+| Khi nó hỏng | Các điểm cũ vẫn đọc được | Các yêu cầu thất bại hoặc hết thời gian chờ |
 
-Batch must finish inside the staleness limit, so the time between runs is the limit minus the job time. Each run scores every entity whether or not anyone asks. Online pays for idle replicas between peaks, with a floor of two for availability.
+Batch phải hoàn tất trong giới hạn lỗi thời, nên thời gian giữa các lần chạy là giới hạn trừ thời gian công việc. Mỗi lần chạy chấm điểm mọi thực thể bất kể có ai hỏi không. Online trả phí cho các replica nhàn rỗi giữa các đỉnh, với mức sàn hai để có tính sẵn sàng.
 
 ### The arithmetic for this workload
 
-The staleness limit of two hours minus a one-hour job leaves one hour between runs, so 24.0 runs per day. Every run scores all 5,000,000 items. That is why the batch plan costs $48.50 a day while the online plan sits at its two-replica floor of $24.00, since 120 peak QPS fits inside the capacity of two replicas.
+Giới hạn lỗi thời hai giờ trừ một công việc một giờ để lại một giờ giữa các lần chạy, nên 24.0 lần chạy mỗi ngày. Mỗi lần chạy chấm điểm tất cả 5,000,000 mục. Đó là lý do kế hoạch batch tốn $48.50 một ngày trong khi kế hoạch online nằm ở mức sàn hai replica $24.00, vì 120 QPS đỉnh vừa trong năng lực hai replica.
 
 ### What flips it
 
-- A longer staleness limit cuts runs and batch cost in proportion; the nightly churn job in the same lesson costs under a dollar.
-- A staleness limit shorter than one batch job makes batch infeasible at any price.
-- A much higher peak needs more replicas and raises online cost linearly with peak traffic.
-- A latency budget below the online path's model time rules online out, and a hybrid serves known items from a store and new items online.
+- Một giới hạn lỗi thời dài hơn cắt các lần chạy và chi phí batch theo tỷ lệ; công việc churn hàng đêm trong cùng bài học tốn dưới một đô la.
+- Một giới hạn lỗi thời ngắn hơn một công việc batch khiến batch không khả thi ở bất kỳ giá nào.
+- Một đỉnh cao hơn nhiều cần thêm replica và tăng chi phí online tuyến tính theo lưu lượng đỉnh.
+- Một ngân sách độ trễ dưới thời gian mô hình của đường online loại online, và một cách lai phục vụ các mục đã biết từ một kho và các mục mới online.
 
 ### What the decision is not about
 
-Freshness and cost decide; model quality does not change between the two plans. The failure modes differ: a broken batch job leaves old but readable scores, while a broken online service fails requests, so the online design needs a default such as the last stored score or the heuristic.
+Độ tươi và chi phí quyết định; chất lượng mô hình không thay đổi giữa hai kế hoạch. Các chế độ lỗi khác nhau: một công việc batch hỏng để lại các điểm cũ nhưng đọc được, trong khi một dịch vụ online hỏng làm các yêu cầu thất bại, nên thiết kế online cần một mặc định như điểm được lưu cuối hoặc heuristic.
 
 ## Follow-ups
 
-- **Level 2:** Why is the online plan at its minimum here? Expected: two replicas is the availability floor, and 120 peak QPS fits inside what two replicas handle, so traffic does not drive the count.
-- **Level 2:** The job takes longer than the staleness limit. What does the planner return? Expected: infeasible; no schedule satisfies the limit, so the budgets or the job must change.
-- **Level 3:** Design the hybrid. Expected: batch scores known items on the relaxed schedule, online scores new items and requests that need fresh data; price it as the sum of a cheaper batch plan and a small online tier.
-- **Level 3:** Which design document check does this feed? Expected: the serving-fit check, which prices the chosen mode against the staleness, latency and cost budgets and fails a mode that misses any of them.
+- **Level 2:** Tại sao kế hoạch online ở mức tối thiểu tại đây? Expected: hai replica là sàn tính sẵn sàng, và 120 QPS đỉnh vừa trong những gì hai replica xử lý, nên lưu lượng không quyết định số lượng.
+- **Level 2:** Công việc mất lâu hơn giới hạn lỗi thời. Bộ lập kế hoạch trả về gì? Expected: không khả thi; không lịch nào thỏa giới hạn, nên các ngân sách hoặc công việc phải thay đổi.
+- **Level 3:** Thiết kế cách lai. Expected: batch chấm điểm các mục đã biết theo lịch được nới, online chấm điểm các mục mới và các yêu cầu cần dữ liệu mới; tính giá như tổng của một kế hoạch batch rẻ hơn và một tầng online nhỏ.
+- **Level 3:** Điều này cung cấp cho kiểm tra tài liệu thiết kế nào? Expected: kiểm tra mức phù hợp phục vụ, tính giá chế độ được chọn theo các ngân sách lỗi thời, độ trễ và chi phí và đánh trượt một chế độ thiếu bất kỳ ngân sách nào.
 
 ## Wrong answers
 
-- "Batch is always cheaper." Batch cost scales with runs per day times entities; a tight freshness limit makes it the expensive plan.
-- "Online is always fresher, so always better." Fresher costs replicas, and a nightly process cannot use freshness it does not read.
-- "Pick by model accuracy." Accuracy is the same in both plans; the choice is about freshness, latency and cost.
+- "Batch luôn rẻ hơn." Chi phí batch tăng theo số lần chạy mỗi ngày nhân số thực thể; một giới hạn độ tươi chặt khiến nó là kế hoạch đắt.
+- "Online luôn mới hơn, nên luôn tốt hơn." Mới hơn tốn replica, và một tiến trình hàng đêm không thể dùng độ tươi nó không đọc.
+- "Chọn theo độ chính xác mô hình." Độ chính xác giống nhau trong cả hai kế hoạch; lựa chọn là về độ tươi, độ trễ và chi phí.
 
 ## Taught in
 
-The [ML system design lesson](../../../phases/02-ml-fundamentals/19-ml-system-design/) builds the batch and online cost model and runs it on the feed ranking workload.
+[Bài học thiết kế hệ thống ML](../../../phases/02-ml-fundamentals/19-ml-system-design/) xây dựng mô hình chi phí batch và online và chạy nó trên workload xếp hạng feed.

@@ -16,59 +16,59 @@ related: [system-design/batched-inference-api-budget, system-design/llm-cost-pro
 updated: 2026-11-03
 ---
 
-Design the request path of a chat service that calls a hosted model. Users leave when nothing appears for a few seconds, the provider returns rate limits and server errors at night, and the vector store behind retrieval sometimes times out. Cover what the user sees, how you retry, and what happens when each part fails.
+Thiết kế đường yêu cầu của một dịch vụ chat gọi một mô hình được lưu trữ. Người dùng rời đi khi không gì xuất hiện trong vài giây, provider trả về các giới hạn tốc độ và lỗi server vào ban đêm, và kho vector phía sau truy xuất đôi khi hết thời gian chờ. Bao phủ những gì người dùng thấy, cách bạn thử lại, và điều xảy ra khi mỗi phần thất bại.
 
 ## Short answer
 
-Stream tokens over server-sent events so the first token appears in a few hundred milliseconds even though the full answer takes seconds. Retry provider failures with exponential backoff and jitter, capped at three retries, then fall through an ordered chain of models to a cached answer and finally a short unavailable message. Secondary systems degrade instead of failing the request: no retrieval context when the vector store is down, a direct model call when the cache is down, and a clear message when a guardrail blocks.
+Stream các token qua server-sent events để token đầu xuất hiện trong vài trăm mili giây dù câu trả lời đầy đủ mất vài giây. Thử lại các lỗi provider với exponential backoff và jitter, giới hạn ở ba lần thử lại, rồi đi xuống một chuỗi mô hình có thứ tự tới một câu trả lời được cache và cuối cùng một thông điệp không khả dụng ngắn. Các hệ thống phụ suy giảm thay vì làm yêu cầu thất bại: không ngữ cảnh truy xuất khi kho vector ngừng hoạt động, một lệnh gọi mô hình trực tiếp khi cache ngừng hoạt động, và một thông điệp rõ ràng khi một guardrail chặn.
 
 ## Full answer
 
 ### Streaming
 
-A response of a few hundred output tokens takes 3-8 seconds to finish. Without streaming the user watches a spinner for all of it. With streaming the first token arrives in 200-500ms, the total time is the same, and the perceived latency drops. Server-sent events are the default: one direction, over plain HTTP, consumed by the browser's event source or any HTTP client. Websockets are for two-way needs such as voice, and long polling is for clients that cannot do either.
+Một phản hồi vài trăm token đầu ra mất 3-8 giây để hoàn tất. Không có streaming, người dùng nhìn một biểu tượng chờ suốt thời gian. Với streaming, token đầu đến trong 200-500ms, tổng thời gian giống nhau, và độ trễ cảm nhận giảm. Server-sent events là mặc định: một chiều, qua HTTP thuần, được event source của trình duyệt hoặc bất kỳ client HTTP nào tiêu thụ. Websocket dành cho các nhu cầu hai chiều như giọng nói, và long polling dành cho các client không thể làm một trong hai.
 
 ### Three layers of failure
 
-| Layer | Example | Recovery |
+| Lớp | Ví dụ | Phục hồi |
 |---|---|---|
-| Provider | 429 rate limit, 500 server error, timeout | Backoff with jitter, then the fallback chain |
-| Model | Malformed JSON, invented function name | Retry once with the error in the prompt |
-| Application | Vector store slow, cache down, guardrail exception | Degrade: skip the secondary system |
+| Provider | Giới hạn tốc độ 429, lỗi server 500, timeout | Backoff với jitter, rồi chuỗi fallback |
+| Mô hình | JSON sai định dạng, tên hàm bịa ra | Thử lại một lần với lỗi trong prompt |
+| Ứng dụng | Kho vector chậm, cache ngừng hoạt động, ngoại lệ guardrail | Suy giảm: bỏ hệ thống phụ |
 
-Backoff starts at one second, doubles on each attempt and adds random jitter so that many clients do not retry in step. Three retries is the cap; after that the request moves to the next model. Every external call has a timeout, with a default around 30s.
+Backoff bắt đầu ở một giây, tăng gấp đôi ở mỗi lần thử và thêm jitter ngẫu nhiên để nhiều client không thử lại đồng bộ. Ba lần thử lại là trần; sau đó yêu cầu chuyển tới mô hình tiếp theo. Mọi lệnh gọi bên ngoài có một timeout, với mặc định khoảng 30s.
 
 ### The fallback chain
 
-Primary model, then a cheaper or more available model, then a smaller one, then a cached response, then the unavailable message. Each step trades quality for availability. The user always gets something, and the log records which step answered so the cost tracker and the quality dashboard can attribute it.
+Mô hình chính, rồi một mô hình rẻ hơn hoặc sẵn sàng hơn, rồi một mô hình nhỏ hơn, rồi một phản hồi được cache, rồi thông điệp không khả dụng. Mỗi bước đánh đổi chất lượng lấy tính sẵn sàng. Người dùng luôn nhận thứ gì đó, và nhật ký ghi bước nào trả lời để bộ theo dõi chi phí và dashboard chất lượng có thể quy thuộc nó.
 
 ### Degradation table
 
-- 429: retry with backoff; queue the request and tell the user it is processing.
-- 500: retry up to three times, then switch model; transparent to the user.
-- Timeout: one retry with a shorter prompt or a smaller model.
-- Malformed output: retry with the error attached, else return the raw text.
-- Guardrail block: no retry; explain why the request was blocked.
-- Vector store down: no retry on the store; answer without retrieval context.
-- Cache down: no retry on the cache; call the model directly.
+- 429: thử lại với backoff; đưa yêu cầu vào hàng đợi và báo người dùng nó đang được xử lý.
+- 500: thử lại tối đa ba lần, rồi chuyển mô hình; trong suốt với người dùng.
+- Timeout: một lần thử lại với một prompt ngắn hơn hoặc một mô hình nhỏ hơn.
+- Đầu ra sai định dạng: thử lại với lỗi đính kèm, nếu không trả về văn bản thô.
+- Guardrail chặn: không thử lại; giải thích tại sao yêu cầu bị chặn.
+- Kho vector ngừng hoạt động: không thử lại trên kho; trả lời không có ngữ cảnh truy xuất.
+- Cache ngừng hoạt động: không thử lại trên cache; gọi mô hình trực tiếp.
 
 ### The user-visible contract
 
-The dashboard targets are a median under 2s and a p99 under 10s. Streaming moves the first-token time inside the median target even when the full response does not. A streamed response has one trap: the status line is sent before the first token, so a failure after that must be sent as an error event inside the stream.
+Các mục tiêu dashboard là trung vị dưới 2s và p99 dưới 10s. Streaming chuyển thời gian token đầu vào trong mục tiêu trung vị ngay cả khi phản hồi đầy đủ không đạt. Một phản hồi được stream có một bẫy: dòng trạng thái được gửi trước token đầu, nên một lỗi sau đó phải được gửi như một sự kiện lỗi bên trong stream.
 
 ## Follow-ups
 
-- **Level 2:** Why add jitter to the backoff? Expected: many clients that fail at once would otherwise retry at the same instants and reproduce the overload.
-- **Level 2:** Why is a guardrail block not retried? Expected: the input is the problem; retrying the same input gives the same block and spends a call.
-- **Level 3:** The fallback model has a different price. Where does that show up? Expected: in the cost tracker per request and per model, so the dashboard shows the cost of the outage, not only its rate.
-- **Level 3:** The stream has started and the model fails. What can the server still do? Expected: send an error event inside the stream, because the HTTP status is already committed.
+- **Level 2:** Tại sao thêm jitter vào backoff? Expected: nhiều client thất bại cùng lúc nếu không sẽ thử lại tại cùng các thời điểm và tái tạo quá tải.
+- **Level 2:** Tại sao một lần guardrail chặn không được thử lại? Expected: đầu vào là vấn đề; thử lại cùng đầu vào cho cùng lần chặn và tiêu một lệnh gọi.
+- **Level 3:** Mô hình fallback có một giá khác. Điều đó thể hiện ở đâu? Expected: trong bộ theo dõi chi phí theo từng yêu cầu và từng mô hình, để dashboard cho thấy chi phí ngừng hoạt động, không chỉ tỷ lệ.
+- **Level 3:** Stream đã bắt đầu và mô hình thất bại. Server vẫn có thể làm gì? Expected: gửi một sự kiện lỗi bên trong stream, vì trạng thái HTTP đã được ghi nhận.
 
 ## Wrong answers
 
-- "Retry until the provider answers." Unbounded retries pile up during an outage; cap them and fall through the chain.
-- "If retrieval is down, fail the request so the answer stays grounded." A secondary system must not take down the primary flow; answer with reduced context and log it.
-- "Buffer the whole response and send it at once for simplicity." The user sees nothing for seconds and leaves; the total time is the same either way.
+- "Thử lại cho đến khi provider trả lời." Các lần thử lại không giới hạn chồng chất trong một sự cố ngừng hoạt động; giới hạn chúng và đi xuống chuỗi.
+- "Nếu truy xuất ngừng hoạt động, làm yêu cầu thất bại để câu trả lời giữ có căn cứ." Một hệ thống phụ không được kéo sập luồng chính; trả lời với ngữ cảnh giảm và ghi nhật ký.
+- "Đệm toàn bộ phản hồi và gửi cùng lúc cho đơn giản." Người dùng không thấy gì trong vài giây và rời đi; tổng thời gian giống nhau theo cả hai cách.
 
 ## Taught in
 
-The [production LLM application lesson](../../../phases/11-llm-engineering/13-production-app/) gives the streaming protocols, the three failure layers, the backoff schedule and the fallback chain.
+[Bài học ứng dụng LLM production](../../../phases/11-llm-engineering/13-production-app/) cung cấp các giao thức streaming, ba lớp lỗi, lịch backoff và chuỗi fallback.

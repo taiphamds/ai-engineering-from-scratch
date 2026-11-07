@@ -16,56 +16,56 @@ related: [system-design/churn-model-system, system-design/fraud-check-100ms, sys
 updated: 2026-11-03
 ---
 
-Three systems retrain monthly on their own production data: a churn model that sends save offers, a fraud model that blocks payments, and a ranking model that orders a feed. Each one gets a little worse after every retrain. Explain the shared cause, design the data layer that prevents it, and say what each training row must carry for the fix to work.
+Ba hệ thống huấn luyện lại hàng tháng trên dữ liệu production riêng: một mô hình churn gửi ưu đãi giữ chân, một mô hình gian lận chặn các thanh toán, và một mô hình xếp hạng sắp một feed. Mỗi mô hình tệ hơn một chút sau mỗi lần huấn luyện lại. Giải thích nguyên nhân chung, thiết kế lớp dữ liệu ngăn nó, và nói mỗi dòng huấn luyện phải mang gì để cách sửa hoạt động.
 
 ## Short answer
 
-Each model's decisions change the data that trains its next version, which is a feedback loop. Offers keep users who would have churned, so high-risk users look loyal; blocked payments never get a chargeback, so fraud disappears from the blocked region; the feed shows only its top items, so only those collect clicks. The fix is to keep data the model did not influence: a random holdout that never receives the intervention, a small share of random decisions, and a log that stores the score and the decision with every row, joined to features as of the decision time so training can separate influenced from clean data.
+Các quyết định của mỗi mô hình thay đổi dữ liệu huấn luyện phiên bản tiếp theo của nó, đó là một vòng phản hồi. Các ưu đãi giữ những người dùng lẽ ra đã rời bỏ, nên người dùng rủi ro cao trông trung thành; các thanh toán bị chặn không bao giờ nhận chargeback, nên gian lận biến mất khỏi vùng bị chặn; feed chỉ hiển thị các mục hàng đầu, nên chỉ chúng thu thập click. Cách sửa là giữ dữ liệu mà mô hình không ảnh hưởng: một nhóm giữ lại ngẫu nhiên không bao giờ nhận can thiệp, một tỷ lệ nhỏ các quyết định ngẫu nhiên, và một nhật ký lưu điểm cùng quyết định với mọi dòng, được join với các feature tại thời điểm quyết định để huấn luyện có thể tách dữ liệu bị ảnh hưởng khỏi dữ liệu sạch.
 
 ## Full answer
 
 ### Three shapes of the same loop
 
-| System | How the decision hides the label | What the retrain learns |
+| Hệ thống | Cách quyết định giấu nhãn | Điều lần huấn luyện lại học |
 |---|---|---|
-| Churn offers | Offers retain some at-risk users | Their features do not predict churn |
-| Fraud blocks | A blocked payment has no outcome | The blocked region looks safe |
-| Feed ranking | Only shown items can be clicked | The current top items are the only good ones |
+| Các ưu đãi churn | Các ưu đãi giữ một số người dùng có rủi ro | Các feature của họ không dự đoán churn |
+| Các lần chặn gian lận | Một thanh toán bị chặn không có kết quả | Vùng bị chặn trông an toàn |
+| Xếp hạng feed | Chỉ các mục được hiển thị có thể được click | Các mục hàng đầu hiện tại là các mục tốt duy nhất |
 
-The loop is listed among the main sources of technical debt in production ML systems because it is silent: every retrain looks fine on its own held-out data, which is also influenced.
+Vòng lặp được liệt kê trong các nguồn nợ kỹ thuật chính trong các hệ thống ML production vì nó im lặng: mỗi lần huấn luyện lại trông ổn trên dữ liệu giữ lại riêng, vốn cũng bị ảnh hưởng.
 
 ### The data layer
 
-1. A random holdout group that never receives the intervention. Its outcomes are the clean estimate of the base rate and the clean labels for training.
-2. A small share of random decisions on live traffic, for example payments that are not blocked or items shown out of order, so the blocked and unshown regions keep producing labels. The share is sized as the smallest that keeps enough labels from those regions.
-3. Logging of the score, the decision and the assignment with every row at decision time.
-4. Features joined as of the decision time, with the point-in-time rule from the feature store, so that a row's inputs are what the model saw and not a later snapshot that already reflects the outcome.
+1. Một nhóm giữ lại ngẫu nhiên không bao giờ nhận can thiệp. Các kết quả của nó là ước lượng sạch của tỷ lệ cơ sở và các nhãn sạch cho huấn luyện.
+2. Một tỷ lệ nhỏ các quyết định ngẫu nhiên trên lưu lượng trực tiếp, chẳng hạn các thanh toán không bị chặn hoặc các mục được hiển thị ngoài thứ tự, để các vùng bị chặn và không được hiển thị tiếp tục tạo nhãn. Tỷ lệ được định cỡ là mức nhỏ nhất giữ đủ nhãn từ các vùng đó.
+3. Ghi nhật ký điểm, quyết định và phân nhóm với mọi dòng ở thời điểm quyết định.
+4. Các feature được join tại thời điểm quyết định, với quy tắc point-in-time từ feature store, để các đầu vào của một dòng là những gì mô hình thấy chứ không phải một snapshot sau đã phản ánh kết quả.
 
 ### What a training row carries
 
-The entity and the decision time, the features as of that time, the model score, the decision taken, the group it belonged to, the label and the label time. With those fields training can select clean rows, weight influenced rows, or model the decision as a feature. Without the decision and the group, influenced and clean rows are indistinguishable and the loop is invisible.
+Thực thể và thời gian quyết định, các feature tại thời gian đó, điểm mô hình, quyết định được đưa ra, nhóm mà nó thuộc, nhãn và thời gian nhãn. Với các trường đó, huấn luyện có thể chọn các dòng sạch, đặt trọng số các dòng bị ảnh hưởng, hoặc mô hình hóa quyết định như một feature. Không có quyết định và nhóm, các dòng bị ảnh hưởng và sạch không thể phân biệt và vòng lặp vô hình.
 
 ### Why the feature store is part of it
 
-A naive join on the entity returns the newest feature snapshot for every label, which copies the outcome into the input. The same mistake inside a feedback loop is worse: the newest snapshot also reflects the intervention. The as-of join with a TTL makes each row describe the moment of the decision, and the created timestamp check keeps a backfill from reading data that arrived later.
+Một join ngây thơ trên thực thể trả về snapshot feature mới nhất cho mọi nhãn, sao chép kết quả vào đầu vào. Cùng sai lầm bên trong một vòng phản hồi tệ hơn: snapshot mới nhất cũng phản ánh can thiệp. Join as-of với một TTL khiến mỗi dòng mô tả thời điểm quyết định, và kiểm tra timestamp tạo giữ một backfill khỏi đọc dữ liệu đến sau.
 
 ### Measuring the fix
 
-The holdout gives the business metric: the outcome in the treated group against the holdout group. It also gives the retrain test: evaluate the new model on holdout rows only, so the score is not inflated by the model's own decisions. A model that improves on influenced data and not on the holdout has learned the loop.
+Nhóm giữ lại cho chỉ số kinh doanh: kết quả trong nhóm được can thiệp so với nhóm giữ lại. Nó cũng cho kiểm thử huấn luyện lại: chỉ đánh giá mô hình mới trên các dòng giữ lại, để điểm không bị thổi phồng bởi các quyết định riêng của mô hình. Một mô hình cải thiện trên dữ liệu bị ảnh hưởng mà không trên nhóm giữ lại đã học vòng lặp.
 
 ## Follow-ups
 
-- **Level 3:** Why is a time split alone not enough here? Expected: the recent period is also influenced by the deployed model; time ordering prevents future leakage but not intervention bias.
-- **Level 4:** The random non-blocking share costs real fraud. How do you argue for it? Expected: as the price of clean labels against the cost of a model that drifts blind; size it to the minimum that keeps enough labeled fraud from the blocked region.
-- **Level 4:** How does the exposure loop in ranking differ from the other two? Expected: the label is never collected rather than hidden; random exposure of lower-ranked items is the only way to learn their click rate.
-- **Level 4:** A retrain evaluated on the holdout is worse than on the full set. Which number do you trust? Expected: the holdout; the full set rewards the model for agreeing with its own past decisions.
+- **Level 3:** Tại sao chỉ một phần tách thời gian không đủ ở đây? Expected: giai đoạn gần đây cũng bị mô hình đã triển khai ảnh hưởng; thứ tự thời gian ngăn rò rỉ tương lai nhưng không ngăn thiên lệch can thiệp.
+- **Level 4:** Tỷ lệ không chặn ngẫu nhiên tốn gian lận thực. Bạn lập luận cho nó bằng cách nào? Expected: như cái giá của các nhãn sạch so với chi phí một mô hình trôi dạt mù; định cỡ nó tới mức tối thiểu giữ đủ gian lận được gán nhãn từ vùng bị chặn.
+- **Level 4:** Vòng phơi bày trong xếp hạng khác hai vòng kia như thế nào? Expected: nhãn không bao giờ được thu thập thay vì bị giấu; phơi bày ngẫu nhiên các mục xếp thấp hơn là cách duy nhất học tỷ lệ click của chúng.
+- **Level 4:** Một lần huấn luyện lại được đánh giá trên nhóm giữ lại tệ hơn trên tập đầy đủ. Bạn tin con số nào? Expected: nhóm giữ lại; tập đầy đủ thưởng mô hình vì đồng ý với các quyết định quá khứ riêng.
 
 ## Wrong answers
 
-- "More training data fixes a drifting model." The new data is influenced; more of it entrenches the loop.
-- "A random train and test split shows the real performance." Both halves are influenced; only a holdout that never saw the intervention is clean.
-- "Log the decision later from the outcome table." The decision and the assignment must be recorded at decision time, with the features as of that time, or the join leaks the outcome.
+- "Nhiều dữ liệu huấn luyện hơn sửa một mô hình trôi dạt." Dữ liệu mới bị ảnh hưởng; nhiều hơn làm vòng lặp ăn sâu.
+- "Một phần tách huấn luyện và kiểm thử ngẫu nhiên cho thấy hiệu năng thực." Cả hai nửa bị ảnh hưởng; chỉ một nhóm giữ lại chưa bao giờ thấy can thiệp là sạch.
+- "Ghi nhật ký quyết định sau từ bảng kết quả." Quyết định và phân nhóm phải được ghi ở thời điểm quyết định, với các feature tại thời gian đó, nếu không join làm rò rỉ kết quả.
 
 ## Taught in
 
-The [ML system design lesson](../../../phases/02-ml-fundamentals/19-ml-system-design/) names the three feedback loops and the shared fix, and the [feature store lesson](../../../phases/02-ml-fundamentals/21-feature-stores-and-training-serving-skew/) gives the as-of join that keeps each training row at the decision time.
+[Bài học thiết kế hệ thống ML](../../../phases/02-ml-fundamentals/19-ml-system-design/) nêu ba vòng phản hồi và cách sửa chung, và [bài học feature store](../../../phases/02-ml-fundamentals/21-feature-stores-and-training-serving-skew/) cung cấp join as-of giữ mỗi dòng huấn luyện ở thời điểm quyết định.

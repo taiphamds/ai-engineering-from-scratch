@@ -16,60 +16,60 @@ related: [system-design/when-not-ml, system-design/ab-test-prompt-rollout, syste
 updated: 2026-11-03
 ---
 
-You are the reviewer for ML design documents before any training starts. A team hands you a document for a payment fraud check that proposes batch scoring, where one job takes an hour, with a three-minute staleness limit, reports an offline AUC, lists a majority-class baseline, and has no rollout section. Walk me through your review: the sections you expect, which gaps block, how you score it, and what you tell the team.
+Bạn là người review các tài liệu thiết kế ML trước khi bất kỳ huấn luyện nào bắt đầu. Một nhóm đưa bạn một tài liệu cho một kiểm tra gian lận thanh toán đề xuất chấm điểm batch, trong đó một công việc mất một giờ, với một giới hạn lỗi thời ba phút, báo cáo một AUC offline, liệt kê một baseline lớp đa số, và không có phần rollout. Trình bày cho tôi cách review: các phần bạn mong đợi, các thiếu sót nào chặn, cách bạn chấm, và những gì bạn nói với nhóm.
 
 ## Short answer
 
-The document needs nine sections, and six items block a review because each one makes the system unsafe or useless: the decision that uses the prediction, a business metric, a heuristic or current-system baseline, confirmation that every feature exists at prediction time, a shadow or canary stage with a rollback, and a default action for every failure. This document fails at least three of them: the only baseline is trivial, there is no rollout and no rollback, and the serving choice fails the fit check because batch cannot meet a limit of three minutes when one job takes an hour. I send it back with the blocking list first, and I ask for precision at the decision threshold instead of AUC.
+Tài liệu cần chín phần, và sáu mục chặn một lần review vì mỗi mục khiến hệ thống không an toàn hoặc vô dụng: quyết định dùng dự đoán, một chỉ số kinh doanh, một baseline heuristic hoặc hệ thống hiện tại, xác nhận mọi feature tồn tại ở thời điểm dự đoán, một giai đoạn shadow hoặc canary với một rollback, và một hành động mặc định cho mọi lỗi. Tài liệu này không đạt ít nhất ba mục: baseline duy nhất là tầm thường, không có rollout và không rollback, và lựa chọn phục vụ không đạt kiểm tra phù hợp vì batch không thể đạt một giới hạn ba phút khi một công việc mất một giờ. Tôi gửi lại với danh sách chặn trước, và yêu cầu precision tại ngưỡng quyết định thay vì AUC.
 
 ## Full answer
 
 ### The nine sections
 
-| Section | Question it answers | Blocking item |
+| Phần | Câu hỏi nó trả lời | Mục chặn |
 |---|---|---|
-| Problem | What is predicted, which decision uses it, why rules are not enough | The decision |
-| Metrics | Offline, online, business and guardrail metrics | The business metric |
-| Baselines | Trivial, heuristic and current-system baselines | A heuristic or current baseline |
-| Data | Label source, delay, feature availability at prediction time | No leakage |
-| Budgets and serving | Latency, peak QPS, cost, staleness, and the mode that fits | None |
-| Rollout | Shadow, canary, A/B and the rollback | Shadow or canary plus rollback |
-| Feedback loops | How the model's decisions alter its later training data | None |
-| Failure modes | The default action for each failure | A default for every failure |
-| Monitoring | What is watched after launch | None |
+| Vấn đề | Dự đoán gì, quyết định nào dùng nó, tại sao các quy tắc không đủ | Quyết định |
+| Các chỉ số | Các chỉ số offline, online, kinh doanh và guardrail | Chỉ số kinh doanh |
+| Các baseline | Các baseline tầm thường, heuristic và hệ thống hiện tại | Một baseline heuristic hoặc hiện tại |
+| Dữ liệu | Nguồn nhãn, độ trễ, tính sẵn có của feature ở thời điểm dự đoán | Không rò rỉ |
+| Các ngân sách và phục vụ | Độ trễ, QPS đỉnh, chi phí, lỗi thời, và chế độ phù hợp | Không có |
+| Rollout | Shadow, canary, A/B và rollback | Shadow hoặc canary cùng rollback |
+| Các vòng phản hồi | Cách các quyết định của mô hình thay đổi dữ liệu huấn luyện sau đó | Không có |
+| Các chế độ lỗi | Hành động mặc định cho mỗi lỗi | Một mặc định cho mọi lỗi |
+| Giám sát | Điều gì được theo dõi sau ra mắt | Không có |
 
 ### Scoring
 
-Each checklist item has a weight, a blocking flag and a check. Blocking items weigh 2. The score is the sum of passed weights over the total, and the verdict is ready for review only when the score reaches 0.85 and no blocking item fails. A document can score high on the non-blocking items and still be sent back on one blocker; that is the point of the flag.
+Mỗi mục danh sách kiểm tra có một trọng số, một cờ chặn và một phép kiểm tra. Các mục chặn có trọng số 2. Điểm là tổng các trọng số đạt trên tổng, và phán quyết chỉ là sẵn sàng review khi điểm đạt 0.85 và không mục chặn nào thất bại. Một tài liệu có thể đạt điểm cao ở các mục không chặn mà vẫn bị gửi lại vì một mục chặn; đó là mục đích của cờ.
 
 ### The serving fit check
 
-This check reuses the cost model. It reads the workload numbers from the document, prices the chosen mode, and fails when that mode misses the staleness limit, the latency budget or the daily cost budget. A batch job that takes an hour cannot meet a limit of three minutes at any price, so a document that says batch with that limit fails the check. For a payment decision made at request time the fit is online, and the document must state the peak QPS and the p99 budget that size it.
+Kiểm tra này dùng lại mô hình chi phí. Nó đọc các con số workload từ tài liệu, tính giá chế độ được chọn, và đánh trượt khi chế độ đó thiếu giới hạn lỗi thời, ngân sách độ trễ hoặc ngân sách chi phí hàng ngày. Một công việc batch mất một giờ không thể đạt một giới hạn ba phút ở bất kỳ giá nào, nên một tài liệu nói batch với giới hạn đó không đạt kiểm tra. Với một quyết định thanh toán được đưa ra ở thời điểm yêu cầu, chế độ phù hợp là online, và tài liệu phải nêu QPS đỉnh và ngân sách p99 định cỡ nó.
 
 ### What I tell the team
 
-1. Blockers first: name the action that each score starts; add the rule the fraud team uses today as the heuristic baseline and set the minimum lift; add shadow and canary stages with a configuration rollback; write a default for a timeout, a missing feature, a new card and a sudden score shift.
-2. Then the serving section: switch to online, give the budgets, price it.
-3. Then the metric: AUC averages thresholds nobody uses; report precision and recall at the approve, review and block thresholds, and name the business metric and the guardrails.
-4. Last the feedback loop and the monitoring, which are not blocking but will decide the second quarter.
+1. Các mục chặn trước: nêu hành động mà mỗi điểm khởi động; thêm quy tắc nhóm gian lận dùng hôm nay làm baseline heuristic và đặt mức tăng tối thiểu; thêm các giai đoạn shadow và canary với một rollback bằng cấu hình; viết một mặc định cho một timeout, một feature thiếu, một thẻ mới và một dịch chuyển điểm đột ngột.
+2. Rồi phần phục vụ: chuyển sang online, đưa các ngân sách, tính giá nó.
+3. Rồi chỉ số: AUC lấy trung bình các ngưỡng không ai dùng; báo cáo precision và recall tại các ngưỡng phê duyệt, review và chặn, và nêu chỉ số kinh doanh cùng các guardrail.
+4. Cuối cùng là vòng phản hồi và giám sát, không chặn nhưng sẽ quyết định quý thứ hai.
 
 ### Why the review happens before training
 
-Every failure in the churn story at the start of the design lesson happened before training: no decision, stale cadence, a leaked feature, no comparison with the existing rule. A one-page document asks about each, and the review costs a day where the failures cost a quarter.
+Mọi lỗi trong câu chuyện churn ở đầu bài học thiết kế xảy ra trước huấn luyện: không quyết định, nhịp cập nhật lỗi thời, một feature rò rỉ, không so sánh với quy tắc hiện có. Một tài liệu một trang hỏi về từng điều, và review tốn một ngày trong khi các lỗi tốn một quý.
 
 ## Follow-ups
 
-- **Level 3:** The team says the majority baseline is enough since it scores zero on F1. Why is that the wrong baseline? Expected: it is the trivial one and usually weak; the heuristic or current system is the real competitor and the one the lift is measured against.
-- **Level 4:** Why does the serving fit check belong in a document review rather than in load testing? Expected: it is arithmetic on stated budgets and prices, so it catches an infeasible design before a line of serving code exists.
-- **Level 4:** The document proposes a hybrid serving mode. What does the checker do and what do you do? Expected: the lesson's cost model has no hybrid plan, so the check fails until a hybrid plan is added; ask the team to price the batch and the online parts and add the plan.
-- **Level 4:** What is the one non-blocking section you would still refuse to skip for a fraud system? Expected: feedback loops, because blocked payments never get a label and the model drifts toward its own decisions without a clean sample.
+- **Level 3:** Nhóm nói baseline đa số là đủ vì nó có điểm không trên F1. Tại sao đó là baseline sai? Expected: nó là baseline tầm thường và thường yếu; heuristic hoặc hệ thống hiện tại là đối thủ thực và là thứ mức tăng được đo so với.
+- **Level 4:** Tại sao kiểm tra mức phù hợp phục vụ thuộc về một lần review tài liệu thay vì kiểm thử tải? Expected: nó là phép tính trên các ngân sách và giá được nêu, nên nó bắt một thiết kế không khả thi trước khi tồn tại một dòng mã phục vụ.
+- **Level 4:** Tài liệu đề xuất một chế độ phục vụ lai. Bộ kiểm tra làm gì và bạn làm gì? Expected: mô hình chi phí của bài học không có kế hoạch lai, nên kiểm tra thất bại cho đến khi một kế hoạch lai được thêm; yêu cầu nhóm tính giá phần batch và online và thêm kế hoạch.
+- **Level 4:** Đâu là một phần không chặn mà bạn vẫn từ chối bỏ qua cho một hệ thống gian lận? Expected: các vòng phản hồi, vì các thanh toán bị chặn không bao giờ có nhãn và mô hình trôi về các quyết định riêng mà không có một mẫu sạch.
 
 ## Wrong answers
 
-- "A strong offline metric compensates for a missing rollout." A model with no shadow stage and no rollback reaches users with no way back; that is why rollout blocks.
-- "Score the document and pass it at a high enough total." One failed blocker fails the review regardless of the total.
-- "Serving mode is an implementation detail for later." The fit check shows batch cannot meet the limit at all, which changes the architecture and the cost.
+- "Một chỉ số offline mạnh bù cho một rollout thiếu." Một mô hình không có giai đoạn shadow và không rollback đến người dùng không có đường quay lại; đó là lý do rollout chặn.
+- "Chấm tài liệu và cho qua ở tổng đủ cao." Một mục chặn thất bại làm review thất bại bất kể tổng.
+- "Chế độ phục vụ là một chi tiết triển khai để sau." Kiểm tra phù hợp cho thấy batch hoàn toàn không thể đạt giới hạn, điều thay đổi kiến trúc và chi phí.
 
 ## Taught in
 
-The [ML system design lesson](../../../phases/02-ml-fundamentals/19-ml-system-design/) defines the design document, its six blocking items, the score threshold and the serving fit check.
+[Bài học thiết kế hệ thống ML](../../../phases/02-ml-fundamentals/19-ml-system-design/) định nghĩa tài liệu thiết kế, sáu mục chặn, ngưỡng điểm và kiểm tra mức phù hợp phục vụ.

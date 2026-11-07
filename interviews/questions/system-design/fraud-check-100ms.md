@@ -16,64 +16,64 @@ related: [system-design/batch-vs-online-serving-choice, system-design/drift-moni
 updated: 2026-11-03
 ---
 
-A payment service must approve, review or block each payment within 100 ms, at 400 requests per second at peak. Fraud labels arrive as chargebacks weeks later. Design the system: the task, the serving mode and its sizing, the data and label plan, the rollout, the failure defaults, and the two things that will quietly break it after launch.
+Một dịch vụ thanh toán phải phê duyệt, review hoặc chặn mỗi thanh toán trong 100 ms, ở 400 yêu cầu mỗi giây lúc đỉnh. Các nhãn gian lận đến dưới dạng chargeback vài tuần sau. Thiết kế hệ thống: tác vụ, chế độ phục vụ và định cỡ, kế hoạch dữ liệu và nhãn, rollout, các mặc định khi lỗi, và hai thứ sẽ âm thầm phá nó sau ra mắt.
 
 ## Short answer
 
-The task is binary classification of fraud probability with two thresholds that split the score into approve, review and block, served online because the decision needs the data of the request. At 400 requests a second and 50 ms per request about 20 requests are in flight at any moment, so the service is small, and the budget leaves room for a feature fetch plus the model. Chargeback labels come weeks after the payment, so training uses a time split and features that exist at payment time, and the rollout goes shadow, then canary on a small share, with the heuristic rule as the default on timeout. The two quiet failures are the feedback loop, where blocked payments never get a label, and concept drift, where the same basket changes its fraud risk and only outcome monitors see it.
+Tác vụ là phân loại nhị phân xác suất gian lận với hai ngưỡng chia điểm thành phê duyệt, review và chặn, được phục vụ online vì quyết định cần dữ liệu của yêu cầu. Ở 400 yêu cầu một giây và 50 ms mỗi yêu cầu, khoảng 20 yêu cầu đang thực hiện tại bất kỳ thời điểm nào, nên dịch vụ nhỏ, và ngân sách để chỗ cho một lần lấy feature cộng mô hình. Các nhãn chargeback đến vài tuần sau thanh toán, nên huấn luyện dùng một phần tách thời gian và các feature tồn tại ở thời điểm thanh toán, và rollout đi shadow, rồi canary trên một tỷ lệ nhỏ, với quy tắc heuristic làm mặc định khi timeout. Hai lỗi im lặng là vòng phản hồi, nơi các thanh toán bị chặn không bao giờ có nhãn, và concept drift, nơi cùng giỏ hàng thay đổi rủi ro gian lận và chỉ các bộ giám sát kết quả thấy nó.
 
 ## Full answer
 
 ### Task and decision
 
-| Question | Answer |
+| Câu hỏi | Câu trả lời |
 |---|---|
-| Prediction, per entity | Probability that this payment is fraud |
-| Decision | Approve, send to review, or block, inside 100 ms |
-| When, with what data | At the request, with the payment, the card history and the device |
-| Success | Fraud losses down with the approval rate as a guardrail |
+| Dự đoán, theo từng thực thể | Xác suất thanh toán này là gian lận |
+| Quyết định | Phê duyệt, gửi tới review, hoặc chặn, trong 100 ms |
+| Khi nào, với dữ liệu gì | Tại yêu cầu, với thanh toán, lịch sử thẻ và thiết bị |
+| Thành công | Tổn thất gian lận giảm với tỷ lệ phê duyệt làm một guardrail |
 
 ### Serving and sizing
 
-Batch cannot serve this: the staleness limit is zero because the payment did not exist a minute ago. Online inference fetches features and runs the model inside the budget. Little's law sizes it: throughput times latency is the number in progress, so 400 requests a second at 50 ms each is 20 requests in flight, far below what two replicas handle. The p99, not the mean, must stay under the budget; a p99 of 100 ms means 99 of 100 requests finish in time.
+Batch không thể phục vụ điều này: giới hạn lỗi thời bằng không vì thanh toán chưa tồn tại một phút trước. Suy luận online lấy các feature và chạy mô hình trong ngân sách. Định luật Little định cỡ nó: thông lượng nhân độ trễ là số đang tiến hành, nên 400 yêu cầu một giây ở 50 ms mỗi yêu cầu là 20 yêu cầu đang thực hiện, thấp xa những gì hai replica xử lý. p99, không phải trung bình, phải giữ dưới ngân sách; một p99 100 ms nghĩa là 99 trong 100 yêu cầu hoàn tất kịp.
 
 ### Data and labels
 
-Chargebacks arrive weeks after the payment, so the outcome of recent traffic is unknown. Train on a time split with the most recent labeled period held out. Every feature must exist at payment time; anything written after the outcome, such as a dispute flag, leaks the label.
+Chargeback đến vài tuần sau thanh toán, nên kết quả của lưu lượng gần đây không biết. Huấn luyện trên một phần tách thời gian với giai đoạn được gán nhãn gần nhất được giữ lại. Mọi feature phải tồn tại ở thời điểm thanh toán; bất cứ thứ gì được ghi sau kết quả, như một cờ tranh chấp, làm rò rỉ nhãn.
 
 ### Rollout
 
-Shadow: score live payments and log, never act; compare latency, error rate and score distribution with the current rule. Canary: act on a small share, often 1 to 5 percent, widen in steps, roll back by configuration when a guardrail moves. Then measure losses against a holdout.
+Shadow: chấm điểm các thanh toán trực tiếp và ghi nhật ký, không bao giờ hành động; so sánh độ trễ, tỷ lệ lỗi và phân phối điểm với quy tắc hiện tại. Canary: hành động trên một tỷ lệ nhỏ, thường 1 đến 5 phần trăm, mở rộng theo các bước, rollback bằng cấu hình khi một guardrail dịch chuyển. Rồi đo các tổn thất so với một nhóm giữ lại.
 
 ### Failure defaults
 
-- Model times out: apply the heuristic baseline the team already uses.
-- A feature is missing or out of range: use its documented default and log it.
-- A new card with no history: the rule or the population average.
-- The score distribution moves suddenly: pause automatic blocks and page a person.
+- Mô hình hết thời gian chờ: áp dụng baseline heuristic mà nhóm đã dùng.
+- Một feature thiếu hoặc ngoài khoảng: dùng mặc định đã ghi tài liệu và ghi nhật ký nó.
+- Một thẻ mới không có lịch sử: quy tắc hoặc trung bình quần thể.
+- Phân phối điểm dịch chuyển đột ngột: tạm dừng các lần chặn tự động và gọi một người.
 
 ### The two quiet failures
 
-1. The feedback loop. A blocked payment never gets a chargeback, so the retrained model sees fewer fraud examples from the region it blocks and slowly learns that region is safe. Give a small random share of payments a non-blocking decision and log the score and the action with every row, so later training can tell influenced data from clean data.
-2. Concept drift. Fraudsters change tactics, and payments that were safe start to charge back. Inputs look the same, so input monitors stay quiet; only the outcome monitor sees it, and only after the label delay. Prior drift, such as the fraud rate doubling during an attack, shows up earlier in the prediction monitor as a moving positive rate.
+1. Vòng phản hồi. Một thanh toán bị chặn không bao giờ nhận chargeback, nên mô hình được huấn luyện lại thấy ít ví dụ gian lận hơn từ vùng nó chặn và từ từ học rằng vùng đó an toàn. Cho một tỷ lệ nhỏ ngẫu nhiên các thanh toán một quyết định không chặn và ghi nhật ký điểm cùng hành động với mọi dòng, để huấn luyện sau có thể phân biệt dữ liệu bị ảnh hưởng với dữ liệu sạch.
+2. Concept drift. Những kẻ gian lận đổi chiến thuật, và các thanh toán từng an toàn bắt đầu bị chargeback. Các đầu vào trông giống nhau, nên các bộ giám sát đầu vào giữ im lặng; chỉ bộ giám sát kết quả thấy nó, và chỉ sau độ trễ nhãn. Prior drift, như tỷ lệ gian lận tăng gấp đôi trong một cuộc tấn công, xuất hiện sớm hơn trong bộ giám sát dự đoán như một tỷ lệ dương dịch chuyển.
 
 ### Monitoring
 
-System health at once, inputs and predictions at once, outcomes joined as chargebacks arrive and computed on the labeled part only. Alert policy with effect sizes, a corrected alpha and persistence, so the on-call person reads the alerts.
+Sức khỏe hệ thống ngay lập tức, đầu vào và dự đoán ngay lập tức, các kết quả được join khi chargeback đến và chỉ tính trên phần được gán nhãn. Chính sách cảnh báo với các kích thước hiệu ứng, một alpha đã hiệu chỉnh và tính dai dẳng, để người trực đọc các cảnh báo.
 
 ## Follow-ups
 
-- **Level 3:** Why does a time split matter more here than a random split? Expected: a random split leaks future tactics into training and overstates performance on the next month's fraud.
-- **Level 3:** The review queue grows after launch. Which guardrail caught it and what do you adjust? Expected: the review rate guardrail; move the review threshold, not the model.
-- **Level 4:** The random non-blocking share costs real fraud losses. How do you size it? Expected: as the smallest share that keeps enough labeled fraud examples from the blocked region to retrain; price it as the cost of clean data against the cost of a model that drifts blind.
-- **Level 4:** Retraining on the last quarter's labels after a tactic change makes the model worse. Why? Expected: concept drift; most of the labels still describe the old relation, so new labels must be collected before retraining helps.
+- **Level 3:** Tại sao một phần tách thời gian quan trọng hơn một phần tách ngẫu nhiên ở đây? Expected: một phần tách ngẫu nhiên làm rò rỉ các chiến thuật tương lai vào huấn luyện và nói quá hiệu năng trên gian lận tháng tới.
+- **Level 3:** Hàng đợi review tăng sau ra mắt. Guardrail nào bắt được nó và bạn điều chỉnh gì? Expected: guardrail tỷ lệ review; di chuyển ngưỡng review, không phải mô hình.
+- **Level 4:** Tỷ lệ không chặn ngẫu nhiên tốn tổn thất gian lận thực. Bạn định cỡ nó bằng cách nào? Expected: như tỷ lệ nhỏ nhất giữ đủ các ví dụ gian lận được gán nhãn từ vùng bị chặn để huấn luyện lại; tính giá nó như chi phí dữ liệu sạch so với chi phí một mô hình trôi dạt mù.
+- **Level 4:** Huấn luyện lại trên các nhãn quý cuối sau một thay đổi chiến thuật khiến mô hình tệ hơn. Tại sao? Expected: concept drift; phần lớn các nhãn vẫn mô tả quan hệ cũ, nên các nhãn mới phải được thu thập trước khi huấn luyện lại giúp ích.
 
 ## Wrong answers
 
-- "Precompute fraud scores nightly for every card." The payment did not exist last night; the decision needs request-time data.
-- "Retrain weekly on all blocked and approved payments." Blocked payments have no outcome, so the training set drifts toward the model's own decisions.
-- "Watch feature drift and you will see the fraudsters change." Concept drift leaves inputs unchanged; only outcomes show it.
+- "Tính trước các điểm gian lận hàng đêm cho mọi thẻ." Thanh toán chưa tồn tại đêm qua; quyết định cần dữ liệu ở thời điểm yêu cầu.
+- "Huấn luyện lại hàng tuần trên mọi thanh toán bị chặn và được phê duyệt." Các thanh toán bị chặn không có kết quả, nên tập huấn luyện trôi về các quyết định riêng của mô hình.
+- "Theo dõi feature drift và bạn sẽ thấy những kẻ gian lận thay đổi." Concept drift để các đầu vào không đổi; chỉ các kết quả cho thấy nó.
 
 ## Taught in
 
-The [ML system design lesson](../../../phases/02-ml-fundamentals/19-ml-system-design/) gives the latency budget, Little's law, the rollout stages and the feedback loop, and the [model monitoring lesson](../../../phases/02-ml-fundamentals/20-model-monitoring-and-drift/) explains the drift kinds and the label delay.
+[Bài học thiết kế hệ thống ML](../../../phases/02-ml-fundamentals/19-ml-system-design/) cung cấp ngân sách độ trễ, định luật Little, các giai đoạn rollout và vòng phản hồi, và [bài học giám sát mô hình](../../../phases/02-ml-fundamentals/20-model-monitoring-and-drift/) giải thích các loại drift và độ trễ nhãn.

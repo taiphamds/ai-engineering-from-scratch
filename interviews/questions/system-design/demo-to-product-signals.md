@@ -16,52 +16,52 @@ related: [system-design/public-demo-controls, system-design/batched-inference-ap
 updated: 2026-11-03
 ---
 
-You built a small web demo of a model for reviewers. Three months later a colleague asks whether it is "production". How do you tell, and what changes when the answer is yes?
+Bạn đã xây một web demo nhỏ của một mô hình cho người review. Ba tháng sau, một đồng nghiệp hỏi liệu nó là "production" chưa. Bạn nhận biết bằng cách nào, và điều gì thay đổi khi câu trả lời là có?
 
 ## Short answer
 
-A demo serves known people in short sessions from one process. It has become a product when people outside the team use it every week, when someone asks for an uptime target or reports an outage, when users want to sign in or see history, when the weekly model cost is a budget line, or when the input is covered by a contract or a law. At that point the demo moves onto the production stack with authentication, fallback models, tracing, and cost tracking per user.
+Một demo phục vụ những người đã biết trong các phiên ngắn từ một tiến trình. Nó đã trở thành một sản phẩm khi những người ngoài nhóm dùng nó mỗi tuần, khi ai đó yêu cầu một mục tiêu uptime hoặc báo một sự cố ngừng hoạt động, khi người dùng muốn đăng nhập hoặc thấy lịch sử, khi chi phí mô hình hàng tuần là một dòng ngân sách, hoặc khi đầu vào được một hợp đồng hoặc một luật bao phủ. Tại điểm đó, demo chuyển lên ngăn xếp production với xác thực, các mô hình fallback, tracing và theo dõi chi phí theo từng người dùng.
 
 ## Full answer
 
 ### The five signals
 
-- People outside your team use it every week.
-- Someone asks for an uptime target, or reports an outage.
-- Users ask to sign in, save results, or see their history.
-- The weekly model cost is a line in a budget.
-- The input includes data that a contract or a law covers.
+- Những người ngoài nhóm của bạn dùng nó mỗi tuần.
+- Ai đó yêu cầu một mục tiêu uptime, hoặc báo một sự cố ngừng hoạt động.
+- Người dùng yêu cầu đăng nhập, lưu kết quả, hoặc thấy lịch sử.
+- Chi phí mô hình hàng tuần là một dòng trong một ngân sách.
+- Đầu vào bao gồm dữ liệu mà một hợp đồng hoặc một luật bao phủ.
 
 ### What changes
 
-| Property | Demo | Product |
+| Thuộc tính | Demo | Sản phẩm |
 |---|---|---|
-| Users | Known people, short sessions | Unknown people, daily use |
-| State | None | Accounts, history, saved results |
-| Availability | Best effort, one process | A written target, replicas, an on-call owner |
-| Cost control | One daily usage cap | Per-user quotas and billing |
-| Observability | One log record per request | Traces, metrics, and alerts |
+| Người dùng | Những người đã biết, các phiên ngắn | Những người không biết, sử dụng hàng ngày |
+| Trạng thái | Không có | Tài khoản, lịch sử, các kết quả được lưu |
+| Tính sẵn sàng | Nỗ lực tốt nhất, một tiến trình | Một mục tiêu được viết ra, các replica, một người phụ trách trực |
+| Kiểm soát chi phí | Một trần sử dụng hàng ngày | Các hạn ngạch và tính phí theo từng người dùng |
+| Khả năng quan sát | Một bản ghi nhật ký mỗi yêu cầu | Trace, các chỉ số và cảnh báo |
 
 ### What the demo already had
 
-A good demo already had the small versions of these controls: an input limit, a per-client rate limit, a daily cap, and a log that keeps the input length and not the text. The product stack adds real authentication at the gateway, a fallback model chain for provider failures, traces across the components, and cost accounting per request and per user. The input limit and the log privacy carry over unchanged.
+Một demo tốt đã có các phiên bản nhỏ của các biện pháp kiểm soát này: một giới hạn đầu vào, một giới hạn tốc độ theo từng client, một trần hàng ngày, và một nhật ký giữ độ dài đầu vào chứ không văn bản. Ngăn xếp sản phẩm thêm xác thực thực tại gateway, một chuỗi mô hình fallback cho các lỗi provider, các trace qua các thành phần, và tính toán chi phí theo từng yêu cầu và từng người dùng. Giới hạn đầu vào và tính riêng tư của nhật ký được chuyển tiếp không đổi.
 
 ### Why the question matters
 
-The dangerous state is the middle: a demo with product traffic and demo controls. One daily cap does not stop one tenant from using the whole budget, and one process has no replica to take over when it dies.
+Trạng thái nguy hiểm là ở giữa: một demo với lưu lượng sản phẩm và các biện pháp kiểm soát demo. Một trần hàng ngày không ngăn một tenant dùng toàn bộ ngân sách, và một tiến trình không có replica để tiếp quản khi nó chết.
 
 ## Follow-ups
 
-- **Level 1:** Which single signal is the strongest? Expected: an outage report, because it means someone depends on the demo and expects availability.
-- **Level 2:** The weekly model cost appears in a budget. What control replaces the daily cap? Expected: per-user quotas and billing, so the total is attributed and limited per tenant.
-- **Level 2:** Regulated data starts arriving in the input. What must the log do? Expected: keep no input text and no client address, with a retention period and access control on the records.
+- **Level 1:** Tín hiệu đơn lẻ nào mạnh nhất? Expected: một báo cáo ngừng hoạt động, vì nó nghĩa là ai đó phụ thuộc vào demo và mong đợi tính sẵn sàng.
+- **Level 2:** Chi phí mô hình hàng tuần xuất hiện trong một ngân sách. Biện pháp kiểm soát nào thay trần hàng ngày? Expected: các hạn ngạch và tính phí theo từng người dùng, để tổng được quy thuộc và giới hạn theo từng tenant.
+- **Level 2:** Dữ liệu chịu quy định bắt đầu đến trong đầu vào. Nhật ký phải làm gì? Expected: không giữ văn bản đầu vào và không địa chỉ client, với một thời gian lưu giữ và kiểm soát truy cập trên các bản ghi.
 
 ## Wrong answers
 
-- "It is production when it runs on a server instead of a laptop." Where it runs does not decide; who depends on it does.
-- "Add a disclaimer that it is a demo." A disclaimer does not stop traffic, cost or outages.
-- "Keep the demo and build the product separately later." The signals mean the demo already carries product risk now.
+- "Nó là production khi chạy trên một server thay vì một laptop." Nơi nó chạy không quyết định; ai phụ thuộc vào nó mới quyết định.
+- "Thêm một tuyên bố miễn trừ rằng nó là demo." Một tuyên bố miễn trừ không ngăn lưu lượng, chi phí hoặc ngừng hoạt động.
+- "Giữ demo và xây sản phẩm riêng sau." Các tín hiệu nghĩa là demo đã mang rủi ro sản phẩm ngay bây giờ.
 
 ## Taught in
 
-The [model demo interfaces lesson](../../../phases/17-infrastructure-and-production/29-model-demo-interfaces/) lists the signals and the demo-to-product table, and the [production LLM application lesson](../../../phases/11-llm-engineering/13-production-app/) describes the stack the demo moves onto.
+[Bài học giao diện demo mô hình](../../../phases/17-infrastructure-and-production/29-model-demo-interfaces/) liệt kê các tín hiệu và bảng demo-tới-sản phẩm, và [bài học ứng dụng LLM production](../../../phases/11-llm-engineering/13-production-app/) mô tả ngăn xếp mà demo chuyển lên.

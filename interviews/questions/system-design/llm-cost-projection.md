@@ -16,57 +16,57 @@ related: [system-design/batched-inference-api-budget, system-design/streaming-an
 updated: 2026-11-03
 ---
 
-A chat feature expects 10,000 daily active users with 5 queries each, about 1,500 input tokens and 400 output tokens per query, at $2.50 per million input tokens and $10.00 per million output tokens. Measured cache metrics give a 35% hit rate. Walk me through the monthly estimate, and say which number you would attack first.
+Một tính năng chat dự kiến 10,000 người dùng hoạt động hàng ngày với 5 truy vấn mỗi người, khoảng 1,500 token đầu vào và 400 token đầu ra mỗi truy vấn, ở $2.50 mỗi triệu token đầu vào và $10.00 mỗi triệu token đầu ra. Các chỉ số cache được đo cho tỷ lệ hit 35%. Trình bày cho tôi ước lượng hàng tháng, và nói con số nào bạn sẽ xử lý trước.
 
 ## Short answer
 
-The traffic is 50,000 queries a day, and a 35% cache hit rate leaves 32,500 that reach the model. Over 30 days that is $3,656 of input and $3,900 of output, about $7,556 a month, against $11,625 without the cache, so the cache saves about $4,070. Output tokens cost four times more per token, so after the hit rate the output length is the number to attack, with a maximum output tokens limit and tighter prompts.
+Lưu lượng là 50,000 truy vấn một ngày, và tỷ lệ cache hit 35% để lại 32,500 đến mô hình. Trong 30 ngày, đó là $3,656 đầu vào và $3,900 đầu ra, khoảng $7,556 một tháng, so với $11,625 không có cache, nên cache tiết kiệm khoảng $4,070. Token đầu ra tốn gấp bốn lần mỗi token, nên sau tỷ lệ hit, độ dài đầu ra là con số cần xử lý, với một giới hạn token đầu ra tối đa và các prompt chặt hơn.
 
 ## Full answer
 
 ### The sheet
 
-| Variable | Value |
+| Biến | Giá trị |
 |---|---|
-| Daily active users | 10,000 |
-| Queries per user per day | 5 |
-| Input tokens per query | 1,500 |
-| Output tokens per query | 400 |
-| Input price per million | $2.50 |
-| Output price per million | $10.00 |
-| Cache hit rate | 35% |
-| Effective daily queries | 32,500 |
+| Người dùng hoạt động hàng ngày | 10,000 |
+| Truy vấn mỗi người dùng mỗi ngày | 5 |
+| Token đầu vào mỗi truy vấn | 1,500 |
+| Token đầu ra mỗi truy vấn | 400 |
+| Giá đầu vào mỗi triệu | $2.50 |
+| Giá đầu ra mỗi triệu | $10.00 |
+| Tỷ lệ cache hit | 35% |
+| Truy vấn hàng ngày hiệu dụng | 32,500 |
 
-Input: 32,500 queries a day times 1,500 tokens times 30 days, divided by a million, times $2.50 gives $3,656. Output: the same with 400 tokens and $10.00 gives $3,900. The total is $7,556 a month.
+Đầu vào: 32,500 truy vấn một ngày nhân 1,500 token nhân 30 ngày, chia một triệu, nhân $2.50 cho $3,656. Đầu ra: tương tự với 400 token và $10.00 cho $3,900. Tổng là $7,556 một tháng.
 
 ### Why the cache matters this much
 
-The same traffic without caching costs $11,625. A 35% hit rate removes 35% of the model calls, so it removes 35% of the token cost. The cache is an embedding lookup with a similarity threshold and a time to live, so two differently phrased versions of one question return one answer. The hit rate is measured from the cache metrics, not assumed.
+Cùng lưu lượng không có caching tốn $11,625. Một tỷ lệ hit 35% loại 35% các lệnh gọi mô hình, nên nó loại 35% chi phí token. Cache là một lần tra cứu embedding với một ngưỡng tương đồng và một thời gian sống, nên hai phiên bản diễn đạt khác nhau của một câu hỏi trả về một câu trả lời. Tỷ lệ hit được đo từ các chỉ số cache, không được giả định.
 
 ### Which number to attack
 
-- Hit rate first: every point of hit rate is a point off the whole bill.
-- Output length second: output tokens are priced four times higher than input, and a maximum output tokens limit per template bounds the worst case.
-- Input length third: the system prompt and retrieved context sit in every call; a provider-side cache of the fixed prefix and tighter retrieval cut it.
-- Model routing last: a smaller model for simple templates cuts the per-token price, with an eval to prove quality holds.
+- Tỷ lệ hit trước: mỗi điểm tỷ lệ hit là một điểm giảm trên toàn hóa đơn.
+- Độ dài đầu ra thứ hai: token đầu ra được định giá cao hơn đầu vào bốn lần, và một giới hạn token đầu ra tối đa theo từng template chặn trường hợp xấu nhất.
+- Độ dài đầu vào thứ ba: system prompt và ngữ cảnh truy xuất nằm trong mọi lệnh gọi; một cache phía provider của tiền tố cố định và truy xuất chặt hơn cắt nó.
+- Định tuyến mô hình cuối: một mô hình nhỏ hơn cho các template đơn giản cắt giá mỗi token, với một đánh giá để chứng minh chất lượng giữ vững.
 
 ### Where the estimate goes wrong
 
-The averages hide a tail. A few users who paste long documents or run scripts can dominate the bill, which is why the production checklist tracks cost per user and per request, and why the cost alerting exercise moves a heavy user to a cheaper model past a daily threshold. The target in the lesson's dashboard is a cost per request under $0.01.
+Các trung bình giấu một đuôi. Một ít người dùng dán các tài liệu dài hoặc chạy script có thể chi phối hóa đơn, đó là lý do danh sách kiểm tra production theo dõi chi phí theo từng người dùng và từng yêu cầu, và tại sao bài tập cảnh báo chi phí chuyển một người dùng nặng sang một mô hình rẻ hơn sau một ngưỡng hàng ngày. Mục tiêu trong dashboard của bài học là chi phí mỗi yêu cầu dưới $0.01.
 
 ## Follow-ups
 
-- **Level 2:** Which single metric on the dashboard tells you the estimate holds? Expected: cost per request, which combines token counts and prices and has a target under $0.01.
-- **Level 2:** The cache hit rate drops to zero after a prompt template change. Why? Expected: the cache key is the query embedding and the response was generated with the old template; stale entries are invalid or the time to live cleared them.
-- **Level 3:** How does prompt caching on the stable prefix change the input line? Expected: the system prompt and fixed instructions are billed at a discount when they repeat, so the effective input price per query falls without changing the token count.
-- **Level 3:** What does a per-user daily cap protect that a per-request cost target does not? Expected: the total from one heavy user; many cheap requests still sum to a large bill.
+- **Level 2:** Chỉ số đơn lẻ nào trên dashboard cho bạn biết ước lượng giữ vững? Expected: chi phí mỗi yêu cầu, kết hợp số token và giá và có một mục tiêu dưới $0.01.
+- **Level 2:** Tỷ lệ cache hit giảm về không sau một thay đổi template prompt. Tại sao? Expected: khóa cache là embedding truy vấn và phản hồi được sinh bằng template cũ; các mục cũ không hợp lệ hoặc thời gian sống đã xóa chúng.
+- **Level 3:** Prompt caching trên tiền tố ổn định thay đổi dòng đầu vào như thế nào? Expected: system prompt và các chỉ dẫn cố định được tính phí giảm giá khi lặp, nên giá đầu vào hiệu dụng mỗi truy vấn giảm mà không thay số token.
+- **Level 3:** Một trần hàng ngày theo từng người dùng bảo vệ điều gì mà một mục tiêu chi phí mỗi yêu cầu không bảo vệ? Expected: tổng từ một người dùng nặng; nhiều yêu cầu rẻ vẫn cộng thành một hóa đơn lớn.
 
 ## Wrong answers
 
-- "Multiply users by a cost per user from a vendor page." The bill comes from tokens per query, queries per user and the hit rate; each is measured.
-- "Caching saves money only on exact repeats." A semantic cache matches similar queries by embedding, which is why the hit rate reaches a third of traffic.
-- "Input tokens dominate because there are more of them." At these prices and lengths the output line is larger even though there are fewer output tokens.
+- "Nhân người dùng với một chi phí mỗi người dùng từ một trang nhà cung cấp." Hóa đơn đến từ token mỗi truy vấn, truy vấn mỗi người dùng và tỷ lệ hit; mỗi thứ đều được đo.
+- "Caching chỉ tiết kiệm tiền trên các lần lặp chính xác." Một cache ngữ nghĩa khớp các truy vấn tương tự bằng embedding, đó là lý do tỷ lệ hit đạt một phần ba lưu lượng.
+- "Token đầu vào chi phối vì có nhiều hơn." Ở các mức giá và độ dài này, dòng đầu ra lớn hơn dù có ít token đầu ra hơn.
 
 ## Taught in
 
-The [production LLM application lesson](../../../phases/11-llm-engineering/13-production-app/) works through this cost projection and the metrics dashboard.
+[Bài học ứng dụng LLM production](../../../phases/11-llm-engineering/13-production-app/) giải phép dự báo chi phí này và dashboard chỉ số.

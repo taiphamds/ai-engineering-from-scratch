@@ -16,52 +16,52 @@ related: [system-design/finetune-pipeline-design, system-design/when-not-ml]
 updated: 2026-11-03
 ---
 
-You have a small pretrained language model and 800 labeled text messages, half spam and half not. Design the classifier: what you keep, what you replace, which of two training regimes you choose, how you split and evaluate, and when the other regime would win.
+Bạn có một mô hình ngôn ngữ nhỏ được tiền huấn luyện và 800 tin nhắn văn bản được gán nhãn, một nửa spam và một nửa không. Thiết kế bộ phân loại: bạn giữ gì, thay gì, chọn chế độ nào trong hai chế độ huấn luyện, tách và đánh giá bằng cách nào, và khi nào chế độ kia sẽ thắng.
 
 ## Short answer
 
-Keep the pretrained body and replace the vocabulary head with a linear layer to two classes over a mean-pooled, mask-weighted sequence vector. With 800 examples, train the head only with the body frozen: it is fast, light on memory and rarely overfits, and on this fixture it reaches about 0.9 precision and 0.85 recall after twenty epochs. Full fine-tuning takes about three times longer and lands within a couple of points either way; it starts to pay off at the scale of 80,000 examples or when the domain drifts far from the pretraining text.
+Giữ phần thân được tiền huấn luyện và thay head từ vựng bằng một lớp tuyến tính tới hai lớp trên một vector chuỗi được mean-pool, có trọng số mask. Với 800 ví dụ, chỉ huấn luyện head với phần thân đóng băng: nó nhanh, nhẹ bộ nhớ và hiếm khi overfit, và trên fixture này nó đạt khoảng 0.9 precision và 0.85 recall sau hai mươi epoch. Fine-tuning toàn bộ mất lâu hơn khoảng ba lần và nằm trong khoảng chênh vài điểm theo một trong hai hướng; nó bắt đầu mang lại lợi ích ở quy mô 80,000 ví dụ hoặc khi lĩnh vực trôi xa khỏi văn bản tiền huấn luyện.
 
 ## Full answer
 
 ### What to keep and replace
 
-The body already encodes word identity, position and co-occurrence. Training a fresh classifier from scratch on 800 examples throws that away. The head is the wrong part: it projects to the vocabulary. Replace it with one linear layer from the hidden width to two logits over a pooled vector, and train with cross-entropy against the label.
+Phần thân đã mã hóa định danh từ, vị trí và đồng xuất hiện. Huấn luyện một bộ phân loại mới từ đầu trên 800 ví dụ vứt bỏ điều đó. Head là phần sai: nó chiếu tới từ vựng. Thay nó bằng một lớp tuyến tính từ chiều rộng ẩn tới hai logit trên một vector được pool, và huấn luyện bằng cross-entropy theo nhãn.
 
 ### Pooling
 
-A classifier needs one vector per message. Mean pooling weighted by the attention mask is the simplest stable choice across lengths and needs no special token. The alternatives are a leading class token, which the body would have to be pretrained with, and the last non-padding token, which decoder-style classifiers use.
+Một bộ phân loại cần một vector cho mỗi tin nhắn. Mean pooling có trọng số theo attention mask là lựa chọn ổn định đơn giản nhất qua các độ dài và không cần token đặc biệt. Các lựa chọn khác là một class token ở đầu, mà phần thân phải được tiền huấn luyện với nó, và token không phải padding cuối cùng, được các bộ phân loại kiểu decoder dùng.
 
 ### Two regimes, one loop
 
-| Regime | Trainable set | Cost | Risk |
+| Chế độ | Tập có thể huấn luyện | Chi phí | Rủi ro |
 |---|---|---|---|
-| Head only | The linear head | Fast, almost free in memory | Underfits when the domain is far from pretraining |
-| Full fine-tuning | Head and body | About three times longer | Overfits and forgets on small data |
+| Chỉ head | Head tuyến tính | Nhanh, gần như miễn phí về bộ nhớ | Underfit khi lĩnh vực xa tiền huấn luyện |
+| Fine-tuning toàn bộ | Head và phần thân | Lâu hơn khoảng ba lần | Overfit và quên trên dữ liệu nhỏ |
 
-Both run through the same training function; the toggle flips `requires_grad` on the body parameters, so the optimizer sees only the head in the first regime.
+Cả hai chạy qua cùng hàm huấn luyện; công tắc đổi `requires_grad` trên các tham số phần thân, nên bộ tối ưu chỉ thấy head trong chế độ đầu.
 
 ### Data and evaluation
 
-Split 80/20, stratified so the test set keeps the 50/50 balance: 640 train, 160 test. Report precision, recall and F1 for the spam class with the confusion matrix, so the numbers can be read as honest estimates. The fixture is balanced and generated, so real data will be noisier.
+Tách 80/20, phân tầng để tập kiểm thử giữ cân bằng 50/50: 640 huấn luyện, 160 kiểm thử. Báo cáo precision, recall và F1 cho lớp spam với ma trận nhầm lẫn, để các con số có thể được đọc như các ước lượng trung thực. Fixture cân bằng và được sinh, nên dữ liệu thực sẽ nhiễu hơn.
 
 ### The decision
 
-On 800 examples and a tiny body, head only is the right call. On 80,000 examples and a bigger body, full fine-tuning starts to win. A middle path unfreezes only the last block, which costs less than full tuning and learns more than the head alone. The contract is the API, not the winner: one training function, one toggle.
+Trên 800 ví dụ và một phần thân rất nhỏ, chỉ head là quyết định đúng. Trên 80,000 ví dụ và một phần thân lớn hơn, fine-tuning toàn bộ bắt đầu thắng. Một đường giữa mở đóng băng chỉ block cuối, tốn ít hơn tinh chỉnh toàn bộ và học nhiều hơn chỉ head. Hợp đồng là API, không phải bên thắng: một hàm huấn luyện, một công tắc.
 
 ## Follow-ups
 
-- **Level 2:** Why does the frozen body rarely overfit here? Expected: only the head's few parameters move, so the model cannot memorize 640 examples through the body.
-- **Level 2:** Why stratify the split? Expected: so the test set keeps the class balance and precision and recall mean what they say.
-- **Level 3:** Precision matters more than recall for this product. What changes in the design? Expected: the decision threshold on the spam logit, chosen on a validation split held out from the 640 training messages to trade recall for precision, so the 160 test messages stay untouched for the final numbers; the training regime stays the same.
-- **Level 3:** The messages are in a domain the body never saw. Which regime and why? Expected: full or partial fine-tuning, because the frozen features do not carry the domain and the head alone underfits.
+- **Level 2:** Tại sao phần thân đóng băng hiếm khi overfit ở đây? Expected: chỉ vài tham số của head di chuyển, nên mô hình không thể ghi nhớ 640 ví dụ qua phần thân.
+- **Level 2:** Tại sao phân tầng phần tách? Expected: để tập kiểm thử giữ cân bằng lớp và precision và recall có ý nghĩa như chúng nói.
+- **Level 3:** Precision quan trọng hơn recall cho sản phẩm này. Điều gì thay đổi trong thiết kế? Expected: ngưỡng quyết định trên logit spam, được chọn trên một phần tách validation giữ lại từ 640 tin nhắn huấn luyện để đánh đổi recall lấy precision, để 160 tin nhắn kiểm thử không bị chạm tới cho các con số cuối; chế độ huấn luyện giữ nguyên.
+- **Level 3:** Các tin nhắn thuộc một lĩnh vực mà phần thân chưa bao giờ thấy. Chế độ nào và tại sao? Expected: fine-tuning toàn bộ hoặc một phần, vì các feature đóng băng không mang lĩnh vực và chỉ head underfit.
 
 ## Wrong answers
 
-- "Train a small classifier from scratch; the model is tiny anyway." That wastes the pretraining and 800 examples are too few to learn the language from zero.
-- "Always fine-tune everything for the best accuracy." On small data full tuning overfits and forgets, for a result within a couple of points of the head alone at three times the cost.
-- "Use the last token's hidden state without a mask." Padded sequences then pool a padding position; the mask must select the last real token or weight the mean.
+- "Huấn luyện một bộ phân loại nhỏ từ đầu; dù sao mô hình rất nhỏ." Điều đó lãng phí tiền huấn luyện và 800 ví dụ quá ít để học ngôn ngữ từ không.
+- "Luôn fine-tune mọi thứ để có độ chính xác tốt nhất." Trên dữ liệu nhỏ, tinh chỉnh toàn bộ overfit và quên, cho một kết quả trong khoảng chênh vài điểm so với chỉ head ở gấp ba chi phí.
+- "Dùng trạng thái ẩn của token cuối mà không có mask." Các chuỗi được padding khi đó pool một vị trí padding; mask phải chọn token thực cuối hoặc đặt trọng số cho trung bình.
 
 ## Taught in
 
-The [classifier fine-tuning lesson](../../../phases/19-capstone-projects/38-classifier-finetuning/) builds both regimes on the 800-message fixture and compares their precision, recall and cost.
+[Bài học fine-tuning bộ phân loại](../../../phases/19-capstone-projects/38-classifier-finetuning/) xây dựng cả hai chế độ trên fixture 800 tin nhắn và so sánh precision, recall và chi phí của chúng.

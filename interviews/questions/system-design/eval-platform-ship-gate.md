@@ -16,54 +16,54 @@ related: [system-design/pipeline-rollback-plan, system-design/finetune-pipeline-
 updated: 2026-11-03
 ---
 
-A team trains and aligns models in a multi-stage pipeline and ships the result to serving. Design the evaluation platform that decides whether an artifact is shippable: what it reads, what a gate is, which two gates catch most disasters, how it handles a failed gate, and how a third party replays a decision.
+Một nhóm huấn luyện và align các mô hình trong một pipeline nhiều giai đoạn và đưa kết quả tới phục vụ. Thiết kế nền tảng đánh giá quyết định liệu một artifact có thể phát hành không: nó đọc gì, một cổng là gì, hai cổng nào bắt phần lớn thảm họa, nó xử lý một cổng thất bại bằng cách nào, và một bên thứ ba phát lại một quyết định bằng cách nào.
 
 ## Short answer
 
-The platform reads a manifest that describes the run completely, with a seed, a code revision, and an input and output hash for every stage, and it evaluates numeric gates that were written before the run started. A regression gate holds the new model to the previous one on core benchmarks and catches training bugs; a KL budget gate caps how far the aligned policy drifted from its reference and catches alignment overcooking. A failed gate holds the run for a named reviewer whose override is logged in the manifest, and anyone can replay the decision because the eval report is content-addressed and the eval data hash is part of it.
+Nền tảng đọc một manifest mô tả hoàn chỉnh lần chạy, với một seed, một phiên bản mã, và một hash đầu vào và đầu ra cho mọi giai đoạn, và nó đánh giá các cổng số được viết trước khi lần chạy bắt đầu. Một cổng hồi quy giữ mô hình mới theo mô hình trước trên các benchmark cốt lõi và bắt các bug huấn luyện; một cổng ngân sách KL chặn policy đã aligned trôi xa bao nhiêu khỏi tham chiếu và bắt alignment quá tay. Một cổng thất bại giữ lần chạy cho một người review được nêu tên có override được ghi trong manifest, và bất cứ ai có thể phát lại quyết định vì báo cáo đánh giá được định địa chỉ theo nội dung và hash dữ liệu đánh giá là một phần của nó.
 
 ## Full answer
 
 ### What the platform reads
 
-The manifest is the single file that describes the run well enough to replay it: pipeline version, seed, code revision, and per stage a recipe, an input hash, an output hash, wall clock and cost. The output hash of one stage is the input hash of the next, so a corrupted or swapped artifact stops the pipeline before any evaluation. Artifacts are typed: an eval report carries benchmark scores, regression diffs and the hash of the eval data, so a report cannot be confused with a checkpoint or attached to the wrong model.
+Manifest là file duy nhất mô tả lần chạy đủ tốt để phát lại: phiên bản pipeline, seed, phiên bản mã, và theo từng giai đoạn một công thức, một hash đầu vào, một hash đầu ra, thời gian thực và chi phí. Hash đầu ra của một giai đoạn là hash đầu vào của giai đoạn tiếp theo, nên một artifact hỏng hoặc bị đổi dừng pipeline trước bất kỳ đánh giá nào. Các artifact có kiểu: một báo cáo đánh giá mang các điểm benchmark, các diff hồi quy và hash của dữ liệu đánh giá, nên một báo cáo không thể bị nhầm với một checkpoint hoặc gắn vào sai mô hình.
 
 ### Gates
 
-Every gate is a numeric threshold written before training starts, for example a core benchmark at least the baseline plus 0.5, a coding benchmark at least the baseline plus 1.0, a truthfulness benchmark with no drop, a safety refusal rate at most 0.05, a KL from the reference at most 25.0, and a total cost at most 50000. No "looks good" gates and no subjective sign-offs. If every gate passes the artifact is marked shippable; if any fails the run is held.
+Mọi cổng là một ngưỡng số được viết trước khi huấn luyện bắt đầu, chẳng hạn một benchmark cốt lõi ít nhất baseline cộng 0.5, một benchmark lập trình ít nhất baseline cộng 1.0, một benchmark tính trung thực không giảm, một tỷ lệ từ chối an toàn nhiều nhất 0.05, một KL từ tham chiếu nhiều nhất 25.0, và một tổng chi phí nhiều nhất 50000. Không cổng "trông tốt" và không ký duyệt chủ quan. Nếu mọi cổng đạt, artifact được đánh dấu có thể phát hành; nếu bất kỳ cổng nào thất bại, lần chạy bị giữ.
 
 ### The two gates that matter most
 
-- Regression: the new model must be at least as good as the previous one on the core set. This catches training bugs, bad data mixes and broken tokenizers.
-- KL budget: the aligned policy must not drift further than a set amount from its reference. This catches alignment that overcooked the model into a narrow behavior.
+- Hồi quy: mô hình mới phải ít nhất tốt bằng mô hình trước trên tập cốt lõi. Điều này bắt các bug huấn luyện, các hỗn hợp dữ liệu xấu và các tokenizer hỏng.
+- Ngân sách KL: policy đã aligned không được trôi xa hơn một lượng đặt trước khỏi tham chiếu. Điều này bắt alignment đã làm mô hình quá tay thành một hành vi hẹp.
 
-Every production pipeline has both.
+Mọi pipeline production có cả hai.
 
 ### Contamination
 
-A gate that compares the eval data hash against the training shards by exact match or long n-gram overlap, and fails when the overlap passes a small fraction, keeps a benchmark gain honest. The pipeline lesson's exercise sets that fraction at 0.1% with 13-gram matching.
+Một cổng so sánh hash dữ liệu đánh giá với các shard huấn luyện bằng khớp chính xác hoặc độ trùng n-gram dài, và thất bại khi độ trùng vượt một tỷ lệ nhỏ, giữ một mức tăng benchmark trung thực. Bài tập của bài học pipeline đặt tỷ lệ đó ở 0.1% với khớp 13-gram.
 
 ### Holds, overrides and replay
 
-A held run is a decision point, not a failure. A named reviewer either approves the rollback or overrides, and the override is written into the manifest with the name. Replay works because the manifest, the content-addressed eval report and the eval data hash identify the exact inputs; a teammate on another continent runs the gate against the same hashes and must get the same verdict. Reproducible is not deterministic: weights can differ at the level of small rounding between runs, so replay checks hashes and headline metrics, not bit-identical tensors.
+Một lần chạy bị giữ là một điểm quyết định, không phải một thất bại. Một người review được nêu tên hoặc phê duyệt rollback hoặc override, và override được ghi vào manifest với tên. Phát lại hoạt động vì manifest, báo cáo đánh giá được định địa chỉ theo nội dung và hash dữ liệu đánh giá định danh các đầu vào chính xác; một đồng đội ở châu lục khác chạy cổng theo cùng các hash và phải nhận cùng phán quyết. Có thể tái lập không phải xác định: các trọng số có thể khác ở mức làm tròn nhỏ giữa các lần chạy, nên phát lại kiểm tra các hash và các chỉ số chính, không phải tensor giống hệt từng bit.
 
 ### Where the platform plugs in
 
-The gate runs after evaluation and after quantization, because quantized weights must pass the same thresholds as the full model. The three commands are plan, run and gate; plan is free and catches missing thresholds and stale hashes before any compute is spent.
+Cổng chạy sau đánh giá và sau lượng tử hóa, vì các trọng số được lượng tử hóa phải vượt qua cùng các ngưỡng như mô hình đầy đủ. Ba lệnh là plan, run và gate; plan miễn phí và bắt các ngưỡng thiếu cùng các hash cũ trước khi bất kỳ tính toán nào bị tiêu.
 
 ## Follow-ups
 
-- **Level 3:** Why must the thresholds be written before the run? Expected: a threshold chosen after seeing the scores is moved to pass the model; a gate is only a gate if it can fail.
-- **Level 3:** A change to the eval set invalidates what? Expected: only the ship decision; the eval data hash changes, the report is recomputed, and the training artifacts stay valid.
-- **Level 4:** The quantized model passes every gate except the safety refusal rate, which rose slightly. What do you ship? Expected: nothing without a logged override; the gate exists for the serving artifact, and the lesson's recipe keeps safety evals on a higher-precision quantization where deltas matter.
-- **Level 4:** How does the platform stop a model trained through the wrong stage from reaching the gate? Expected: typed artifacts and typed stage signatures, so a preference-tuned checkpoint cannot be fed into the supervised path and the mismatch fails at plan time.
+- **Level 3:** Tại sao các ngưỡng phải được viết trước lần chạy? Expected: một ngưỡng được chọn sau khi thấy các điểm được di chuyển để cho mô hình qua; một cổng chỉ là cổng nếu nó có thể thất bại.
+- **Level 3:** Một thay đổi tập đánh giá vô hiệu hóa gì? Expected: chỉ quyết định phát hành; hash dữ liệu đánh giá thay đổi, báo cáo được tính lại, và các artifact huấn luyện giữ hợp lệ.
+- **Level 4:** Mô hình được lượng tử hóa vượt qua mọi cổng ngoại trừ tỷ lệ từ chối an toàn, tăng nhẹ. Bạn phát hành gì? Expected: không có gì nếu không có một override được ghi nhật ký; cổng tồn tại cho artifact phục vụ, và công thức của bài học giữ các đánh giá an toàn trên một lượng tử hóa chính xác cao hơn ở nơi các chênh lệch quan trọng.
+- **Level 4:** Nền tảng ngăn một mô hình được huấn luyện qua sai giai đoạn đến cổng bằng cách nào? Expected: các artifact có kiểu và các chữ ký giai đoạn có kiểu, để một checkpoint được tinh chỉnh sở thích không thể được đưa vào đường có giám sát và sự không khớp thất bại ở thời điểm plan.
 
 ## Wrong answers
 
-- "Have a reviewer look at samples and sign off." Subjective sign-offs are not gates; a gate is a number that can fail, and the reviewer's role is the logged override.
-- "Rerun training to confirm a result." Pre-training costs weeks; replay checks hashes and metrics against the manifest instead.
-- "One benchmark is enough if it is the right one." The regression set and the KL budget catch different failures, and a safety gate catches a third.
+- "Cho một người review xem các mẫu và ký duyệt." Các ký duyệt chủ quan không phải cổng; một cổng là một con số có thể thất bại, và vai trò của người review là override được ghi nhật ký.
+- "Chạy lại huấn luyện để xác nhận một kết quả." Tiền huấn luyện tốn nhiều tuần; phát lại thay vào đó kiểm tra các hash và chỉ số theo manifest.
+- "Một benchmark là đủ nếu nó là benchmark đúng." Tập hồi quy và ngân sách KL bắt các lỗi khác nhau, và một cổng an toàn bắt một lỗi thứ ba.
 
 ## Taught in
 
-The [complete LLM pipeline lesson](../../../phases/10-llms-from-scratch/13-building-complete-llm-pipeline/) defines the manifest, the typed artifacts, the eval gate and the override and replay rules.
+[Bài học pipeline LLM hoàn chỉnh](../../../phases/10-llms-from-scratch/13-building-complete-llm-pipeline/) định nghĩa manifest, các artifact có kiểu, cổng đánh giá và các quy tắc override cùng phát lại.

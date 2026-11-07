@@ -16,53 +16,53 @@ related: [system-design/drift-monitoring-design, system-design/fraud-check-100ms
 updated: 2026-11-03
 ---
 
-A payment model's accuracy, measured as labels arrive, fell from 0.946 to between 0.76 and 0.79. The feature monitors and the score distribution stayed quiet the whole time. The team proposes retraining on the last quarter of labeled data tonight. What happened, why did the monitors miss it, and is the proposal right?
+Độ chính xác của một mô hình thanh toán, được đo khi các nhãn đến, giảm từ 0.946 xuống giữa 0.76 và 0.79. Các bộ giám sát feature và phân phối điểm giữ im lặng suốt thời gian. Nhóm đề xuất huấn luyện lại trên quý cuối của dữ liệu được gán nhãn tối nay. Điều gì đã xảy ra, tại sao các bộ giám sát bỏ lỡ, và đề xuất có đúng không?
 
 ## Short answer
 
-The relation between inputs and labels changed while the inputs themselves did not, which is concept drift. Input and prediction monitors compare distributions of features and scores, so a change in the conditional label distribution is invisible to them, and only the outcome monitor can see it, after the label delay. Retraining tonight on the last quarter is the wrong move: most of those labels still describe the old relation, so the model relearns it; collect labels from after the change first, then retrain on them.
+Quan hệ giữa các đầu vào và nhãn thay đổi trong khi chính các đầu vào không thay đổi, đó là concept drift. Các bộ giám sát đầu vào và dự đoán so sánh các phân phối feature và điểm, nên một thay đổi trong phân phối nhãn có điều kiện vô hình với chúng, và chỉ bộ giám sát kết quả có thể thấy nó, sau độ trễ nhãn. Huấn luyện lại tối nay trên quý cuối là nước đi sai: phần lớn các nhãn đó vẫn mô tả quan hệ cũ, nên mô hình học lại nó; thu thập các nhãn từ sau thay đổi trước, rồi huấn luyện lại trên chúng.
 
 ## Full answer
 
 ### Three kinds of drift
 
-| Drift | What changes | Which monitor sees it |
+| Drift | Điều gì thay đổi | Bộ giám sát nào thấy nó |
 |---|---|---|
-| Covariate | The input distribution | Input monitors |
-| Prior | The label rate | Prediction and outcome monitors |
-| Concept | The label given the input | Outcome monitors only |
+| Covariate | Phân phối đầu vào | Các bộ giám sát đầu vào |
+| Prior | Tỷ lệ nhãn | Các bộ giám sát dự đoán và kết quả |
+| Concept | Nhãn khi biết đầu vào | Chỉ các bộ giám sát kết quả |
 
-Covariate drift moves features and often leaves accuracy alone. Prior drift moves the positive rate. Concept drift changes which answer is right for the same input, so nothing upstream of the label moves.
+Covariate drift dịch chuyển các feature và thường để độ chính xác nguyên. Prior drift dịch chuyển tỷ lệ dương. Concept drift thay đổi câu trả lời nào đúng cho cùng đầu vào, nên không gì phía trước nhãn dịch chuyển.
 
 ### What the demo shows
 
-The lesson's stream injects both kinds. During the covariate segment the PSI and the KS statistic alert on the amount feature while accuracy stays between 0.89 and 0.95. During the concept segment the inputs are identical to the reference, both input monitors stay at their clean values, and accuracy falls from 0.946 to the 0.76 to 0.79 range. The accuracy alert fires 1000 events after the change, and the label delay of 500 events accounts for half of that lag.
+Luồng của bài học đưa vào cả hai loại. Trong đoạn covariate, PSI và thống kê KS cảnh báo trên feature số tiền trong khi độ chính xác giữ giữa 0.89 và 0.95. Trong đoạn concept, các đầu vào giống hệt tham chiếu, cả hai bộ giám sát đầu vào giữ ở các giá trị sạch, và độ chính xác giảm từ 0.946 xuống khoảng 0.76 đến 0.79. Cảnh báo độ chính xác kích hoạt 1000 sự kiện sau thay đổi, và độ trễ nhãn 500 sự kiện chiếm một nửa độ trễ đó.
 
 ### Why the lag
 
-The outcome monitor always looks one label delay into the past, because it can only score the events whose outcome has arrived. The persistence rule, which requires consecutive drift windows before an alert, adds the rest. Both are deliberate: without them the alert rate is unusable.
+Bộ giám sát kết quả luôn nhìn về quá khứ một độ trễ nhãn, vì nó chỉ có thể chấm các sự kiện có kết quả đã đến. Quy tắc tính dai dẳng, yêu cầu các cửa sổ drift liên tiếp trước một cảnh báo, thêm phần còn lại. Cả hai có chủ đích: không có chúng, tỷ lệ cảnh báo không dùng được.
 
 ### Why the retraining proposal is wrong
 
-Retraining answers covariate drift into regions with little data. Concept drift needs labels from after the change. A quarter of labels where the change happened late in the window teaches mostly the old concept. The right sequence is: confirm the change point from the outcome monitor, gather enough labels past it, retrain on those, test on the most recent labeled slice, roll out through shadow and canary, and reset the reference window to the new training data.
+Huấn luyện lại giải quyết covariate drift vào các vùng có ít dữ liệu. Concept drift cần các nhãn từ sau thay đổi. Một quý nhãn mà thay đổi xảy ra muộn trong cửa sổ dạy phần lớn khái niệm cũ. Trình tự đúng là: xác nhận điểm thay đổi từ bộ giám sát kết quả, thu đủ nhãn sau nó, huấn luyện lại trên chúng, kiểm thử trên lát được gán nhãn gần nhất, rollout qua shadow và canary, và đặt lại cửa sổ tham chiếu về dữ liệu huấn luyện mới.
 
 ### What to do tonight
 
-Route more cases to review if the business impact is large, as a temporary measure while labels from after the change arrive. A threshold move is the lesson's action for prior drift. For concept drift it helps only when the boundary moved on the same score, and it cannot restore a risk order that changed. Keep the model; replace it only with labels that describe the new relation.
+Chuyển thêm các trường hợp tới review nếu tác động kinh doanh lớn, như một biện pháp tạm thời trong khi các nhãn từ sau thay đổi đến. Một dịch chuyển ngưỡng là hành động của bài học cho prior drift. Với concept drift, nó chỉ giúp khi ranh giới di chuyển trên cùng điểm, và nó không thể khôi phục một thứ tự rủi ro đã thay đổi. Giữ mô hình; chỉ thay nó bằng các nhãn mô tả quan hệ mới.
 
 ## Follow-ups
 
-- **Level 3:** Which signal could you add that reacts before the labels? Expected: none for pure concept drift; a proxy such as a review queue outcome or a faster partial label is the only earlier signal.
-- **Level 3:** How does a performance estimator that uses predicted probabilities behave here? Expected: it assumes the calibration still holds, so it misses concept drift; the lesson notes that such estimators handle covariate shift and not concept drift.
-- **Level 4:** How do you choose how many post-change labels are enough? Expected: enough to test the retrained model on a recent held-out slice with a tolerance you set in advance; the test on recent labels is the gate, not a count.
-- **Level 4:** After retraining, the input monitors start to alert on the clean reference. Why? Expected: the reference window was not reset to the new training data, so it compares live traffic with an old distribution.
+- **Level 3:** Bạn có thể thêm tín hiệu nào phản ứng trước các nhãn? Expected: không có cho concept drift thuần; một proxy như kết quả hàng đợi review hoặc một nhãn một phần nhanh hơn là tín hiệu sớm hơn duy nhất.
+- **Level 3:** Một bộ ước lượng hiệu năng dùng các xác suất dự đoán hành xử thế nào ở đây? Expected: nó giả định hiệu chuẩn vẫn giữ vững, nên nó bỏ lỡ concept drift; bài học lưu ý các bộ ước lượng như vậy xử lý covariate shift chứ không phải concept drift.
+- **Level 4:** Bạn chọn bao nhiêu nhãn sau thay đổi là đủ bằng cách nào? Expected: đủ để kiểm thử mô hình được huấn luyện lại trên một lát giữ lại gần đây với một dung sai bạn đặt trước; kiểm thử trên các nhãn gần đây là cổng, không phải một số đếm.
+- **Level 4:** Sau huấn luyện lại, các bộ giám sát đầu vào bắt đầu cảnh báo trên tham chiếu sạch. Tại sao? Expected: cửa sổ tham chiếu chưa được đặt lại về dữ liệu huấn luyện mới, nên nó so sánh lưu lượng trực tiếp với một phân phối cũ.
 
 ## Wrong answers
 
-- "The feature monitors are broken; nothing changed in the inputs." They worked as designed; the inputs did not change, the labels did.
-- "Retrain on everything so the model sees the new pattern." The old labels outnumber the new ones and the model relearns the old relation.
-- "Shorten the windows to catch it faster." Smaller windows add noise and false alarms; the lag here comes from the label delay, which windows cannot remove.
+- "Các bộ giám sát feature hỏng; không gì thay đổi trong các đầu vào." Chúng hoạt động như thiết kế; các đầu vào không thay đổi, các nhãn có thay đổi.
+- "Huấn luyện lại trên mọi thứ để mô hình thấy mẫu mới." Các nhãn cũ nhiều hơn các nhãn mới và mô hình học lại quan hệ cũ.
+- "Rút ngắn các cửa sổ để bắt nó nhanh hơn." Các cửa sổ nhỏ hơn thêm nhiễu và báo động giả; độ trễ ở đây đến từ độ trễ nhãn, điều các cửa sổ không thể loại bỏ.
 
 ## Taught in
 
-The [model monitoring lesson](../../../phases/02-ml-fundamentals/20-model-monitoring-and-drift/) runs the stream with injected covariate and concept drift and shows which monitor reacts to each.
+[Bài học giám sát mô hình](../../../phases/02-ml-fundamentals/20-model-monitoring-and-drift/) chạy luồng với covariate drift và concept drift được đưa vào và cho thấy bộ giám sát nào phản ứng với mỗi loại.
