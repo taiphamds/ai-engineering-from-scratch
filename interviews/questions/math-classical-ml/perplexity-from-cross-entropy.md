@@ -16,11 +16,11 @@ related: [math-classical-ml/cross-entropy-is-kl-plus-entropy, math-classical-ml/
 updated: 2026-11-03
 ---
 
-A language model has a vocabulary of V tokens. On a held-out text, its mean cross-entropy per token, measured in nats, equals the natural log of V. Estimate the perplexity and say what the number tells you about the model.
+Một mô hình ngôn ngữ có một từ vựng V token. Trên một văn bản giữ lại, cross-entropy trung bình mỗi token của nó, đo bằng nat, bằng log tự nhiên của V. Ước lượng perplexity và nói con số cho bạn biết gì về mô hình.
 
 ## Short answer
 
-Perplexity is the exponential of the mean cross-entropy, so here it equals V. On average the model is as uncertain as a uniform pick over the whole vocabulary. A trained model should sit far below V. The mean alone does not prove that the model learned nothing, because other per-token predictions can give the same average, so check per-token predictions and the data.
+Perplexity là hàm mũ của cross-entropy trung bình, nên ở đây nó bằng V. Trung bình mô hình bất định như một lựa chọn đều trên toàn bộ từ vựng. Một mô hình đã huấn luyện nên nằm thấp hơn V nhiều. Chỉ trung bình không chứng minh mô hình không học được gì, vì các dự đoán theo token khác có thể cho cùng trung bình, nên kiểm tra các dự đoán theo token và dữ liệu.
 
 ## Full answer
 
@@ -31,30 +31,30 @@ perplexity = e ^ H(P, Q)    when the loss is in nats
 perplexity = 2 ^ H(P, Q)    when the loss is in bits
 ```
 
-The two give the same number, because 1 nat is 1.4427 bits and the base of the exponential changes with the base of the log. Perplexity reads as the effective number of equally likely choices the model is torn between at each step. A perplexity of 50 means the model is, on average, as confused as if it had to pick uniformly from 50 tokens.
+Hai công thức cho cùng con số, vì 1 nat bằng 1.4427 bit và cơ số của hàm mũ thay đổi theo cơ số của log. Perplexity được đọc là số lượng hiệu dụng các lựa chọn có khả năng bằng nhau mà mô hình phân vân giữa chúng ở mỗi bước. Một perplexity 50 có nghĩa mô hình, trung bình, bối rối như thể nó phải chọn đều từ 50 token.
 
 ### The estimate
 
-The loss is ln V. The exponential of ln V is V. Uniform logits over V tokens give exactly this loss and exactly this perplexity. Other per-token predictions can give the same average, so this number alone does not prove that the model learned nothing. Look at the per-token predictions and at the data distribution before you decide. The lesson gives a scale: GPT-2 reached about 30 on common benchmarks, and modern models are in the single digits on well-represented domains.
+Loss là ln V. Hàm mũ của ln V là V. Các logit đều trên V token cho chính xác loss này và chính xác perplexity này. Các dự đoán theo token khác có thể cho cùng trung bình, nên chỉ con số này không chứng minh mô hình không học được gì. Xem các dự đoán theo token và phân phối dữ liệu trước khi quyết định. Bài học đưa ra một thang đo: GPT-2 đạt khoảng 30 trên các benchmark thông dụng, và các mô hình hiện đại ở mức một chữ số trên các miền được đại diện tốt.
 
 ### What to check before you blame the model
 
-- The text and the tokenizer must match the training setup. A different tokenizer changes the token count and the vocabulary, and the per-token number is not comparable.
-- A perplexity near V on an in-domain text points at a bug: a shuffled label stream, a wrong vocabulary mapping, or weights that never loaded.
+- Văn bản và tokenizer phải khớp thiết lập huấn luyện. Một tokenizer khác thay đổi số token và từ vựng, và con số theo token không so sánh được.
+- Một perplexity gần V trên văn bản trong miền chỉ đến một bug: một luồng nhãn bị xáo trộn, một ánh xạ từ vựng sai, hoặc các trọng số chưa bao giờ được nạp.
 
 ## Follow-ups
 
-- **Level 2:** The loss is reported in bits instead of nats. What changes? Expected: raise 2 to the loss instead of e; the perplexity is the same number.
-- **Level 2:** What does a perplexity of 50 mean in words? Expected: on average the model is as uncertain as a uniform pick among 50 tokens.
-- **Level 3:** Two models use different tokenizers. Can you compare their perplexities? Expected: not directly; the token count and the vocabulary differ, so the per-token numbers measure different things.
-- **Level 3:** A perplexity equal to V shows up on in-domain text after training. What do you suspect first? Expected: a pipeline bug, such as labels that do not line up with inputs or weights that did not load, because the model is doing no better than chance.
+- **Level 2:** Loss được báo cáo bằng bit thay vì nat. Điều gì thay đổi? Expected: lấy 2 mũ loss thay vì e; perplexity là cùng con số.
+- **Level 2:** Một perplexity 50 có nghĩa gì bằng lời? Expected: trung bình mô hình bất định như một lựa chọn đều giữa 50 token.
+- **Level 3:** Hai mô hình dùng các tokenizer khác nhau. Bạn có thể so sánh perplexity của chúng không? Expected: không trực tiếp; số token và từ vựng khác nhau, nên các con số theo token đo những thứ khác nhau.
+- **Level 3:** Một perplexity bằng V xuất hiện trên văn bản trong miền sau huấn luyện. Bạn nghi ngờ gì trước? Expected: một bug pipeline, chẳng hạn các nhãn không thẳng hàng với đầu vào hoặc trọng số chưa được nạp, vì mô hình không làm tốt hơn ngẫu nhiên.
 
 ## Wrong answers
 
-- "Perplexity equal to V means the model is perfect." A perfect model has perplexity 1. V is what a uniform guess gets.
-- "Divide the loss by V to get the perplexity." Perplexity is the exponential of the loss, not a ratio.
-- "A lower perplexity on any text means a better model." Only on the same text with the same tokenizer. A different text or vocabulary moves the number without any change in the model.
+- "Perplexity bằng V có nghĩa mô hình hoàn hảo." Một mô hình hoàn hảo có perplexity 1. V là thứ một dự đoán đều nhận được.
+- "Chia loss cho V để có perplexity." Perplexity là hàm mũ của loss, không phải một tỷ số.
+- "Một perplexity thấp hơn trên bất kỳ văn bản nào có nghĩa một mô hình tốt hơn." Chỉ trên cùng văn bản với cùng tokenizer. Một văn bản hoặc từ vựng khác thay đổi con số mà không có thay đổi nào trong mô hình.
 
 ## Taught in
 
-The [information theory lesson](../../../phases/01-math-foundations/09-information-theory/) defines perplexity as the exponential of cross-entropy and gives the uniform case as a check.
+[Bài học lý thuyết thông tin](../../../phases/01-math-foundations/09-information-theory/) định nghĩa perplexity là hàm mũ của cross-entropy và đưa ra trường hợp đều làm một kiểm tra.

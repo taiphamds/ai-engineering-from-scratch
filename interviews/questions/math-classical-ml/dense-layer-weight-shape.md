@@ -16,50 +16,50 @@ related: [math-classical-ml/elementwise-or-matmul]
 updated: 2026-11-03
 ---
 
-A colleague builds a dense layer that takes 784 inputs and gives 128 outputs. The first forward pass stops with a shape error. Which dimensions does the weight matrix need, and how do you read an error like this one?
+Một đồng nghiệp xây dựng một lớp dense nhận 784 đầu vào và cho 128 đầu ra. Lượt forward đầu tiên dừng với một lỗi shape. Ma trận trọng số cần những chiều nào, và bạn đọc một lỗi như thế này như thế nào?
 
 ## Short answer
 
-The matrix is 128 by 784: one row for each output and one column for each input. A matrix product needs the inner sizes to agree, so a 128 by 784 matrix times a 784 by 1 input gives a 128 by 1 output. An error means the inner sizes differ, and the fix starts with the shapes of every operand written on paper.
+Ma trận là 128 nhân 784: một hàng cho mỗi đầu ra và một cột cho mỗi đầu vào. Một tích ma trận cần các kích thước bên trong khớp nhau, nên một ma trận 128 nhân 784 nhân một đầu vào 784 nhân 1 cho một đầu ra 128 nhân 1. Một lỗi có nghĩa các kích thước bên trong khác nhau, và cách sửa bắt đầu với shape của mọi toán hạng được viết ra giấy.
 
 ## Full answer
 
 ### The rule
 
-A product of an m by n matrix and an n by p matrix gives an m by p matrix. The inner sizes, both n, must agree. For the layer in the question:
+Một tích của một ma trận m nhân n và một ma trận n nhân p cho một ma trận m nhân p. Các kích thước bên trong, đều là n, phải khớp nhau. Với lớp trong câu hỏi:
 
 ```text
 (128 x 784) @ (784 x 1) = (128 x 1)
   weights       input       output
 ```
 
-The rows of the weight matrix count the outputs. The columns count the inputs. Each output is the dot product of one weight row with the whole input vector.
+Các hàng của ma trận trọng số đếm các đầu ra. Các cột đếm các đầu vào. Mỗi đầu ra là tích vô hướng của một hàng trọng số với toàn bộ vector đầu vào.
 
 ### The bias
 
-The bias holds one value for each output. Store it as a 128 by 1 column, as the lesson does, so that it adds to the 128 by 1 result element by element. A flat array of 128 values against a 128 by 1 column broadcasts to 128 by 128 with no error. When the layer runs on a batch, the bias has fewer dimensions than the output, and broadcasting repeats it across the batch. Broadcasting only stretches a dimension of size 1, so it never fixes a 784 against a 128.
+Bias giữ một giá trị cho mỗi đầu ra. Lưu nó thành một cột 128 nhân 1, như bài học làm, để nó cộng vào kết quả 128 nhân 1 theo từng phần tử. Một mảng phẳng 128 giá trị đối với một cột 128 nhân 1 broadcast thành 128 nhân 128 mà không có lỗi. Khi lớp chạy trên một batch, bias có ít chiều hơn đầu ra, và broadcasting lặp nó trên batch. Broadcasting chỉ kéo giãn một chiều có kích thước 1, nên nó không bao giờ sửa một 784 đối với một 128.
 
 ### How to read the error
 
-1. Write the shape of every operand next to the operation.
-2. Find the operation whose inner sizes do not match. That is the broken line.
-3. Decide which side is wrong. A transposed weight matrix, an input stored as a row instead of a column, and a missing batch dimension each give a different pair of numbers in the message.
+1. Viết shape của mọi toán hạng cạnh phép toán.
+2. Tìm phép toán có các kích thước bên trong không khớp. Đó là dòng bị lỗi.
+3. Quyết định phía nào sai. Một ma trận trọng số bị chuyển vị, một đầu vào được lưu thành hàng thay vì cột, và một chiều batch bị thiếu mỗi trường hợp cho một cặp số khác trong thông báo.
 
-The lesson makes the same check for a two layer network: the first matrix is 4 by 3 and the second is 2 by 4, so a 3 by 1 input gives a 4 by 1 hidden vector and a 2 by 1 output.
+Bài học thực hiện cùng kiểm tra cho một mạng hai lớp: ma trận đầu tiên là 4 nhân 3 và ma trận thứ hai là 2 nhân 4, nên một đầu vào 3 nhân 1 cho một vector ẩn 4 nhân 1 và một đầu ra 2 nhân 1.
 
 ## Follow-ups
 
-- **Level 1:** What shape does the bias have? Expected: one value for each output, so 128 values, stored as a 128 by 1 column so that it adds to each output column.
-- **Level 2:** A batch of inputs arrives as rows instead of columns. What changes? Expected: the order of the product changes, so the batch matrix times the transposed weight gives one output row for each input.
-- **Level 2:** Why does a transpose appear in the backward pass? Expected: the gradient for the input needs the weight matrix with its rows and columns swapped, so that the shapes agree in the reverse direction.
-- **Level 3:** How does broadcasting hide a shape bug? Expected: a dimension of size 1 is stretched to fit, so a wrong shape can run without an error and give wrong values. An assertion on the shape catches it.
+- **Level 1:** Bias có shape nào? Expected: một giá trị cho mỗi đầu ra, nên 128 giá trị, được lưu thành một cột 128 nhân 1 để nó cộng vào mỗi cột đầu ra.
+- **Level 2:** Một batch đầu vào đến dưới dạng hàng thay vì cột. Điều gì thay đổi? Expected: thứ tự của tích thay đổi, nên ma trận batch nhân trọng số chuyển vị cho một hàng đầu ra cho mỗi đầu vào.
+- **Level 2:** Tại sao một phép chuyển vị xuất hiện trong lượt backward? Expected: gradient cho đầu vào cần ma trận trọng số với các hàng và cột hoán đổi, để các shape khớp theo hướng ngược.
+- **Level 3:** Broadcasting che giấu một bug shape như thế nào? Expected: một chiều có kích thước 1 được kéo giãn để khớp, nên một shape sai có thể chạy mà không có lỗi và cho các giá trị sai. Một assertion trên shape bắt được nó.
 
 ## Wrong answers
 
-- "The weight matrix is 784 by 128 because inputs come first." With a column input the matrix needs 128 rows and 784 columns. The order of the product decides which form is right, not the order in which you name the sizes.
-- "Shapes do not matter, the framework fixes them." Broadcasting repeats only a dimension of size 1. A 784 against a 128 inner size is an error, or a silent wrong result after a reshape.
-- "Transpose things until the code runs." A transpose that makes the code run can multiply the wrong pairs of numbers. Write the shapes down first and then change the one that is wrong.
+- "Ma trận trọng số là 784 nhân 128 vì đầu vào đến trước." Với một đầu vào cột, ma trận cần 128 hàng và 784 cột. Thứ tự của tích quyết định dạng nào đúng, không phải thứ tự bạn gọi tên các kích thước.
+- "Shape không quan trọng, framework sửa chúng." Broadcasting chỉ lặp một chiều có kích thước 1. Một kích thước bên trong 784 đối với 128 là một lỗi, hoặc một kết quả sai âm thầm sau một reshape.
+- "Chuyển vị các thứ đến khi mã chạy." Một chuyển vị khiến mã chạy có thể nhân các cặp số sai. Viết các shape xuống trước rồi thay cái sai.
 
 ## Taught in
 
-The [vectors and matrices lesson](../../../phases/01-math-foundations/02-vectors-matrices-operations/) gives the shape rule and builds a dense layer from a Matrix class.
+[Bài học vector và ma trận](../../../phases/01-math-foundations/02-vectors-matrices-operations/) đưa ra quy tắc shape và xây dựng một lớp dense từ một lớp Matrix.

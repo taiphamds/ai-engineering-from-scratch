@@ -16,43 +16,43 @@ related: [math-classical-ml/threshold-precision-or-recall, math-classical-ml/cro
 updated: 2026-11-03
 ---
 
-You fit a logistic regression with gradient descent on a small dataset where one line separates the two classes with no errors. The loss falls at every epoch, the weights grow at every epoch, and the run never settles. A colleague proposes a squared error loss instead, because it has a clear bottom. What is happening, and what do you do?
+Bạn khớp một hồi quy logistic bằng gradient descent trên một tập dữ liệu nhỏ mà một đường thẳng tách hai lớp không có lỗi. Loss giảm ở mọi epoch, trọng số tăng ở mọi epoch, và lần chạy không bao giờ ổn định. Một đồng nghiệp đề xuất một loss sai số bình phương thay vào đó, vì nó có một đáy rõ ràng. Điều gì đang xảy ra, và bạn làm gì?
 
 ## Short answer
 
-On separable data the log loss has no finite minimum: scaling the weights up pushes every probability closer to its label and the loss closer to zero, so descent walks forever. Squared error through a sigmoid is a worse trade, because that cost surface is not convex and has flat regions where the gradient dies. Keep the log loss and add an L2 penalty, which gives one finite, unique minimum.
+Trên dữ liệu tách được, log loss không có cực tiểu hữu hạn: tăng tỷ lệ trọng số đẩy mọi xác suất gần nhãn của nó hơn và loss gần không hơn, nên descent đi mãi. Sai số bình phương qua một sigmoid là một đánh đổi tệ hơn, vì bề mặt chi phí đó không lồi và có các vùng phẳng nơi gradient chết. Giữ log loss và thêm một hình phạt L2, cho một cực tiểu hữu hạn, duy nhất.
 
 ## Full answer
 
 ### Why the log loss is the right loss
 
-The model is a linear score z = w x + b passed through a sigmoid, and the binary cross-entropy is minus the mean of y log p plus (1 - y) log (1 - p). For this model the loss is convex, so every local minimum is the global one and gradient descent cannot stop in a bad valley. The gradient has the same clean form as in linear regression, the mean of (p - y) times x, with p the sigmoid output instead of the raw score.
+Mô hình là một điểm tuyến tính z = w x + b đi qua một sigmoid, và binary cross-entropy là âm trung bình của y log p cộng (1 - y) log (1 - p). Với mô hình này, loss lồi, nên mọi cực tiểu cục bộ là cực tiểu toàn cục và gradient descent không thể dừng trong một thung lũng xấu. Gradient có cùng dạng gọn như trong hồi quy tuyến tính, trung bình của (p - y) nhân x, với p là đầu ra sigmoid thay vì điểm thô.
 
 ### What separable data does to it
 
-When a line classifies every point correctly, multiplying w and b by a constant above 1 leaves the line in place and moves every probability toward 0 or 1. Each such step lowers the loss, so no finite w is the minimizer. In the run you see the loss fall, the weights grow, the probabilities saturate, and the sigmoid clamp in the code start to matter. The decision boundary itself has stopped changing.
+Khi một đường thẳng phân loại đúng mọi điểm, nhân w và b với một hằng số trên 1 giữ nguyên đường thẳng và đưa mọi xác suất về phía 0 hoặc 1. Mỗi bước như vậy giảm loss, nên không có w hữu hạn là điểm cực tiểu. Trong lần chạy bạn thấy loss giảm, trọng số tăng, xác suất bão hòa, và việc chặn sigmoid trong mã bắt đầu quan trọng. Bản thân ranh giới quyết định đã ngừng thay đổi.
 
 ### Why squared error does not help
 
-Squared error on a sigmoid output is not convex. It has local minima, and where the sigmoid saturates its gradient is near zero, so a confident wrong prediction gets almost no correction. The lesson's reason to avoid it for classification is exactly this shape.
+Sai số bình phương trên một đầu ra sigmoid không lồi. Nó có các cực tiểu cục bộ, và nơi sigmoid bão hòa, gradient của nó gần không, nên một dự đoán sai tự tin gần như không nhận sửa đổi. Lý do của bài học để tránh nó cho phân loại chính là hình dạng này.
 
 ### The fix
 
-Add an L2 penalty, lambda times the sum of squared weights, to the loss. Its gradient, two lambda times w, pulls every weight back toward zero at each step. The pull grows with the weights and the pull of the data loss shrinks as the probabilities saturate, so they balance at a finite point, and the minimum is unique. The library implementation in the lesson applies regularization by default for this reason.
+Thêm một hình phạt L2, lambda nhân tổng trọng số bình phương, vào loss. Gradient của nó, hai lambda nhân w, kéo mọi trọng số về phía không ở mỗi bước. Lực kéo tăng theo trọng số và lực kéo của data loss giảm khi các xác suất bão hòa, nên chúng cân bằng ở một điểm hữu hạn, và cực tiểu là duy nhất. Triển khai thư viện trong bài học mặc định áp dụng regularization vì lý do này.
 
 ## Follow-ups
 
-- **Level 3:** Why is the cross-entropy convex for this model while squared error is not? Expected: the log of the sigmoid combines with the linear score into a convex function; squaring the gap between a sigmoid and a label creates flat regions and several local minima.
-- **Level 3:** What does the decision boundary do while the weights grow? Expected: the line w x + b = 0 barely moves; only the steepness of the sigmoid across it grows, so predictions become overconfident.
-- **Level 4:** How does the L2 penalty change each gradient step? Expected: it adds a term proportional to w to the gradient, so each step also shrinks the weights, and the shrinking balances the pull toward larger weights at a finite point.
-- **Level 4:** The data is nearly separable instead. Does the problem go away? Expected: a finite minimum exists, but the weights are large and the probabilities overconfident; the penalty still helps calibration, and a validation loss shows it.
+- **Level 3:** Tại sao cross-entropy lồi cho mô hình này trong khi sai số bình phương không lồi? Expected: log của sigmoid kết hợp với điểm tuyến tính thành một hàm lồi; bình phương khoảng cách giữa một sigmoid và một nhãn tạo các vùng phẳng và nhiều cực tiểu cục bộ.
+- **Level 3:** Ranh giới quyết định làm gì khi trọng số tăng? Expected: đường thẳng w x + b = 0 hầu như không di chuyển; chỉ độ dốc của sigmoid qua nó tăng, nên các dự đoán trở nên quá tự tin.
+- **Level 4:** Hình phạt L2 thay đổi mỗi bước gradient như thế nào? Expected: nó thêm một số hạng tỷ lệ với w vào gradient, nên mỗi bước cũng co trọng số, và sự co cân bằng lực kéo về trọng số lớn hơn ở một điểm hữu hạn.
+- **Level 4:** Thay vào đó dữ liệu gần tách được. Vấn đề có biến mất không? Expected: một cực tiểu hữu hạn tồn tại, nhưng trọng số lớn và xác suất quá tự tin; hình phạt vẫn giúp hiệu chuẩn, và một validation loss cho thấy điều đó.
 
 ## Wrong answers
 
-- "The falling loss means the model is still improving, let it run." The boundary stopped improving; only the confidence grows, until the weights overflow or every probability saturates.
-- "Switch to squared error for a well-defined minimum." That surface is not convex with a sigmoid output, so descent can stop in a poor local minimum, and the gradient vanishes where the sigmoid saturates.
-- "Add early stopping and call it solved." Stopping fixes the run time but leaves the weights wherever the clock ran out; a penalty gives a defined answer that does not depend on the epoch count.
+- "Loss giảm có nghĩa mô hình vẫn cải thiện, cứ để nó chạy." Ranh giới đã ngừng cải thiện; chỉ độ tự tin tăng, đến khi trọng số overflow hoặc mọi xác suất bão hòa.
+- "Chuyển sang sai số bình phương để có một cực tiểu xác định rõ." Bề mặt đó không lồi với một đầu ra sigmoid, nên descent có thể dừng ở một cực tiểu cục bộ kém, và gradient biến mất nơi sigmoid bão hòa.
+- "Thêm early stopping và coi như đã giải quyết." Dừng sửa thời gian chạy nhưng để trọng số ở bất cứ đâu khi đồng hồ hết giờ; một hình phạt cho một đáp án xác định không phụ thuộc vào số epoch.
 
 ## Taught in
 
-The [logistic regression lesson](../../../phases/02-ml-fundamentals/03-logistic-regression/) explains why the log loss is convex and why separable data has no finite minimizer, and the [linear regression lesson](../../../phases/02-ml-fundamentals/02-linear-regression/) introduces the L2 penalty.
+[Bài học hồi quy logistic](../../../phases/02-ml-fundamentals/03-logistic-regression/) giải thích tại sao log loss lồi và tại sao dữ liệu tách được không có điểm cực tiểu hữu hạn, và [bài học hồi quy tuyến tính](../../../phases/02-ml-fundamentals/02-linear-regression/) giới thiệu hình phạt L2.

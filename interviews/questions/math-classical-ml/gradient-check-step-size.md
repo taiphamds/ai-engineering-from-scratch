@@ -16,49 +16,49 @@ related: [math-classical-ml/grad-accumulate-plus-equals, math-classical-ml/varia
 updated: 2026-11-03
 ---
 
-You add a new layer to a from-scratch network and run a gradient check. The relative error between the analytical and the numerical gradient is about 1e-3 for one weight. A teammate says the backward pass has a bug. Before you agree, how do you decide whether the fault is in the backward pass or in the check itself?
+Bạn thêm một lớp mới vào một mạng từ đầu và chạy một kiểm tra gradient. Sai số tương đối giữa gradient giải tích và gradient số khoảng 1e-3 cho một trọng số. Một đồng đội nói lượt backward có một bug. Trước khi đồng ý, bạn quyết định lỗi nằm trong lượt backward hay trong chính kiểm tra như thế nào?
 
 ## Short answer
 
-A relative error near 1e-3 is in the warning band, so first make the check trustworthy. Use the two-sided difference, set the step to the range from 1e-5 to 1e-7, run the check in float64, and compute the relative error with the max of both magnitudes in the denominator. If the error stays near 1e-3 or grows under those conditions, the backward pass is wrong; if it drops below 1e-5, the check was at fault.
+Một sai số tương đối gần 1e-3 nằm trong dải cảnh báo, nên trước tiên làm kiểm tra đáng tin cậy. Dùng sai phân hai phía, đặt bước trong khoảng từ 1e-5 đến 1e-7, chạy kiểm tra trong float64, và tính sai số tương đối với giá trị lớn nhất của cả hai độ lớn ở mẫu số. Nếu sai số giữ gần 1e-3 hoặc tăng trong những điều kiện đó, lượt backward sai; nếu nó giảm xuống dưới 1e-5, kiểm tra đã có lỗi.
 
 ## Full answer
 
 ### What the check computes
 
-The numerical gradient for one weight is the centered difference: the loss at the weight plus h, minus the loss at the weight minus h, divided by 2h. Its truncation error shrinks with h squared, while the one-sided difference only shrinks with h. The relative error compares it with the analytical value:
+Gradient số cho một trọng số là sai phân trung tâm: loss tại trọng số cộng h, trừ loss tại trọng số trừ h, chia cho 2h. Sai số cắt cụt của nó giảm theo h bình phương, trong khi sai phân một phía chỉ giảm theo h. Sai số tương đối so sánh nó với giá trị giải tích:
 
 ```text
 rel_error = |analytical - numerical| / max(|analytical|, |numerical|, 1e-8)
 ```
 
-The lesson's thresholds: below 1e-7 is a clean match, below 1e-5 is acceptable, above 1e-3 points at a bug, and above 1 means the gradient is wrong.
+Các ngưỡng của bài học: dưới 1e-7 là khớp sạch, dưới 1e-5 là chấp nhận được, trên 1e-3 chỉ đến một bug, và trên 1 có nghĩa gradient sai.
 
 ### Ways the check lies
 
-1. **Step too large.** The difference measures the slope of a chord, not the tangent. Shrink h.
-2. **Step too small.** The two losses are nearly equal, and their subtraction suffers catastrophic cancellation: the true difference is below the rounding noise, and the noise becomes the leading digits. In float32 this happens early, so run the check in float64 and keep h between 1e-5 and 1e-7.
-3. **A kink at the test point.** A ReLU or a max has no derivative at zero, and a step that crosses the kink measures two different slopes. Check at points away from the kink, or on inputs where the active side is known.
-4. **Stochastic parts.** Dropout or a random data order between the two loss evaluations changes the loss for a reason other than h. Fix the seed and run in evaluation mode.
-5. **A wrong denominator.** Dividing by the analytical value alone blows up when it is near zero. Use the max of both magnitudes with a floor.
+1. **Bước quá lớn.** Sai phân đo độ dốc của một dây cung, không phải tiếp tuyến. Giảm h.
+2. **Bước quá nhỏ.** Hai loss gần bằng nhau, và phép trừ của chúng chịu triệt tiêu thảm họa: chênh lệch thật dưới nhiễu làm tròn, và nhiễu trở thành các chữ số đứng đầu. Trong float32 điều này xảy ra sớm, nên chạy kiểm tra trong float64 và giữ h giữa 1e-5 và 1e-7.
+3. **Một điểm gãy tại điểm kiểm thử.** Một ReLU hoặc một max không có đạo hàm tại không, và một bước vượt qua điểm gãy đo hai độ dốc khác nhau. Kiểm tra ở các điểm xa điểm gãy, hoặc trên đầu vào mà phía hoạt động đã biết.
+4. **Các phần ngẫu nhiên.** Dropout hoặc một thứ tự dữ liệu ngẫu nhiên giữa hai lần đánh giá loss thay đổi loss vì một lý do khác h. Cố định seed và chạy trong chế độ đánh giá.
+5. **Một mẫu số sai.** Chỉ chia cho giá trị giải tích làm kết quả bùng lên khi nó gần không. Dùng giá trị lớn nhất của cả hai độ lớn với một ngưỡng sàn.
 
 ### Then look at the backward pass
 
-With a trustworthy check, a stable 1e-3 is a bug. Check one parameter group at a time to find the layer, and compare the local derivative of each operation with its formula. The autodiff lesson's engine compares each new operation against a finite difference as part of adding it, which is the habit that prevents this situation.
+Với một kiểm tra đáng tin cậy, một sai số 1e-3 ổn định là một bug. Kiểm tra một nhóm tham số mỗi lần để tìm lớp, và so sánh đạo hàm cục bộ của mỗi phép toán với công thức của nó. Engine của bài học autodiff so sánh mỗi phép toán mới với một sai phân hữu hạn như một phần của việc thêm nó, là thói quen ngăn tình huống này.
 
 ## Follow-ups
 
-- **Level 3:** Why prefer the two-sided formula over the one-sided one? Expected: its error falls with h squared instead of h, so a moderate h gives a close estimate without cancellation.
-- **Level 3:** Why not run the check on every step of production training? Expected: it needs two forward passes for each parameter, so it is far too slow; it belongs in unit tests and in debugging.
-- **Level 4:** The error is tiny for most weights and large for a few in one layer. What does that pattern say? Expected: the layer's backward pass is right in general and wrong on one path, such as a shared input whose contributions were overwritten rather than added, or a kink at those weights.
-- **Level 4:** How do you check a layer that contains a random mask? Expected: fix the seed so both loss evaluations use the same mask, or run the check in evaluation mode where the mask is off.
+- **Level 3:** Tại sao ưu tiên công thức hai phía hơn một phía? Expected: sai số của nó giảm theo h bình phương thay vì h, nên một h vừa phải cho một ước lượng gần mà không có triệt tiêu.
+- **Level 3:** Tại sao không chạy kiểm tra trên mọi bước huấn luyện production? Expected: nó cần hai lượt forward cho mỗi tham số, nên quá chậm; nó thuộc về unit test và gỡ lỗi.
+- **Level 4:** Sai số rất nhỏ cho phần lớn trọng số và lớn cho một vài trọng số trong một lớp. Mẫu đó nói gì? Expected: lượt backward của lớp đúng nói chung và sai trên một đường, chẳng hạn một đầu vào dùng chung có các đóng góp bị ghi đè thay vì cộng, hoặc một điểm gãy tại các trọng số đó.
+- **Level 4:** Bạn kiểm tra một lớp chứa một mask ngẫu nhiên như thế nào? Expected: cố định seed để cả hai lần đánh giá loss dùng cùng mask, hoặc chạy kiểm tra trong chế độ đánh giá nơi mask tắt.
 
 ## Wrong answers
 
-- "Make h as small as possible for the most accurate derivative." Below the rounding scale the subtraction cancels and the result is noise. There is a floor on h, around 1e-7 in float64.
-- "A relative error of 1e-3 is close enough, ship it." The lesson puts 1e-3 at the bug boundary. A stable error there means a wrong gradient that will slow or break training.
-- "Use the absolute difference instead of a relative one." A large gradient and a tiny one need different tolerances. The relative error with a floored denominator handles both.
+- "Làm h nhỏ nhất có thể để có đạo hàm chính xác nhất." Dưới mức làm tròn, phép trừ triệt tiêu và kết quả là nhiễu. Có một ngưỡng sàn cho h, khoảng 1e-7 trong float64.
+- "Một sai số tương đối 1e-3 là đủ gần, triển khai đi." Bài học đặt 1e-3 ở ranh giới bug. Một sai số ổn định ở đó có nghĩa một gradient sai sẽ làm chậm hoặc làm hỏng huấn luyện.
+- "Dùng chênh lệch tuyệt đối thay vì tương đối." Một gradient lớn và một gradient rất nhỏ cần các dung sai khác nhau. Sai số tương đối với một mẫu số có ngưỡng sàn xử lý cả hai.
 
 ## Taught in
 
-The [numerical stability lesson](../../../phases/01-math-foundations/13-numerical-stability/) gives the centered difference, the relative error and its thresholds, and the [chain rule and autodiff lesson](../../../phases/01-math-foundations/05-chain-rule-and-autodiff/) builds the check into the engine.
+[Bài học tính ổn định số](../../../phases/01-math-foundations/13-numerical-stability/) đưa ra sai phân trung tâm, sai số tương đối và các ngưỡng của nó, và [bài học quy tắc chuỗi và autodiff](../../../phases/01-math-foundations/05-chain-rule-and-autodiff/) tích hợp kiểm tra vào engine.

@@ -16,11 +16,11 @@ related: [math-classical-ml/gini-for-a-mixed-node, math-classical-ml/bag-or-boos
 updated: 2026-11-03
 ---
 
-A random forest's feature importance puts a user id column near the top of the list. The column is an integer with a different value in almost every row. The team wants to build a product rule around it. What do you tell them, and how do you check?
+Độ quan trọng đặc trưng của một random forest đặt một cột user id gần đầu danh sách. Cột là một số nguyên có giá trị khác nhau ở gần như mọi hàng. Nhóm muốn xây dựng một quy tắc sản phẩm quanh nó. Bạn nói gì với họ, và bạn kiểm tra như thế nào?
 
 ## Short answer
 
-The default importance is the mean decrease in impurity, summed over every split that used the feature. A column that is distinct on nearly every row offers a huge number of candidate thresholds, so trees split on it to carve out small pure groups by chance, and those impurity drops add up on the training data. Run a permutation importance check instead: shuffle the column on held-out data, measure the drop in accuracy, and expect close to zero for an id.
+Độ quan trọng mặc định là mức giảm độ không thuần trung bình, được lấy tổng trên mọi phép chia đã dùng đặc trưng. Một cột khác biệt trên gần như mọi hàng cung cấp một số lượng khổng lồ các ngưỡng ứng viên, nên các cây chia trên nó để tình cờ tách ra các nhóm nhỏ thuần, và các mức giảm độ không thuần đó cộng dồn trên dữ liệu huấn luyện. Thay vào đó chạy một kiểm tra độ quan trọng hoán vị: xáo trộn cột trên dữ liệu giữ lại, đo mức giảm độ chính xác, và kỳ vọng gần không cho một id.
 
 ## Full answer
 
@@ -31,32 +31,32 @@ importance(feature) = sum over nodes that split on it of
                       (samples at node / total samples) * impurity decrease
 ```
 
-The number is a by-product of training, so it costs nothing, and it is biased in two ways the lesson names: toward features with many distinct values, and toward features with many possible split points. An id column is the extreme case of both. Each tree can find a threshold that isolates a handful of rows with the same label, the gain looks real on the bootstrap sample, and nothing in the formula asks whether it transfers.
+Con số là một sản phẩm phụ của huấn luyện, nên không tốn gì, và nó thiên lệch theo hai cách bài học nêu: về các đặc trưng có nhiều giá trị khác nhau, và về các đặc trưng có nhiều điểm chia khả dĩ. Một cột id là trường hợp cực đoan của cả hai. Mỗi cây có thể tìm một ngưỡng cô lập một ít hàng có cùng nhãn, gain trông có thật trên mẫu bootstrap, và không có gì trong công thức hỏi liệu nó có áp dụng được hay không.
 
 ### The check that does ask
 
-The permutation method shuffles one feature's values on data the model did not train on and measures how much the score drops. A feature the model needs produces a large drop. A feature that only absorbed training noise produces none. It costs one evaluation per feature per repeat, which is slower than the default, but it answers the question the team is asking. The lesson sets this exact case as an exercise: a high cardinality noise feature that the impurity method ranks high and the permutation method does not.
+Phương pháp hoán vị xáo trộn các giá trị của một đặc trưng trên dữ liệu mô hình chưa huấn luyện và đo điểm giảm bao nhiêu. Một đặc trưng mô hình cần tạo ra một mức giảm lớn. Một đặc trưng chỉ hấp thụ nhiễu huấn luyện không tạo ra gì. Nó tốn một lần đánh giá mỗi đặc trưng mỗi lần lặp, chậm hơn mặc định, nhưng nó trả lời câu hỏi nhóm đang hỏi. Bài học đặt chính trường hợp này làm một bài tập: một đặc trưng nhiễu có lực lượng lớn mà phương pháp độ không thuần xếp cao còn phương pháp hoán vị thì không.
 
 ### What to tell the team
 
-1. The ranking they saw does not mean the id predicts anything.
-2. Run the permutation check on a validation set with several shuffles and average.
-3. Retrain without the id and compare validation scores. If the score holds, the id carried nothing.
-4. If the permutation check also scores the id high, treat it as leakage: ids that correlate with the target through time or data source will not hold in production, and no product rule should rest on them.
+1. Thứ hạng họ thấy không có nghĩa id dự đoán bất cứ điều gì.
+2. Chạy kiểm tra hoán vị trên một tập validation với nhiều lần xáo trộn và lấy trung bình.
+3. Huấn luyện lại không có id và so sánh điểm validation. Nếu điểm giữ nguyên, id không mang gì.
+4. Nếu kiểm tra hoán vị cũng chấm id cao, xem nó là leakage: các id tương quan với mục tiêu qua thời gian hoặc nguồn dữ liệu sẽ không giữ trong production, và không quy tắc sản phẩm nào nên dựa vào chúng.
 
 ## Follow-ups
 
-- **Level 3:** Why do many distinct values make it easy for a tree to find a good-looking split? Expected: more thresholds mean more chances that one of them separates a few rows by luck; the gain is real on the training sample and absent on new data.
-- **Level 3:** Permutation importance for the id is near zero and the validation score is fine. What does that say? Expected: the id carried no signal the model depends on; it absorbed training noise, and the other features do the work.
-- **Level 4:** The permutation importance of the id is large as well. What now? Expected: suspect leakage; the id tracks the target through time or source, and that link breaks in production.
-- **Level 4:** How do you compute permutation importance so it is not optimistic? Expected: on held-out data, shuffle only the one column, repeat several times and average, and keep every other column fixed.
+- **Level 3:** Tại sao nhiều giá trị khác nhau khiến một cây dễ tìm một phép chia trông tốt? Expected: nhiều ngưỡng hơn có nghĩa nhiều cơ hội hơn để một ngưỡng tách một vài hàng nhờ may mắn; gain có thật trên mẫu huấn luyện và vắng mặt trên dữ liệu mới.
+- **Level 3:** Độ quan trọng hoán vị cho id gần không và điểm validation ổn. Điều đó nói gì? Expected: id không mang tín hiệu mà mô hình phụ thuộc vào; nó hấp thụ nhiễu huấn luyện, và các đặc trưng khác làm công việc.
+- **Level 4:** Độ quan trọng hoán vị của id cũng lớn. Bây giờ làm gì? Expected: nghi ngờ leakage; id theo dõi mục tiêu qua thời gian hoặc nguồn, và liên kết đó gãy trong production.
+- **Level 4:** Bạn tính độ quan trọng hoán vị như thế nào để nó không lạc quan? Expected: trên dữ liệu giữ lại, chỉ xáo trộn một cột đó, lặp nhiều lần và lấy trung bình, và giữ mọi cột khác cố định.
 
 ## Wrong answers
 
-- "The forest found the id useful, so it is useful." The impurity sum counts splits that fit training noise; a column with many distinct values collects them.
-- "Drop every integer column to be safe." Integers such as counts carry real signal. Test the one column with a permutation.
-- "The two importance methods always agree." The lesson's exercise builds a case where the impurity method ranks a noise feature highly and the permutation method does not.
+- "Forest thấy id hữu ích, nên nó hữu ích." Tổng độ không thuần đếm các phép chia khớp nhiễu huấn luyện; một cột có nhiều giá trị khác nhau tích lũy chúng.
+- "Bỏ mọi cột số nguyên cho chắc." Các số nguyên như số đếm mang tín hiệu thực. Kiểm tra một cột đó bằng một hoán vị.
+- "Hai phương pháp độ quan trọng luôn đồng ý." Bài tập của bài học xây dựng một trường hợp mà phương pháp độ không thuần xếp một đặc trưng nhiễu cao còn phương pháp hoán vị thì không.
 
 ## Taught in
 
-The [decision trees lesson](../../../phases/02-ml-fundamentals/04-decision-trees/) defines both importance measures and names the bias of the impurity method.
+[Bài học cây quyết định](../../../phases/02-ml-fundamentals/04-decision-trees/) định nghĩa cả hai phép đo độ quan trọng và nêu thiên lệch của phương pháp độ không thuần.

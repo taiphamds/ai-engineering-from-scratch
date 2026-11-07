@@ -16,7 +16,7 @@ related: [math-classical-ml/dense-layer-weight-shape]
 updated: 2026-11-03
 ---
 
-Read this code and say what each print shows. Then tell me which of the two operations a dense layer uses, and why.
+Đọc mã này và nói mỗi lệnh print hiển thị gì. Sau đó cho tôi biết một lớp dense dùng phép toán nào trong hai phép toán, và tại sao.
 
 ```python
 import numpy as np
@@ -29,49 +29,49 @@ print(A @ B)
 
 ## Short answer
 
-The star multiplies matching positions, so the first print shows 5, 12, 21 and 32. The at sign forms dot products of rows with columns, so the second print shows 19, 22, 43 and 50. A layer uses the at sign, because every output must sum over every input.
+Dấu sao nhân các vị trí tương ứng, nên lệnh print đầu tiên hiển thị 5, 12, 21 và 32. Dấu at tạo các tích vô hướng của hàng với cột, nên lệnh print thứ hai hiển thị 19, 22, 43 và 50. Một lớp dùng dấu at, vì mọi đầu ra phải lấy tổng trên mọi đầu vào.
 
 ## Full answer
 
 ### Element-wise product
 
-Both arrays have the same shape, so the star pairs each cell with the cell at the same position:
+Cả hai mảng có cùng shape, nên dấu sao ghép mỗi ô với ô ở cùng vị trí:
 
 ```text
 1*5 = 5    2*6 = 12
 3*7 = 21   4*8 = 32
 ```
 
-The order of A and B does not change the result.
+Thứ tự của A và B không thay đổi kết quả.
 
 ### Matrix product
 
-The at sign calls the matmul method. Cell (i, j) of the result is the dot product of row i of A with column j of B:
+Dấu at gọi phương thức matmul. Ô (i, j) của kết quả là tích vô hướng của hàng i của A với cột j của B:
 
 ```text
 1*5 + 2*7 = 19    1*6 + 2*8 = 22
 3*5 + 4*7 = 43    3*6 + 4*8 = 50
 ```
 
-The order matters. B times A gives other numbers. The inner sizes must agree, and the result has the rows of A and the columns of B.
+Thứ tự quan trọng. B nhân A cho các con số khác. Các kích thước bên trong phải khớp nhau, và kết quả có các hàng của A và các cột của B.
 
 ### Which one a layer uses
 
-A dense layer computes an activation of W times x plus b. Each output mixes all inputs with its own row of weights, which is the dot product inside a matrix product. The element-wise product appears in other places in training, for example when the learning rate scales a gradient, or when a mask zeroes some values. NumPy runs the matrix product with tuned BLAS routines written in C and Fortran, which the lesson measures as about 100 times faster than a Python loop over the same numbers.
+Một lớp dense tính một activation của W nhân x cộng b. Mỗi đầu ra trộn tất cả đầu vào với hàng trọng số riêng của nó, là tích vô hướng bên trong một tích ma trận. Tích theo từng phần tử xuất hiện ở các nơi khác trong huấn luyện, ví dụ khi learning rate điều chỉnh một gradient, hoặc khi một mask đưa một số giá trị về không. NumPy chạy tích ma trận với các routine BLAS được tinh chỉnh viết bằng C và Fortran, mà bài học đo là nhanh hơn khoảng 100 lần một vòng lặp Python trên cùng các số.
 
 ## Follow-ups
 
-- **Level 1:** Does the order of A and B matter in each case? Expected: no for the element-wise product, yes for the matrix product.
-- **Level 2:** Which of the two operations does a learning rate step use? Expected: a scalar times the gradient, which is an element-wise scale.
-- **Level 2:** Why is the at sign so much faster than a loop in Python? Expected: it calls BLAS routines in C and Fortran. The lesson gives about 100 times.
-- **Level 3:** Someone writes the star for the layer and the code runs without an error. How is that possible? Expected: the shapes happened to be equal, so the element-wise product ran and gave wrong values with no error.
+- **Level 1:** Thứ tự của A và B có quan trọng trong mỗi trường hợp không? Expected: không với tích theo từng phần tử, có với tích ma trận.
+- **Level 2:** Một bước learning rate dùng phép toán nào trong hai phép toán? Expected: một vô hướng nhân gradient, là một phép điều chỉnh theo từng phần tử.
+- **Level 2:** Tại sao dấu at nhanh hơn rất nhiều so với một vòng lặp trong Python? Expected: nó gọi các routine BLAS trong C và Fortran. Bài học đưa ra khoảng 100 lần.
+- **Level 3:** Ai đó viết dấu sao cho lớp và mã chạy mà không có lỗi. Điều đó có thể như thế nào? Expected: các shape tình cờ bằng nhau, nên tích theo từng phần tử chạy và cho các giá trị sai mà không có lỗi.
 
 ## Wrong answers
 
-- "Both print the same matrix, the star is another spelling of the at sign." The two operations follow different rules and give different numbers.
-- "The at sign is the element-wise product and the star is the matrix product." The at sign calls matmul, which forms dot products of rows and columns. The star works on matching positions.
-- "A dense layer multiplies each weight by its input, so it is element-wise." Each output also sums over all inputs. That sum is the dot product inside a matrix product.
+- "Cả hai in cùng ma trận, dấu sao là một cách viết khác của dấu at." Hai phép toán tuân theo các quy tắc khác nhau và cho các con số khác nhau.
+- "Dấu at là tích theo từng phần tử và dấu sao là tích ma trận." Dấu at gọi matmul, tạo các tích vô hướng của hàng và cột. Dấu sao hoạt động trên các vị trí tương ứng.
+- "Một lớp dense nhân mỗi trọng số với đầu vào của nó, nên nó là theo từng phần tử." Mỗi đầu ra cũng lấy tổng trên tất cả đầu vào. Tổng đó là tích vô hướng bên trong một tích ma trận.
 
 ## Taught in
 
-The [vectors and matrices lesson](../../../phases/01-math-foundations/02-vectors-matrices-operations/) works both products by hand and then with NumPy.
+[Bài học vector và ma trận](../../../phases/01-math-foundations/02-vectors-matrices-operations/) tính cả hai tích bằng tay rồi bằng NumPy.

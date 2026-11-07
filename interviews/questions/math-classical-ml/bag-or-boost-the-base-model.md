@@ -16,48 +16,48 @@ related: [math-classical-ml/mdi-ranks-noise-feature, math-classical-ml/past-the-
 updated: 2026-11-03
 ---
 
-You have a tabular dataset and two candidate base learners: deep decision trees that fit the training rows almost perfectly, and decision stumps that barely beat a constant. You can afford one ensemble method for each. Which one gets bagging and which one gets boosting, and why?
+Bạn có một tập dữ liệu dạng bảng và hai bộ học cơ sở ứng viên: các cây quyết định sâu khớp các hàng huấn luyện gần như hoàn hảo, và các cây quyết định một tầng chỉ nhỉnh hơn một hằng số. Bạn có đủ tài nguyên cho một phương pháp ensemble cho mỗi loại. Loại nào nhận bagging và loại nào nhận boosting, và tại sao?
 
 ## Short answer
 
-Bag the deep trees and boost the stumps. Deep trees have low bias and high variance, and averaging many of them trained on bootstrap samples cancels the variance without adding bias. Stumps have high bias and low variance, and boosting builds them in sequence so each new one corrects the errors of the ensemble so far, which drives the bias down.
+Dùng bagging cho các cây sâu và boosting cho các cây một tầng. Các cây sâu có bias thấp và variance cao, và lấy trung bình nhiều cây được huấn luyện trên các mẫu bootstrap triệt tiêu variance mà không thêm bias. Các cây một tầng có bias cao và variance thấp, và boosting xây dựng chúng tuần tự để mỗi cây mới sửa các lỗi của ensemble đến lúc đó, làm giảm bias.
 
 ## Full answer
 
 ### Match the method to the error term
 
-Expected error splits into squared bias, variance and irreducible noise. The two methods attack different terms.
+Sai số kỳ vọng được chia thành bias bình phương, variance và nhiễu không thể giảm. Hai phương pháp tấn công các thành phần khác nhau.
 
-| Method | Reduces | Bias | Variance | Watch out for |
+| Phương pháp | Giảm | Bias | Variance | Cần chú ý |
 |---|---|---|---|---|
-| Bagging, random forest | variance | no change | decreases | does nothing for bias |
-| Boosting | bias | decreases | can increase | overfits with too many rounds |
+| Bagging, random forest | variance | không đổi | giảm | không làm gì cho bias |
+| Boosting | bias | giảm | có thể tăng | overfit khi có quá nhiều vòng |
 
 ### Why bagging fits the deep trees
 
-Each tree is trained on a bootstrap sample, a draw with replacement of the same size as the data, which holds about 63.2 percent of the unique rows. The rest, about 36.8 percent, are out-of-bag and give a free validation set. The average of N independent predictions with variance sigma squared has variance sigma squared over N. The trees are not independent, because they see similar data, so the gain is smaller than that, and a random forest adds a random feature subset at each split, square root of the feature count for classification, to make the trees disagree more. Adding trees lowers variance and never adds bias, so test accuracy plateaus and does not fall.
+Mỗi cây được huấn luyện trên một mẫu bootstrap, một lần rút có hoàn lại cùng kích thước với dữ liệu, chứa khoảng 63.2 phần trăm các hàng riêng biệt. Phần còn lại, khoảng 36.8 phần trăm, là out-of-bag và cho một tập validation miễn phí. Trung bình của N dự đoán độc lập có variance sigma bình phương có variance sigma bình phương chia N. Các cây không độc lập, vì chúng thấy dữ liệu tương tự, nên mức tăng nhỏ hơn như vậy, và một random forest thêm một tập con đặc trưng ngẫu nhiên ở mỗi lần chia, căn bậc hai của số đặc trưng cho phân loại, để các cây bất đồng nhiều hơn. Thêm cây làm giảm variance và không bao giờ thêm bias, nên độ chính xác kiểm thử đạt bình nguyên và không giảm.
 
 ### Why boosting fits the stumps
 
-Boosting trains learners in sequence. AdaBoost raises the weight of rows the ensemble gets wrong, so the next stump works on them. Gradient boosting fits each new tree to the negative gradient of the loss, which for squared error is the residual. Each round removes some of the systematic error, which is the bias. The learning rate scales each tree's contribution; the lesson gives 0.01 to 0.3, and a smaller value needs more trees and generalizes better. Because later rounds chase the hardest rows, boosting can fit noise, so it needs early stopping on a validation loss.
+Boosting huấn luyện các bộ học tuần tự. AdaBoost tăng trọng số của những hàng mà ensemble dự đoán sai, để cây một tầng tiếp theo xử lý chúng. Gradient boosting khớp mỗi cây mới với gradient âm của loss, mà với sai số bình phương là phần dư. Mỗi vòng loại bỏ một phần sai số có hệ thống, chính là bias. Learning rate điều chỉnh mức đóng góp của mỗi cây; bài học đưa ra 0.01 đến 0.3, và một giá trị nhỏ hơn cần nhiều cây hơn và tổng quát hóa tốt hơn. Vì các vòng sau đuổi theo những hàng khó nhất, boosting có thể khớp nhiễu, nên nó cần early stopping theo validation loss.
 
 ### Why not the other way round
 
-Boosting the deep trees has little bias left to remove and stacks high variance learners, so it overfits fast. Bagging the stumps averages many models that all miss the same pattern, so the average misses it too. Diversity is the requirement in both cases: the lesson's majority vote of 21 independent classifiers at 60 percent accuracy reaches about 74 percent, and 101 of them reach about 84 percent, only because their errors differ.
+Boosting các cây sâu còn ít bias để loại bỏ và chồng các bộ học variance cao, nên nó overfit nhanh. Bagging các cây một tầng lấy trung bình nhiều mô hình đều bỏ lỡ cùng một mẫu, nên trung bình cũng bỏ lỡ nó. Sự đa dạng là yêu cầu trong cả hai trường hợp: bỏ phiếu đa số của bài học với 21 bộ phân loại độc lập ở độ chính xác 60 phần trăm đạt khoảng 74 phần trăm, và 101 bộ đạt khoảng 84 phần trăm, chỉ vì các lỗi của chúng khác nhau.
 
 ## Follow-ups
 
-- **Level 3:** Why does bagging the deep trees not fix bias? Expected: the average of many models that miss the same pattern misses it too; averaging only removes their disagreement.
-- **Level 3:** What does the learning rate do in gradient boosting? Expected: it scales each tree's contribution; a smaller rate needs more trees and generalizes better.
-- **Level 4:** Boosting's training error keeps falling while validation error rises. What happened and what do you do? Expected: later rounds fit noisy or mislabeled rows; stop early on the validation loss, or lower the learning rate and the tree depth.
-- **Level 4:** Why does a forest's test accuracy plateau but not fall as trees are added? Expected: each tree lowers variance and none adds bias, so more trees cannot overfit the way more boosting rounds can.
+- **Level 3:** Tại sao bagging các cây sâu không sửa bias? Expected: trung bình của nhiều mô hình bỏ lỡ cùng một mẫu cũng bỏ lỡ nó; lấy trung bình chỉ loại bỏ sự bất đồng của chúng.
+- **Level 3:** Learning rate làm gì trong gradient boosting? Expected: nó điều chỉnh mức đóng góp của mỗi cây; một rate nhỏ hơn cần nhiều cây hơn và tổng quát hóa tốt hơn.
+- **Level 4:** Sai số huấn luyện của boosting tiếp tục giảm trong khi sai số validation tăng. Điều gì đã xảy ra và bạn làm gì? Expected: các vòng sau khớp các hàng nhiễu hoặc gắn nhãn sai; dừng sớm theo validation loss, hoặc giảm learning rate và độ sâu cây.
+- **Level 4:** Tại sao độ chính xác kiểm thử của một forest đạt bình nguyên nhưng không giảm khi thêm cây? Expected: mỗi cây giảm variance và không cây nào thêm bias, nên nhiều cây hơn không thể overfit theo cách nhiều vòng boosting hơn có thể.
 
 ## Wrong answers
 
-- "Boost the deep trees, since boosting is the stronger method." A low bias, high variance learner has little bias to remove, and boosting amplifies its variance.
-- "Bag the stumps to make them strong." Averaging stumps that all underfit still underfits; bagging leaves bias where it is.
-- "Any ensemble of enough models beats a single one." Gains need diverse errors; models that make the same mistakes do not cancel them.
+- "Boosting các cây sâu, vì boosting là phương pháp mạnh hơn." Một bộ học bias thấp, variance cao còn ít bias để loại bỏ, và boosting khuếch đại variance của nó.
+- "Bagging các cây một tầng để làm chúng mạnh." Lấy trung bình các cây một tầng đều underfit vẫn underfit; bagging để bias ở nguyên chỗ.
+- "Bất kỳ ensemble đủ mô hình nào cũng thắng một mô hình đơn." Mức tăng cần các lỗi đa dạng; các mô hình mắc cùng những sai lầm không triệt tiêu chúng.
 
 ## Taught in
 
-The [ensemble methods lesson](../../../phases/02-ml-fundamentals/11-ensemble-methods/) builds both methods, the [bias-variance lesson](../../../phases/02-ml-fundamentals/10-bias-variance/) gives the rule for which to use, and the [decision trees lesson](../../../phases/02-ml-fundamentals/04-decision-trees/) builds the forest.
+[Bài học các phương pháp ensemble](../../../phases/02-ml-fundamentals/11-ensemble-methods/) xây dựng cả hai phương pháp, [bài học bias-variance](../../../phases/02-ml-fundamentals/10-bias-variance/) đưa ra quy tắc chọn loại để dùng, và [bài học cây quyết định](../../../phases/02-ml-fundamentals/04-decision-trees/) xây dựng forest.

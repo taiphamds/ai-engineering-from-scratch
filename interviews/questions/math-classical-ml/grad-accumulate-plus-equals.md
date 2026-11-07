@@ -16,7 +16,7 @@ related: [math-classical-ml/reverse-mode-one-pass, math-classical-ml/gradient-ch
 updated: 2026-11-03
 ---
 
-This is the multiply operation of a small autograd engine.
+Đây là phép nhân của một engine autograd nhỏ.
 
 ```python
 def __mul__(self, other):
@@ -29,21 +29,21 @@ def __mul__(self, other):
     return out
 ```
 
-A contributor replaces both `+=` with `=`, with the comment that a gradient should be set, not added. The XOR training loop still runs and the loss still falls. What did the change break, and how do you prove it in one small test?
+Một người đóng góp thay cả hai `+=` bằng `=`, với nhận xét rằng một gradient nên được gán, không phải cộng. Vòng lặp huấn luyện XOR vẫn chạy và loss vẫn giảm. Thay đổi đã làm hỏng gì, và bạn chứng minh nó trong một kiểm thử nhỏ như thế nào?
 
 ## Short answer
 
-A value that feeds two or more operations receives a gradient from each consumer, and the chain rule says those contributions add. With assignment, the last consumer to run overwrites the others, so every shared node gets a wrong gradient, including each weight that the summed loss uses once per sample. A numerical gradient check exposes the error in one call.
+Một giá trị cấp đầu vào cho hai hoặc nhiều phép toán nhận một gradient từ mỗi bên sử dụng, và quy tắc chuỗi nói các đóng góp đó cộng lại. Với phép gán, bên sử dụng chạy cuối ghi đè các bên khác, nên mọi node dùng chung nhận một gradient sai, bao gồm mỗi trọng số mà loss được lấy tổng dùng một lần mỗi mẫu. Một kiểm tra gradient số phơi bày lỗi trong một lời gọi.
 
 ## Full answer
 
 ### What the chain rule says about shared nodes
 
-When y depends on x through two paths, the derivative of y with respect to x is the sum of the derivatives along each path. In the engine, a node that is used twice has two closures that write to its `grad`. The topological order runs every consumer before the node passes its gradient to its own children, so both closures run, and the second must add to the first.
+Khi y phụ thuộc vào x qua hai đường, đạo hàm của y theo x là tổng các đạo hàm dọc mỗi đường. Trong engine, một node được dùng hai lần có hai closure ghi vào `grad` của nó. Thứ tự tô pô chạy mọi bên sử dụng trước khi node truyền gradient cho các con của chính nó, nên cả hai closure chạy, và closure thứ hai phải cộng vào closure thứ nhất.
 
 ### Why the loop still ran
 
-In the XOR loop the loss is the sum of four squared errors, one per sample, and every weight takes part in all four forward passes. With assignment, each weight keeps only the contribution of the sample that ran last. That is still a direction that often points downhill, so the loss moves. The gradient is wrong for every parameter even so.
+Trong vòng lặp XOR, loss là tổng bốn sai số bình phương, một mỗi mẫu, và mọi trọng số tham gia cả bốn lượt forward. Với phép gán, mỗi trọng số chỉ giữ đóng góp của mẫu chạy cuối. Đó vẫn là một hướng thường chỉ xuống dốc, nên loss thay đổi. Dù vậy gradient sai cho mọi tham số.
 
 ### The one-line test
 
@@ -53,25 +53,25 @@ y = x * x
 y.backward()
 ```
 
-Here `self` and `other` are the same object. The correct gradient of x squared at 3 is 6.0. The two closures each add 3.0, which gives 6.0. With assignment the result is 3.0. The lesson's `gradient_check` does the same job for any expression: it compares the engine with a centered finite difference and reports the difference, which must be far below 1e-5.
+Ở đây `self` và `other` là cùng một đối tượng. Gradient đúng của x bình phương tại 3 là 6.0. Hai closure mỗi closure cộng 3.0, cho 6.0. Với phép gán, kết quả là 3.0. `gradient_check` của bài học làm cùng việc cho bất kỳ biểu thức nào: nó so sánh engine với một sai phân hữu hạn trung tâm và báo cáo chênh lệch, phải thấp hơn nhiều so với 1e-5.
 
 ### The other side of the same rule
 
-Because gradients add, the training loop must set every `grad` back to 0.0 before each backward call. The lesson does this with a loop over the parameters. A framework does the same with a zero_grad call. Both habits come from the same fact: gradient storage is an accumulator.
+Vì các gradient cộng lại, vòng lặp huấn luyện phải đặt mọi `grad` về 0.0 trước mỗi lời gọi backward. Bài học làm điều này bằng một vòng lặp trên các tham số. Một framework làm tương tự bằng một lời gọi zero_grad. Cả hai thói quen đến từ cùng một thực tế: nơi lưu gradient là một bộ tích lũy.
 
 ## Follow-ups
 
-- **Level 2:** Why must the training loop set every gradient to zero before backward? Expected: gradients accumulate, so a second backward would stack onto the first; the loop sets each parameter's grad to 0.0.
-- **Level 3:** Write the smallest expression that fails with assignment. Expected: a value multiplied by itself; the gradient at 3 must be 6.0, and assignment gives 3.0.
-- **Level 3:** Why does the topological order matter for this bug? Expected: all consumers of a node must run before the node passes gradient on; with assignment the answer depends on which consumer ran last.
-- **Level 4:** Where does the same accumulation rule show up in a framework you use? Expected: a tensor's grad accumulates across uses and across backward calls, which is why the optimizer's zero_grad runs before each step.
+- **Level 2:** Tại sao vòng lặp huấn luyện phải đặt mọi gradient về không trước backward? Expected: các gradient tích lũy, nên một backward thứ hai sẽ chồng lên lần đầu; vòng lặp đặt grad của mỗi tham số thành 0.0.
+- **Level 3:** Viết biểu thức nhỏ nhất thất bại với phép gán. Expected: một giá trị nhân với chính nó; gradient tại 3 phải là 6.0, và phép gán cho 3.0.
+- **Level 3:** Tại sao thứ tự tô pô quan trọng đối với bug này? Expected: tất cả bên sử dụng của một node phải chạy trước khi node truyền gradient tiếp; với phép gán, câu trả lời phụ thuộc vào bên sử dụng nào chạy cuối.
+- **Level 4:** Cùng quy tắc tích lũy xuất hiện ở đâu trong một framework bạn dùng? Expected: grad của một tensor tích lũy qua các lần sử dụng và qua các lời gọi backward, đó là lý do zero_grad của bộ tối ưu chạy trước mỗi bước.
 
 ## Wrong answers
 
-- "Assignment is fine because each node has one parent." A node that feeds two operations has two consumers in the graph, and a weight in a summed loss has one consumer per sample.
-- "The loss still goes down, so the gradients are correct." A wrong gradient can still point partly downhill. Only a numerical check proves it.
-- "Use a running average instead of a sum." The chain rule sums the path contributions. An average divides the true gradient by the number of consumers.
+- "Phép gán ổn vì mỗi node có một cha." Một node cấp đầu vào cho hai phép toán có hai bên sử dụng trong đồ thị, và một trọng số trong một loss được lấy tổng có một bên sử dụng mỗi mẫu.
+- "Loss vẫn đi xuống, nên các gradient đúng." Một gradient sai vẫn có thể chỉ một phần xuống dốc. Chỉ một kiểm tra số chứng minh nó.
+- "Dùng một trung bình chạy thay vì một tổng." Quy tắc chuỗi lấy tổng các đóng góp theo đường. Một trung bình chia gradient thật cho số bên sử dụng.
 
 ## Taught in
 
-The [chain rule and autodiff lesson](../../../phases/01-math-foundations/05-chain-rule-and-autodiff/) builds the Value class and the gradient check that catches this bug.
+[Bài học quy tắc chuỗi và autodiff](../../../phases/01-math-foundations/05-chain-rule-and-autodiff/) xây dựng lớp Value và kiểm tra gradient bắt bug này.

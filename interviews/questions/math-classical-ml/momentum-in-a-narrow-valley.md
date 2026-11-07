@@ -16,21 +16,21 @@ related: [math-classical-ml/reverse-mode-one-pass]
 updated: 2026-11-03
 ---
 
-You minimize the Rosenbrock function from the point (-1, 1). Plain gradient descent creeps along the curved valley and needs thousands of steps. The same run with momentum arrives much sooner. Explain what the valley does to plain descent and what momentum changes.
+Bạn tối thiểu hóa hàm Rosenbrock từ điểm (-1, 1). Gradient descent thông thường bò dọc thung lũng cong và cần hàng nghìn bước. Cùng lần chạy với momentum đến nơi sớm hơn nhiều. Giải thích thung lũng làm gì với descent thông thường và momentum thay đổi gì.
 
 ## Short answer
 
-In a narrow valley the gradient points across the valley, not along it, so each plain step jumps from one wall to the other and makes little progress toward the minimum. Momentum keeps a velocity that sums past gradients. The across components flip sign and cancel, the along component keeps its sign and builds up, so the path is smooth and fast.
+Trong một thung lũng hẹp, gradient chỉ ngang qua thung lũng, không phải dọc theo nó, nên mỗi bước thông thường nhảy từ vách này sang vách kia và tiến rất ít về cực tiểu. Momentum giữ một vận tốc lấy tổng các gradient trước. Các thành phần ngang đổi dấu và triệt tiêu, thành phần dọc giữ dấu và tích lũy, nên đường đi mượt và nhanh.
 
 ## Full answer
 
 ### The function
 
-The function is (1 - x)^2 + 100 (y - x^2)^2. Its minimum is at (1, 1), at the bottom of a curved valley. The factor 100 makes the valley walls steep and the floor almost flat, so the gradient is large across the valley and small along it.
+Hàm là (1 - x)^2 + 100 (y - x^2)^2. Cực tiểu của nó ở (1, 1), tại đáy một thung lũng cong. Hệ số 100 làm các vách thung lũng dốc và đáy gần như phẳng, nên gradient lớn theo chiều ngang thung lũng và nhỏ dọc theo nó.
 
 ### Plain descent
 
-The update is w = w - lr times gradient. The step size is set by the learning rate alone. A learning rate large enough to move along the floor overshoots across the walls, and a learning rate small enough to stay inside the walls crawls along the floor. The lesson runs this with a learning rate of 0.0005 for 5000 steps and still sees slow progress.
+Cập nhật là w = w - lr nhân gradient. Kích thước bước chỉ được đặt bởi learning rate. Một learning rate đủ lớn để di chuyển dọc đáy vượt quá các vách, và một learning rate đủ nhỏ để giữ bên trong các vách bò dọc đáy. Bài học chạy điều này với learning rate 0.0005 cho 5000 bước và vẫn thấy tiến triển chậm.
 
 ### Momentum
 
@@ -39,25 +39,25 @@ v = beta * v + gradient
 w = w - lr * v
 ```
 
-The velocity is an exponential sum of past gradients. Components that flip sign at each step cancel inside the sum. Components with a stable sign add up and the ball rolls faster along the floor. The lesson uses beta equal to 0.9, which keeps about the last ten gradients in play. A larger beta gives more smoothing and a slower response when the valley turns.
+Vận tốc là một tổng mũ của các gradient trước. Các thành phần đổi dấu ở mỗi bước triệt tiêu bên trong tổng. Các thành phần có dấu ổn định cộng dồn và quả bóng lăn nhanh hơn dọc đáy. Bài học dùng beta bằng 0.9, giữ khoảng mười gradient cuối có tác động. Một beta lớn hơn cho làm mượt nhiều hơn và phản ứng chậm hơn khi thung lũng rẽ.
 
 ### Where this leads
 
-Adam goes one step further and also divides each weight's step by the running size of its gradients, so each weight gets its own step size. On the Rosenbrock run in the lesson, Adam with a learning rate of 0.01 converges fastest, momentum follows a smoother path, and plain descent trails.
+Adam đi xa hơn một bước và cũng chia bước của mỗi trọng số cho độ lớn chạy của các gradient của nó, nên mỗi trọng số có kích thước bước riêng. Trên lần chạy Rosenbrock trong bài học, Adam với learning rate 0.01 hội tụ nhanh nhất, momentum theo một đường mượt hơn, và descent thông thường theo sau.
 
 ## Follow-ups
 
-- **Level 2:** What does beta control? Expected: how much of the past velocity survives each step; 0.9 keeps roughly the last ten gradients.
-- **Level 3:** Momentum overshoots the minimum and comes back. Why? Expected: the velocity carries the point past the bottom when the gradient has already changed sign; a smaller beta or a decaying learning rate damps it.
-- **Level 3:** How does this zigzag show up in a real training run? Expected: the loss drops fast and then plateaus while the weights oscillate; a smaller learning rate or momentum smooths it.
-- **Level 4:** Why does Adam help on the same valley beyond what momentum does? Expected: it scales each weight's step by the inverse of its running gradient size, so the steep direction takes small steps and the flat direction takes large ones.
+- **Level 2:** Beta kiểm soát gì? Expected: bao nhiêu vận tốc trước sống sót mỗi bước; 0.9 giữ xấp xỉ mười gradient cuối.
+- **Level 3:** Momentum vượt quá cực tiểu rồi quay lại. Tại sao? Expected: vận tốc mang điểm vượt qua đáy khi gradient đã đổi dấu; một beta nhỏ hơn hoặc một learning rate suy giảm làm giảm dao động.
+- **Level 3:** Sự zigzag này xuất hiện trong một lần huấn luyện thực như thế nào? Expected: loss giảm nhanh rồi đạt bình nguyên trong khi các trọng số dao động; một learning rate nhỏ hơn hoặc momentum làm mượt nó.
+- **Level 4:** Tại sao Adam giúp trên cùng thung lũng vượt những gì momentum làm? Expected: nó điều chỉnh bước của mỗi trọng số bằng nghịch đảo độ lớn gradient chạy của nó, nên hướng dốc đi các bước nhỏ và hướng phẳng đi các bước lớn.
 
 ## Wrong answers
 
-- "Raise the learning rate until plain descent moves faster." A larger step jumps further across the valley and diverges before it speeds up the along direction.
-- "Momentum is a bigger learning rate." The velocity grows only where gradients keep their sign and cancels where they flip, which a scalar learning rate cannot do.
-- "The valley is a local minimum, so the optimizer is stuck." The gradient is not zero on the valley floor. The point moves at every step, slowly.
+- "Tăng learning rate đến khi descent thông thường di chuyển nhanh hơn." Một bước lớn hơn nhảy xa hơn ngang qua thung lũng và phân kỳ trước khi nó tăng tốc hướng dọc.
+- "Momentum là một learning rate lớn hơn." Vận tốc chỉ tăng nơi các gradient giữ dấu và triệt tiêu nơi chúng đổi dấu, điều mà một learning rate vô hướng không thể làm.
+- "Thung lũng là một cực tiểu cục bộ, nên bộ tối ưu bị kẹt." Gradient không bằng không trên đáy thung lũng. Điểm di chuyển ở mọi bước, một cách chậm chạp.
 
 ## Taught in
 
-The [optimization lesson](../../../phases/01-math-foundations/08-optimization/) builds plain descent, momentum and Adam and runs them on the Rosenbrock function.
+[Bài học tối ưu hóa](../../../phases/01-math-foundations/08-optimization/) xây dựng descent thông thường, momentum và Adam và chạy chúng trên hàm Rosenbrock.

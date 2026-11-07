@@ -16,51 +16,51 @@ related: [math-classical-ml/bag-or-boost-the-base-model, math-classical-ml/compa
 updated: 2026-11-03
 ---
 
-A team keeps growing a model. Test error falls, then spikes as the parameter count approaches the number of training rows, then falls again as they keep going. The classical U-shaped curve predicts the spike but not the second fall. Explain what the curve shows, and give the team a rule about model size.
+Một nhóm tiếp tục tăng một mô hình. Sai số kiểm thử giảm, rồi tăng vọt khi số tham số tiến gần số hàng huấn luyện, rồi giảm lại khi họ tiếp tục. Đường cong chữ U cổ điển dự đoán sự tăng vọt nhưng không dự đoán lần giảm thứ hai. Giải thích đường cong cho thấy gì, và đưa cho nhóm một quy tắc về kích thước mô hình.
 
 ## Short answer
 
-The spike sits at the interpolation threshold, where the model has just enough capacity to fit every training row and is forced into one specific, noise-sensitive solution, so variance peaks. Past it, many solutions fit the training data and gradient descent's implicit regularization picks a simple one, so error falls again. That is double descent. The rule: stay well below the threshold with explicit regularization, or go well past it; the worst place to sit is on it.
+Đỉnh nằm ở ngưỡng nội suy, nơi mô hình có vừa đủ năng lực để khớp mọi hàng huấn luyện và bị buộc vào một nghiệm cụ thể, nhạy với nhiễu, nên variance đạt đỉnh. Qua nó, nhiều nghiệm khớp dữ liệu huấn luyện và regularization ngầm của gradient descent chọn một nghiệm đơn giản, nên sai số giảm lại. Đó là double descent. Quy tắc: ở hẳn dưới ngưỡng với regularization tường minh, hoặc đi hẳn qua nó; nơi tệ nhất để ở là ngay trên nó.
 
 ## Full answer
 
 ### The classical picture
 
-Expected error is squared bias plus variance plus irreducible noise. As capacity grows, bias falls and variance rises, and the sum has one minimum. The classical rule was that more capacity past that point always hurts.
+Sai số kỳ vọng là bias bình phương cộng variance cộng nhiễu không thể giảm. Khi năng lực tăng, bias giảm và variance tăng, và tổng có một cực tiểu. Quy tắc cổ điển là nhiều năng lực hơn qua điểm đó luôn gây hại.
 
 ### The three regimes
 
-| Regime | Parameters against rows | Behavior |
+| Chế độ | Tham số so với hàng | Hành vi |
 |---|---|---|
-| Underparameterized | far fewer | the classical trade-off applies |
-| Interpolation threshold | about equal | variance peaks, test error spikes |
-| Overparameterized | far more | implicit regularization, test error falls |
+| Thiếu tham số | ít hơn nhiều | sự đánh đổi cổ điển áp dụng |
+| Ngưỡng nội suy | gần bằng | variance đạt đỉnh, sai số kiểm thử tăng vọt |
+| Dư tham số | nhiều hơn nhiều | regularization ngầm, sai số kiểm thử giảm |
 
-At the threshold the model can just barely thread every training point, and a small change in the data moves the fit a lot. Past it, the training data no longer pins down one solution, and the learning algorithm chooses among the many that fit. Gradient descent tends to pick a simple one, and that bias toward simplicity is why heavily overparameterized networks generalize.
+Ở ngưỡng, mô hình chỉ vừa đủ đi qua mọi điểm huấn luyện, và một thay đổi nhỏ trong dữ liệu làm phép khớp thay đổi nhiều. Qua nó, dữ liệu huấn luyện không còn cố định một nghiệm, và thuật toán học chọn trong số nhiều nghiệm khớp. Gradient descent có xu hướng chọn một nghiệm đơn giản, và thiên lệch về tính đơn giản đó là lý do các mạng dư tham số nặng tổng quát hóa.
 
 ### What the lesson adds
 
-- The pattern appears in linear models, decision trees and neural networks.
-- More data can hurt near the threshold, because adding rows moves the threshold under a fixed model. That is the sample-wise form. Training longer can produce the same curve over epochs.
-- Regularization smooths and lowers the peak but does not remove it.
+- Mẫu này xuất hiện trong các mô hình tuyến tính, cây quyết định và mạng nơ-ron.
+- Thêm dữ liệu có thể gây hại gần ngưỡng, vì thêm hàng di chuyển ngưỡng bên dưới một mô hình cố định. Đó là dạng theo mẫu. Huấn luyện lâu hơn có thể tạo cùng đường cong theo epoch.
+- Regularization làm mượt và hạ đỉnh nhưng không loại bỏ nó.
 
 ### The rule for the team
 
-Measure where the threshold is: training error reaches zero and test error peaks at about the same size. Then size the model far from it on one side or the other. Below it, use explicit regularization and the classical diagnostics. Above it, keep going and verify with learning curves rather than with the classical intuition.
+Đo ngưỡng ở đâu: sai số huấn luyện đạt không và sai số kiểm thử đạt đỉnh ở gần cùng kích thước. Sau đó định cỡ mô hình xa nó về phía này hoặc phía kia. Dưới nó, dùng regularization tường minh và các chẩn đoán cổ điển. Trên nó, tiếp tục và xác minh bằng các đường cong học thay vì trực giác cổ điển.
 
 ## Follow-ups
 
-- **Level 3:** How do you recognize the threshold in a training log? Expected: training error reaches zero and test error is at its worst at about the same model size or epoch.
-- **Level 4:** Why can adding data hurt in this regime? Expected: more rows move the threshold; a fixed model that was past it can land on it, which is the sample-wise form.
-- **Level 4:** What does regularization do to the peak? Expected: it smooths and lowers the peak but does not remove it.
-- **Level 4:** Does this make the bias-variance trade-off wrong? Expected: no; it holds below the threshold and is incomplete above it, where the implicit bias of the optimizer takes over.
+- **Level 3:** Bạn nhận ra ngưỡng trong một log huấn luyện như thế nào? Expected: sai số huấn luyện đạt không và sai số kiểm thử ở mức tệ nhất ở gần cùng kích thước mô hình hoặc epoch.
+- **Level 4:** Tại sao thêm dữ liệu có thể gây hại trong chế độ này? Expected: nhiều hàng hơn di chuyển ngưỡng; một mô hình cố định đã qua nó có thể rơi ngay vào nó, là dạng theo mẫu.
+- **Level 4:** Regularization làm gì với đỉnh? Expected: nó làm mượt và hạ đỉnh nhưng không loại bỏ nó.
+- **Level 4:** Điều này có khiến sự đánh đổi bias-variance sai không? Expected: không; nó đúng dưới ngưỡng và không đầy đủ trên nó, nơi bias ngầm của bộ tối ưu tiếp quản.
 
 ## Wrong answers
 
-- "The second fall is a measurement error." It appears in linear models, trees and networks, and in both the sample-wise and epoch-wise forms.
-- "Make the model as big as the budget allows and stop thinking about it." Bigger past the threshold works, but sitting on the threshold is the worst outcome; size the model deliberately away from it.
-- "Regularization removes the problem." It smooths and lowers the peak; it does not remove it.
+- "Lần giảm thứ hai là một lỗi đo." Nó xuất hiện trong các mô hình tuyến tính, cây và mạng, và trong cả dạng theo mẫu và theo epoch.
+- "Làm mô hình lớn nhất ngân sách cho phép và ngừng nghĩ về nó." Lớn hơn qua ngưỡng hoạt động, nhưng nằm ngay trên ngưỡng là kết quả tệ nhất; cố ý định cỡ mô hình xa nó.
+- "Regularization loại bỏ vấn đề." Nó làm mượt và hạ đỉnh; nó không loại bỏ nó.
 
 ## Taught in
 
-The [bias-variance lesson](../../../phases/02-ml-fundamentals/10-bias-variance/) derives the decomposition and describes double descent and its three regimes.
+[Bài học bias-variance](../../../phases/02-ml-fundamentals/10-bias-variance/) suy ra phân rã và mô tả double descent cùng ba chế độ của nó.

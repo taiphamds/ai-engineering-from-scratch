@@ -16,46 +16,46 @@ related: [math-classical-ml/grad-accumulate-plus-equals]
 updated: 2026-11-03
 ---
 
-Automatic differentiation can push derivatives forward from the inputs or pull them backward from the output. Training frameworks pick the backward direction. Why, and in which situation would the forward direction be the better choice?
+Vi phân tự động có thể đẩy các đạo hàm tiến từ đầu vào hoặc kéo chúng lùi từ đầu ra. Các framework huấn luyện chọn hướng lùi. Tại sao, và trong tình huống nào hướng tiến sẽ là lựa chọn tốt hơn?
 
 ## Short answer
 
-A network has millions of parameters and one scalar loss. Reverse mode seeds the output with a gradient of 1 and gets the gradient of every parameter in one backward sweep. Forward mode needs one sweep for each input variable, so it wins only when the inputs are few and the outputs are many.
+Một mạng có hàng triệu tham số và một loss vô hướng. Reverse mode khởi tạo đầu ra với một gradient 1 và lấy gradient của mọi tham số trong một lượt quét lùi. Forward mode cần một lượt quét cho mỗi biến đầu vào, nên nó chỉ thắng khi đầu vào ít và đầu ra nhiều.
 
 ## Full answer
 
 ### The two modes
 
-Both modes apply the chain rule at every node of the computation graph. They differ in where the seed goes.
+Cả hai chế độ áp dụng quy tắc chuỗi ở mọi node của đồ thị tính toán. Chúng khác nhau ở nơi đặt giá trị khởi tạo.
 
-| Mode | Seed | Direction | Best when |
+| Chế độ | Giá trị khởi tạo | Hướng | Tốt nhất khi |
 |---|---|---|---|
-| Forward | the derivative of one input with respect to itself, set to 1 | input to output | few inputs, many outputs |
-| Reverse | the derivative of the output with respect to itself, set to 1 | output to input | many inputs, few outputs |
+| Forward | đạo hàm của một đầu vào theo chính nó, đặt thành 1 | đầu vào đến đầu ra | ít đầu vào, nhiều đầu ra |
+| Reverse | đạo hàm của đầu ra theo chính nó, đặt thành 1 | đầu ra đến đầu vào | nhiều đầu vào, ít đầu ra |
 
-Forward mode carries one derivative through the graph. To get the gradient of a loss with respect to a million weights, you would run it a million times. Reverse mode carries the gradient of the single loss back to every node, and each node multiplies by its local derivative and passes the result to its children.
+Forward mode mang một đạo hàm qua đồ thị. Để lấy gradient của một loss theo một triệu trọng số, bạn sẽ chạy nó một triệu lần. Reverse mode mang gradient của loss đơn trở lại mọi node, và mỗi node nhân với đạo hàm cục bộ của nó và truyền kết quả cho các con của nó.
 
 ### What reverse mode costs
 
-The backward sweep visits each node once, so the time is proportional to one forward pass. The engine must order the nodes first. A topological sort guarantees that a node has received the gradient from every consumer before it passes gradient on. When a value feeds several operations, the contributions add.
+Lượt quét lùi thăm mỗi node một lần, nên thời gian tỷ lệ với một lượt forward. Engine phải sắp thứ tự các node trước. Một sắp xếp tô pô bảo đảm một node đã nhận gradient từ mọi bên sử dụng trước khi nó truyền gradient tiếp. Khi một giá trị cấp đầu vào cho nhiều phép toán, các đóng góp cộng lại.
 
 ### When forward mode is the right choice
 
-Forward mode fits a function with one or two inputs and a large output, because one sweep gives the derivative of the whole output along one input direction. Dual numbers implement it with almost no code: a pair of value and derivative, with the rule that the square of the derivative part is zero, so the product rule falls out of the arithmetic.
+Forward mode phù hợp với một hàm có một hoặc hai đầu vào và một đầu ra lớn, vì một lượt quét cho đạo hàm của toàn bộ đầu ra dọc một hướng đầu vào. Các số đối ngẫu triển khai nó với gần như không có mã: một cặp giá trị và đạo hàm, với quy tắc bình phương của phần đạo hàm bằng không, nên quy tắc tích xuất hiện từ phép tính.
 
 ## Follow-ups
 
-- **Level 2:** Why does the backward sweep need a topological order? Expected: a node must receive the full gradient from every consumer before it passes gradient to its children.
-- **Level 3:** How many forward-mode sweeps does a model with one million weights need for one gradient? Expected: one million, one per input variable, which is why nobody trains that way.
-- **Level 3:** What is a dual number and how does it carry a derivative? Expected: a pair of a value and a derivative, where the derivative part squares to zero, so each arithmetic rule carries the derivative along.
-- **Level 4:** Name a case in an ML system where you would pick forward mode. Expected: a function with one or two inputs and a large vector output, where one sweep gives the derivative of the whole output along one input direction.
+- **Level 2:** Tại sao lượt quét lùi cần một thứ tự tô pô? Expected: một node phải nhận toàn bộ gradient từ mọi bên sử dụng trước khi nó truyền gradient cho các con của nó.
+- **Level 3:** Một mô hình có một triệu trọng số cần bao nhiêu lượt quét forward-mode cho một gradient? Expected: một triệu, một cho mỗi biến đầu vào, đó là lý do không ai huấn luyện theo cách đó.
+- **Level 3:** Một số đối ngẫu là gì và nó mang một đạo hàm như thế nào? Expected: một cặp giá trị và đạo hàm, nơi phần đạo hàm bình phương bằng không, nên mỗi quy tắc số học mang đạo hàm theo.
+- **Level 4:** Nêu một trường hợp trong một hệ thống ML mà bạn sẽ chọn forward mode. Expected: một hàm có một hoặc hai đầu vào và một đầu ra vector lớn, nơi một lượt quét cho đạo hàm của toàn bộ đầu ra dọc một hướng đầu vào.
 
 ## Wrong answers
 
-- "Reverse mode is more accurate than forward mode." Both are exact up to floating point rounding. The difference is the cost, not the result.
-- "Forward mode cannot handle a composition of functions." Both modes apply the chain rule through every link. Forward mode pushes the derivative from the input side.
-- "Backpropagation is a different algorithm from reverse-mode autodiff." Backpropagation is reverse-mode autodiff applied to the network graph, with the loss as the single output.
+- "Reverse mode chính xác hơn forward mode." Cả hai chính xác đến mức làm tròn dấu phẩy động. Khác biệt là chi phí, không phải kết quả.
+- "Forward mode không thể xử lý một hợp hàm." Cả hai chế độ áp dụng quy tắc chuỗi qua mọi liên kết. Forward mode đẩy đạo hàm từ phía đầu vào.
+- "Backpropagation là một thuật toán khác với reverse-mode autodiff." Backpropagation là reverse-mode autodiff được áp dụng cho đồ thị mạng, với loss là đầu ra duy nhất.
 
 ## Taught in
 
-The [chain rule and autodiff lesson](../../../phases/01-math-foundations/05-chain-rule-and-autodiff/) compares the two modes and builds a reverse-mode engine.
+[Bài học quy tắc chuỗi và autodiff](../../../phases/01-math-foundations/05-chain-rule-and-autodiff/) so sánh hai chế độ và xây dựng một engine reverse-mode.

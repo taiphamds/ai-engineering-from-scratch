@@ -16,51 +16,51 @@ related: [math-classical-ml/scaler-fit-before-split, math-classical-ml/threshold
 updated: 2026-11-03
 ---
 
-Two variants of a classifier differ by one hyperparameter. On one held-out split, variant B beats variant A by a small margin, and the team wants to ship B. Design the evaluation that decides whether B is better, and say what you would report.
+Hai biến thể của một bộ phân loại khác nhau một siêu tham số. Trên một phần chia được giữ lại, biến thể B thắng biến thể A với một khoảng cách nhỏ, và nhóm muốn triển khai B. Thiết kế đánh giá quyết định liệu B tốt hơn không, và nói bạn sẽ báo cáo gì.
 
 ## Short answer
 
-One split gives one noisy number, so the gap could be chance. Run k-fold cross-validation with the same folds for both variants, keep the per-fold differences, and test whether their mean is far from zero with a paired t-statistic. Report the mean and spread of each variant's fold scores, the mean difference and the statistic, and keep the test set out of the comparison.
+Một phần chia cho một con số nhiễu, nên khoảng cách có thể là ngẫu nhiên. Chạy k-fold cross-validation với cùng các fold cho cả hai biến thể, giữ các chênh lệch theo fold, và kiểm tra liệu trung bình của chúng có xa không bằng một thống kê t ghép cặp. Báo cáo trung bình và độ trải điểm fold của mỗi biến thể, chênh lệch trung bình và thống kê, và giữ tập kiểm thử ngoài so sánh.
 
 ## Full answer
 
 ### Why one split is not enough
 
-A single split depends on which rows landed in each part. A different seed gives a different gap, and nothing in one number says how large that swing is. Folds show the spread.
+Một lần chia phụ thuộc vào những hàng nào rơi vào mỗi phần. Một seed khác cho một khoảng cách khác, và không có gì trong một con số nói dao động đó lớn bao nhiêu. Các fold cho thấy độ trải.
 
 ### The design
 
-1. Hold the test set out before anything else. It is for the final report, once.
-2. Build K folds on the training data. The lesson uses K equal to 5 and names 5 or 10 as the standard choices. Stratify when the classes are imbalanced, so every fold keeps the class ratio.
-3. Train and score both variants on the same folds, so the two scores in each fold are a pair. Pairing removes the fold-to-fold variation from the difference.
-4. Compute the per-fold differences, their mean and their standard deviation, and the paired t-statistic: mean difference divided by the standard deviation over the square root of K. The lesson's threshold for 5 folds is a t-statistic whose magnitude exceeds 2.78, for significance at p below 0.05 with 4 degrees of freedom.
-5. If the hyperparameter was chosen on these folds, wrap the whole thing in nested cross-validation: an inner loop picks the value, an outer loop measures it.
-6. Repeat with a few fold seeds and check the conclusion holds.
+1. Giữ tập kiểm thử riêng trước mọi thứ khác. Nó dành cho báo cáo cuối cùng, một lần.
+2. Xây dựng K fold trên dữ liệu huấn luyện. Bài học dùng K bằng 5 và nêu 5 hoặc 10 là các lựa chọn tiêu chuẩn. Phân tầng khi các lớp mất cân bằng, để mọi fold giữ tỷ lệ lớp.
+3. Huấn luyện và chấm điểm cả hai biến thể trên cùng các fold, để hai điểm trong mỗi fold là một cặp. Ghép cặp loại bỏ biến thiên giữa các fold khỏi chênh lệch.
+4. Tính các chênh lệch theo fold, trung bình và độ lệch chuẩn của chúng, và thống kê t ghép cặp: chênh lệch trung bình chia cho độ lệch chuẩn chia căn bậc hai của K. Ngưỡng của bài học cho 5 fold là một thống kê t có độ lớn vượt 2.78, cho tính có ý nghĩa ở p dưới 0.05 với 4 bậc tự do.
+5. Nếu siêu tham số được chọn trên các fold này, bọc toàn bộ trong cross-validation lồng nhau: một vòng trong chọn giá trị, một vòng ngoài đo nó.
+6. Lặp lại với vài seed fold và kiểm tra kết luận vẫn đúng.
 
 ### What to report
 
-- Each variant's mean fold score with its spread.
-- The mean difference, the statistic and the fold count.
-- The effect size in product terms, so the team can weigh it against the cost of the change.
-- One test set number for the variant you ship, measured once at the end.
+- Điểm fold trung bình của mỗi biến thể với độ trải của nó.
+- Chênh lệch trung bình, thống kê và số fold.
+- Kích thước hiệu ứng theo ý nghĩa sản phẩm, để nhóm có thể cân nhắc nó với chi phí thay đổi.
+- Một con số tập kiểm thử cho biến thể bạn triển khai, được đo một lần ở cuối.
 
 ### Caveats to say out loud
 
-The folds share training rows, so the t-test is an approximation, not a clean independent sample. A significant difference can still be too small to matter. And a comparison made on the test set turns it into a validation set, which is the mistake the design is built to prevent.
+Các fold chia sẻ các hàng huấn luyện, nên t-test là một xấp xỉ, không phải một mẫu độc lập sạch. Một khác biệt có ý nghĩa vẫn có thể quá nhỏ để quan trọng. Và một so sánh thực hiện trên tập kiểm thử biến nó thành tập validation, chính là sai lầm mà thiết kế được xây dựng để ngăn.
 
 ## Follow-ups
 
-- **Level 3:** Why must both variants use the same folds? Expected: pairing removes the fold-to-fold variation from the difference, so the test asks only about the variants.
-- **Level 4:** What does an absolute t above 2.78 mean with five folds? Expected: with 4 degrees of freedom the mean difference is unlikely to be zero at the 5 percent level, so the gap is probably real.
-- **Level 4:** How do you avoid tuning on the folds you report? Expected: nested cross-validation; the inner loop picks the hyperparameter and the outer loop measures it, so the reported folds never saw the choice.
-- **Level 4:** The difference is significant and tiny. Do you ship B? Expected: weigh the effect size against the cost of the change; significance says the sign is reliable, not that it matters.
+- **Level 3:** Tại sao cả hai biến thể phải dùng cùng các fold? Expected: ghép cặp loại bỏ biến thiên giữa các fold khỏi chênh lệch, nên kiểm thử chỉ hỏi về các biến thể.
+- **Level 4:** Một t tuyệt đối trên 2.78 có nghĩa gì với năm fold? Expected: với 4 bậc tự do, chênh lệch trung bình ít khả năng bằng không ở mức 5 phần trăm, nên khoảng cách có lẽ là có thật.
+- **Level 4:** Bạn tránh tinh chỉnh trên các fold bạn báo cáo như thế nào? Expected: cross-validation lồng nhau; vòng trong chọn siêu tham số và vòng ngoài đo nó, nên các fold được báo cáo chưa bao giờ thấy lựa chọn.
+- **Level 4:** Khác biệt có ý nghĩa và rất nhỏ. Bạn có triển khai B không? Expected: cân nhắc kích thước hiệu ứng với chi phí thay đổi; tính có ý nghĩa nói dấu là đáng tin cậy, không phải nó quan trọng.
 
 ## Wrong answers
 
-- "One held-out split is enough if it is large." A single split still depends on which rows landed where; folds show the spread.
-- "Compare the two mean scores and pick the higher one." Without the per-fold pairing and the spread, a gap smaller than the fold noise looks like a win.
-- "Use the test set to break the tie." The test set is single use; a choice made on it turns it into a validation set.
+- "Một phần chia được giữ lại là đủ nếu nó lớn." Một phần chia đơn vẫn phụ thuộc vào những hàng nào rơi vào đâu; các fold cho thấy độ trải.
+- "So sánh hai điểm trung bình và chọn điểm cao hơn." Không có ghép cặp theo fold và độ trải, một khoảng cách nhỏ hơn nhiễu fold trông như một chiến thắng.
+- "Dùng tập kiểm thử để phân thắng bại." Tập kiểm thử chỉ dùng một lần; một lựa chọn thực hiện trên nó biến nó thành tập validation.
 
 ## Taught in
 
-The [model evaluation lesson](../../../phases/02-ml-fundamentals/09-model-evaluation/) builds k-fold and stratified k-fold from scratch and ends with a paired comparison of two models.
+[Bài học đánh giá mô hình](../../../phases/02-ml-fundamentals/09-model-evaluation/) xây dựng k-fold và stratified k-fold từ đầu và kết thúc bằng một so sánh ghép cặp hai mô hình.

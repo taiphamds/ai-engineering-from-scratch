@@ -16,50 +16,50 @@ related: [math-classical-ml/negative-r-squared, math-classical-ml/compare-two-mo
 updated: 2026-11-03
 ---
 
-A teammate standardizes the whole table with a scaler, then splits it into training, validation and test rows, and reports a test score. In production the score is well below that number. Name the fault in the pipeline and describe a setup where the test number predicts production.
+Một đồng đội chuẩn hóa toàn bộ bảng bằng một scaler, rồi chia nó thành các hàng huấn luyện, validation và kiểm thử, và báo cáo một điểm kiểm thử. Trong production, điểm thấp hơn nhiều con số đó. Nêu lỗi trong pipeline và mô tả một thiết lập nơi con số kiểm thử dự đoán production.
 
 ## Short answer
 
-The scaler saw the test rows, so the mean and standard deviation carried information from the test set into training. That is data leakage, and it makes the reported score optimistic. Split first, fit every preprocessing step on the training rows only, and apply the fitted transform to the other two sets.
+Scaler đã thấy các hàng kiểm thử, nên trung bình và độ lệch chuẩn mang thông tin từ tập kiểm thử vào huấn luyện. Đó là data leakage, và nó khiến điểm được báo cáo lạc quan. Chia trước, chỉ khớp mọi bước tiền xử lý trên các hàng huấn luyện, và áp dụng phép biến đổi đã khớp cho hai tập còn lại.
 
 ## Full answer
 
 ### What leaked
 
-Standardization subtracts a mean and divides by a standard deviation. Both are statistics of the rows the scaler saw. When those rows include the test set, the training data has been shaped by the test data. The evaluation lesson names this as its first example of leakage, next to two others that hide behind the same habit: future rows in a time series that was shuffled before the split, and a feature computed from the target.
+Chuẩn hóa trừ một trung bình và chia cho một độ lệch chuẩn. Cả hai là các thống kê của những hàng scaler đã thấy. Khi các hàng đó bao gồm tập kiểm thử, dữ liệu huấn luyện đã được định hình bởi dữ liệu kiểm thử. Bài học đánh giá nêu đây là ví dụ đầu tiên về leakage, cạnh hai ví dụ khác ẩn sau cùng thói quen: các hàng tương lai trong một chuỗi thời gian đã được xáo trộn trước phép chia, và một đặc trưng được tính từ mục tiêu.
 
 ### The three sets and their jobs
 
-| Set | Share | Job |
+| Tập | Tỷ phần | Công việc |
 |---|---|---|
-| Training | 60-70 percent | the model fits these rows |
-| Validation | 15-20 percent | choose hyperparameters and models |
-| Test | 15-20 percent | report the final score, once |
+| Huấn luyện | 60-70 phần trăm | mô hình khớp các hàng này |
+| Validation | 15-20 phần trăm | chọn các siêu tham số và mô hình |
+| Kiểm thử | 15-20 phần trăm | báo cáo điểm cuối cùng, một lần |
 
-The test set is a hold-out guarantee. After you look at its score and change the model, it is a second validation set, and its score no longer predicts unseen data.
+Tập kiểm thử là một bảo đảm giữ lại. Sau khi bạn xem điểm của nó và thay đổi mô hình, nó là một tập validation thứ hai, và điểm của nó không còn dự đoán dữ liệu chưa thấy.
 
 ### A pipeline that holds
 
-1. Split before any statistic is computed. For a time series, split by time.
-2. Fit the scaler, the encoder and any imputation on the training rows. Transform the other rows with those fitted values.
-3. Inside cross-validation, repeat the fit inside each training fold. A transform fit on all rows before the folds leaks across every fold.
-4. Use a stratified split when the classes are imbalanced, so each fold keeps the class ratio.
-5. Check for duplicate rows across the splits.
-6. Touch the test set once, at the end.
+1. Chia trước khi bất kỳ thống kê nào được tính. Với một chuỗi thời gian, chia theo thời gian.
+2. Khớp scaler, encoder và bất kỳ phép điền thiếu nào trên các hàng huấn luyện. Biến đổi các hàng khác bằng những giá trị đã khớp đó.
+3. Trong cross-validation, lặp việc khớp bên trong mỗi fold huấn luyện. Một phép biến đổi được khớp trên tất cả hàng trước các fold làm rò rỉ qua mọi fold.
+4. Dùng một phép chia phân tầng khi các lớp mất cân bằng, để mỗi fold giữ tỷ lệ lớp.
+5. Kiểm tra các hàng trùng lặp giữa các phần chia.
+6. Chạm tập kiểm thử một lần, ở cuối.
 
 ## Follow-ups
 
-- **Level 2:** How does the same fault appear inside k-fold cross-validation? Expected: a transform fit on all rows before the folds leaks across every fold; fit it inside each training fold.
-- **Level 2:** Why does reading the test score many times also inflate it? Expected: each change after a look fits the test set, so it becomes a second validation set.
-- **Level 3:** The data has a time axis. What changes in the split? Expected: split by time, so the model never trains on rows after the ones it predicts; a shuffled split lets future rows into training.
-- **Level 4:** How do you tune hyperparameters and still report an honest number? Expected: nested cross-validation with an inner loop for tuning and an outer loop for the estimate, or a validation set for tuning and a test set used once.
+- **Level 2:** Cùng lỗi xuất hiện bên trong k-fold cross-validation như thế nào? Expected: một phép biến đổi được khớp trên tất cả hàng trước các fold làm rò rỉ qua mọi fold; khớp nó bên trong mỗi fold huấn luyện.
+- **Level 2:** Tại sao đọc điểm kiểm thử nhiều lần cũng làm tăng nó? Expected: mỗi thay đổi sau một lần xem khớp tập kiểm thử, nên nó trở thành một tập validation thứ hai.
+- **Level 3:** Dữ liệu có một trục thời gian. Điều gì thay đổi trong phép chia? Expected: chia theo thời gian, để mô hình không bao giờ huấn luyện trên các hàng sau những hàng nó dự đoán; một phép chia xáo trộn đưa các hàng tương lai vào huấn luyện.
+- **Level 4:** Bạn tinh chỉnh các siêu tham số và vẫn báo cáo một con số trung thực như thế nào? Expected: cross-validation lồng nhau với một vòng trong cho tinh chỉnh và một vòng ngoài cho ước lượng, hoặc một tập validation cho tinh chỉnh và một tập kiểm thử dùng một lần.
 
 ## Wrong answers
 
-- "Scaling is a harmless transform, so the order does not matter." The mean and standard deviation are statistics of the data. Fitting them on test rows moves test information into training.
-- "A leak this small cannot move the score much." The size is unknown until you remove it, and other leaks, such as a target-derived feature, hide behind the same habit.
-- "Run the test set after each change to be safe." Each look and change fits the test set, and the number stops predicting production.
+- "Scaling là một phép biến đổi vô hại, nên thứ tự không quan trọng." Trung bình và độ lệch chuẩn là các thống kê của dữ liệu. Khớp chúng trên các hàng kiểm thử chuyển thông tin kiểm thử vào huấn luyện.
+- "Một rò rỉ nhỏ như vậy không thể thay đổi điểm nhiều." Độ lớn chưa biết đến khi bạn loại bỏ nó, và các rò rỉ khác, chẳng hạn một đặc trưng suy ra từ mục tiêu, ẩn sau cùng thói quen.
+- "Chạy tập kiểm thử sau mỗi thay đổi cho chắc." Mỗi lần xem và thay đổi khớp tập kiểm thử, và con số ngừng dự đoán production.
 
 ## Taught in
 
-The [model evaluation lesson](../../../phases/02-ml-fundamentals/09-model-evaluation/) lists the common evaluation mistakes and builds the splits and the folds from scratch.
+[Bài học đánh giá mô hình](../../../phases/02-ml-fundamentals/09-model-evaluation/) liệt kê các sai lầm đánh giá phổ biến và xây dựng các phần chia và các fold từ đầu.
