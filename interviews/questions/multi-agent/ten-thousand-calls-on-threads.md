@@ -16,49 +16,49 @@ related: [multi-agent/a-worker-died-mid-run]
 updated: 2026-11-03
 ---
 
-A swarm runtime uses one thread per in-flight model call. At peak it holds about 10,000 calls at once. Estimate the memory the threads take before any work is done, say what those threads are doing most of the time, and say what you would change.
+Một runtime swarm dùng một thread mỗi lời gọi mô hình đang diễn ra. Ở đỉnh nó giữ khoảng 10,000 lời gọi cùng lúc. Ước lượng bộ nhớ các thread chiếm trước khi bất kỳ công việc nào được làm, nói những thread đó đang làm gì phần lớn thời gian, và nói bạn sẽ thay đổi gì.
 
 ## Short answer
 
-A thread stack is about 1 MB, so 10,000 threads need about 10 GB of memory for stacks alone, before the first token arrives. Those threads are idle about 99 percent of the time, waiting for the next token from a model service. Move the model calls to cooperative fibers through asynchronous I/O, where the same 10,000 calls fit in one process, and keep threads or processes only for CPU-bound work such as embeddings.
+Một stack thread khoảng 1 MB, nên 10,000 thread cần khoảng 10 GB bộ nhớ chỉ cho stack, trước khi token đầu tiên đến. Những thread đó nhàn rỗi khoảng 99 phần trăm thời gian, chờ token tiếp theo từ một dịch vụ mô hình. Chuyển các lời gọi mô hình sang các fiber hợp tác qua I/O bất đồng bộ, nơi cùng 10,000 lời gọi vừa trong một tiến trình, và chỉ giữ thread hoặc tiến trình cho công việc bị giới hạn bởi CPU như embedding.
 
 ## Full answer
 
 ### The estimate
 
-| Quantity | Value |
+| Đại lượng | Giá trị |
 |---|---|
-| Stack per thread | about 1 MB |
-| Concurrent calls | 10,000 |
-| Memory for stacks | about 10 GB |
+| Stack mỗi thread | khoảng 1 MB |
+| Lời gọi đồng thời | 10,000 |
+| Bộ nhớ cho stack | khoảng 10 GB |
 
-That is the cost of holding the calls open, not of doing anything with them. A model call is I/O bound. The thread sends a request and then waits for tokens, and it is idle for about 99 percent of its life.
+Đó là chi phí giữ các lời gọi mở, không phải làm bất cứ thứ gì với chúng. Một lời gọi mô hình bị giới hạn bởi I/O. Thread gửi một yêu cầu rồi chờ token, và nó nhàn rỗi khoảng 99 phần trăm vòng đời.
 
 ### What fibers change
 
-Cooperative fibers yield on I/O instead of holding a stack while they wait. In the lesson's demo, 500 concurrent simulated calls finish in under one second on the asynchronous version, while the thread version takes several seconds and uses orders of magnitude more memory per concurrent unit. At agent scale, asynchronous I/O is the architecture, not an optimization.
+Các fiber hợp tác nhường khi I/O thay vì giữ một stack trong khi chờ. Trong demo của bài học, 500 lời gọi mô phỏng đồng thời hoàn tất trong dưới một giây trên phiên bản bất đồng bộ, trong khi phiên bản thread mất vài giây và dùng bộ nhớ nhiều hơn nhiều bậc độ lớn mỗi đơn vị đồng thời. Ở quy mô agent, I/O bất đồng bộ là kiến trúc, không phải một tối ưu hóa.
 
 ### The exception
 
-CPU-bound post-processing wants threads or processes: embedding, tokenizer tricks, anything that computes rather than waits. Separate the I/O layer from the CPU layer and give each its own concurrency model.
+Hậu xử lý bị giới hạn bởi CPU muốn thread hoặc tiến trình: embedding, các thủ thuật tokenizer, bất cứ thứ gì tính toán thay vì chờ. Tách lớp I/O khỏi lớp CPU và cấp cho mỗi lớp mô hình đồng thời riêng.
 
 ### How this fits the rest of the runtime
 
-The asynchronous layer handles the calls in flight. Durability is a separate concern: a checkpoint per step under a run id so that a crash of the process loses the in-flight calls and nothing else, and any worker resumes from the last checkpoint. Peak load at ten times the average is a reason for both: fibers to hold the calls cheaply, and queues with leases to spread them across workers.
+Lớp bất đồng bộ xử lý các lời gọi đang diễn ra. Tính bền vững là một mối quan tâm riêng: một checkpoint mỗi bước dưới một run id để một crash của tiến trình làm mất các lời gọi đang diễn ra và không gì khác, và bất kỳ worker nào tiếp tục từ checkpoint cuối. Tải đỉnh gấp mười lần trung bình là một lý do cho cả hai: fiber để giữ các lời gọi ít tốn kém, và các hàng đợi có lease để phân bố chúng qua các worker.
 
 ## Follow-ups
 
-- **Level 2:** Why does the thread count matter more than the request count? Expected: each thread holds a stack whether or not it is doing work, so memory scales with concurrency, not with throughput.
-- **Level 2:** What breaks if you run the embedding step on the asynchronous loop? Expected: a CPU-bound task blocks the loop, so every waiting call stalls behind it, which is why CPU work goes to threads or processes.
-- **Level 3:** The memory fits after the change. What is the next limit? Expected: the model service's rate limits and the queue depth, so the runtime needs back-pressure and a lease per run rather than more concurrency.
-- **Level 3:** How do you prove the change before you ship it? Expected: run the lesson's comparison on your own call shape, measure wall-clock and peak memory for both versions at the same concurrency, and keep the numbers next to the decision.
+- **Level 2:** Tại sao số thread quan trọng hơn số yêu cầu? Expected: mỗi thread giữ một stack dù nó có đang làm việc hay không, nên bộ nhớ tỷ lệ với mức đồng thời, không phải thông lượng.
+- **Level 2:** Điều gì hỏng nếu bạn chạy bước embedding trên vòng lặp bất đồng bộ? Expected: một tác vụ bị giới hạn bởi CPU chặn vòng lặp, nên mọi lời gọi đang chờ khựng phía sau nó, đó là lý do công việc CPU đến thread hoặc tiến trình.
+- **Level 3:** Bộ nhớ vừa sau thay đổi. Giới hạn tiếp theo là gì? Expected: các giới hạn tốc độ của dịch vụ mô hình và độ sâu hàng đợi, nên runtime cần áp lực ngược và một lease mỗi lần chạy thay vì thêm đồng thời.
+- **Level 3:** Bạn chứng minh thay đổi trước khi triển khai như thế nào? Expected: chạy so sánh của bài học trên hình dạng lời gọi riêng của bạn, đo thời gian thực và bộ nhớ đỉnh cho cả hai phiên bản ở cùng mức đồng thời, và giữ các con số cạnh quyết định.
 
 ## Wrong answers
 
-- "Add memory until the threads fit." Memory for idle stacks is waste, and the next peak needs more, while fibers remove the cost.
-- "Make the threads smaller with a reduced stack size." A smaller stack is still a stack per idle call, and the idle time stays at 99 percent.
-- "Use fibers for everything, including embeddings." A CPU-bound step on the cooperative loop blocks every waiting call, so the CPU layer keeps threads or processes.
+- "Thêm bộ nhớ đến khi các thread vừa." Bộ nhớ cho các stack nhàn rỗi là lãng phí, và đỉnh tiếp theo cần thêm, trong khi fiber loại bỏ chi phí.
+- "Làm các thread nhỏ hơn với một kích thước stack giảm." Một stack nhỏ hơn vẫn là một stack mỗi lời gọi nhàn rỗi, và thời gian nhàn rỗi giữ ở 99 phần trăm.
+- "Dùng fiber cho mọi thứ, kể cả embedding." Một bước bị giới hạn bởi CPU trên vòng lặp hợp tác chặn mọi lời gọi đang chờ, nên lớp CPU giữ thread hoặc tiến trình.
 
 ## Taught in
 
-The [production scaling lesson](../../../phases/16-multi-agent-and-swarms/22-production-scaling-queues-checkpoints/) runs the asynchronous and thread versions side by side.
+[Bài học mở rộng production](../../../phases/16-multi-agent-and-swarms/22-production-scaling-queues-checkpoints/) chạy các phiên bản bất đồng bộ và thread cạnh nhau.

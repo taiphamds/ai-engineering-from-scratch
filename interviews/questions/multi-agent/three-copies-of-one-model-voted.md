@@ -16,61 +16,61 @@ related: [multi-agent/two-workers-return-different-facts]
 updated: 2026-11-03
 ---
 
-Five agents answer the same factual question and vote. Three of them run the same base model and agree on a wrong answer, and the two others are right. Majority vote picks the wrong answer. A colleague says that classical fault-tolerant consensus solves this. Explain why it does not, which assumptions break, and what the recent agent-specific protocols change.
+Năm agent trả lời cùng một câu hỏi sự thật và bỏ phiếu. Ba trong số chúng chạy cùng mô hình nền và đồng ý một đáp án sai, và hai agent còn lại đúng. Bỏ phiếu đa số chọn đáp án sai. Một đồng nghiệp nói đồng thuận chịu lỗi cổ điển giải quyết điều này. Giải thích tại sao nó không giải quyết, các giả định nào bị phá, và các giao thức gần đây dành riêng cho agent thay đổi gì.
 
 ## Short answer
 
-Classical consensus tolerates fewer than a third of nodes behaving arbitrarily, and it assumes that faults are independent, that honest nodes are correct, and that a ground truth exists. Three agents on a shared base model share their faults, an honest model still hallucinates, and on some questions the agents define the truth. The agent-specific variants weigh each vote by a confidence probe, aggregate leaderless proposals by a geometric median, or split agents into a core and an edge with learned trust weights. None of them makes agreement equal correctness, so the consensus output still goes to an independent verifier.
+Đồng thuận cổ điển chịu được ít hơn một phần ba node hành xử tùy ý, và nó giả định các lỗi độc lập, các node trung thực đúng, và một ground truth tồn tại. Ba agent trên một mô hình nền dùng chung chia sẻ lỗi, một mô hình trung thực vẫn ảo giác, và trên một số câu hỏi các agent định nghĩa sự thật. Các biến thể dành riêng cho agent đặt trọng số mỗi phiếu bằng một phép thăm dò độ tự tin, tổng hợp các đề xuất không có trưởng bằng một trung vị hình học, hoặc chia agent thành lõi và biên với các trọng số tin cậy được học. Không biến thể nào khiến đồng thuận bằng tính đúng đắn, nên đầu ra đồng thuận vẫn đến một bộ xác minh độc lập.
 
 ## Full answer
 
 ### What the classical protocol gives and assumes
 
-The standard protocol reaches agreement on one value among n nodes when fewer than n divided by three are faulty, which needs n at least three f plus one. It runs three phases over signed messages and quorum certificates. Its three assumptions:
+Giao thức tiêu chuẩn đạt đồng thuận về một giá trị giữa n node khi ít hơn n chia ba node bị lỗi, cần n ít nhất ba f cộng một. Nó chạy ba pha trên các thông điệp được ký và chứng chỉ quorum. Ba giả định của nó:
 
-1. Faults are independent, so faulty nodes do not coordinate.
-2. Honest nodes are correct, so the protocol only aligns disagreement.
-3. The question has a ground truth, so agreement on a wrong value is still agreement.
+1. Các lỗi độc lập, nên các node lỗi không phối hợp.
+2. Các node trung thực đúng, nên giao thức chỉ căn chỉnh bất đồng.
+3. Câu hỏi có một ground truth, nên đồng thuận về một giá trị sai vẫn là đồng thuận.
 
-Model agents break all three. Agents on one base model share faults. An honest agent hallucinates. And on an ambiguous question the agents decide what is true.
+Các agent mô hình phá cả ba. Các agent trên một mô hình nền chia sẻ lỗi. Một agent trung thực ảo giác. Và trên một câu hỏi mơ hồ các agent quyết định điều gì đúng.
 
 ### Three attacks that pass the signature check
 
-| Attack | What happens | Does the classical protocol handle it |
+| Tấn công | Điều gì xảy ra | Giao thức cổ điển có xử lý nó không |
 |---|---|---|
-| A deliberate lie | One agent outputs a wrong answer with high confidence | Yes, while the liars are under a third |
-| Sycophantic conformity | One agent reads the others and aligns with whoever spoke last | No, because the agent passes every check |
-| Correlated monoculture | Three agents on one model hallucinate the same answer | No, because all three honestly agree |
+| Một lời nói dối cố ý | Một agent xuất một đáp án sai với độ tự tin cao | Có, khi các bên nói dối dưới một phần ba |
+| Tuân theo xu nịnh | Một agent đọc các agent khác và theo bất cứ ai nói cuối | Không, vì agent vượt mọi kiểm tra |
+| Đơn canh tương quan | Ba agent trên một mô hình ảo giác cùng đáp án | Không, vì cả ba trung thực đồng ý |
 
-The prompt's case is the third.
+Trường hợp của prompt là trường hợp thứ ba.
 
 ### The agent-specific responses
 
-- **Confidence-weighted voting.** Each voter attaches a confidence probe, self-reported or from a calibration model, and the vote weight scales with it. The lesson reports a large improvement on fully connected graphs. It helps most against conformity, because an agent that adopted a position it did not derive tends to report low confidence.
-- **Leaderless aggregation by geometric median.** Workers propose in parallel, evaluators score the proposals, and the answer is the geometric median of the scored positions. It is robust while the faulty fraction is under a half, and it resists outliers and pulls toward the dense cluster rather than the model-biased mean.
-- **Weighted voting with a core and an edge.** Weights come from response quality and a trust score learned from history. A small core reaches agreement first and the edge follows, which bounds latency and lets the core be chosen for diversity.
+- **Bỏ phiếu có trọng số độ tự tin.** Mỗi bên bỏ phiếu gắn một phép thăm dò độ tự tin, tự báo cáo hoặc từ một mô hình hiệu chuẩn, và trọng số phiếu tỷ lệ theo nó. Bài học báo cáo một cải thiện lớn trên các đồ thị kết nối đầy đủ. Nó giúp nhiều nhất chống sự tuân theo, vì một agent nhận một lập trường mà nó không tự suy ra có xu hướng báo cáo độ tự tin thấp.
+- **Tổng hợp không có trưởng bằng trung vị hình học.** Các worker đề xuất song song, các bên đánh giá chấm các đề xuất, và câu trả lời là trung vị hình học của các vị trí đã chấm. Nó vững khi tỷ phần lỗi dưới một nửa, và nó chống ngoại lai và kéo về cụm dày đặc thay vì trung bình bị bias mô hình.
+- **Bỏ phiếu có trọng số với một lõi và một biên.** Các trọng số đến từ chất lượng phản hồi và một điểm tin cậy học từ lịch sử. Một lõi nhỏ đạt đồng thuận trước và biên theo sau, giới hạn độ trễ và cho phép chọn lõi để có đa dạng.
 
 ### The stripped-down round
 
-Each agent produces an answer and a confidence. The aggregator groups answers into semantic clusters, so that two phrasings of one value count together, sums the confidence per cluster, and accepts the top cluster only when its share passes a threshold. Below the threshold it retries or escalates. The lesson's working range for the threshold is 0.5 to 0.67 with five to seven agents. Minority clusters are logged with provenance, because they are the early warning for correlated errors.
+Mỗi agent tạo một câu trả lời và một độ tự tin. Bộ tổng hợp nhóm các câu trả lời thành các cụm ngữ nghĩa, để hai cách diễn đạt của một giá trị được tính cùng nhau, lấy tổng độ tự tin mỗi cụm, và chỉ chấp nhận cụm đứng đầu khi tỷ phần của nó vượt một ngưỡng. Dưới ngưỡng, nó thử lại hoặc chuyển lên. Khoảng hoạt động của bài học cho ngưỡng là 0.5 đến 0.67 với năm đến bảy agent. Các cụm thiểu số được ghi log với nguồn gốc, vì chúng là cảnh báo sớm cho các lỗi tương quan.
 
 ### The uncomfortable measurement
 
-The lesson cites a study of scalar agreement across frontier models: even with no adversary, agents disagreed on scalar questions at rates above 30 percent on many benchmarks, and a single agent with a deceptive persona pulled the mixture's consensus more than 40 percentage points off the honest baseline. Consensus machinery aligns outputs. It does not tell you whether the aligned output is right.
+Bài học trích dẫn một nghiên cứu về đồng thuận vô hướng giữa các mô hình tiên phong: ngay cả không có đối thủ, các agent bất đồng trên các câu hỏi vô hướng ở tỷ lệ trên 30 phần trăm trên nhiều benchmark, và một agent đơn với một persona lừa dối kéo đồng thuận của hỗn hợp lệch hơn 40 điểm phần trăm khỏi baseline trung thực. Cơ chế đồng thuận căn chỉnh các đầu ra. Nó không cho bạn biết liệu đầu ra đã căn chỉnh có đúng.
 
 ## Follow-ups
 
-- **Level 3:** Does the geometric median rescue this case? Expected: no. The median discounts outliers and moves toward the dense cluster, which helps only while the wrong cluster is under half. Here three of five votes are wrong, so the dense cluster is the wrong one and the median selects it.
-- **Level 3:** The three wrong agents are also the most confident. What now? Expected: no aggregator fixes a wrong cluster that is both larger and more confident, so the system needs diversity of base models or an independent verifier.
-- **Level 4:** Why bound the rounds at two or three? Expected: agents that observe earlier rounds start to mimic each other regardless of truth, so more rounds reward conformity.
-- **Level 4:** What do you monitor in production? Expected: the agreement rate, where a sharp rise means conformity and a sharp fall means model drift, and the minority clusters with their provenance.
+- **Level 3:** Trung vị hình học có cứu trường hợp này không? Expected: không. Trung vị giảm trọng số ngoại lai và di chuyển về cụm dày đặc, chỉ giúp khi cụm sai dưới một nửa. Ở đây ba trên năm phiếu sai, nên cụm dày đặc là cụm sai và trung vị chọn nó.
+- **Level 3:** Ba agent sai cũng là những agent tự tin nhất. Bây giờ làm gì? Expected: không bộ tổng hợp nào sửa một cụm sai vừa lớn hơn vừa tự tin hơn, nên hệ thống cần đa dạng mô hình nền hoặc một bộ xác minh độc lập.
+- **Level 4:** Tại sao giới hạn các vòng ở hai hoặc ba? Expected: các agent quan sát các vòng trước bắt đầu bắt chước nhau bất kể sự thật, nên nhiều vòng hơn thưởng cho sự tuân theo.
+- **Level 4:** Bạn theo dõi gì trong production? Expected: tỷ lệ đồng thuận, nơi một mức tăng mạnh có nghĩa tuân theo và một mức giảm mạnh có nghĩa trôi mô hình, và các cụm thiểu số với nguồn gốc của chúng.
 
 ## Wrong answers
 
-- "Use the classical protocol with a two-thirds quorum." Three honest agents that share a hallucination form the quorum, and the protocol agrees on the wrong value.
-- "Add more copies of the same model until the majority is right." More copies of one model add more correlated votes, and the wrong cluster grows with them.
-- "Consensus means the answer is correct." Agreement and correctness are different measurements, and the consensus output needs a verifier that is independent of the ensemble.
+- "Dùng giao thức cổ điển với một quorum hai phần ba." Ba agent trung thực chia sẻ một ảo giác tạo thành quorum, và giao thức đồng thuận về giá trị sai.
+- "Thêm các bản sao của cùng mô hình đến khi đa số đúng." Thêm bản sao của một mô hình thêm các phiếu tương quan, và cụm sai tăng theo chúng.
+- "Đồng thuận có nghĩa câu trả lời đúng." Đồng thuận và tính đúng đắn là các phép đo khác nhau, và đầu ra đồng thuận cần một bộ xác minh độc lập với ensemble.
 
 ## Taught in
 
-The [consensus and fault tolerance lesson](../../../phases/16-multi-agent-and-swarms/14-consensus-and-bft/) builds the minimal protocol and runs the three attacks against three aggregators.
+[Bài học đồng thuận và chịu lỗi](../../../phases/16-multi-agent-and-swarms/14-consensus-and-bft/) xây dựng giao thức tối thiểu và chạy ba cuộc tấn công đối với ba bộ tổng hợp.

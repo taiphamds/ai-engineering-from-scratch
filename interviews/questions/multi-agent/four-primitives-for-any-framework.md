@@ -16,52 +16,52 @@ related: [multi-agent/the-single-agent-ceiling]
 updated: 2026-11-03
 ---
 
-A new multi-agent framework ships every few months, each with its own vocabulary. Give the method you use to understand a new one quickly, and name the part of every such system where the hard bugs live.
+Một framework đa agent mới ra mắt mỗi vài tháng, mỗi framework có từ vựng riêng. Đưa ra phương pháp bạn dùng để hiểu nhanh một framework mới, và nêu phần của mọi hệ thống như vậy nơi các bug khó sống.
 
 ## Short answer
 
-Map the framework onto four primitives: the agent, the handoff, the shared state and the orchestrator. Every framework picks a default on each axis, and the rest is surface syntax. The agent is a system prompt plus tools and is stateless, the handoff is a structured transfer of control, the orchestrator decides who runs next, and the shared state is the only stateful part of the system. That is where the difficult bugs sit: memory poisoning, message ordering, versioning and write contention.
+Ánh xạ framework lên bốn thành phần nguyên thủy: agent, bàn giao, trạng thái dùng chung và orchestrator. Mọi framework chọn một mặc định trên mỗi trục, và phần còn lại là cú pháp bề mặt. Agent là một system prompt cộng công cụ và không có trạng thái, bàn giao là một chuyển giao quyền điều khiển có cấu trúc, orchestrator quyết định ai chạy tiếp, và trạng thái dùng chung là phần có trạng thái duy nhất của hệ thống. Đó là nơi các bug khó nằm: đầu độc bộ nhớ, thứ tự thông điệp, quản lý phiên bản và tranh chấp ghi.
 
 ## Full answer
 
 ### The four axes
 
-| Primitive | Definition | Common implementations |
+| Thành phần nguyên thủy | Định nghĩa | Các triển khai thông dụng |
 |---|---|---|
-| Agent | A system prompt, a tool list and a model, with no memory of its own | Interchangeable with any agent that has the same prompt and tools |
-| Handoff | A structured transfer of control from one agent to another | A tool that returns the next agent, a graph edge with a condition, or a speaker-selection function |
-| Shared state | Any data that more than one agent reads, and sometimes writes | A full message pool, a topic-keyed blackboard, a typed state with reducers, external memory |
-| Orchestrator | Whoever decides who speaks next | A static graph, a model that picks the speaker, the current agent's handoff call, or a scheduler over a queue |
+| Agent | Một system prompt, một danh sách công cụ và một mô hình, không có bộ nhớ riêng | Có thể hoán đổi với bất kỳ agent nào có cùng prompt và công cụ |
+| Bàn giao | Một chuyển giao quyền điều khiển có cấu trúc từ một agent đến một agent khác | Một công cụ trả về agent tiếp theo, một cạnh đồ thị có điều kiện, hoặc một hàm chọn người nói |
+| Trạng thái dùng chung | Bất kỳ dữ liệu nào mà hơn một agent đọc, và đôi khi ghi | Một pool thông điệp đầy đủ, một blackboard có khóa chủ đề, một trạng thái có kiểu với reducer, bộ nhớ bên ngoài |
+| Orchestrator | Bất cứ bên nào quyết định ai nói tiếp | Một đồ thị tĩnh, một mô hình chọn người nói, lời gọi bàn giao của agent hiện tại, hoặc một bộ lập lịch trên một hàng đợi |
 
 ### Three questions answer most of it
 
-1. Does the orchestrator trust the model to route, or does code pin the route?
-2. Is the shared state the full history, or a projected view per role?
-3. Can agents change each other's prompts, or only hand off?
+1. Orchestrator có tin mô hình để định tuyến, hay mã ghim route?
+2. Trạng thái dùng chung là toàn bộ lịch sử, hay một góc nhìn chiếu theo vai trò?
+3. Các agent có thể thay đổi prompt của nhau, hay chỉ bàn giao?
 
-The lesson claims these three answer about 80 percent of which framework fits a problem. You stop shopping for the best framework and start designing for the axis you care about.
+Bài học khẳng định ba câu này trả lời khoảng 80 phần trăm việc framework nào phù hợp một vấn đề. Bạn ngừng tìm mua framework tốt nhất và bắt đầu thiết kế cho trục bạn quan tâm.
 
 ### The stateless insight
 
-The agent is a function of its prompt and tools. The handoff is a function call. The orchestrator is a scheduler. Only the shared state carries anything from one step to the next, so every interesting bug is a shared-state bug. A framework that hides the state pushes the problem to the caller. A framework that centralizes it makes the state inspectable and moves the coordination cost into the state implementation.
+Agent là một hàm của prompt và công cụ của nó. Bàn giao là một lời gọi hàm. Orchestrator là một bộ lập lịch. Chỉ trạng thái dùng chung mang bất cứ thứ gì từ một bước đến bước tiếp theo, nên mọi bug thú vị là một bug trạng thái dùng chung. Một framework giấu trạng thái đẩy vấn đề sang bên gọi. Một framework tập trung nó khiến trạng thái có thể kiểm tra và chuyển chi phí phối hợp vào triển khai trạng thái.
 
 ### What is not a primitive
 
-Durable checkpointing, human approval of a handoff, per-agent token budgets and tracing are all built on top of the four. They are design decisions, not new axes. If a framework claims a fifth primitive, check whether it is a flavor of shared state you have not seen.
+Checkpoint bền vững, con người phê duyệt một bàn giao, ngân sách token mỗi agent và tracing đều được xây trên bốn thành phần. Chúng là các quyết định thiết kế, không phải trục mới. Nếu một framework tuyên bố một thành phần nguyên thủy thứ năm, kiểm tra liệu nó có phải một dạng trạng thái dùng chung bạn chưa thấy.
 
 ## Follow-ups
 
-- **Level 1:** Two agents have the same prompt and the same tools. How do they differ? Expected: they do not, because everything that looks like per-agent state is in the shared state or the handoff.
-- **Level 2:** Name the three ways a handoff is implemented. Expected: a tool that returns the next agent, a graph edge selected by a condition, and a selector function that picks the next speaker from a pool.
-- **Level 2:** Full pool or projected state, which scales further and what does it cost? Expected: projected state scales further, and it costs an up-front schema so that each role's view is defined.
-- **Level 3:** Before adopting a framework, what do you write first? Expected: its four-primitive mapping, and if you cannot write it, the docs are incomplete or the framework is inventing a primitive.
+- **Level 1:** Hai agent có cùng prompt và cùng công cụ. Chúng khác nhau như thế nào? Expected: chúng không khác, vì mọi thứ trông như trạng thái mỗi agent nằm trong trạng thái dùng chung hoặc bàn giao.
+- **Level 2:** Nêu ba cách một bàn giao được triển khai. Expected: một công cụ trả về agent tiếp theo, một cạnh đồ thị được chọn bởi một điều kiện, và một hàm chọn người nói tiếp theo từ một pool.
+- **Level 2:** Pool đầy đủ hay trạng thái chiếu, loại nào mở rộng xa hơn và nó tốn gì? Expected: trạng thái chiếu mở rộng xa hơn, và nó tốn một schema từ đầu để góc nhìn của mỗi vai trò được định nghĩa.
+- **Level 3:** Trước khi áp dụng một framework, bạn viết gì trước? Expected: ánh xạ bốn thành phần nguyên thủy của nó, và nếu bạn không thể viết, tài liệu không đầy đủ hoặc framework đang phát minh một thành phần nguyên thủy.
 
 ## Wrong answers
 
-- "Each framework has its own architecture, so learn them one at a time." The architectures are points in one four-axis space, and learning the axes once reads every release.
-- "The agents hold the memory." The agent is stateless by definition, and memory lives in the shared state or in the handoff payload.
-- "The orchestrator is the smart part, so pick the framework with the best one." The orchestrator is a scheduler with four flavors, and the choice depends on how much you trust the model to route.
+- "Mỗi framework có kiến trúc riêng, nên học từng cái một." Các kiến trúc là các điểm trong một không gian bốn trục, và học các trục một lần đọc được mọi bản phát hành.
+- "Các agent giữ bộ nhớ." Agent không có trạng thái theo định nghĩa, và bộ nhớ nằm trong trạng thái dùng chung hoặc trong payload bàn giao.
+- "Orchestrator là phần thông minh, nên chọn framework có orchestrator tốt nhất." Orchestrator là một bộ lập lịch với bốn dạng, và lựa chọn phụ thuộc vào mức bạn tin mô hình để định tuyến.
 
 ## Taught in
 
-The [primitive model lesson](../../../phases/16-multi-agent-and-swarms/04-primitive-model/) builds the four primitives and maps the current frameworks onto them.
+[Bài học mô hình thành phần nguyên thủy](../../../phases/16-multi-agent-and-swarms/04-primitive-model/) xây dựng bốn thành phần nguyên thủy và ánh xạ các framework hiện tại lên chúng.

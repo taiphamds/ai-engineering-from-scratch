@@ -16,53 +16,53 @@ related: [multi-agent/the-single-agent-ceiling]
 updated: 2026-11-03
 ---
 
-A team proposes a five-agent pipeline, with a planner, a retriever, a writer, a critic and a formatter, for a summarization feature that one agent handles today in a dozen tool calls. The argument is that specialists produce better output. How do you decide, and what will the pipeline cost that the slide does not show?
+Một nhóm đề xuất một pipeline năm agent, với một bên lập kế hoạch, một bên truy xuất, một bên viết, một bên phê bình và một bên định dạng, cho một tính năng tóm tắt mà một agent xử lý hôm nay trong một tá lời gọi công cụ. Lập luận là các chuyên gia tạo đầu ra tốt hơn. Bạn quyết định như thế nào, và pipeline sẽ tốn gì mà slide không cho thấy?
 
 ## Short answer
 
-Keep the single agent unless the task fails one of three tests: it needs more context than one window holds, it needs different prompts at different stages, or it has work that can run at the same time. A dozen tool calls on a task that fits in one window passes none of them. The pipeline adds a lossy compression step at each of four boundaries, coordination logic that has its own bugs, at least five serial model calls of latency, and five times the token cost.
+Giữ agent đơn trừ khi tác vụ không vượt qua một trong ba kiểm tra: nó cần nhiều ngữ cảnh hơn một cửa sổ chứa, nó cần các prompt khác nhau ở các giai đoạn khác nhau, hoặc nó có công việc có thể chạy cùng lúc. Một tá lời gọi công cụ trên một tác vụ vừa trong một cửa sổ không thỏa mãn điều nào. Pipeline thêm một bước nén mất mát ở mỗi trong bốn ranh giới, logic phối hợp có bug riêng, độ trễ ít nhất năm lời gọi mô hình tuần tự, và chi phí token gấp năm.
 
 ## Full answer
 
 ### The three tests
 
-| Test | What it asks | This task |
+| Kiểm tra | Nó hỏi gì | Tác vụ này |
 |---|---|---|
-| Context | Does the working data exceed one window, roughly 100k tokens? | No, a dozen tool calls fit |
-| Expertise | Do stages need different system prompts? | A summarizer and a formatter can share one prompt |
-| Parallelism | Can parts of the work run at the same time? | The stages are serial |
+| Ngữ cảnh | Dữ liệu làm việc có vượt một cửa sổ, khoảng 100k token không? | Không, một tá lời gọi công cụ vừa |
+| Chuyên môn | Các giai đoạn có cần các system prompt khác nhau không? | Một bộ tóm tắt và một bộ định dạng có thể chia sẻ một prompt |
+| Song song | Các phần công việc có thể chạy cùng lúc không? | Các giai đoạn tuần tự |
 
-The lesson's rule of thumb is that a task under 20 tool calls and 100k tokens stays with one agent.
+Quy tắc kinh nghiệm của bài học là một tác vụ dưới 20 lời gọi công cụ và 100k token ở lại với một agent.
 
 ### The hidden costs
 
-- **Lossy boundaries.** Every message between agents compresses the sender's full context into a message. Four boundaries are four places where the detail the critic needed is gone.
-- **Coordination bugs.** Who runs when, in which order, with which input is new code, and it fails in new ways.
-- **Latency.** Five agents are at least five serial model calls, more if the critic sends work back to the writer.
-- **Cost.** Each agent spends its own tokens, so the bill multiplies.
-- **Debugging.** One conversation becomes five, and a wrong answer has to be traced across the messages between them.
+- **Các ranh giới mất mát.** Mọi thông điệp giữa các agent nén toàn bộ ngữ cảnh bên gửi thành một thông điệp. Bốn ranh giới là bốn nơi chi tiết bên phê bình cần biến mất.
+- **Các bug phối hợp.** Ai chạy khi nào, theo thứ tự nào, với đầu vào nào là mã mới, và nó thất bại theo những cách mới.
+- **Độ trễ.** Năm agent là ít nhất năm lời gọi mô hình tuần tự, nhiều hơn nếu bên phê bình gửi công việc trở lại bên viết.
+- **Chi phí.** Mỗi agent dùng token riêng, nên hóa đơn nhân lên.
+- **Gỡ lỗi.** Một cuộc hội thoại thành năm, và một câu trả lời sai phải được truy vết qua các thông điệp giữa chúng.
 
 ### When the slide would be right
 
-If the feature grows to summarize documents that do not fit in one window, split by document and merge. If the critic needs a prompt that argues against the writer, that is a real second role. If three sources can be read at once, fan out. Each of those is one of the three tests, and the split should match the test it passes, not add every role at once.
+Nếu tính năng tăng đến việc tóm tắt các tài liệu không vừa trong một cửa sổ, chia theo tài liệu và gộp. Nếu bên phê bình cần một prompt phản biện bên viết, đó là một vai trò thứ hai thực sự. Nếu ba nguồn có thể được đọc cùng lúc, phân nhánh. Mỗi điều đó là một trong ba kiểm tra, và việc chia nên khớp kiểm tra nó thỏa mãn, không phải thêm mọi vai trò cùng lúc.
 
 ### How to settle it
 
-Run both on the same task set and measure quality, latency and tokens. The lesson's comparison shows the multi-agent version using more total tokens while each stage's context stays clean. If the quality gain does not pay for the latency and the cost, the single agent wins.
+Chạy cả hai trên cùng tập tác vụ và đo chất lượng, độ trễ và token. So sánh của bài học cho thấy phiên bản đa agent dùng nhiều tổng token hơn trong khi ngữ cảnh mỗi giai đoạn giữ sạch. Nếu mức tăng chất lượng không trả được độ trễ và chi phí, agent đơn thắng.
 
 ## Follow-ups
 
-- **Level 2:** The critic sends the draft back to the writer. What does that do to the latency? Expected: each round adds two more serial model calls, so the loop must have a cap on rounds.
-- **Level 2:** Which single split would you accept first, if any? Expected: a critic with an adversarial prompt, because it is the one role that needs a different system prompt, and only if the eval shows a gain.
-- **Level 3:** Why is the boundary between agents described as lossy compression? Expected: the receiving agent sees only the message, not the sender's tool results and reasoning, so any detail that was not written into the message is gone.
-- **Level 3:** How does the choice change if the summaries must be produced under a strict latency target? Expected: serial stages are the enemy of latency, so stay single or fan out only the parts that run in parallel.
+- **Level 2:** Bên phê bình gửi bản nháp trở lại bên viết. Điều đó làm gì với độ trễ? Expected: mỗi vòng thêm hai lời gọi mô hình tuần tự nữa, nên vòng lặp phải có một giới hạn số vòng.
+- **Level 2:** Bạn sẽ chấp nhận phép chia đơn lẻ nào trước, nếu có? Expected: một bên phê bình có một prompt đối kháng, vì đó là vai trò duy nhất cần một system prompt khác, và chỉ nếu đánh giá cho thấy mức tăng.
+- **Level 3:** Tại sao ranh giới giữa các agent được mô tả là nén mất mát? Expected: agent nhận chỉ thấy thông điệp, không phải kết quả công cụ và suy luận của bên gửi, nên bất kỳ chi tiết nào không được viết vào thông điệp đều mất.
+- **Level 3:** Lựa chọn thay đổi như thế nào nếu các bản tóm tắt phải được tạo dưới một mục tiêu độ trễ nghiêm ngặt? Expected: các giai đoạn tuần tự là kẻ thù của độ trễ, nên giữ agent đơn hoặc chỉ phân nhánh các phần chạy song song.
 
 ## Wrong answers
 
-- "Specialists always beat a generalist." Specialists win when the task fails one of the three tests, and this task fails none.
-- "More agents means more checks, so quality goes up." Each boundary loses information, and a critic that never sees the sources cannot check them.
-- "Token cost does not matter at our scale." Five agents multiply the bill and the latency on every request, and that is a product decision, not a detail.
+- "Các chuyên gia luôn thắng một người tổng quát." Các chuyên gia thắng khi tác vụ không vượt qua một trong ba kiểm tra, và tác vụ này không trượt kiểm tra nào.
+- "Nhiều agent hơn có nghĩa nhiều kiểm tra hơn, nên chất lượng tăng." Mỗi ranh giới mất thông tin, và một bên phê bình không bao giờ thấy các nguồn không thể kiểm tra chúng.
+- "Chi phí token không quan trọng ở quy mô chúng ta." Năm agent nhân hóa đơn và độ trễ trên mọi yêu cầu, và đó là một quyết định sản phẩm, không phải một chi tiết.
 
 ## Taught in
 
-The [why multi-agent lesson](../../../phases/16-multi-agent-and-swarms/01-why-multi-agent/) gives the three tests, the complexity cost and the rule of thumb.
+[Bài học tại sao đa agent](../../../phases/16-multi-agent-and-swarms/01-why-multi-agent/) đưa ra ba kiểm tra, chi phí phức tạp và quy tắc kinh nghiệm.

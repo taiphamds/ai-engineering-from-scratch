@@ -16,11 +16,11 @@ related: []
 updated: 2026-11-03
 ---
 
-Your multi-agent prototype runs in one process with an in-memory event loop. In production, runs last hours while they wait for human input, worker processes crash and lose everything, peak load is ten times the average, and users are charged per run so a retried side effect is a double charge. Design the layer that goes under the agents, and say what you would build first.
+Nguyên mẫu đa agent của bạn chạy trong một tiến trình với một vòng lặp sự kiện trong bộ nhớ. Trong production, các lần chạy kéo dài hàng giờ trong khi chờ đầu vào con người, các tiến trình worker crash và mất mọi thứ, tải đỉnh gấp mười lần trung bình, và người dùng bị tính phí mỗi lần chạy nên một tác dụng phụ được thử lại là một lần tính phí kép. Thiết kế lớp nằm dưới các agent, và nói bạn sẽ xây gì trước.
 
 ## Short answer
 
-Put a durable execution layer under the agents: persist the full run state after each step under a run id, so that when a worker crashes its lease expires and any other worker resumes from the last checkpoint. That needs serializable state, a deterministic resume, and idempotent side effects. For the charge, use a deduplication key per run and an outbox so that side effects are written as intent first and executed once, use asynchronous I/O for the model calls, and deploy new versions beside old ones so that in-flight runs are never killed. Build the simplest version first, a web service with a relational database, and adopt a workflow engine when a measured problem demands it.
+Đặt một lớp thực thi bền vững dưới các agent: lưu bền toàn bộ trạng thái lần chạy sau mỗi bước dưới một run id, để khi một worker crash, lease của nó hết hạn và bất kỳ worker nào khác tiếp tục từ checkpoint cuối. Điều đó cần trạng thái có thể tuần tự hóa, một lần tiếp tục có tính xác định, và các tác dụng phụ lũy đẳng. Với khoản phí, dùng một khóa chống trùng mỗi lần chạy và một outbox để các tác dụng phụ được ghi thành ý định trước và thực thi một lần, dùng I/O bất đồng bộ cho các lời gọi mô hình, và triển khai các phiên bản mới cạnh phiên bản cũ để các lần chạy đang diễn ra không bao giờ bị giết. Xây phiên bản đơn giản nhất trước, một dịch vụ web với một cơ sở dữ liệu quan hệ, và áp dụng một workflow engine khi một vấn đề được đo đòi hỏi nó.
 
 ## Full answer
 
@@ -34,55 +34,55 @@ worker crashes mid-step
   -> no duplicate side effect
 ```
 
-Three requirements make this work:
+Ba yêu cầu khiến điều này hoạt động:
 
-1. **Serializable state.** Everything the agent holds must be persistable. A closure with a live database connection does not survive a crash.
-2. **Deterministic resume.** Given the same state and the same inputs, the agent takes the same actions, or defers to a recorded result for the model calls.
-3. **Idempotent side effects.** Every external call carries a key, or writes to a table first and is executed by a separate process.
+1. **Trạng thái có thể tuần tự hóa.** Mọi thứ agent giữ phải có thể lưu bền. Một closure với một kết nối cơ sở dữ liệu đang hoạt động không sống sót qua một crash.
+2. **Tiếp tục có tính xác định.** Với cùng trạng thái và cùng đầu vào, agent thực hiện cùng hành động, hoặc dùng một kết quả đã ghi cho các lời gọi mô hình.
+3. **Các tác dụng phụ lũy đẳng.** Mọi lời gọi bên ngoài mang một khóa, hoặc ghi vào một bảng trước và được thực thi bởi một tiến trình riêng.
 
-Graph runtimes write a checkpoint after each step under a thread id. Workflow engines write after each activity. Event-sourced runtimes keep a journal. The pattern is the same.
+Các graph runtime ghi một checkpoint sau mỗi bước dưới một thread id. Các workflow engine ghi sau mỗi activity. Các runtime event-sourced giữ một nhật ký. Mẫu giống nhau.
 
 ### The waiting run
 
-A run that waits hours for a human must not hold a worker. The runtime persists the run, releases the worker, and any worker resumes when the input arrives. That is what makes the checkpoint the unit of the system rather than the process.
+Một lần chạy chờ hàng giờ cho một người không được giữ một worker. Runtime lưu bền lần chạy, giải phóng worker, và bất kỳ worker nào tiếp tục khi đầu vào đến. Đó là điều khiến checkpoint là đơn vị của hệ thống thay vì tiến trình.
 
 ### Exactly once, effectively
 
-At-least-once delivery plus an idempotent consumer is the only kind of exactly-once you get.
+Phân phối ít nhất một lần cộng một bên tiêu thụ lũy đẳng là loại chính xác một lần duy nhất bạn nhận được.
 
-| Move | What it does |
+| Biện pháp | Nó làm gì |
 |---|---|
-| Deduplication key per run | Included in every side-effect call so a retry is recognized |
-| Outbox | Intent is written to a table, and a separate executor performs it and marks it done |
-| Compensating transaction | When the effect succeeded and the tracking write failed, schedule the reverse |
+| Khóa chống trùng mỗi lần chạy | Được bao gồm trong mọi lời gọi tác dụng phụ để một lần thử lại được nhận ra |
+| Outbox | Ý định được ghi vào một bảng, và một bộ thực thi riêng thực hiện nó rồi đánh dấu hoàn tất |
+| Giao dịch bù | Khi tác động thành công và lần ghi theo dõi thất bại, lên lịch thao tác đảo ngược |
 
-These are database patterns. The only agent-specific tax is that model calls are slow.
+Đây là các mẫu cơ sở dữ liệu. Chi phí riêng của agent duy nhất là các lời gọi mô hình chậm.
 
 ### Concurrency
 
-Model calls are I/O bound, and a thread waiting for the next token is idle 99 percent of the time. At 10,000 concurrent calls, threads of about 1 MB each need about 10 GB for stacks alone, while cooperative fibers fit in one process. Use asynchronous I/O for the model layer and threads or processes only for CPU-bound work such as embedding.
+Các lời gọi mô hình bị giới hạn bởi I/O, và một thread chờ token tiếp theo nhàn rỗi 99 phần trăm thời gian. Ở 10,000 lời gọi đồng thời, các thread khoảng 1 MB mỗi thread cần khoảng 10 GB chỉ cho stack, trong khi các fiber hợp tác vừa trong một tiến trình. Dùng I/O bất đồng bộ cho lớp mô hình và các thread hoặc tiến trình chỉ cho công việc bị giới hạn bởi CPU như embedding.
 
 ### Deploys
 
-Long-running stateful agents cannot be hot-swapped. Run several versions of the runtime at once, send a slice of new runs to the new version, and retire the old version when its runs finish.
+Các agent có trạng thái chạy lâu không thể được thay nóng. Chạy nhiều phiên bản runtime cùng lúc, gửi một phần các lần chạy mới đến phiên bản mới, và ngừng phiên bản cũ khi các lần chạy của nó hoàn tất.
 
 ### What to build first
 
-The lesson's counterpoint is that most teams over-engineer before they measure. A web service and a relational database, with each run as a row, optimistic concurrency on the state, a simple background worker and application-level retries, carries loads under about 100 concurrent runs on manageable tasks. Adopt a durable-execution engine when you hit a concrete problem the simple design cannot solve: hour-long waits at scale, cross-region coordination, or complex compensation policies.
+Luận điểm đối trọng của bài học là phần lớn nhóm thiết kế quá mức trước khi đo. Một dịch vụ web và một cơ sở dữ liệu quan hệ, với mỗi lần chạy là một hàng, đồng thời lạc quan trên trạng thái, một worker nền đơn giản và các lần thử lại ở cấp ứng dụng, gánh tải dưới khoảng 100 lần chạy đồng thời trên các tác vụ quản lý được. Áp dụng một engine thực thi bền vững khi bạn gặp một vấn đề cụ thể mà thiết kế đơn giản không thể giải quyết: các lần chờ hàng giờ ở quy mô lớn, phối hợp xuyên vùng, hoặc các chính sách bù phức tạp.
 
 ## Follow-ups
 
-- **Level 3:** Why is the model call the hard part of deterministic resume? Expected: it is not deterministic, so the resume must replay the recorded result of the call rather than make it again.
-- **Level 3:** What does the lease do? Expected: it marks a run as owned by one worker for a bounded time, so a crash frees the run for another worker without two workers running it at once.
-- **Level 4:** How do you test the outbox? Expected: run the same side effect twice through the executor and assert one external call, then crash the executor between the effect and the mark and assert that the compensation or the idempotent redo leaves one effect.
-- **Level 4:** Which feature of a workflow engine is hardest to replicate by hand, and is that a reason to adopt it? Expected: a reasoned pick such as durable timers for hour-long waits or compensation policies, with the rule that adoption follows a measured failure of the simple design.
+- **Level 3:** Tại sao lời gọi mô hình là phần khó của tiếp tục có tính xác định? Expected: nó không có tính xác định, nên lần tiếp tục phải phát lại kết quả đã ghi của lời gọi thay vì gọi lại.
+- **Level 3:** Lease làm gì? Expected: nó đánh dấu một lần chạy được một worker sở hữu trong thời gian bị giới hạn, để một crash giải phóng lần chạy cho một worker khác mà không có hai worker chạy nó cùng lúc.
+- **Level 4:** Bạn kiểm thử outbox như thế nào? Expected: chạy cùng tác dụng phụ hai lần qua bộ thực thi và assert một lời gọi bên ngoài, rồi làm bộ thực thi crash giữa tác động và dấu hoàn tất và assert rằng thao tác bù hoặc làm lại lũy đẳng để lại một tác động.
+- **Level 4:** Tính năng nào của một workflow engine khó sao chép bằng tay nhất, và đó có phải lý do áp dụng nó không? Expected: một lựa chọn có lý lẽ như các bộ hẹn giờ bền vững cho các lần chờ hàng giờ hoặc các chính sách bù, với quy tắc việc áp dụng theo sau một thất bại được đo của thiết kế đơn giản.
 
 ## Wrong answers
 
-- "Retry the whole run from the start when a worker dies." That repeats every side effect that already happened, which is the double charge in the prompt.
-- "Use a thread per run; it is simpler." Threads idle while they wait for tokens, and at ten thousand concurrent calls the stacks alone exhaust memory.
-- "Adopt a workflow engine on day one to be safe." The simple design carries about a hundred concurrent runs, and the engine's ceremony costs time until a measured problem pays for it.
+- "Thử lại toàn bộ lần chạy từ đầu khi một worker chết." Điều đó lặp mọi tác dụng phụ đã xảy ra, chính là khoản phí kép trong prompt.
+- "Dùng một thread mỗi lần chạy; nó đơn giản hơn." Các thread nhàn rỗi trong khi chờ token, và ở mười nghìn lời gọi đồng thời, chỉ các stack đã làm cạn bộ nhớ.
+- "Áp dụng một workflow engine từ ngày đầu cho chắc." Thiết kế đơn giản gánh khoảng một trăm lần chạy đồng thời, và các thủ tục của engine tốn thời gian đến khi một vấn đề được đo trả giá cho nó.
 
 ## Taught in
 
-The [production scaling lesson](../../../phases/16-multi-agent-and-swarms/22-production-scaling-queues-checkpoints/) builds the checkpoint store, the per-agent queue and the asynchronous demo, and lands the start-simple rule.
+[Bài học mở rộng production](../../../phases/16-multi-agent-and-swarms/22-production-scaling-queues-checkpoints/) xây dựng kho checkpoint, hàng đợi mỗi agent và demo bất đồng bộ, và chốt quy tắc bắt đầu đơn giản.

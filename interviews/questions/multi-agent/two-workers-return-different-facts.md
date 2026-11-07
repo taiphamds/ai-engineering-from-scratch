@@ -16,55 +16,55 @@ related: [multi-agent/why-a-fresh-context-wins]
 updated: 2026-11-03
 ---
 
-In a lead-and-workers research system, two workers answered overlapping sub-questions with numbers that contradict each other. The final report contains one of the numbers and no mention of the other. The user found the second number in a source and asks why the report hid it. Where did the system fail, and what do you change?
+Trong một hệ thống nghiên cứu có agent trưởng và worker, hai worker trả lời các câu hỏi con chồng lấn bằng các con số mâu thuẫn nhau. Báo cáo cuối chứa một trong các con số và không nhắc con số kia. Người dùng tìm thấy con số thứ hai trong một nguồn và hỏi tại sao báo cáo giấu nó. Hệ thống thất bại ở đâu, và bạn thay đổi gì?
 
 ## Short answer
 
-The lead resolved a synthesis conflict by picking one side in silence, which the lesson calls the worst failure in this pattern, because the user never learns that a disagreement happened. Two upstream causes made it likely: the decomposition gave two workers the same ground, and no worker had a scope that stopped it from drifting into the other's territory. The fix is a lead that detects contradiction between worker outputs and either re-asks with a narrower question or writes the disagreement into the answer, plus provenance on every synthesized claim.
+Agent trưởng giải quyết một xung đột tổng hợp bằng cách im lặng chọn một phía, điều bài học gọi là lỗi tệ nhất trong mẫu này, vì người dùng không bao giờ biết một bất đồng đã xảy ra. Hai nguyên nhân phía trước khiến nó có khả năng xảy ra: phân rã giao cho hai worker cùng phần đất, và không worker nào có một phạm vi ngăn nó trôi vào lãnh thổ của bên kia. Cách sửa là một agent trưởng phát hiện mâu thuẫn giữa các đầu ra worker và hoặc hỏi lại với một câu hỏi hẹp hơn hoặc viết sự bất đồng vào câu trả lời, cộng nguồn gốc trên mọi khẳng định tổng hợp.
 
 ## Full answer
 
 ### Three failure modes in the pattern
 
-| Failure | What happened here |
+| Lỗi | Điều gì đã xảy ra ở đây |
 |---|---|
-| The lead hallucinates the plan | Sub-questions overlapped, so two workers researched the same fact |
-| Workers over-explore | A worker without a scope boundary drifted past its question into another's |
-| Synthesis conflict | Two contradictory facts arrived, and the lead picked one without a note |
+| Agent trưởng ảo giác kế hoạch | Các câu hỏi con chồng lấn, nên hai worker nghiên cứu cùng sự thật |
+| Worker khám phá quá mức | Một worker không có ranh giới phạm vi trôi qua câu hỏi của nó vào câu hỏi của bên khác |
+| Xung đột tổng hợp | Hai sự thật mâu thuẫn đến, và agent trưởng chọn một mà không ghi chú |
 
-The third is the one the user saw. The first two made it happen.
+Điều thứ ba là điều người dùng thấy. Hai điều đầu khiến nó xảy ra.
 
 ### Detect the conflict without a model
 
-The lesson asks how to detect contradiction without a model call. Canonicalize the claims: extract each number with its unit and the entity it describes, key it by sub-question, and compare. Two different values under one key is a conflict. For non-numeric claims, flag a key only when the two workers state different claims. Different cited sources alone are not a conflict. Let the lead handle a flagged key.
+Bài học hỏi cách phát hiện mâu thuẫn không có một lời gọi mô hình. Chuẩn hóa các khẳng định: trích xuất mỗi số với đơn vị và thực thể nó mô tả, đặt khóa theo câu hỏi con, và so sánh. Hai giá trị khác nhau dưới một khóa là một xung đột. Với các khẳng định không phải số, chỉ gắn cờ một khóa khi hai worker nêu các khẳng định khác nhau. Chỉ các nguồn trích dẫn khác nhau không phải một xung đột. Để agent trưởng xử lý một khóa được gắn cờ.
 
 ### What the lead does with a conflict
 
-1. **Re-ask.** Spawn a worker on a tighter question aimed at the disagreement, which adds a round.
-2. **Surface it.** Write both values into the answer with their sources and say that they disagree.
-3. **Never pick in silence.** A chosen value with no note is the failure in the prompt.
+1. **Hỏi lại.** Sinh một worker trên một câu hỏi chặt hơn nhắm vào sự bất đồng, thêm một vòng.
+2. **Đưa ra.** Viết cả hai giá trị vào câu trả lời với các nguồn của chúng và nói rằng chúng bất đồng.
+3. **Không bao giờ im lặng chọn.** Một giá trị được chọn không có ghi chú là lỗi trong prompt.
 
 ### Prevent the overlap
 
-Decompose broad first and narrow later, and give each worker an explicit scope in its prompt: the sub-question, what is out of scope, and the sources to prefer. Add a worker timeout at about twice the median runtime and a token cap per worker, so that a worker that wanders is cut and the lead re-spawns with a narrower question or proceeds without it.
+Phân rã rộng trước và hẹp sau, và cấp cho mỗi worker một phạm vi tường minh trong prompt: câu hỏi con, những gì ngoài phạm vi, và các nguồn ưu tiên. Thêm một timeout worker khoảng gấp đôi thời gian chạy trung vị và một giới hạn token mỗi worker, để một worker lang thang bị cắt và agent trưởng sinh lại với một câu hỏi hẹp hơn hoặc tiếp tục không có nó.
 
 ### Provenance on the synthesis
 
-Each claim in the final answer carries the worker and the source it came from. That makes the hidden second number impossible, because a claim with two sources shows two values, and it makes the post-mortem a read of the trace instead of a guess.
+Mỗi khẳng định trong câu trả lời cuối mang worker và nguồn nó đến từ. Điều đó khiến con số thứ hai bị giấu không thể xảy ra, vì một khẳng định có hai nguồn cho thấy hai giá trị, và khiến việc phân tích sau sự cố là đọc trace thay vì đoán.
 
 ## Follow-ups
 
-- **Level 3:** Why is a silent pick worse than a wrong pick with a note? Expected: a noted disagreement lets the reader check the sources, while a silent pick presents an unresolved fact as settled.
-- **Level 3:** The re-ask adds a round and the latency target is tight. What do you do? Expected: surface the disagreement in the answer instead of re-asking, and record the key for a later run.
-- **Level 4:** How do you test the conflict detector? Expected: feed it worker outputs with a planted contradiction on one key and matching values on others, and assert that exactly that key is flagged.
-- **Level 4:** The two workers agree and are both wrong. What catches that? Expected: nothing in the lead, because agreement is not correctness, so an independent verifier with its own source access has to check the claim.
+- **Level 3:** Tại sao một lựa chọn im lặng tệ hơn một lựa chọn sai có ghi chú? Expected: một bất đồng được ghi chú cho phép người đọc kiểm tra nguồn, trong khi một lựa chọn im lặng trình bày một sự thật chưa giải quyết như đã chốt.
+- **Level 3:** Việc hỏi lại thêm một vòng và mục tiêu độ trễ chặt. Bạn làm gì? Expected: đưa sự bất đồng ra trong câu trả lời thay vì hỏi lại, và ghi lại khóa cho một lần chạy sau.
+- **Level 4:** Bạn kiểm thử bộ phát hiện xung đột như thế nào? Expected: đưa vào các đầu ra worker với một mâu thuẫn được cài trên một khóa và các giá trị khớp trên các khóa khác, và assert rằng chính xác khóa đó được gắn cờ.
+- **Level 4:** Hai worker đồng ý và cả hai sai. Điều gì bắt điều đó? Expected: không gì trong agent trưởng, vì đồng thuận không phải tính đúng đắn, nên một bộ xác minh độc lập có quyền truy cập nguồn riêng phải kiểm tra khẳng định.
 
 ## Wrong answers
 
-- "Add a rule to the lead's prompt that says be careful with numbers." The lead did not know a conflict existed, and a prompt does not compare worker outputs.
-- "Trust the worker with the higher confidence." Confidence is not correctness, and the user still never learns that a disagreement happened.
-- "Run three workers per sub-question and take the majority." A majority can be wrong together, it triples the cost, and the overlap that caused the conflict stays in the plan.
+- "Thêm một quy tắc vào prompt của agent trưởng nói hãy cẩn thận với các con số." Agent trưởng không biết một xung đột tồn tại, và một prompt không so sánh các đầu ra worker.
+- "Tin worker có độ tự tin cao hơn." Độ tự tin không phải tính đúng đắn, và người dùng vẫn không bao giờ biết một bất đồng đã xảy ra.
+- "Chạy ba worker mỗi câu hỏi con và lấy đa số." Một đa số có thể sai cùng nhau, nó tăng chi phí gấp ba, và sự chồng lấn gây ra xung đột vẫn ở trong kế hoạch.
 
 ## Taught in
 
-The [supervisor pattern lesson](../../../phases/16-multi-agent-and-swarms/05-supervisor-orchestrator-pattern/) names the synthesis conflict and the worker timeout and token cap.
+[Bài học mẫu supervisor](../../../phases/16-multi-agent-and-swarms/05-supervisor-orchestrator-pattern/) nêu xung đột tổng hợp và timeout worker cùng giới hạn token.

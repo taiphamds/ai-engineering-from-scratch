@@ -16,50 +16,50 @@ related: [multi-agent/five-agents-and-a-vote]
 updated: 2026-11-03
 ---
 
-A paper reports that its multi-agent coding system beats single agents by a wide margin on a well-known software engineering benchmark. Your team wants to adopt the architecture. What do you ask before you believe the number?
+Một bài báo báo cáo rằng hệ thống lập trình đa agent của nó thắng các agent đơn với một khoảng cách lớn trên một benchmark kỹ thuật phần mềm nổi tiếng. Nhóm của bạn muốn áp dụng kiến trúc. Bạn hỏi gì trước khi tin con số?
 
 ## Short answer
 
-Ask which benchmark and which split, whether the benchmark was released after the model's training cutoff, what the comparison baseline was, how many trials were run, how many task types were covered, and what the result cost in tokens and wall-clock. The split matters most: frontier models score about 23 percent on the uncontaminated split of that benchmark against more than 70 percent on the older split, so a number without its split says nothing.
+Hỏi benchmark nào và phần chia nào, liệu benchmark được phát hành sau mốc kết thúc huấn luyện của mô hình, baseline so sánh là gì, bao nhiêu lần thử được chạy, bao nhiêu loại tác vụ được bao phủ, và kết quả tốn bao nhiêu token và thời gian thực. Phần chia quan trọng nhất: các mô hình tiên phong đạt khoảng 23 phần trăm trên phần chia không nhiễm của benchmark đó so với hơn 70 phần trăm trên phần chia cũ, nên một con số không có phần chia không nói gì.
 
 ## Full answer
 
 ### The checklist
 
-| Question | Why it matters |
+| Câu hỏi | Tại sao nó quan trọng |
 |---|---|
-| Which benchmark, which split | The newer split was built to resist contamination, and scores differ by a factor of three between splits |
-| Contamination | A benchmark released before the model's cutoff can have leaked into training, so the score can be inflated |
-| Baseline | Against a single-agent baseline, random, and prior multi-agent work, not against an untuned version of the same system |
-| Significance | Number of trials and a confidence interval, because frontier models are high-variance and single runs mislead |
-| Task diversity | One task or many, because production needs generalization |
-| Cost disclosure | Tokens per task and wall-clock, because a strong result at 20 times the cost is a business decision |
+| Benchmark nào, phần chia nào | Phần chia mới hơn được xây để chống nhiễm, và điểm khác nhau với hệ số ba giữa các phần chia |
+| Nhiễm | Một benchmark phát hành trước mốc kết thúc của mô hình có thể đã rò rỉ vào huấn luyện, nên điểm có thể bị thổi phồng |
+| Baseline | So với một baseline agent đơn, ngẫu nhiên, và công trình đa agent trước đó, không phải so với một phiên bản chưa tinh chỉnh của cùng hệ thống |
+| Tính có ý nghĩa | Số lần thử và một khoảng tin cậy, vì các mô hình tiên phong có variance cao và các lần chạy đơn gây hiểu lầm |
+| Đa dạng tác vụ | Một tác vụ hay nhiều, vì production cần tổng quát hóa |
+| Công khai chi phí | Token mỗi tác vụ và thời gian thực, vì một kết quả mạnh ở chi phí gấp 20 lần là một quyết định kinh doanh |
 
 ### What the other benchmarks teach
 
-The lesson surveys five benchmark families, and two of them are warnings. On a multimodal coordination benchmark with asymmetric information, frontier models struggle to beat a random baseline. On a medical benchmark with four task categories, multi-agent systems did not dominate a single model on most categories; decomposition helped where subtasks were separable and hurt where coordination cost exceeded the specialization gain. A topology benchmark found graph best for research, chain for stepwise coding, star for fast factual work, and a coordination tax past about 4 agents; cognitive planning added about 3 percent milestone achievement.
+Bài học khảo sát năm họ benchmark, và hai trong số chúng là những cảnh báo. Trên một benchmark phối hợp đa phương thức với thông tin bất đối xứng, các mô hình tiên phong chật vật để thắng một baseline ngẫu nhiên. Trên một benchmark y khoa có bốn nhóm tác vụ, các hệ thống đa agent không vượt trội một mô hình đơn trên phần lớn nhóm; phân rã giúp nơi các tác vụ con có thể tách và gây hại nơi chi phí phối hợp vượt mức tăng chuyên môn hóa. Một benchmark cấu trúc liên kết thấy đồ thị tốt nhất cho nghiên cứu, chuỗi cho lập trình từng bước, hình sao cho công việc sự thật nhanh, và chi phí phối hợp qua khoảng 4 agent; lập kế hoạch nhận thức thêm khoảng 3 phần trăm mức đạt cột mốc.
 
 ### What the number in the prompt may mean
 
-If it is on the uncontaminated split, agent-team scaffolding has produced a measurable delta there, in the range of 30 to 40 points, and that is one of the stronger empirical arguments for coordination. If it is on the older split, the result is no longer evidence of capability.
+Nếu nó trên phần chia không nhiễm, bộ khung nhóm agent đã tạo một chênh lệch đo được ở đó, trong khoảng 30 đến 40 điểm, và đó là một trong những lập luận thực nghiệm mạnh hơn cho phối hợp. Nếu nó trên phần chia cũ, kết quả không còn là bằng chứng về năng lực.
 
 ### What no benchmark measures well
 
-Long-horizon coordination over days, resilience to a malicious agent, drift under deployment, and cost-normalized performance. For the axis you care about, build an internal benchmark from your production distribution, include a random baseline in every comparison, report cost beside accuracy, and rebuild it quarterly.
+Phối hợp dài hạn qua nhiều ngày, khả năng chống chịu một agent độc hại, sự trôi khi triển khai, và hiệu suất chuẩn hóa theo chi phí. Với trục bạn quan tâm, xây một benchmark nội bộ từ phân phối production của bạn, bao gồm một baseline ngẫu nhiên trong mọi so sánh, báo cáo chi phí cạnh độ chính xác, và xây lại nó hằng quý.
 
 ## Follow-ups
 
-- **Level 2:** Why compare a coordination system against random guessing? Expected: if the system cannot beat random by a wide margin, the task may be ill-posed, as the multimodal coordination results showed.
-- **Level 2:** What does milestone achievement measure that final success does not? Expected: partial progress, so a system that gets most of the way is distinguished from one that fails at the start.
-- **Level 3:** How do you check contamination yourself? Expected: compare the benchmark's release date with the model's training cutoff, and withhold a slice of tasks from any tuning set in your own evaluations.
-- **Level 3:** The paper's score is reported without a primary source from the model's vendor. How do you treat it? Expected: as preliminary, and you do not make a production decision on it until an independent run reproduces it.
+- **Level 2:** Tại sao so sánh một hệ thống phối hợp với đoán ngẫu nhiên? Expected: nếu hệ thống không thể thắng ngẫu nhiên với một khoảng cách lớn, tác vụ có thể không được đặt tốt, như các kết quả phối hợp đa phương thức cho thấy.
+- **Level 2:** Mức đạt cột mốc đo gì mà thành công cuối không đo? Expected: tiến triển một phần, để một hệ thống đi được phần lớn đường được phân biệt với một hệ thống thất bại ngay từ đầu.
+- **Level 3:** Bạn tự kiểm tra nhiễm như thế nào? Expected: so sánh ngày phát hành benchmark với mốc kết thúc huấn luyện của mô hình, và giữ lại một phần tác vụ ngoài bất kỳ tập tinh chỉnh nào trong các đánh giá riêng.
+- **Level 3:** Điểm của bài báo được báo cáo không có một nguồn sơ cấp từ nhà cung cấp mô hình. Bạn xử lý nó như thế nào? Expected: như sơ bộ, và bạn không đưa ra một quyết định production dựa trên nó đến khi một lần chạy độc lập tái lập nó.
 
 ## Wrong answers
 
-- "A wide margin on a known benchmark is enough to adopt." Without the split, the baseline, the trials and the cost, the margin is a headline, not evidence.
-- "Multi-agent always helps on coding tasks." The medical and multimodal results show domains where it did not, and the coding gain depends on the split and the scaffolding.
-- "Our internal benchmark is less rigorous than a public one." A public benchmark informs, and only an internal one reflects your production distribution and your cost constraints.
+- "Một khoảng cách lớn trên một benchmark đã biết là đủ để áp dụng." Không có phần chia, baseline, các lần thử và chi phí, khoảng cách là một tiêu đề, không phải bằng chứng.
+- "Đa agent luôn giúp trên các tác vụ lập trình." Các kết quả y khoa và đa phương thức cho thấy các miền nơi nó không giúp, và mức tăng lập trình phụ thuộc vào phần chia và bộ khung.
+- "Benchmark nội bộ của chúng ta kém nghiêm ngặt hơn một benchmark công khai." Một benchmark công khai cung cấp thông tin, và chỉ một benchmark nội bộ phản ánh phân phối production và các ràng buộc chi phí của bạn.
 
 ## Taught in
 
-The [evaluation and coordination benchmarks lesson](../../../phases/16-multi-agent-and-swarms/24-evaluation-coordination-benchmarks/) lists the five benchmark families and the scrutiny checklist.
+[Bài học đánh giá và benchmark phối hợp](../../../phases/16-multi-agent-and-swarms/24-evaluation-coordination-benchmarks/) liệt kê năm họ benchmark và danh sách kiểm tra xem xét kỹ.

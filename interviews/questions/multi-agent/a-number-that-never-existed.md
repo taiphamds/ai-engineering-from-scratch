@@ -16,49 +16,49 @@ related: [multi-agent/two-workers-return-different-facts]
 updated: 2026-11-03
 ---
 
-Three agents share a memory on a research task. A retrieval agent reads a page and writes that a study found a 42 percent improvement. The page says 4.2 percent. A summarizer builds on the entry, an analyst recommends adoption on the strength of the number, and the final report cites it. No agent crashed and no test failed. What is this failure called, why is it structural, and what are the three changes that stop it?
+Ba agent chia sẻ một bộ nhớ trên một tác vụ nghiên cứu. Một agent truy xuất đọc một trang và ghi rằng một nghiên cứu tìm thấy cải thiện 42 phần trăm. Trang nói 4.2 phần trăm. Một bộ tóm tắt xây dựng trên mục đó, một nhà phân tích khuyến nghị áp dụng dựa vào con số, và báo cáo cuối trích dẫn nó. Không agent nào crash và không kiểm thử nào thất bại. Lỗi này gọi là gì, tại sao nó mang tính cấu trúc, và ba thay đổi ngăn nó là gì?
 
 ## Short answer
 
-This is memory poisoning. One agent's hallucination entered the shared state, and every agent downstream read it as a verified fact, so the error was turned into evidence as it moved. It is structural because any shared memory without provenance and without an independent verifier will do this eventually. The three changes are provenance on every write, an append-only log where corrections supersede instead of overwrite, and at least one read-only verifier that re-fetches sources and reports on a separate channel.
+Đây là đầu độc bộ nhớ. Ảo giác của một agent đi vào trạng thái dùng chung, và mọi agent phía sau đọc nó như một sự thật đã xác minh, nên lỗi được biến thành bằng chứng khi nó di chuyển. Nó mang tính cấu trúc vì bất kỳ bộ nhớ dùng chung nào không có nguồn gốc và không có bộ xác minh độc lập cuối cùng cũng sẽ làm điều này. Ba thay đổi là nguồn gốc trên mọi lần ghi, một log chỉ thêm nơi các sửa đổi thay thế thay vì ghi đè, và ít nhất một bộ xác minh chỉ đọc truy xuất lại các nguồn và báo cáo trên một kênh riêng.
 
 ## Full answer
 
 ### Why it is worse than a crash
 
-Without shared state, the retrieval agent's error stays in its own context, and a downstream agent that re-fetches the page might catch it. With shared state, the first agent's context becomes everyone's context. The symptom is a slow decay of accuracy, not a failure. By the time a human notices, the reasoning chain is several steps deep and the root cause is one of the first entries ever written. The lesson places this family second in the measured taxonomy of multi-agent failures.
+Không có trạng thái dùng chung, lỗi của agent truy xuất ở trong ngữ cảnh riêng của nó, và một agent phía sau truy xuất lại trang có thể bắt được nó. Với trạng thái dùng chung, ngữ cảnh của agent đầu trở thành ngữ cảnh của mọi người. Triệu chứng là độ chính xác suy giảm chậm, không phải một thất bại. Đến khi một người nhận thấy, chuỗi suy luận sâu vài bước và nguyên nhân gốc là một trong những mục đầu tiên từng được ghi. Bài học đặt họ lỗi này thứ hai trong phân loại đo được của các lỗi đa agent.
 
 ### The three mitigations
 
-| Change | What it does |
+| Thay đổi | Nó làm gì |
 |---|---|
-| Provenance on every write | Each entry records who wrote it, when, under what prompt, and which source it cites, so a downstream reader can weigh an entry by where it came from |
-| Append-only with supersession | A correction is a new entry that points at the one it replaces, so the audit trail stays and a reader can see that a value was contested |
-| A read-only verifier | An agent that reads the pool, re-fetches the cited sources, flags a mismatch, and has no write handle to the pool |
+| Nguồn gốc trên mọi lần ghi | Mỗi mục ghi lại ai viết nó, khi nào, dưới prompt nào, và nó trích dẫn nguồn nào, để một người đọc phía sau có thể cân nhắc một mục theo nơi nó đến từ |
+| Chỉ thêm với sự thay thế | Một sửa đổi là một mục mới trỏ đến mục nó thay thế, để dấu vết kiểm toán vẫn còn và người đọc có thể thấy một giá trị đã bị tranh chấp |
+| Một bộ xác minh chỉ đọc | Một agent đọc pool, truy xuất lại các nguồn được trích dẫn, gắn cờ một chỗ không khớp, và không có handle ghi vào pool |
 
-In the lesson's demo the verifier finds that the entry does not match the fetched text, the entry is flagged, and the analyst sees the flag before it writes its verdict.
+Trong demo của bài học, bộ xác minh thấy mục không khớp văn bản truy xuất được, mục được gắn cờ, và nhà phân tích thấy cờ trước khi viết phán quyết.
 
 ### Why the verifier must not write
 
-If the verifier's output goes back into the pool, a poisoned pool poisons the verifier, and the verifier's verdicts carry the poison further. Its findings go to a human or to a separate decision agent on their own channel. It can still be fooled by a bad entry, but it checks each entry against the original source, and its mistakes never become shared facts.
+Nếu đầu ra của bộ xác minh quay lại pool, một pool bị đầu độc đầu độc bộ xác minh, và các phán quyết của bộ xác minh mang độc đi xa hơn. Các phát hiện của nó đến một người hoặc một agent quyết định riêng trên kênh riêng của chúng. Nó vẫn có thể bị một mục xấu đánh lừa, nhưng nó kiểm tra mỗi mục đối chiếu nguồn gốc, và các sai lầm của nó không bao giờ trở thành sự thật dùng chung.
 
 ### What to monitor
 
-Log the share of writes that supersede an earlier entry. A rising share is early evidence that agents are correcting each other more often, which is how poisoning shows up before anyone reads a wrong report.
+Ghi log tỷ phần các lần ghi thay thế một mục trước. Một tỷ phần tăng là bằng chứng sớm rằng các agent đang sửa nhau thường xuyên hơn, là cách đầu độc xuất hiện trước khi ai đó đọc một báo cáo sai.
 
 ## Follow-ups
 
-- **Level 2:** Why does provenance help a reader who cannot re-fetch the source? Expected: the reader can see that one claim rests on one retrieval with no citation, and weigh it lower than a claim with a source and a verifier flag.
-- **Level 2:** What does the analyst do when it sees a flag on the entry it depends on? Expected: it withholds the recommendation or writes it with the flag attached, and the final report carries a retraction instead of the number.
-- **Level 3:** Which of the three changes would topic partitioning of the memory replace? Expected: none, because partitions limit which agents read an entry, and a poisoned entry in one topic still poisons everyone subscribed to it.
-- **Level 3:** The verifier itself hallucinates a mismatch. What is the damage? Expected: a false flag on a correct entry, which a human on the verification channel can clear, and no new false fact in the pool because the verifier cannot write.
+- **Level 2:** Tại sao nguồn gốc giúp một người đọc không thể truy xuất lại nguồn? Expected: người đọc có thể thấy một khẳng định dựa trên một lần truy xuất không có trích dẫn, và cân nhắc nó thấp hơn một khẳng định có nguồn và một cờ xác minh.
+- **Level 2:** Nhà phân tích làm gì khi thấy một cờ trên mục nó phụ thuộc? Expected: nó giữ lại khuyến nghị hoặc viết khuyến nghị với cờ đính kèm, và báo cáo cuối mang một lời rút lại thay vì con số.
+- **Level 3:** Phân vùng bộ nhớ theo chủ đề sẽ thay thế thay đổi nào trong ba thay đổi? Expected: không thay đổi nào, vì các phân vùng giới hạn agent nào đọc một mục, và một mục bị đầu độc trong một chủ đề vẫn đầu độc mọi người đăng ký nó.
+- **Level 3:** Bản thân bộ xác minh ảo giác một chỗ không khớp. Thiệt hại là gì? Expected: một cờ sai trên một mục đúng, mà một người trên kênh xác minh có thể gỡ, và không có sự thật sai mới trong pool vì bộ xác minh không thể ghi.
 
 ## Wrong answers
 
-- "Add a line to every prompt that says to verify numbers." The summarizer and the analyst had no source to verify against, only the shared entry, and a prompt does not give them one.
-- "Let the verifier correct the entry in place." An in-place correction destroys the audit trail and gives the verifier a write handle that a poisoned pool can turn against it.
-- "Switch from a shared pool to passing messages." Messages are shared state with extra copying, and a wrong number in a message poisons the receiver the same way.
+- "Thêm một dòng vào mọi prompt nói hãy xác minh các con số." Bộ tóm tắt và nhà phân tích không có nguồn để xác minh đối chiếu, chỉ có mục dùng chung, và một prompt không cấp cho chúng nguồn.
+- "Để bộ xác minh sửa mục tại chỗ." Một sửa đổi tại chỗ phá hủy dấu vết kiểm toán và cấp cho bộ xác minh một handle ghi mà một pool bị đầu độc có thể dùng chống lại nó.
+- "Chuyển từ một pool dùng chung sang truyền thông điệp." Các thông điệp là trạng thái dùng chung với việc sao chép bổ sung, và một con số sai trong một thông điệp đầu độc bên nhận theo cùng cách.
 
 ## Taught in
 
-The [shared memory lesson](../../../phases/16-multi-agent-and-swarms/13-shared-memory-blackboard/) runs the poisoning scenario with and without the read-only verifier.
+[Bài học bộ nhớ dùng chung](../../../phases/16-multi-agent-and-swarms/13-shared-memory-blackboard/) chạy kịch bản đầu độc có và không có bộ xác minh chỉ đọc.

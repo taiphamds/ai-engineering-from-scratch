@@ -16,68 +16,68 @@ related: [multi-agent/the-retry-storm, multi-agent/a-number-that-never-existed]
 updated: 2026-11-03
 ---
 
-A multi-agent product has been in production for two quarters. Failures arrive as a stream of unrelated tickets and nothing gets fixed systematically. Design the audit that turns the stream into a ranked list of fixes, and say which failure class you would weight most heavily even if it is not the most frequent.
+Một sản phẩm đa agent đã ở production trong hai quý. Các lỗi đến như một luồng ticket không liên quan và không có gì được sửa một cách hệ thống. Thiết kế cuộc kiểm toán biến luồng thành một danh sách các cách sửa được xếp hạng, và nói bạn sẽ đặt trọng số lớn nhất cho lớp lỗi nào ngay cả khi nó không thường xuyên nhất.
 
 ## Short answer
 
-Sample about 1000 real execution traces each quarter, categorize every failure into the three root categories of the published taxonomy and the five groupthink patterns, compute the failure rate per category, rank the mitigations by how many failures each would remove, and commit to two or three for the quarter. Weight verification gaps most heavily even though they were the smallest category by count, because they are silent: a plausible wrong output produces no exception, no alert and no ticket until a human notices.
+Lấy mẫu khoảng 1000 trace thực thi thực mỗi quý, phân loại mọi lỗi vào ba nhóm gốc của hệ phân loại đã công bố và năm mẫu tư duy nhóm, tính tỷ lệ lỗi mỗi nhóm, xếp hạng các biện pháp giảm thiểu theo số lỗi mỗi biện pháp sẽ loại bỏ, và cam kết hai hoặc ba biện pháp cho quý. Đặt trọng số lớn nhất cho các khoảng trống xác minh dù chúng là nhóm nhỏ nhất theo số lượng, vì chúng im lặng: một đầu ra sai hợp lý không tạo ngoại lệ, không cảnh báo và không ticket đến khi một người nhận thấy.
 
 ## Full answer
 
 ### The baseline you are measured against
 
-The reference taxonomy was built from 1642 execution traces across 7 open-source multi-agent systems and found failure rates between 41 percent and 86.7 percent. Three root categories:
+Hệ phân loại tham chiếu được xây dựng từ 1642 trace thực thi trên 7 hệ thống đa agent mã nguồn mở và tìm thấy các tỷ lệ lỗi giữa 41 phần trăm và 86.7 phần trăm. Ba nhóm gốc:
 
-| Category | Share | What it looks like |
+| Nhóm | Tỷ phần | Nó trông như thế nào |
 |---|---|---|
-| Specification problems | 41.77 percent | Role ambiguity, an underspecified task, implicit success criteria |
-| Coordination failures | 36.94 percent | Unsynchronized writes to shared state, lost messages, state drift |
-| Verification gaps | 21.30 percent | One agent claims success and nobody checks, each agent trusts the one before |
+| Các vấn đề đặc tả | 41.77 phần trăm | Vai trò mơ hồ, một tác vụ thiếu đặc tả, các tiêu chí thành công ngầm |
+| Các lỗi phối hợp | 36.94 phần trăm | Các lần ghi không đồng bộ vào trạng thái dùng chung, thông điệp bị mất, trôi trạng thái |
+| Các khoảng trống xác minh | 21.30 phần trăm | Một agent tuyên bố thành công và không ai kiểm tra, mỗi agent tin agent trước |
 
-Beside them sit the five groupthink patterns: monoculture, conformity, a missing model of each other's beliefs, compromise drift and cascading failures.
+Cạnh chúng là năm mẫu tư duy nhóm: đơn canh, tuân theo, thiếu một mô hình về niềm tin của nhau, trôi thỏa hiệp và các lỗi dây chuyền.
 
 ### The audit, step by step
 
-1. **Sample.** Pull about 1000 real traces, stratified by task type, not the ones that produced tickets.
-2. **Categorize.** Map each failure to a root category and any groupthink pattern. Two reviewers per trace until the categories are stable.
-3. **Compute.** Failure rate per category for your system. The published shares are a prior, not your number.
-4. **Rank.** For each candidate mitigation, count the failures it would have removed.
-5. **Commit.** Two or three mitigations for the quarter, each with an owner and a re-audit date.
+1. **Lấy mẫu.** Lấy khoảng 1000 trace thực, phân tầng theo loại tác vụ, không phải những trace tạo ticket.
+2. **Phân loại.** Ánh xạ mỗi lỗi vào một nhóm gốc và bất kỳ mẫu tư duy nhóm nào. Hai người đánh giá mỗi trace đến khi các nhóm ổn định.
+3. **Tính.** Tỷ lệ lỗi mỗi nhóm cho hệ thống của bạn. Các tỷ phần đã công bố là một tiên nghiệm, không phải con số của bạn.
+4. **Xếp hạng.** Với mỗi biện pháp giảm thiểu ứng viên, đếm các lỗi nó sẽ loại bỏ.
+5. **Cam kết.** Hai hoặc ba biện pháp giảm thiểu cho quý, mỗi biện pháp có một người phụ trách và một ngày tái kiểm toán.
 
-The discipline matters more than the choices. Without the audit, failures blend into noise.
+Kỷ luật quan trọng hơn các lựa chọn. Không có kiểm toán, các lỗi hòa vào nhiễu.
 
 ### The mitigation menu
 
-- Specification: explicit role contracts that say what an agent does and does not do, acceptance tests written before dispatch, a pre-flight check of the task definition.
-- Coordination: versioned shared state with optimistic concurrency, acknowledgments for critical messages, periodic state-sync checkpoints.
-- Verification: an independent read-only verifier with its own source access, handoff contracts that require a check before the next agent starts, outcome logging.
-- Cascades: circuit breakers on every outbound call with a default open threshold at 5 to 10 percent error rate, and capped retry budgets.
+- Đặc tả: các hợp đồng vai trò tường minh nói một agent làm gì và không làm gì, các kiểm thử chấp nhận được viết trước khi phân công, một kiểm tra định nghĩa tác vụ trước khi chạy.
+- Phối hợp: trạng thái dùng chung có phiên bản với đồng thời lạc quan, xác nhận cho các thông điệp quan trọng, các checkpoint đồng bộ trạng thái định kỳ.
+- Xác minh: một bộ xác minh chỉ đọc độc lập với quyền truy cập nguồn riêng, các hợp đồng bàn giao yêu cầu một kiểm tra trước khi agent tiếp theo bắt đầu, ghi log kết quả.
+- Dây chuyền: các circuit breaker trên mọi lời gọi đi ra với ngưỡng mở mặc định ở tỷ lệ lỗi 5 đến 10 phần trăm, và các ngân sách thử lại bị giới hạn.
 
 ### Why verification gaps weigh more
 
-A loud failure, a crash or a timeout, is cheap to detect. A silent correctness failure cannot be found in exception logs. That is why verification gaps are the most expensive category per failure. Invest in sample-based human review, a small hand-audited golden dataset run weekly, and cross-checks between agents on important outputs.
+Một lỗi ồn ào, một crash hoặc một timeout, ít tốn kém để phát hiện. Một lỗi tính đúng đắn im lặng không thể được tìm trong log ngoại lệ. Đó là lý do các khoảng trống xác minh là nhóm đắt nhất trên mỗi lỗi. Đầu tư vào đánh giá con người dựa trên mẫu, một tập dữ liệu vàng nhỏ được kiểm toán bằng tay chạy hằng tuần, và các kiểm tra chéo giữa agent trên những đầu ra quan trọng.
 
 ### Catch slow failures before the audit
 
-Instrument proxies for drift: the agreement rate across parallel agents, the retry rate, the distribution of output lengths, and the edit distance between successive agent versions. The lesson also describes a trio of specialized agents, detection, diagnosis and validation, that improved mitigation success by 1.5 times; start with detection only and add diagnosis when the symptoms are noisy.
+Đo các chỉ dấu cho sự trôi: tỷ lệ đồng thuận giữa các agent song song, tỷ lệ thử lại, phân phối độ dài đầu ra, và khoảng cách chỉnh sửa giữa các phiên bản agent liên tiếp. Bài học cũng mô tả một bộ ba agent chuyên biệt, phát hiện, chẩn đoán và xác thực, cải thiện thành công giảm thiểu gấp 1.5 lần; bắt đầu chỉ với phát hiện và thêm chẩn đoán khi các triệu chứng nhiễu.
 
 ### Make it binding
 
-Set a failure budget per category, an explicit objective for the rate. When a category exceeds its budget, the next release waits.
+Đặt một ngân sách lỗi mỗi nhóm, một mục tiêu tường minh cho tỷ lệ. Khi một nhóm vượt ngân sách, bản phát hành tiếp theo chờ.
 
 ## Follow-ups
 
-- **Level 3:** Why sample traces instead of auditing tickets? Expected: tickets are the loud failures, and the silent ones never produce a ticket, so a stratified sample is the only way to see them.
-- **Level 3:** Which single proxy would you instrument first? Expected: agreement rate across parallel agents, because a sharp rise signals conformity and a sharp fall signals drift, and both precede visible errors.
-- **Level 4:** The audit finds that specification problems dominate. What is the cheapest fix? Expected: a pre-flight check of the task definition by a separate agent before dispatch, with role contracts that include what each agent does not do.
-- **Level 4:** How do you keep the audit from becoming a report nobody acts on? Expected: the failure budget with a stop-shipping rule, owners per mitigation, and the re-audit date on the calendar before the quarter starts.
+- **Level 3:** Tại sao lấy mẫu trace thay vì kiểm toán ticket? Expected: ticket là các lỗi ồn ào, và những lỗi im lặng không bao giờ tạo ticket, nên một mẫu phân tầng là cách duy nhất để thấy chúng.
+- **Level 3:** Bạn sẽ đo chỉ dấu đơn lẻ nào trước? Expected: tỷ lệ đồng thuận giữa các agent song song, vì một mức tăng mạnh báo hiệu tuân theo và một mức giảm mạnh báo hiệu sự trôi, và cả hai đi trước các lỗi nhìn thấy.
+- **Level 4:** Kiểm toán thấy các vấn đề đặc tả chi phối. Cách sửa ít tốn kém nhất là gì? Expected: một kiểm tra định nghĩa tác vụ trước khi chạy bởi một agent riêng trước khi phân công, với các hợp đồng vai trò bao gồm những gì mỗi agent không làm.
+- **Level 4:** Bạn giữ kiểm toán khỏi trở thành một báo cáo không ai hành động như thế nào? Expected: ngân sách lỗi với một quy tắc dừng phát hành, người phụ trách mỗi biện pháp giảm thiểu, và ngày tái kiểm toán trên lịch trước khi quý bắt đầu.
 
 ## Wrong answers
 
-- "Fix the most frequent category first." Frequency is not cost, and the silent verification gaps cost more per failure than the loud specification problems.
-- "Audit once a year, when the system is stable." Categories shift as the system grows, and a year of unranked failures is the stream you started with.
-- "Add more agents to check each other." Agents that share a model share their blind spots, and the check that matters is an independent verifier with its own source access.
+- "Sửa nhóm thường xuyên nhất trước." Tần suất không phải chi phí, và các khoảng trống xác minh im lặng tốn nhiều hơn trên mỗi lỗi so với các vấn đề đặc tả ồn ào.
+- "Kiểm toán một lần mỗi năm, khi hệ thống ổn định." Các nhóm dịch chuyển khi hệ thống tăng, và một năm lỗi không được xếp hạng là luồng bạn bắt đầu với.
+- "Thêm agent để kiểm tra nhau." Các agent chia sẻ một mô hình chia sẻ các điểm mù của chúng, và kiểm tra quan trọng là một bộ xác minh độc lập có quyền truy cập nguồn riêng.
 
 ## Taught in
 
-The [failure modes lesson](../../../phases/16-multi-agent-and-swarms/23-failure-modes-mast-groupthink/) gives the taxonomy, the audit steps and the slow-failure proxies.
+[Bài học các chế độ lỗi](../../../phases/16-multi-agent-and-swarms/23-failure-modes-mast-groupthink/) đưa ra hệ phân loại, các bước kiểm toán và các chỉ dấu lỗi chậm.

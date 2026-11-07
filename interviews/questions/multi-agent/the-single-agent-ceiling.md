@@ -16,45 +16,45 @@ related: []
 updated: 2026-11-03
 ---
 
-Your single agent does well on small tasks. Pointed at a codebase of 200 files in three languages, with tests that need infrastructure and an external API to research first, it stops making progress. The team proposes a model with a bigger window. What is the ceiling it hit, and would a bigger window remove it?
+Agent đơn của bạn làm tốt các tác vụ nhỏ. Khi được hướng đến một codebase 200 file trong ba ngôn ngữ, với các kiểm thử cần hạ tầng và một API bên ngoài phải nghiên cứu trước, nó ngừng tiến triển. Nhóm đề xuất một mô hình có cửa sổ lớn hơn. Trần nó chạm là gì, và một cửa sổ lớn hơn có loại bỏ nó không?
 
 ## Short answer
 
-The task exceeds what one loop, one window and one system prompt can carry, and a bigger window only moves one of three limits. Context saturates as tool results pile up, so details from an early turn are gone by turn 30, and one prompt that asks the model to research, code, review and test produces an agent that does each one poorly. One loop reads file A, then B, then C, with no parallelism. The fix for all three is to split the work so that each agent has one job, one window and one prompt.
+Tác vụ vượt những gì một vòng lặp, một cửa sổ và một system prompt có thể gánh, và một cửa sổ lớn hơn chỉ di chuyển một trong ba giới hạn. Ngữ cảnh bão hòa khi các kết quả công cụ chất lên, nên các chi tiết từ một lượt sớm biến mất ở lượt 30, và một prompt yêu cầu mô hình nghiên cứu, viết mã, đánh giá và kiểm thử tạo ra một agent làm kém từng việc. Một vòng lặp đọc file A, rồi B, rồi C, không có song song. Cách sửa cho cả ba là chia công việc để mỗi agent có một công việc, một cửa sổ và một prompt.
 
 ## Full answer
 
 ### Three things break
 
-1. **Context saturation.** Tool results accumulate. By turn 30 the agent has consumed about 150k tokens of file contents, command output and its own reasoning, and the detail from turn 5 is lost. Reading 50 large files can pass a 200k window.
-2. **Role confusion.** A system prompt that says you are a researcher, a coder, a reviewer and a tester produces an agent that half-researches, half-codes and never finishes the review.
-3. **Sequential bottleneck.** The agent reads three files in three serial model calls and three serial tool executions. Nothing runs at the same time.
+1. **Bão hòa ngữ cảnh.** Các kết quả công cụ tích lũy. Đến lượt 30 agent đã dùng khoảng 150k token nội dung file, đầu ra lệnh và suy luận riêng, và chi tiết từ lượt 5 bị mất. Đọc 50 file lớn có thể vượt một cửa sổ 200k.
+2. **Nhầm lẫn vai trò.** Một system prompt nói bạn là nhà nghiên cứu, người viết mã, người đánh giá và người kiểm thử tạo ra một agent nghiên cứu dở dang, viết mã dở dang và không bao giờ hoàn tất đánh giá.
+3. **Nút thắt tuần tự.** Agent đọc ba file trong ba lời gọi mô hình tuần tự và ba lần thực thi công cụ tuần tự. Không gì chạy cùng lúc.
 
 ### What a bigger window changes
 
-It delays the first limit and does nothing for the other two. The agent still forgets what it read 40 tool calls ago, because the problem is attention over a long history, not the hard limit. The prompt still asks one model to be four roles. The loop is still serial.
+Nó trì hoãn giới hạn đầu và không làm gì cho hai giới hạn còn lại. Agent vẫn quên những gì đã đọc 40 lời gọi công cụ trước, vì vấn đề là attention trên một lịch sử dài, không phải giới hạn cứng. Prompt vẫn yêu cầu một mô hình làm bốn vai trò. Vòng lặp vẫn tuần tự.
 
 ### The split
 
-Give each agent one job, one window and one prompt tuned for that job. The researcher reads documents and outputs only the facts needed for implementation. The coder receives those facts and writes code. The reviewer receives the code and finds bugs. The researcher's reading never enters the reviewer's window, because each agent receives only the messages addressed to it.
+Cấp cho mỗi agent một công việc, một cửa sổ và một prompt được tinh chỉnh cho công việc đó. Nhà nghiên cứu đọc tài liệu và chỉ xuất các sự thật cần cho triển khai. Người viết mã nhận các sự thật đó và viết mã. Người đánh giá nhận mã và tìm bug. Phần đọc của nhà nghiên cứu không bao giờ đi vào cửa sổ của người đánh giá, vì mỗi agent chỉ nhận các thông điệp gửi đến nó.
 
 ### When to stay single
 
-The lesson's rule of thumb: a task that takes fewer than 20 tool calls and fits in 100k tokens stays with one agent. Splitting costs more total tokens, adds coordination logic that has its own bugs, and turns debugging from reading one conversation into tracing messages across several.
+Quy tắc kinh nghiệm của bài học: một tác vụ mất dưới 20 lời gọi công cụ và vừa trong 100k token ở lại với một agent. Chia tốn nhiều tổng token hơn, thêm logic phối hợp có bug riêng, và biến gỡ lỗi từ đọc một cuộc hội thoại thành truy vết thông điệp qua nhiều cuộc.
 
 ## Follow-ups
 
-- **Level 1:** Which of the three limits does parallelism address? Expected: the sequential bottleneck only, because reading three files at once does not shrink any one window or sharpen any one prompt.
-- **Level 2:** Why does a specialized prompt improve each stage? Expected: a prompt that covers one role can be specific about inputs, outputs and what to ignore, while a prompt for four roles has to be generic.
-- **Level 2:** What is the cost that the split always adds? Expected: more total tokens, because each agent is a separate model call, plus latency and coordination logic.
-- **Level 3:** Where does information get lost in a multi-agent split? Expected: at every agent boundary, where one agent's full context is compressed into a message for the next.
+- **Level 1:** Song song giải quyết giới hạn nào trong ba giới hạn? Expected: chỉ nút thắt tuần tự, vì đọc ba file cùng lúc không thu nhỏ bất kỳ cửa sổ nào hay làm sắc bất kỳ prompt nào.
+- **Level 2:** Tại sao một prompt chuyên biệt cải thiện mỗi giai đoạn? Expected: một prompt bao phủ một vai trò có thể cụ thể về đầu vào, đầu ra và những gì bỏ qua, trong khi một prompt cho bốn vai trò phải tổng quát.
+- **Level 2:** Chi phí mà việc chia luôn thêm là gì? Expected: nhiều tổng token hơn, vì mỗi agent là một lời gọi mô hình riêng, cộng độ trễ và logic phối hợp.
+- **Level 3:** Thông tin bị mất ở đâu trong một phép chia đa agent? Expected: ở mọi ranh giới agent, nơi toàn bộ ngữ cảnh của một agent được nén thành một thông điệp cho agent tiếp theo.
 
 ## Wrong answers
 
-- "A bigger context window solves it." The window moves one limit and leaves role confusion and the serial loop untouched.
-- "A longer, more detailed system prompt covers the roles." A single prompt that covers four roles is the cause of role confusion, not the cure.
-- "Always split, because specialists are better." Below about 20 tool calls and 100k tokens, the split adds cost and bugs for no gain.
+- "Một cửa sổ ngữ cảnh lớn hơn giải quyết nó." Cửa sổ di chuyển một giới hạn và để sự nhầm lẫn vai trò và vòng lặp tuần tự nguyên vẹn.
+- "Một system prompt dài hơn, chi tiết hơn bao phủ các vai trò." Một prompt đơn bao phủ bốn vai trò là nguyên nhân nhầm lẫn vai trò, không phải cách chữa.
+- "Luôn chia, vì các chuyên gia tốt hơn." Dưới khoảng 20 lời gọi công cụ và 100k token, việc chia thêm chi phí và bug mà không có lợi ích.
 
 ## Taught in
 
-The [why multi-agent lesson](../../../phases/16-multi-agent-and-swarms/01-why-multi-agent/) names the three limits and the rule of thumb for staying single.
+[Bài học tại sao đa agent](../../../phases/16-multi-agent-and-swarms/01-why-multi-agent/) nêu ba giới hạn và quy tắc kinh nghiệm để giữ agent đơn.

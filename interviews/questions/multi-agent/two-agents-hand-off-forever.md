@@ -16,49 +16,49 @@ related: []
 updated: 2026-11-03
 ---
 
-A support system uses handoff-driven orchestration: each agent is a prompt plus a set of tools, and one of the tools returns another agent. The trace shows the triage agent handing a user to billing, billing handing the user back to triage, and the two repeating until the round cap ends the run. The user never got an answer. Why does this happen, and what is the cheap fix?
+Một hệ thống hỗ trợ dùng điều phối dựa trên bàn giao: mỗi agent là một prompt cộng một tập công cụ, và một trong các công cụ trả về một agent khác. Trace cho thấy agent phân loại ban đầu bàn giao một người dùng sang thanh toán, thanh toán bàn giao người dùng trở lại phân loại ban đầu, và hai bên lặp lại đến khi giới hạn vòng kết thúc lần chạy. Người dùng chưa bao giờ nhận một câu trả lời. Tại sao điều này xảy ra, và cách sửa ít tốn kém là gì?
 
 ## Short answer
 
-In this pattern the routing lives in the prompts, and the current agent picks its successor with a tool call. The triage prompt says that a billing question goes to billing, and the billing prompt says that anything outside its tools returns to triage, and the user's message satisfies both. Nothing persists between handoffs, so the new agent starts from its prompt and the history and does not know that the same handoff already failed. The cheap fix is a loop detector on the last few handoffs that forces an exit to a fallback agent, plus a trace event for every handoff.
+Trong mẫu này, định tuyến nằm trong các prompt, và agent hiện tại chọn bên kế tiếp bằng một lời gọi công cụ. Prompt phân loại ban đầu nói một câu hỏi thanh toán đến thanh toán, và prompt thanh toán nói bất cứ thứ gì ngoài công cụ của nó trở lại phân loại ban đầu, và thông điệp của người dùng thỏa mãn cả hai. Không gì được lưu bền giữa các lần bàn giao, nên agent mới bắt đầu từ prompt và lịch sử và không biết cùng bàn giao đã thất bại. Cách sửa ít tốn kém là một bộ phát hiện vòng lặp trên vài bàn giao cuối buộc một lối thoát đến một agent dự phòng, cộng một sự kiện trace cho mọi bàn giao.
 
 ## Full answer
 
 ### Why the pattern loops
 
-The two primitives are the routine, a system prompt that defines a role and its tools, and the handoff, a tool that returns the next agent. The framework's only job is to see the agent-valued return and switch. There is no graph and no state machine. The routing is whatever the prompts say, and two prompts can describe a cycle without anyone writing one. The pattern is stateless between runs, and within a run the only memory is the message history, which the agents do not read for a repeated pattern.
+Hai thành phần nguyên thủy là routine, một system prompt định nghĩa một vai trò và các công cụ của nó, và bàn giao, một công cụ trả về agent tiếp theo. Công việc duy nhất của framework là thấy giá trị trả về là agent và chuyển. Không có đồ thị và không có máy trạng thái. Định tuyến là bất cứ điều gì các prompt nói, và hai prompt có thể mô tả một chu kỳ mà không ai viết nó. Mẫu không có trạng thái giữa các lần chạy, và trong một lần chạy, bộ nhớ duy nhất là lịch sử thông điệp, mà các agent không đọc để tìm một mẫu lặp.
 
 ### Find it in the trace
 
-A handoff loop is two agents alternating with no user turn and no tool result between them. Read the handoff events for the pair. If each handoff carries the same reason, the prompts disagree about who owns the case.
+Một vòng lặp bàn giao là hai agent luân phiên không có lượt người dùng và không có kết quả công cụ giữa chúng. Đọc các sự kiện bàn giao cho cặp. Nếu mỗi bàn giao mang cùng lý do, các prompt bất đồng về ai sở hữu trường hợp.
 
 ### The cheap fix
 
-1. **Loop detection.** Keep the last few handoffs in a ring. When the same two agents have handed off three times in a row, force an exit.
-2. **A fallback agent.** The exit goes to a safe default that can answer or escalate to a human. The same fallback catches a handoff to an agent that does not exist.
-3. **Handoff logging.** Every handoff writes an event with the sender, the receiver and a context snapshot, so the loop is visible before the cap.
+1. **Phát hiện vòng lặp.** Giữ vài bàn giao cuối trong một vòng. Khi cùng hai agent đã bàn giao ba lần liên tiếp, buộc một lối thoát.
+2. **Một agent dự phòng.** Lối thoát đến một mặc định an toàn có thể trả lời hoặc chuyển lên một người. Cùng dự phòng bắt một bàn giao đến một agent không tồn tại.
+3. **Ghi log bàn giao.** Mọi bàn giao ghi một sự kiện với bên gửi, bên nhận và một bản chụp ngữ cảnh, để vòng lặp nhìn thấy trước giới hạn.
 
 ### The real fix
 
-Fix the prompts so that exactly one agent owns each case, and give the billing agent a tool that handles the case instead of a reason to send it back. Decide what context transfers on each handoff: the full history is expensive, the last N messages lose the reason, and a summary written by the outgoing agent is the usual middle. The production successor of this pattern adds sessions, guardrails and tracing around the same primitive, and a handoff filter that controls what the incoming agent sees.
+Sửa các prompt để chính xác một agent sở hữu mỗi trường hợp, và cấp cho agent thanh toán một công cụ xử lý trường hợp thay vì một lý do gửi nó trở lại. Quyết định ngữ cảnh nào chuyển trên mỗi bàn giao: toàn bộ lịch sử đắt, N thông điệp cuối mất lý do, và một bản tóm tắt do agent đi ra viết là cách trung gian thông thường. Bản kế nhiệm production của mẫu này thêm session, guardrail và tracing quanh cùng thành phần nguyên thủy, và một bộ lọc bàn giao kiểm soát agent đi vào thấy gì.
 
 ### The security angle
 
-A handoff to an agent with different tool permissions must be authenticated, because a message that the user did not write, such as text pulled from a document, can ask for a handoff to a more capable agent. Treat a handoff as a permission change, not a routing detail.
+Một bàn giao đến một agent có quyền công cụ khác phải được xác thực, vì một thông điệp mà người dùng không viết, chẳng hạn văn bản lấy từ một tài liệu, có thể yêu cầu một bàn giao đến một agent nhiều khả năng hơn. Xem một bàn giao là một thay đổi quyền, không phải một chi tiết định tuyến.
 
 ## Follow-ups
 
-- **Level 2:** Why does the billing agent not notice that it already sent this user back once? Expected: it is stateless and starts from its prompt plus the history, and nothing in the loop reads the history for a repeated handoff.
-- **Level 2:** What should the fallback agent do? Expected: answer with what it can, or hand the case to a human with the trace, and never hand off to either agent in the loop.
-- **Level 3:** How do you choose what context moves on a handoff? Expected: full history when the case is short, a summary written by the outgoing agent when it is long, and never nothing, because the incoming agent then repeats the questions.
-- **Level 3:** How does a group chat with a selector avoid this specific loop? Expected: the selector sits outside the agents and can see the alternation, while in the handoff pattern the agent that is looping is the one making the decision.
+- **Level 2:** Tại sao agent thanh toán không nhận thấy nó đã gửi người dùng này trở lại một lần? Expected: nó không có trạng thái và bắt đầu từ prompt cộng lịch sử, và không gì trong vòng lặp đọc lịch sử để tìm một bàn giao lặp.
+- **Level 2:** Agent dự phòng nên làm gì? Expected: trả lời với những gì nó có thể, hoặc giao trường hợp cho một người với trace, và không bao giờ bàn giao cho một trong hai agent trong vòng lặp.
+- **Level 3:** Bạn chọn ngữ cảnh nào di chuyển trên một bàn giao như thế nào? Expected: toàn bộ lịch sử khi trường hợp ngắn, một bản tóm tắt do agent đi ra viết khi dài, và không bao giờ không có gì, vì agent đi vào khi đó lặp các câu hỏi.
+- **Level 3:** Một chat nhóm có bộ chọn tránh vòng lặp cụ thể này như thế nào? Expected: bộ chọn nằm ngoài các agent và có thể thấy sự luân phiên, trong khi trong mẫu bàn giao, agent đang lặp là bên ra quyết định.
 
 ## Wrong answers
 
-- "Raise the round cap so the agents have time to settle." The cap is what ended the loop, and more rounds give more of the same two handoffs.
-- "Tell triage never to accept a handoff from billing." That blocks a legitimate return when billing really cannot help, and the fix is clear ownership plus a detector.
-- "Switch to a graph framework and the problem disappears." A graph can encode the same cycle with two edges, and the loop detector is useful in both.
+- "Tăng giới hạn vòng để các agent có thời gian ổn định." Giới hạn là thứ kết thúc vòng lặp, và nhiều vòng hơn cho thêm cùng hai bàn giao.
+- "Bảo phân loại ban đầu không bao giờ nhận một bàn giao từ thanh toán." Điều đó chặn một lần trở lại hợp lệ khi thanh toán thực sự không thể giúp, và cách sửa là sở hữu rõ ràng cộng một bộ phát hiện.
+- "Chuyển sang một framework đồ thị và vấn đề biến mất." Một đồ thị có thể mã hóa cùng chu kỳ với hai cạnh, và bộ phát hiện vòng lặp hữu ích trong cả hai.
 
 ## Taught in
 
-The [handoffs and routines lesson](../../../phases/16-multi-agent-and-swarms/11-handoffs-and-routines/) builds the handoff loop and lists loop detection and the fallback agent in its checklist.
+[Bài học bàn giao và routine](../../../phases/16-multi-agent-and-swarms/11-handoffs-and-routines/) xây dựng vòng lặp bàn giao và liệt kê phát hiện vòng lặp và agent dự phòng trong danh sách kiểm tra.

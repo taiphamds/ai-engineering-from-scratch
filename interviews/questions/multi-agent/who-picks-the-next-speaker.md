@@ -16,58 +16,58 @@ related: [multi-agent/two-agents-hand-off-forever, multi-agent/four-primitives-f
 updated: 2026-11-03
 ---
 
-Four agents, a coder, a reviewer, a tester and a researcher, share one conversation. You must decide how the next speaker is chosen on each turn. The options on the table are a fixed rotation, a model that reads the recent messages and picks, and letting the current agent name its successor. Compare them and say what you would ship with each.
+Bốn agent, một bên viết mã, một bên đánh giá, một bên kiểm thử và một bên nghiên cứu, chia sẻ một cuộc hội thoại. Bạn phải quyết định người nói tiếp theo được chọn như thế nào trên mỗi lượt. Các lựa chọn đang xét là một vòng luân phiên cố định, một mô hình đọc các thông điệp gần đây và chọn, và để agent hiện tại nêu tên bên kế tiếp. So sánh chúng và nói bạn sẽ triển khai gì với mỗi lựa chọn.
 
 ## Short answer
 
-A fixed rotation is deterministic and cheap, and it gives the coder the turn when the topic is a legal question. A model selector is context-aware, and it costs one extra model call per turn, picks differently on identical input, and tends to favor one agent. A handoff by the current agent keeps the routing in the prompts with no external manager, and it is the pattern that loops when two prompts disagree. Most production chats use a selector with fallback rules, a round cap, a termination signal and a log of every selection.
+Một vòng luân phiên cố định có tính xác định và ít tốn kém, và nó cho bên viết mã lượt khi chủ đề là một câu hỏi pháp lý. Một bộ chọn mô hình nhận biết ngữ cảnh, và nó tốn một lời gọi mô hình bổ sung mỗi lượt, chọn khác nhau trên đầu vào giống hệt, và có xu hướng thiên vị một agent. Một bàn giao bởi agent hiện tại giữ định tuyến trong các prompt không có quản lý bên ngoài, và nó là mẫu lặp khi hai prompt bất đồng. Phần lớn chat production dùng một bộ chọn với các quy tắc dự phòng, một giới hạn vòng, một tín hiệu kết thúc và một log mọi lựa chọn.
 
 ## Full answer
 
 ### The three selectors
 
-| Selector | Strength | Weakness |
+| Bộ chọn | Điểm mạnh | Điểm yếu |
 |---|---|---|
-| Round-robin | Deterministic, no extra calls, scales linearly in agents | Ignores context, so the wrong agent gets the turn |
-| Model-selected | Reads the pool and picks the best next speaker | One extra call per turn, inconsistent across runs, and it can favor a hot speaker |
-| Current agent hands off | No manager, routing lives in each prompt | Two prompts can form a cycle, and an injected message can force a handoff |
+| Round-robin | Có tính xác định, không có lời gọi bổ sung, mở rộng tuyến tính theo agent | Bỏ qua ngữ cảnh, nên sai agent nhận lượt |
+| Do mô hình chọn | Đọc pool và chọn người nói tiếp tốt nhất | Một lời gọi bổ sung mỗi lượt, không nhất quán giữa các lần chạy, và có thể thiên vị một người nói thường xuyên |
+| Agent hiện tại bàn giao | Không có quản lý, định tuyến nằm trong mỗi prompt | Hai prompt có thể tạo một chu kỳ, và một thông điệp được chèn có thể buộc một bàn giao |
 
 ### Who decides, and where
 
-The difference between the second and the third is where the decision lives. In a group chat the selector sits outside the agents and reads the shared pool. In the handoff pattern the active agent decides by calling a tool that returns the next agent. A manager outside can see an alternation between two agents and break it. An agent inside the loop cannot.
+Khác biệt giữa thứ hai và thứ ba là nơi quyết định nằm. Trong một chat nhóm, bộ chọn nằm ngoài các agent và đọc pool dùng chung. Trong mẫu bàn giao, agent hoạt động quyết định bằng cách gọi một công cụ trả về agent tiếp theo. Một quản lý bên ngoài có thể thấy sự luân phiên giữa hai agent và phá nó. Một agent bên trong vòng lặp không thể.
 
 ### What goes wrong in a group chat
 
-- **Nondeterminism.** The same pool gives different next speakers on different runs, which hurts audit and replay.
-- **Deference cascades.** Agents follow whoever spoke most confidently, so the prompts must say when to disagree.
-- **Context growth.** Every agent reads every message, and after about 10 turns the pool is large, so give each agent a scoped view.
-- **One agent dominates.** The selector keeps picking the agent whose specialty matches the recent messages, so track turns per agent and alert on imbalance.
+- **Tính không xác định.** Cùng pool cho những người nói tiếp khác nhau ở các lần chạy khác nhau, gây hại cho kiểm toán và phát lại.
+- **Dây chuyền nhường theo.** Các agent theo bất cứ ai nói tự tin nhất, nên các prompt phải nói khi nào bất đồng.
+- **Tăng ngữ cảnh.** Mọi agent đọc mọi thông điệp, và sau khoảng 10 lượt pool lớn, nên cấp cho mỗi agent một góc nhìn có phạm vi.
+- **Một agent chi phối.** Bộ chọn tiếp tục chọn agent có chuyên môn khớp các thông điệp gần đây, nên theo dõi số lượt mỗi agent và cảnh báo về mất cân bằng.
 
 ### What to ship
 
-1. A round cap, 10 to 20 for a typical task.
-2. A termination signal: a sentinel token from an agent, or a verifier that checks the goal each turn.
-3. A speaker-balance metric, with an alert when one agent takes too many turns.
-4. A custom selector that combines the model's pick with rules such as "the tester speaks after the coder".
-5. A log of the selector's input and its choice, because without it a wrong selection cannot be debugged.
+1. Một giới hạn vòng, 10 đến 20 cho một tác vụ điển hình.
+2. Một tín hiệu kết thúc: một token sentinel từ một agent, hoặc một bộ xác minh kiểm tra mục tiêu mỗi lượt.
+3. Một chỉ số cân bằng người nói, với một cảnh báo khi một agent lấy quá nhiều lượt.
+4. Một bộ chọn tùy chỉnh kết hợp lựa chọn của mô hình với các quy tắc như "bên kiểm thử nói sau bên viết mã".
+5. Một log đầu vào của bộ chọn và lựa chọn của nó, vì không có nó, một lựa chọn sai không thể được gỡ lỗi.
 
 ### When each one fits
 
-A fixed rotation fits a staged pipeline where the order is known. A model selector fits an exploratory conversation where the flow is not a graph. Handoffs fit triage, where a front agent routes a user to one specialist and the conversation is short.
+Một vòng luân phiên cố định phù hợp một pipeline theo giai đoạn nơi thứ tự đã biết. Một bộ chọn mô hình phù hợp một cuộc hội thoại khám phá nơi luồng không phải đồ thị. Các bàn giao phù hợp phân loại ban đầu, nơi một agent phía trước định tuyến một người dùng đến một chuyên gia và cuộc hội thoại ngắn.
 
 ## Follow-ups
 
-- **Level 2:** Why does the model selector need a log of its input as well as its output? Expected: the choice depends on what the selector saw, and without the input a reviewer cannot tell whether the pick was wrong or the pool was.
-- **Level 2:** What does a verifier-based termination add over a sentinel token? Expected: the chat stops when a check passes, not when an agent claims it is done, which removes early termination by a confident agent.
-- **Level 3:** Which of the three makes prompt injection worse, and why? Expected: the handoff pattern, because the deciding tool call is made by the agent that just read the injected text, while an external selector can apply rules the agents do not control.
-- **Level 3:** How does a custom selector fix the hot-speaker problem without losing context awareness? Expected: let the model propose, then apply a rule that caps consecutive turns per agent and forces the verifier or a quiet agent in.
+- **Level 2:** Tại sao bộ chọn mô hình cần một log đầu vào cũng như đầu ra? Expected: lựa chọn phụ thuộc vào những gì bộ chọn thấy, và không có đầu vào, một người đánh giá không thể biết lựa chọn sai hay pool sai.
+- **Level 2:** Kết thúc dựa trên bộ xác minh thêm gì so với một token sentinel? Expected: chat dừng khi một kiểm tra đạt, không phải khi một agent tuyên bố đã xong, loại bỏ kết thúc sớm bởi một agent tự tin.
+- **Level 3:** Lựa chọn nào trong ba lựa chọn làm prompt injection tệ hơn, và tại sao? Expected: mẫu bàn giao, vì lời gọi công cụ quyết định được thực hiện bởi agent vừa đọc văn bản được chèn, trong khi một bộ chọn bên ngoài có thể áp dụng các quy tắc các agent không kiểm soát.
+- **Level 3:** Một bộ chọn tùy chỉnh sửa vấn đề người nói thường xuyên mà không mất nhận biết ngữ cảnh như thế nào? Expected: để mô hình đề xuất, rồi áp dụng một quy tắc giới hạn các lượt liên tiếp mỗi agent và buộc bộ xác minh hoặc một agent ít nói tham gia.
 
 ## Wrong answers
 
-- "Use the model selector, because it understands the conversation." It also adds a call per turn, picks inconsistently, and favors one agent unless rules and a balance metric constrain it.
-- "Round-robin is fair, so it is safe." Fair turns are not useful turns, and a coder speaking on a legal question wastes a round and adds noise to the pool.
-- "Let the agents decide among themselves." That is the handoff pattern, and it is the one that forms cycles and that an injected message can steer.
+- "Dùng bộ chọn mô hình, vì nó hiểu cuộc hội thoại." Nó cũng thêm một lời gọi mỗi lượt, chọn không nhất quán, và thiên vị một agent trừ khi các quy tắc và một chỉ số cân bằng ràng buộc nó.
+- "Round-robin công bằng, nên an toàn." Các lượt công bằng không phải các lượt hữu ích, và một bên viết mã nói về một câu hỏi pháp lý lãng phí một vòng và thêm nhiễu vào pool.
+- "Để các agent tự quyết định với nhau." Đó là mẫu bàn giao, và nó là mẫu tạo chu kỳ và một thông điệp được chèn có thể điều hướng.
 
 ## Taught in
 
-The [group chat lesson](../../../phases/16-multi-agent-and-swarms/10-group-chat-speaker-selection/) builds the three selectors and the termination rules, and the [handoffs and routines lesson](../../../phases/16-multi-agent-and-swarms/11-handoffs-and-routines/) contrasts the manager's decision with the agent's.
+[Bài học chat nhóm](../../../phases/16-multi-agent-and-swarms/10-group-chat-speaker-selection/) xây dựng ba bộ chọn và các quy tắc kết thúc, và [bài học bàn giao và routine](../../../phases/16-multi-agent-and-swarms/11-handoffs-and-routines/) đối chiếu quyết định của quản lý với của agent.
