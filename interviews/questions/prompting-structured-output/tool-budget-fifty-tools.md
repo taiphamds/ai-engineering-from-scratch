@@ -16,46 +16,46 @@ related: [prompting-structured-output/lost-in-the-middle-order, prompting-struct
 updated: 2026-11-03
 ---
 
-A coding assistant exposes 50 tools, each defined with a name, a description and a parameter schema. Estimate what the tool definitions cost on every call, and say how you would cut that cost without removing a single tool from the product.
+Một trợ lý lập trình cung cấp 50 công cụ, mỗi công cụ được định nghĩa bằng một tên, một mô tả và một schema tham số. Ước lượng các định nghĩa công cụ tốn bao nhiêu trên mỗi lệnh gọi, và nói bạn sẽ cắt chi phí đó bằng cách nào mà không loại một công cụ nào khỏi sản phẩm.
 
 ## Short answer
 
-Each definition costs 50 to 200 tokens, so 50 tools at 150 tokens each is 7,500 tokens before the conversation begins, repeated on every call. Classify the intent of the query and include only the tools that match it; the lesson puts the reduction at 60 to 80 percent, from about 8,000 tokens down to about 1,000. The product keeps every tool; only the per-call definition list changes.
+Mỗi định nghĩa tốn 50 đến 200 token, nên 50 công cụ với 150 token mỗi công cụ là 7,500 token trước khi hội thoại bắt đầu, lặp lại trên mỗi lệnh gọi. Phân loại ý định của truy vấn và chỉ bao gồm các công cụ phù hợp với nó; bài học đặt mức giảm ở 60 đến 80 phần trăm, từ khoảng 8,000 token xuống khoảng 1,000. Sản phẩm giữ mọi công cụ; chỉ danh sách định nghĩa theo từng lệnh gọi thay đổi.
 
 ## Full answer
 
 ### The count in context
 
-The lesson's breakdown for a coding assistant: system prompt 500 tokens, tool definitions for 50 tools 8,000, retrieved documentation 4,000, history for ten turns 6,000, the query 200, and a generation budget of 4,000, for a total of 22,700 tokens. The tool block is the largest item, and unlike the history it does not depend on how long the conversation has been.
+Phân tích của bài học cho một trợ lý lập trình: system prompt 500 token, định nghĩa công cụ cho 50 công cụ 8,000, tài liệu được truy xuất 4,000, lịch sử cho mười lượt 6,000, truy vấn 200, và ngân sách sinh 4,000, tổng cộng 22,700 token. Block công cụ là mục lớn nhất, và khác với lịch sử, nó không phụ thuộc vào hội thoại đã kéo dài bao lâu.
 
 ### Why it repeats
 
-Definitions live in the context, so a 50-turn conversation pays the full block 50 times. Every token of it also displaces a token that could carry signal, which is the context engineering point: the window is a scarce resource, not a dump.
+Các định nghĩa nằm trong ngữ cảnh, nên một hội thoại 50 lượt trả phí cho toàn bộ block 50 lần. Mỗi token của nó cũng chiếm chỗ một token có thể mang tín hiệu, đó là điểm của context engineering: cửa sổ là một tài nguyên khan hiếm, không phải một bãi chứa.
 
 ### Pruning without removing
 
-1. Classify the intent of the query. The lesson does it with keyword lists per intent: code, calendar, email, research, data.
-2. Tag each tool with the categories it serves.
-3. Include tools whose categories match the intents, in order, until a token budget is reached; the lesson's selector stops at 2,000 tokens.
-4. A code question never sees the calendar tools, and a scheduling question never sees the file system tools.
+1. Phân loại ý định của truy vấn. Bài học làm điều đó bằng các danh sách từ khóa theo từng ý định: mã, lịch, email, nghiên cứu, dữ liệu.
+2. Gắn tag cho mỗi công cụ bằng các danh mục mà nó phục vụ.
+3. Bao gồm các công cụ có danh mục khớp với các ý định, theo thứ tự, cho đến khi đạt ngân sách token; bộ chọn của bài học dừng ở 2,000 token.
+4. Một câu hỏi về mã không bao giờ thấy các công cụ lịch, và một câu hỏi lên lịch không bao giờ thấy các công cụ hệ thống file.
 
 ### Check the cost of being wrong
 
-Pruning risks leaving out a tool that the classifier did not predict. The lesson's exercise measures task success with 5, 10, 20 and 50 tools included and compares the curves; a priority score per tool, filled in descending order until the budget is spent, is the refinement over a binary include or exclude.
+Việc cắt tỉa có nguy cơ bỏ sót một công cụ mà bộ phân loại không dự đoán. Bài tập của bài học đo mức thành công tác vụ khi bao gồm 5, 10, 20 và 50 công cụ và so sánh các đường cong; một điểm ưu tiên cho từng công cụ, được điền theo thứ tự giảm dần cho đến khi dùng hết ngân sách, là bước cải tiến so với lựa chọn nhị phân bao gồm hoặc loại trừ.
 
 ## Follow-ups
 
-- **Level 3:** Why does the cost repeat? Expected: definitions sit in the context on every call, so a 50-turn conversation pays the full block 50 times.
-- **Level 3:** How does the lesson choose which tools to send? Expected: keyword intent classification over the query, then the tools whose categories match, added until a 2,000 token budget is reached.
-- **Level 4:** What does pruning risk, and how do you check it? Expected: a needed tool left out for a misread query; measure task success with 5, 10, 20 and 50 tools included and watch the misses per intent.
-- **Level 4:** How do the 7,500 tokens compare with the rest of the lesson's breakdown? Expected: the breakdown totals 22,700 tokens, and the tool block at about 8,000 is the largest item, ahead of history at 6,000 and retrieved text at 4,000.
+- **Level 3:** Tại sao chi phí lặp lại? Expected: các định nghĩa nằm trong ngữ cảnh trên mỗi lệnh gọi, nên một hội thoại 50 lượt trả phí cho toàn bộ block 50 lần.
+- **Level 3:** Bài học chọn các công cụ để gửi bằng cách nào? Expected: phân loại ý định bằng từ khóa trên truy vấn, rồi thêm các công cụ có danh mục khớp cho đến khi đạt ngân sách 2,000 token.
+- **Level 4:** Cắt tỉa có nguy cơ gì, và bạn kiểm tra nó bằng cách nào? Expected: một công cụ cần thiết bị bỏ sót do đọc sai truy vấn; đo mức thành công tác vụ khi bao gồm 5, 10, 20 và 50 công cụ và theo dõi các lần bỏ sót theo từng ý định.
+- **Level 4:** 7,500 token so với phần còn lại trong phân tích của bài học như thế nào? Expected: phân tích có tổng 22,700 token, và block công cụ khoảng 8,000 là mục lớn nhất, đứng trước lịch sử ở mức 6,000 và văn bản được truy xuất ở mức 4,000.
 
 ## Wrong answers
 
-- "Tokens are cheap, send all 50." It is the largest block in the lesson's breakdown and it repeats on every call; it also displaces context that carries signal.
-- "Shorten every description to one word." Then the model cannot tell the tools apart; prune by relevance and keep each description precise.
-- "Remove the rarely used tools from the product." The product need not change; the per-call definition list does.
+- "Token rẻ, gửi cả 50." Nó là block lớn nhất trong phân tích của bài học và nó lặp lại trên mỗi lệnh gọi; nó cũng chiếm chỗ ngữ cảnh mang tín hiệu.
+- "Rút ngắn mọi mô tả xuống một từ." Khi đó mô hình không thể phân biệt các công cụ; cắt tỉa theo mức liên quan và giữ mỗi mô tả chính xác.
+- "Loại các công cụ hiếm khi dùng khỏi sản phẩm." Sản phẩm không cần thay đổi; danh sách định nghĩa theo từng lệnh gọi thì cần.
 
 ## Taught in
 
-The lesson [context engineering](../../../phases/11-llm-engineering/05-context-engineering/) gives the token breakdown, the tool pruning numbers and the dynamic tool selector.
+Bài học [context engineering](../../../phases/11-llm-engineering/05-context-engineering/) cung cấp phân tích token, các con số cắt tỉa công cụ và bộ chọn công cụ động.

@@ -16,53 +16,53 @@ related: [prompting-structured-output/tool-budget-fifty-tools, prompting-structu
 updated: 2026-11-03
 ---
 
-You assemble a prompt from a system message, ten retrieved documents, the chat history so far and the user question. In which order do you place them, and what evidence decides it?
+Bạn lắp một prompt từ một system message, mười tài liệu truy xuất, lịch sử chat đến nay và câu hỏi người dùng. Bạn đặt chúng theo thứ tự nào, và bằng chứng nào quyết định?
 
 ## Short answer
 
-Put the system prompt and the critical instructions first, the current question and the most relevant context last, and the lowest-priority material in the middle. The evidence is the lost-in-the-middle finding: with one relevant document among 20, accuracy was 85 to 90 percent when it sat first or last and fell to 60 to 70 percent in the middle. If a key point has to sit in the middle, repeat it at the end.
+Đặt system prompt và các instruction quan trọng trước, câu hỏi hiện tại và ngữ cảnh liên quan nhất cuối, và tài liệu ưu tiên thấp nhất ở giữa. Bằng chứng là phát hiện lost-in-the-middle: với một tài liệu liên quan trong 20 tài liệu, độ chính xác là 85 đến 90 phần trăm khi nằm đầu hoặc cuối và giảm xuống 60 đến 70 phần trăm ở giữa. Nếu một điểm chính phải nằm giữa, lặp nó ở cuối.
 
 ## Full answer
 
 ### The finding
 
-Models attend best to the start and the end of the context. The study placed one relevant document among 20 irrelevant ones and moved it. First or last, 85 to 90 percent accuracy. In the middle, 60 to 70 percent. The lesson generalizes it as a 10 to 20 percent drop for information at 40 to 70 percent of the way through the context.
+Các mô hình attend tốt nhất đến đầu và cuối ngữ cảnh. Nghiên cứu đặt một tài liệu liên quan trong 20 tài liệu không liên quan và di chuyển nó. Đầu hoặc cuối, độ chính xác 85 đến 90 phần trăm. Ở giữa, 60 đến 70 phần trăm. Bài học tổng quát hóa là mức giảm 10 đến 20 phần trăm cho thông tin ở 40 đến 70 phần trăm chiều dài ngữ cảnh.
 
 ### The budget
 
-| Component | Typical size |
+| Thành phần | Kích thước điển hình |
 |---|---|
-| System prompt | about 500 tokens |
-| Tool definitions | 2K to 8K tokens |
-| Retrieved context | 2K to 10K tokens |
-| Conversation history | 2K to 20K tokens |
-| Few-shot examples | 1K to 3K tokens |
-| User query | 100 to 500 tokens |
-| Generation reserve | 2K to 8K tokens |
+| System prompt | khoảng 500 token |
+| Các định nghĩa công cụ | 2K đến 8K token |
+| Ngữ cảnh truy xuất | 2K đến 10K token |
+| Lịch sử hội thoại | 2K đến 20K token |
+| Các ví dụ few-shot | 1K đến 3K token |
+| Truy vấn người dùng | 100 đến 500 token |
+| Dự trữ sinh | 2K đến 8K token |
 
-Every token in the window displaces a token that could carry more signal. A 10K prompt that is 90 percent signal beats a 100K prompt that is 10 percent signal.
+Mọi token trong cửa sổ chiếm chỗ một token có thể mang nhiều tín hiệu hơn. Một prompt 10K có 90 phần trăm tín hiệu thắng một prompt 100K có 10 phần trăm tín hiệu.
 
 ### Do not include all ten documents
 
-Bad retrieval is worse than none; it fills the window with noise and misleads the model. Score each document against the query and drop those below a threshold. If you retrieved 10 chunks and 3 are relevant, keep the 3.
+Truy xuất xấu tệ hơn không có; nó lấp cửa sổ bằng nhiễu và làm mô hình hiểu sai. Chấm mỗi tài liệu đối chiếu truy vấn và bỏ các tài liệu dưới một ngưỡng. Nếu bạn truy xuất 10 chunk và 3 liên quan, giữ 3.
 
 ### The reorder
 
-The lesson's function sorts the documents by score, sends the odd ranks to the front in order and the even ranks to the back in reverse, so the best sit at both ends and the weakest in the middle. Then the history, compressed into a summary when it passes a threshold, then the question last, with 2,000 to 4,000 tokens reserved for the answer.
+Hàm của bài học sắp các tài liệu theo điểm, gửi các hạng lẻ lên đầu theo thứ tự và các hạng chẵn xuống cuối theo thứ tự ngược, để các tài liệu tốt nhất nằm ở hai đầu và yếu nhất ở giữa. Rồi lịch sử, được nén thành một bản tóm tắt khi vượt một ngưỡng, rồi câu hỏi cuối, với 2,000 đến 4,000 token dành cho câu trả lời.
 
 ## Follow-ups
 
-- **Level 2:** Why not include all ten retrieved documents? Expected: bad retrieval is worse than none; score each against the query, drop those below a threshold, and keep the 3 relevant ones over 10 mediocre ones.
-- **Level 2:** What do you reserve at the end of the window, and how much? Expected: the generation budget, at least 2,000 to 4,000 tokens, or the model has no room to answer.
-- **Level 3:** How does the lesson's reorder place five scored documents? Expected: sorted by score, the odd ranks go to the front in order and the even ranks go to the back in reverse, so the best sit at both ends.
-- **Level 3:** The same system prompt is sent on every turn. What does that imply for its size? Expected: every word is paid on every call, so keep it tight; the lesson cites a coding assistant with about 6,000 tokens of system prompt and tool definitions.
+- **Level 2:** Tại sao không bao gồm tất cả mười tài liệu truy xuất? Expected: truy xuất xấu tệ hơn không có; chấm mỗi tài liệu đối chiếu truy vấn, bỏ các tài liệu dưới một ngưỡng, và giữ 3 tài liệu liên quan thay vì 10 tài liệu tầm thường.
+- **Level 2:** Bạn dành gì ở cuối cửa sổ, và bao nhiêu? Expected: ngân sách sinh, ít nhất 2,000 đến 4,000 token, nếu không mô hình không có chỗ trả lời.
+- **Level 3:** Việc sắp lại của bài học đặt năm tài liệu có điểm như thế nào? Expected: được sắp theo điểm, các hạng lẻ đi lên đầu theo thứ tự và các hạng chẵn đi xuống cuối theo thứ tự ngược, để tài liệu tốt nhất nằm ở hai đầu.
+- **Level 3:** Cùng system prompt được gửi trên mọi lượt. Điều đó hàm ý gì cho kích thước của nó? Expected: mọi từ được trả tiền trên mọi lời gọi, nên giữ gọn; bài học trích một trợ lý lập trình với khoảng 6,000 token system prompt và các định nghĩa công cụ.
 
 ## Wrong answers
 
-- "The window is huge, more context is always better." A 10K prompt that is 90 percent signal beats a 100K prompt that is 10 percent signal; more context is more noise for attention to filter.
-- "Put the question first so the model knows what to look for." The end of the context gets high attention too; the lesson places the current query last and the instructions first.
-- "Order does not matter, attention sees everything." The measured drop in the middle is 10 to 20 percent.
+- "Cửa sổ khổng lồ, nhiều ngữ cảnh hơn luôn tốt hơn." Một prompt 10K có 90 phần trăm tín hiệu thắng một prompt 100K có 10 phần trăm tín hiệu; nhiều ngữ cảnh hơn là nhiều nhiễu hơn cho attention lọc.
+- "Đặt câu hỏi trước để mô hình biết tìm gì." Cuối ngữ cảnh cũng nhận attention cao; bài học đặt truy vấn hiện tại cuối và instruction trước.
+- "Thứ tự không quan trọng, attention thấy mọi thứ." Mức giảm đo được ở giữa là 10 đến 20 phần trăm.
 
 ## Taught in
 
-The lesson [context engineering](../../../phases/11-llm-engineering/05-context-engineering/) gives the lost-in-the-middle numbers, the budget table and the reorder function.
+Bài học [context engineering](../../../phases/11-llm-engineering/05-context-engineering/) đưa ra các con số lost-in-the-middle, bảng ngân sách và hàm sắp lại.

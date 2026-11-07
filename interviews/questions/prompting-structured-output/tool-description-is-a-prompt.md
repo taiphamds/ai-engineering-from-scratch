@@ -16,42 +16,42 @@ related: [prompting-structured-output/structured-output-vs-function-call, prompt
 updated: 2026-11-03
 ---
 
-An agent has eight tools and keeps calling the wrong one. The tool descriptions are one or two words each, such as "gets weather". What does the description do, and how do you rewrite one?
+Một agent có tám công cụ và liên tục gọi sai công cụ. Các mô tả công cụ mỗi mô tả là một hoặc hai từ, chẳng hạn "lấy thời tiết". Mô tả làm gì, và bạn viết lại một mô tả bằng cách nào?
 
 ## Short answer
 
-The model reads the description to decide when and how to call the tool, so the description is a prompt for tool selection. Rewrite it as a full sentence that says what the tool does and what it returns, for example that it gets the current weather for a city and returns the temperature in Celsius and the conditions, and describe each parameter with an example value and an enum where the set is closed. Then validate the arguments against the schema before anything executes.
+Mô hình đọc mô tả để quyết định khi nào và gọi công cụ như thế nào, nên mô tả là một prompt để lựa chọn công cụ. Viết lại nó thành một câu đầy đủ nói công cụ làm gì và trả về gì, chẳng hạn nó lấy thời tiết hiện tại cho một thành phố và trả về nhiệt độ theo Celsius cùng các điều kiện, và mô tả từng tham số với một giá trị ví dụ và một enum ở nơi tập hợp là đóng. Sau đó xác thực các đối số theo schema trước khi bất cứ thứ gì thực thi.
 
 ## Full answer
 
 ### What the model sees
 
-A tool definition is a JSON Schema contract: a name, a description, and the parameters with their types, their own descriptions, and the required list. The model never sees your code. It picks a tool and fills the arguments from this text alone, so a vague description produces worse selection than a precise one, and a parameter with an example such as a city name is filled more reliably than a bare string.
+Một định nghĩa công cụ là một hợp đồng JSON Schema: một tên, một mô tả, và các tham số với các kiểu, mô tả riêng của chúng, và danh sách bắt buộc. Mô hình không bao giờ thấy mã của bạn. Nó chọn một công cụ và điền các đối số chỉ từ văn bản này, nên một mô tả mơ hồ tạo ra lựa chọn kém hơn một mô tả chính xác, và một tham số có ví dụ như tên thành phố được điền đáng tin cậy hơn một chuỗi trần.
 
 ### Beyond the description
 
-- **Tool choice.** Auto lets the model decide. Required forces at least one call, which stops the model from guessing when you know a lookup is needed. A named tool forces that one, for routing when upstream logic already knows.
-- **Parallel calls.** Two cities in one question can come back as two calls in one turn; execute both and return both results.
-- **Structured errors.** Return failures as results with a message, a code and suggestions, such as the city not found and the nearest names. Models self-correct from structured errors and not from empty or generic ones.
-- **A call budget.** Set a maximum of 10 to 20 calls per conversation so a loop cannot run away.
+- **Lựa chọn công cụ.** Auto để mô hình quyết định. Required buộc ít nhất một lệnh gọi, ngăn mô hình đoán khi bạn biết cần một lần tra cứu. Một công cụ được nêu tên buộc dùng công cụ đó, để định tuyến khi logic phía trước đã biết.
+- **Các lệnh gọi song song.** Hai thành phố trong một câu hỏi có thể quay về dưới dạng hai lệnh gọi trong một lượt; thực thi cả hai và trả về cả hai kết quả.
+- **Các lỗi có cấu trúc.** Trả về các thất bại dưới dạng kết quả với một thông điệp, một mã và các gợi ý, chẳng hạn thành phố không được tìm thấy và các tên gần nhất. Mô hình tự sửa từ các lỗi có cấu trúc và không tự sửa từ các lỗi trống hoặc chung chung.
+- **Một ngân sách lệnh gọi.** Đặt mức tối đa 10 đến 20 lệnh gọi mỗi hội thoại để một vòng lặp không thể chạy mất kiểm soát.
 
 ### Measure it
 
-Write a set of queries with the expected tool for each; the lesson's exercise uses 30. Run the selection and report the share that picked the right tool, and list the pairs that get confused.
+Viết một tập truy vấn với công cụ mong đợi cho từng truy vấn; bài tập của bài học dùng 30. Chạy lựa chọn và báo cáo tỷ lệ đã chọn đúng công cụ, và liệt kê các cặp bị nhầm lẫn.
 
 ## Follow-ups
 
-- **Level 2:** Where else does a description help besides the tool itself? Expected: on each parameter, with an example value and an enum where the set is closed, so the arguments come out right.
-- **Level 2:** The model still guesses instead of calling a tool when it should. Which setting changes that? Expected: tool choice set to required, or to a named tool when upstream logic already knows which one.
-- **Level 3:** How do you prove the rewrite worked? Expected: a set of test queries with expected tool names, 30 in the lesson, the share that select the right tool, and the confused pairs listed.
-- **Level 3:** A tool fails. What should it return so the model recovers? Expected: a structured error with a message, a code and suggestions, not an exception or an empty response.
+- **Level 2:** Ngoài bản thân công cụ, mô tả còn giúp ở đâu? Expected: trên mỗi tham số, với một giá trị ví dụ và một enum ở nơi tập hợp là đóng, để các đối số xuất ra đúng.
+- **Level 2:** Mô hình vẫn đoán thay vì gọi công cụ khi nó nên gọi. Thiết lập nào thay đổi điều đó? Expected: lựa chọn công cụ đặt thành required, hoặc thành một công cụ được nêu tên khi logic phía trước đã biết công cụ nào.
+- **Level 3:** Bạn chứng minh việc viết lại có tác dụng bằng cách nào? Expected: một tập truy vấn kiểm thử với các tên công cụ mong đợi, 30 trong bài học, tỷ lệ chọn đúng công cụ, và các cặp nhầm lẫn được liệt kê.
+- **Level 3:** Một công cụ thất bại. Nó nên trả về gì để mô hình phục hồi? Expected: một lỗi có cấu trúc với một thông điệp, một mã và các gợi ý, không phải một ngoại lệ hoặc một phản hồi trống.
 
 ## Wrong answers
 
-- "The model infers the purpose from the function name." It reads the description; a vague one produces worse selection than a full sentence.
-- "Describe every tool in a paragraph to be safe." Definitions travel with every request; one precise sentence plus parameter descriptions is the target.
-- "Let the model call any function by name." The lesson's rule is an allowlist of the tools you define, never a generic execute-by-name tool.
+- "Mô hình suy ra mục đích từ tên hàm." Nó đọc mô tả; một mô tả mơ hồ tạo ra lựa chọn kém hơn một câu đầy đủ.
+- "Mô tả mọi công cụ bằng một đoạn văn để chắc chắn." Các định nghĩa đi cùng mọi yêu cầu; một câu chính xác cộng các mô tả tham số là mục tiêu.
+- "Để mô hình gọi bất kỳ hàm nào theo tên." Quy tắc của bài học là một danh sách cho phép các công cụ bạn định nghĩa, không bao giờ là một công cụ thực thi theo tên tổng quát.
 
 ## Taught in
 
-The lesson [function calling](../../../phases/11-llm-engineering/09-function-calling/) gives the tool definition contract, the tool choice modes, structured errors and the selection accuracy exercise.
+Bài học [function calling](../../../phases/11-llm-engineering/09-function-calling/) cung cấp hợp đồng định nghĩa công cụ, các chế độ lựa chọn công cụ, các lỗi có cấu trúc và bài tập độ chính xác lựa chọn.

@@ -16,49 +16,49 @@ related: [prompting-structured-output/json-mode-is-not-a-schema]
 updated: 2026-11-03
 ---
 
-Walk me through the three parts of a chat API call and what each one is for. Then tell me how you would get a model to return a JSON object with no preamble, without a structured output API.
+Hãy trình bày cho tôi ba phần của một lệnh gọi chat API và mục đích của từng phần. Sau đó cho tôi biết bạn sẽ khiến một mô hình trả về một đối tượng JSON không có lời dẫn nhập, mà không có structured output API, bằng cách nào.
 
 ## Short answer
 
-The system message sets identity, rules and output constraints and persists across turns. The user message carries the task and changes every turn. The assistant prefill starts the model's reply for it, so a prefill of an opening brace makes the model continue as JSON with no preamble, on the providers that accept a partial assistant turn.
+Thông điệp system thiết lập danh tính, các quy tắc và ràng buộc đầu ra và tồn tại qua các lượt. Thông điệp user mang tác vụ và thay đổi mỗi lượt. Assistant prefill bắt đầu câu trả lời thay cho mô hình, nên một prefill là dấu ngoặc nhọn mở khiến mô hình tiếp tục dưới dạng JSON không có lời dẫn nhập, trên các nhà cung cấp chấp nhận một lượt assistant chưa hoàn chỉnh.
 
 ## Full answer
 
 ### The three parts
 
-| Part | Role | Lifetime |
+| Phần | Vai trò | Thời gian tồn tại |
 |---|---|---|
-| System message | identity, behavioral rules, output rules; the model treats it as the highest-priority context | persists across turns |
-| User message | the task or the question | changes every turn |
-| Assistant prefill | the first characters of the reply, written by you | one turn |
+| Thông điệp system | danh tính, các quy tắc hành vi, các quy tắc đầu ra; mô hình xem nó là ngữ cảnh có ưu tiên cao nhất | tồn tại qua các lượt |
+| Thông điệp user | tác vụ hoặc câu hỏi | thay đổi mỗi lượt |
+| Assistant prefill | các ký tự đầu tiên của câu trả lời, do bạn viết | một lượt |
 
-Without a system message, the user message is under-constrained and the model fills the gaps with guesses.
+Nếu không có thông điệp system, thông điệp user thiếu ràng buộc và mô hình lấp các khoảng trống bằng phỏng đoán.
 
 ### The prefill
 
-Send a final message with the assistant role and the content `{`. The model continues from there, so the reply is the rest of the object, and your code puts the brace back in front. No preamble, no code fence. Where the provider does not accept a partial assistant turn, use its structured output mode instead.
+Gửi một thông điệp cuối với vai trò assistant và nội dung `{`. Mô hình tiếp tục từ đó, nên câu trả lời là phần còn lại của đối tượng, và mã của bạn đặt lại dấu ngoặc ở phía trước. Không lời dẫn nhập, không hàng rào code. Ở nơi nhà cung cấp không chấp nhận một lượt assistant chưa hoàn chỉnh, hãy dùng chế độ structured output của họ thay vào đó.
 
 ### Write the instruction, not the wish
 
-The lesson's rules for a clear instruction: name the format, the length, the audience, what to include and what to exclude, and give one example of the output. Three kinds of constraint work: negative ones that remove regions of the output space, positive ones that guarantee a structure in every reply, and conditional ones that handle edge cases.
+Các quy tắc của bài học cho một chỉ dẫn rõ ràng: nêu định dạng, độ dài, đối tượng đọc, những gì cần bao gồm và những gì cần loại trừ, và đưa một ví dụ về đầu ra. Ba loại ràng buộc có tác dụng: các ràng buộc phủ định loại bỏ các vùng của không gian đầu ra, các ràng buộc khẳng định bảo đảm một cấu trúc trong mọi câu trả lời, và các ràng buộc có điều kiện xử lý các trường hợp biên.
 
 ### Do not over-constrain
 
-A system prompt of 2,000 words of rules leaves the model less room for the task. The lesson keeps most system prompts under 500 tokens, and checks them for contradictions, because when two rules conflict the model picks one at random.
+Một system prompt gồm 2,000 từ quy tắc để lại cho mô hình ít chỗ hơn cho tác vụ. Bài học giữ phần lớn system prompt dưới 500 token, và kiểm tra chúng để tìm mâu thuẫn, vì khi hai quy tắc xung đột mô hình chọn ngẫu nhiên một quy tắc.
 
 ## Follow-ups
 
-- **Level 1:** Why does the system message come first? Expected: the model gives it the highest priority, and it stays constant while user turns change.
-- **Level 2:** What does the prefill save compared with an instruction to respond in JSON? Expected: the preamble and the code fence; the reply starts inside the object, so the parser sees JSON from the first character.
-- **Level 2:** Your system prompt has grown to 2,000 words of rules. What does the lesson say? Expected: over-constraining; the model spends its capacity on the rules instead of the task, and most tasks want a system prompt under 500 tokens.
-- **Level 3:** How do you write one prompt that behaves the same on several providers? Expected: plain English, an explicit format, XML style delimiters, the instructions at the start and the end, temperature zero while testing, and two or three examples.
+- **Level 1:** Tại sao thông điệp system đứng đầu? Expected: mô hình cho nó ưu tiên cao nhất, và nó giữ nguyên trong khi các lượt user thay đổi.
+- **Level 2:** Prefill tiết kiệm điều gì so với một chỉ dẫn trả lời bằng JSON? Expected: lời dẫn nhập và hàng rào code; câu trả lời bắt đầu bên trong đối tượng, nên parser thấy JSON từ ký tự đầu tiên.
+- **Level 2:** System prompt của bạn đã tăng lên 2,000 từ quy tắc. Bài học nói gì? Expected: ràng buộc quá mức; mô hình dành năng lực cho các quy tắc thay vì tác vụ, và phần lớn tác vụ cần một system prompt dưới 500 token.
+- **Level 3:** Bạn viết một prompt hoạt động giống nhau trên nhiều nhà cung cấp bằng cách nào? Expected: tiếng Anh đơn giản, một định dạng tường minh, các dấu phân cách kiểu XML, các chỉ dẫn ở đầu và cuối, temperature bằng không trong lúc kiểm thử, và hai hoặc ba ví dụ.
 
 ## Wrong answers
 
-- "The system message is just the first user message." It is processed with a higher priority and persists while user turns change.
-- "A prefill works on every provider." Only some accept a partial assistant turn; elsewhere use the structured output mode.
-- "More rules in the system prompt means more control." Past a point the model spends its capacity on the rules; the lesson keeps most system prompts under 500 tokens.
+- "Thông điệp system chỉ là thông điệp user đầu tiên." Nó được xử lý với ưu tiên cao hơn và tồn tại trong khi các lượt user thay đổi.
+- "Một prefill hoạt động trên mọi nhà cung cấp." Chỉ một số chấp nhận một lượt assistant chưa hoàn chỉnh; ở nơi khác hãy dùng chế độ structured output.
+- "Nhiều quy tắc hơn trong system prompt nghĩa là kiểm soát nhiều hơn." Vượt qua một ngưỡng, mô hình dành năng lực cho các quy tắc; bài học giữ phần lớn system prompt dưới 500 token.
 
 ## Taught in
 
-The lesson [prompt engineering](../../../phases/11-llm-engineering/01-prompt-engineering/) gives the anatomy of a call, the prefill and the rules for clear instructions.
+Bài học [prompt engineering](../../../phases/11-llm-engineering/01-prompt-engineering/) cung cấp cấu tạo của một lệnh gọi, prefill và các quy tắc cho chỉ dẫn rõ ràng.

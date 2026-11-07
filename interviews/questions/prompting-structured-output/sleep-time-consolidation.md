@@ -16,47 +16,47 @@ related: [prompting-structured-output/take-home-two-tier-memory, prompting-struc
 updated: 2026-11-03
 ---
 
-An assistant's tail latency climbs because every turn also prunes, summarizes and reconciles its memory before it replies. A proposal moves that work to a second agent that runs while the user is idle. What does the split buy, what does it cost, and what new failure does it create?
+Độ trễ đuôi của một trợ lý tăng lên vì mỗi lượt cũng cắt tỉa, tóm tắt và đối chiếu bộ nhớ trước khi nó trả lời. Một đề xuất chuyển công việc đó sang một agent thứ hai chạy trong lúc người dùng không hoạt động. Sự phân chia này mang lại gì, tốn gì, và tạo ra lỗi mới nào?
 
 ## Short answer
 
-The split takes the memory work off the critical path, so a reply never waits on consolidation, and the background agent can be a slower and stronger model because nobody is waiting on it. It costs a second agent, a shared block store and the coordination around them. The new failure is silent drift: the background agent rewrites a block and the primary agent never notices, so version the blocks, surface diffs in the trace, and treat the background writer as untrusted when it touches the persona or the safety block.
+Sự phân chia đưa công việc bộ nhớ ra khỏi đường găng, nên câu trả lời không bao giờ chờ hợp nhất, và agent nền có thể là một mô hình chậm hơn và mạnh hơn vì không ai đang chờ nó. Nó tốn một agent thứ hai, một kho block dùng chung và sự phối hợp quanh chúng. Lỗi mới là trôi dạt âm thầm: agent nền viết lại một block và agent chính không bao giờ nhận thấy, nên hãy đánh phiên bản các block, hiển thị các diff trong trace, và xem bộ ghi nền là không đáng tin cậy khi nó chạm vào block persona hoặc block an toàn.
 
 ## Full answer
 
 ### What the primary agent keeps
 
-Three tiers. Core memory is always in the prompt and is made of typed blocks, each with an id, a label, a value, a character limit and a description that tells the model when to edit it: a human block, a persona block, and user-defined blocks such as a task or a safety block. Recall is the conversation history. Archival is the external store. The primary agent serves turns and makes raw writes through `block_append`, `block_replace`, `block_read` and `block_summarize`.
+Ba tầng. Bộ nhớ lõi luôn nằm trong prompt và được tạo thành từ các block có kiểu, mỗi block có một id, một nhãn, một giá trị, một giới hạn ký tự và một mô tả cho mô hình biết khi nào chỉnh sửa nó: một block con người, một block persona, và các block do người dùng định nghĩa như một block tác vụ hoặc an toàn. Recall là lịch sử hội thoại. Archival là kho bên ngoài. Agent chính phục vụ các lượt và thực hiện các thao tác ghi thô thông qua `block_append`, `block_replace`, `block_read` và `block_summarize`.
 
 ### What the background agent does
 
-It reads transcripts and context while the user is idle, writes learned context into shared blocks, deduplicates and summarizes, and invalidates contradicted facts. Three properties follow: no latency cost on the reply, a stronger model becomes affordable, and consolidation gets a natural window when nobody is waiting.
+Nó đọc các bản ghi hội thoại và ngữ cảnh trong lúc người dùng không hoạt động, ghi ngữ cảnh đã học vào các block dùng chung, khử trùng lặp và tóm tắt, và vô hiệu hóa các dữ kiện bị mâu thuẫn. Ba đặc tính kéo theo: không tốn độ trễ trên câu trả lời, một mô hình mạnh hơn trở nên đủ khả năng chi trả, và việc hợp nhất có một khoảng thời gian tự nhiên khi không ai đang chờ.
 
 ### The three failures and their guards
 
-| Failure | Guard |
+| Lỗi | Biện pháp bảo vệ |
 |---|---|
-| Block bloat: appends hit the character limit | run the summarizer before the write that would pass the cap |
-| Silent drift: a block changes and the primary agent never notices | version blocks, record old value and diff on every write, expose a history per block |
-| Poisoned consolidation: content an attacker can reach lands in core | treat the background agent as an untrusted writer; a change to the persona or the safety block needs a second-agent review before it commits |
+| Block phình to: các lần thêm chạm giới hạn ký tự | chạy bộ tóm tắt trước thao tác ghi sẽ vượt trần |
+| Trôi dạt âm thầm: một block thay đổi và agent chính không bao giờ nhận thấy | đánh phiên bản các block, ghi lại giá trị cũ và diff ở mỗi lần ghi, cung cấp lịch sử theo từng block |
+| Hợp nhất bị đầu độc: nội dung mà kẻ tấn công có thể tiếp cận lọt vào lõi | xem agent nền là một bộ ghi không đáng tin cậy; một thay đổi đối với block persona hoặc block an toàn cần một agent thứ hai xem xét trước khi được ghi nhận |
 
 ### Keep the heavy work in the sleep pass
 
-Deduplication of records whose text overlaps by more than 90 percent belongs in the background pass and never on the critical path; the lesson's exercise is explicit about that.
+Khử trùng lặp các bản ghi có văn bản trùng nhau hơn 90 phần trăm thuộc về lượt chạy nền và không bao giờ nằm trên đường găng; bài tập của bài học nói rõ điều đó.
 
 ## Follow-ups
 
-- **Level 3:** Why can the background agent use a more expensive model? Expected: it is not latency constrained, so a slower and stronger model is affordable.
-- **Level 3:** A block keeps growing toward its limit. What runs, and when? Expected: the block summarizer, before the write that would push the block over the cap; the trigger threshold trades summarization calls against overflow.
-- **Level 4:** How do you make a background rewrite visible? Expected: version every block, record the old value and a diff on each write, and expose a per-block history so an operator can see why the agent forgot something.
-- **Level 4:** The background agent reads attacker-reachable content. What is the control? Expected: treat it as an untrusted writer; a change to the persona or the safety block needs a second-agent review before it commits.
+- **Level 3:** Tại sao agent nền có thể dùng một mô hình đắt hơn? Expected: nó không bị ràng buộc về độ trễ, nên một mô hình chậm hơn và mạnh hơn là đủ khả năng chi trả.
+- **Level 3:** Một block liên tục tăng lên gần giới hạn của nó. Thành phần nào chạy, và khi nào? Expected: bộ tóm tắt block, trước thao tác ghi sẽ đẩy block vượt trần; ngưỡng kích hoạt đánh đổi các lệnh gọi tóm tắt với việc tràn.
+- **Level 4:** Bạn làm cho một lần viết lại ở nền trở nên hiển thị bằng cách nào? Expected: đánh phiên bản mọi block, ghi lại giá trị cũ và một diff ở mỗi lần ghi, và cung cấp lịch sử theo từng block để người vận hành có thể thấy tại sao agent quên điều gì đó.
+- **Level 4:** Agent nền đọc nội dung mà kẻ tấn công có thể tiếp cận. Biện pháp kiểm soát là gì? Expected: xem nó là một bộ ghi không đáng tin cậy; một thay đổi đối với block persona hoặc block an toàn cần một agent thứ hai xem xét trước khi được ghi nhận.
 
 ## Wrong answers
 
-- "Run the consolidation at the end of every turn, it is quick." It sits on the critical path and tail latency is the complaint; the point of the split is that the reply never waits.
-- "Use the cheapest model for the background agent to save money." It is the one place a stronger model is affordable, and its rewrites shape every later turn.
-- "Deduplicate on the critical path too, it is the same code." The lesson runs deduplication only in the sleep pass, never while the user waits.
+- "Chạy việc hợp nhất ở cuối mỗi lượt, nó nhanh mà." Nó nằm trên đường găng và độ trễ đuôi là điều đang bị phàn nàn; mục đích của sự phân chia là câu trả lời không bao giờ chờ.
+- "Dùng mô hình rẻ nhất cho agent nền để tiết kiệm tiền." Đó là nơi duy nhất một mô hình mạnh hơn là đủ khả năng chi trả, và các lần viết lại của nó định hình mọi lượt sau đó.
+- "Cũng khử trùng lặp trên đường găng, đó là cùng mã mà." Bài học chỉ chạy khử trùng lặp trong lượt chạy khi nghỉ, không bao giờ trong lúc người dùng chờ.
 
 ## Taught in
 
-The lesson [memory blocks](../../../phases/14-agent-engineering/08-memory-blocks-sleep-time-compute/) gives the three tiers, the block pattern, the background agent and its failure modes, and the lesson [virtual context](../../../phases/14-agent-engineering/07-memory-virtual-context-memgpt/) sets the two-tier pattern it extends.
+Bài học [memory blocks](../../../phases/14-agent-engineering/08-memory-blocks-sleep-time-compute/) cung cấp ba tầng, mẫu block, agent nền và các chế độ lỗi của nó, và bài học [virtual context](../../../phases/14-agent-engineering/07-memory-virtual-context-memgpt/) thiết lập mẫu hai tầng mà nó mở rộng.

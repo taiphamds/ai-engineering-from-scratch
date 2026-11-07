@@ -16,58 +16,58 @@ related: [prompting-structured-output/sleep-time-consolidation, prompting-struct
 updated: 2026-11-03
 ---
 
-Take-home. Build an agent memory with two tiers: a fixed-size main context and an unbounded searchable store, plus the tools that move facts between them. Show a trace where the main context fills, something is evicted, and a later question is still answered from the store. Standard library only. Explain your eviction and citation choices.
+Bài làm ở nhà. Xây dựng một bộ nhớ agent với hai tầng: một ngữ cảnh chính có kích thước cố định và một kho có thể tìm kiếm không giới hạn, cùng các công cụ chuyển các dữ kiện giữa chúng. Cho thấy một trace trong đó ngữ cảnh chính đầy, thứ gì đó bị đẩy ra, và một câu hỏi sau đó vẫn được trả lời từ kho. Chỉ dùng thư viện chuẩn. Giải thích các lựa chọn đẩy ra và trích dẫn của bạn.
 
 ## Short answer
 
-Treat the main context as RAM and the store as disk. Give the main context a cap, a pinned core section and a message list that compacts its oldest entries when the cap is passed; give the store records with an id, text, tags, a session id and a turn id, and a token-overlap search. Expose the memory tools, write three facts, overflow the main context, and answer the follow-up by searching the store and splicing the result into the next turn.
+Xem ngữ cảnh chính là RAM và kho là đĩa. Cho ngữ cảnh chính một trần, một phần lõi được ghim và một danh sách thông điệp nén gọn các mục cũ nhất khi vượt trần; cho kho các bản ghi với một id, văn bản, các tag, một id phiên và một id lượt, và một phép tìm kiếm theo độ trùng token. Cung cấp các công cụ bộ nhớ, ghi ba dữ kiện, làm tràn ngữ cảnh chính, và trả lời câu hỏi tiếp theo bằng cách tìm kiếm kho và chèn kết quả vào lượt tiếp theo.
 
 ## Full answer
 
 ### The shape
 
-| Operating system | Memory system | Your code |
+| Hệ điều hành | Hệ thống bộ nhớ | Mã của bạn |
 |---|---|---|
-| RAM | main context | a capped buffer with a core dict and a message list |
-| Disk | external store | a list of records with a search method |
-| Page fault | memory tool call | the agent calls a tool, the runtime runs it, the result enters the next turn |
-| Kernel | agent control loop | a scripted loop that reads, decides, writes |
+| RAM | ngữ cảnh chính | một bộ đệm có trần với một dict lõi và một danh sách thông điệp |
+| Đĩa | kho bên ngoài | một danh sách bản ghi với một phương thức tìm kiếm |
+| Page fault | lệnh gọi công cụ bộ nhớ | agent gọi một công cụ, runtime chạy nó, kết quả đi vào lượt tiếp theo |
+| Kernel | vòng lặp điều khiển agent | một vòng lặp được lập trình đọc, quyết định, ghi |
 
 ### The tool surface
 
-- `core_memory_append(section, text)` and `core_memory_replace(section, old, new)` edit the pinned sections of the main context.
-- `archival_memory_insert(text)` writes a record to the store.
-- `archival_memory_search(query, top_k)` retrieves from the store.
-- `conversation_search(query)` scans past turns.
+- `core_memory_append(section, text)` và `core_memory_replace(section, old, new)` chỉnh sửa các phần được ghim của ngữ cảnh chính.
+- `archival_memory_insert(text)` ghi một bản ghi vào kho.
+- `archival_memory_search(query, top_k)` truy xuất từ kho.
+- `conversation_search(query)` quét các lượt trước.
 
 ### Eviction
 
-When the message list passes the cap, compact the oldest messages instead of dropping them. The lesson's exercise measures the cap in tokens with a word count times 1.3 and summarizes the evicted messages; a simpler version moves them to the store. Deletion loses facts that the store could have kept.
+Khi danh sách thông điệp vượt trần, hãy nén gọn các thông điệp cũ nhất thay vì bỏ chúng. Bài tập của bài học đo trần bằng token với số từ nhân 1.3 và tóm tắt các thông điệp bị đẩy ra; một phiên bản đơn giản hơn chuyển chúng vào kho. Việc xóa làm mất các dữ kiện mà kho có thể đã giữ lại.
 
 ### Citations
 
-Every store record carries the session id and the turn id of its source. Without them the agent recalls that the user asked for something and cannot say which turn; with them every retrieval-backed answer can cite its origin.
+Mọi bản ghi trong kho mang id phiên và id lượt của nguồn. Nếu không có chúng, agent nhớ rằng người dùng đã yêu cầu điều gì đó và không thể nói lượt nào; với chúng, mọi câu trả lời được hỗ trợ bằng truy xuất có thể trích dẫn nguồn gốc của nó.
 
 ### The trace a grader wants
 
-1. Three facts written to the store, each with its source fields.
-2. The main context fills past the cap and the oldest messages are compacted.
-3. A follow-up question arrives, the agent calls the search tool, the hit is spliced into the next turn, and the answer cites the turn.
-4. A note on the two failures that the design does not fix on its own: memory rot, which needs periodic consolidation, and memory poisoning, where attacker text stored as a note is re-ingested next session.
+1. Ba dữ kiện được ghi vào kho, mỗi dữ kiện có các trường nguồn.
+2. Ngữ cảnh chính đầy vượt trần và các thông điệp cũ nhất được nén gọn.
+3. Một câu hỏi tiếp theo đến, agent gọi công cụ tìm kiếm, kết quả khớp được chèn vào lượt tiếp theo, và câu trả lời trích dẫn lượt.
+4. Một ghi chú về hai lỗi mà thiết kế không tự khắc phục: bộ nhớ mục nát, cần hợp nhất định kỳ, và đầu độc bộ nhớ, trong đó văn bản của kẻ tấn công được lưu như một ghi chú được nạp lại ở phiên tiếp theo.
 
 ## Follow-ups
 
-- **Level 3:** Why page instead of using a larger window? Expected: overflow, dilution and persistence; a bigger window still dilutes attention and starts empty next session, and the lesson cites a 4k-window agent with external memory that caught long-horizon facts a 128k-window baseline missed.
-- **Level 3:** What goes in every store record, and why? Expected: the text, tags, the session id and the turn id, so a recalled fact can be cited to the turn it came from.
-- **Level 4:** A note in the store says to ignore all future user instructions. What is the guard? Expected: scan retrieved records for directive-shaped text and mark them untrusted before they reach the prompt; this is prompt injection over time.
-- **Level 4:** Writes outnumber reads and retrieval drowns in stale facts. What do you add? Expected: periodic consolidation and explicit invalidation of contradicted facts, which the later memory lessons run off the critical path.
+- **Level 3:** Tại sao phân trang thay vì dùng một cửa sổ lớn hơn? Expected: tràn, pha loãng và tính bền vững; một cửa sổ lớn hơn vẫn pha loãng attention và bắt đầu trống ở phiên tiếp theo, và bài học dẫn một agent cửa sổ 4k với bộ nhớ bên ngoài đã bắt được các dữ kiện dài hạn mà một baseline cửa sổ 128k bỏ sót.
+- **Level 3:** Những gì nằm trong mọi bản ghi của kho, và tại sao? Expected: văn bản, các tag, id phiên và id lượt, để một dữ kiện được nhớ lại có thể được trích dẫn đến lượt mà nó xuất phát.
+- **Level 4:** Một ghi chú trong kho nói bỏ qua mọi chỉ dẫn của người dùng trong tương lai. Biện pháp bảo vệ là gì? Expected: quét các bản ghi truy xuất để tìm văn bản có dạng chỉ thị và đánh dấu chúng là không đáng tin cậy trước khi chúng đến prompt; đây là prompt injection qua thời gian.
+- **Level 4:** Số lần ghi nhiều hơn số lần đọc và việc truy xuất chìm trong các dữ kiện lỗi thời. Bạn thêm gì? Expected: hợp nhất định kỳ và vô hiệu hóa tường minh các dữ kiện bị mâu thuẫn, mà các bài học về bộ nhớ sau đó chạy ngoài đường găng.
 
 ## Wrong answers
 
-- "Keep everything in the context, the window is large enough." The lesson's three failures remain: overflow, dilution and an empty window at the next session.
-- "Evict by deleting the oldest messages outright." Compact them into a summary or move them to the store; deletion loses facts the store could have kept.
-- "The store does not need source fields." Without a session and a turn id the agent recalls a fact and cannot say where it came from.
+- "Giữ mọi thứ trong ngữ cảnh, cửa sổ đủ lớn." Ba lỗi của bài học vẫn còn: tràn, pha loãng và một cửa sổ trống ở phiên tiếp theo.
+- "Đẩy ra bằng cách xóa hẳn các thông điệp cũ nhất." Nén gọn chúng thành một bản tóm tắt hoặc chuyển chúng vào kho; việc xóa làm mất các dữ kiện mà kho có thể đã giữ lại.
+- "Kho không cần các trường nguồn." Nếu không có id phiên và id lượt, agent nhớ một dữ kiện và không thể nói nó đến từ đâu.
 
 ## Taught in
 
-The lesson [virtual context](../../../phases/14-agent-engineering/07-memory-virtual-context-memgpt/) gives the operating system analogy, the two tiers, the tool surface and the failure modes.
+Bài học [virtual context](../../../phases/14-agent-engineering/07-memory-virtual-context-memgpt/) cung cấp phép tương tự hệ điều hành, hai tầng, bề mặt công cụ và các chế độ lỗi.

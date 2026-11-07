@@ -16,19 +16,19 @@ related: [prompting-structured-output/json-mode-is-not-a-schema, prompting-struc
 updated: 2026-11-03
 ---
 
-An extraction service turns purchase-order emails into typed records. Name the ways a structured output call can fail, say which of them disappear under strict schema enforcement, and describe how the code should treat what remains.
+Một dịch vụ trích xuất chuyển email đơn đặt hàng thành các bản ghi có kiểu. Nêu những cách một lệnh gọi structured output có thể thất bại, cho biết những cách nào biến mất dưới cơ chế thực thi schema nghiêm ngặt, và mô tả mã nên xử lý những gì còn lại ra sao.
 
 ## Short answer
 
-Three ways: a parse error, where the output is not JSON; a schema violation, where it parses but breaks a type, a required field, an enum or a range; and a refusal, where the model decides the input does not fit the schema. Strict enforcement removes the first two by construction for a response that finishes. The refusal stays, and it must be a typed outcome that the code logs and returns, never a retry. A response cut at the token limit can still fail to parse, so check the stop reason before you read the output.
+Ba cách: một lỗi parse, trong đó đầu ra không phải JSON; một vi phạm schema, trong đó nó parse được nhưng vi phạm một kiểu, một trường bắt buộc, một enum hoặc một khoảng; và một lần từ chối, trong đó mô hình quyết định đầu vào không phù hợp với schema. Cơ chế thực thi nghiêm ngặt loại bỏ hai cách đầu ngay từ cách xây dựng đối với một phản hồi hoàn tất. Sự từ chối vẫn còn, và nó phải là một kết quả có kiểu mà mã ghi nhật ký và trả về, không bao giờ là một lần thử lại. Một phản hồi bị cắt ở giới hạn token vẫn có thể không parse được, nên hãy kiểm tra lý do dừng trước khi đọc đầu ra.
 
 ## Full answer
 
 ### Three approaches, three failure profiles
 
-1. **Prompt for JSON.** Works 85 to 95 percent of the time on a frontier model. Fails six ways: a missing brace, a trailing comma, wrong types, invented fields, truncation at the token limit, and leaked prose such as "here is your JSON".
-2. **Validate after generation.** Generate freely, parse, validate against the schema, and on failure inject the error and retry. Reliable but you pay for every retry.
-3. **Constrained decoding.** The provider masks invalid tokens at decode time, so a finished output parses and validates by construction. The model-side failure collapses to one mode, refusal; a response cut at the token limit and a request error still need their own error path.
+1. **Prompt yêu cầu JSON.** Hoạt động 85 đến 95 phần trăm số lần trên một mô hình tiên tiến hàng đầu. Thất bại theo sáu cách: thiếu một dấu ngoặc nhọn, dấu phẩy ở cuối, sai kiểu, các trường bịa ra, bị cắt ở giới hạn token, và văn xuôi lọt ra như "đây là JSON của bạn".
+2. **Xác thực sau khi sinh.** Sinh tự do, parse, xác thực theo schema, và khi thất bại chèn lỗi vào rồi thử lại. Đáng tin cậy nhưng bạn trả tiền cho mỗi lần thử lại.
+3. **Constrained decoding.** Nhà cung cấp áp mask các token không hợp lệ tại thời điểm giải mã, nên một đầu ra hoàn tất parse và xác thực được ngay từ cách xây dựng. Lỗi phía mô hình thu về một chế độ, từ chối; một phản hồi bị cắt ở giới hạn token và một lỗi yêu cầu vẫn cần đường xử lý lỗi riêng.
 
 ### The retry loop, when you are outside strict mode
 
@@ -36,29 +36,29 @@ Three ways: a parse error, where the output is not JSON; a schema violation, whe
 generate -> parse -> validate -> if fail, inject the error and retry, at most 3 times
 ```
 
-One retry is usually enough. Three catches weak-model flakes. Beyond three means the schema or the prompt is wrong for some inputs, and the fix is there, not in a fourth attempt. The validator should return a typed error list with a path and a message for each failure, which is the shape the retry prompt needs.
+Một lần thử lại thường là đủ. Ba lần bắt được các lỗi chập chờn của mô hình yếu. Vượt quá ba nghĩa là schema hoặc prompt không phù hợp với một số đầu vào, và chỗ sửa nằm ở đó, không phải ở lần thử thứ tư. Bộ xác thực nên trả về một danh sách lỗi có kiểu với một đường dẫn và một thông điệp cho mỗi lỗi, đó là hình dạng mà prompt thử lại cần.
 
 ### The refusal branch
 
-The model declines because the input does not fit, for example the email was a poem and not an order, or because of a safety reason. The refusal carries the reason. Log it, return it typed, and do not retry. The lesson also uses refusals as a safety signal downstream.
+Mô hình từ chối vì đầu vào không phù hợp, chẳng hạn email là một bài thơ chứ không phải một đơn hàng, hoặc vì một lý do an toàn. Sự từ chối mang theo lý do. Ghi nhật ký nó, trả về nó với kiểu, và không thử lại. Bài học cũng sử dụng các lần từ chối như một tín hiệu an toàn ở phía sau.
 
 ### One schema setting that matters
 
-`additionalProperties: false` forbids fields the schema did not name, which is how strict mode shuts the door on invented fields. Strict mode requires it everywhere.
+`additionalProperties: false` cấm các trường mà schema không nêu tên, đó là cách chế độ nghiêm ngặt đóng cửa với các trường bịa ra. Chế độ nghiêm ngặt yêu cầu nó ở mọi nơi.
 
 ## Follow-ups
 
-- **Level 2:** How many retries, and what does needing more tell you? Expected: at most three; one is usually enough, and beyond three the schema or the prompt is wrong for some inputs.
-- **Level 2:** Why must the refusal branch not retry? Expected: the model declined for a reason, often fit or safety; a retry wastes cost and can push a wrong extraction through.
-- **Level 3:** What does the retry prompt need from the validator? Expected: a typed error list with a path and a message per failure, so the model knows which field to fix.
-- **Level 3:** Which schema setting blocks invented fields? Expected: additional properties set to false, which strict mode requires everywhere.
+- **Level 2:** Bao nhiêu lần thử lại, và việc cần nhiều hơn cho bạn biết gì? Expected: nhiều nhất ba; một thường là đủ, và vượt quá ba thì schema hoặc prompt không phù hợp với một số đầu vào.
+- **Level 2:** Tại sao nhánh từ chối không được thử lại? Expected: mô hình đã từ chối vì một lý do, thường là sự phù hợp hoặc an toàn; một lần thử lại lãng phí chi phí và có thể đẩy một lần trích xuất sai đi qua.
+- **Level 3:** Prompt thử lại cần gì từ bộ xác thực? Expected: một danh sách lỗi có kiểu với một đường dẫn và một thông điệp cho mỗi lỗi, để mô hình biết trường nào cần sửa.
+- **Level 3:** Thiết lập schema nào chặn các trường bịa ra? Expected: additional properties đặt thành false, điều mà chế độ nghiêm ngặt yêu cầu ở mọi nơi.
 
 ## Wrong answers
 
-- "A refusal is a failed call, retry it." It is a first-class outcome with a reason attached; log it and return it typed.
-- "Strict mode removes every failure." It removes parse errors and schema violations for a finished response; refusals, truncated responses and wrong values with the right type remain.
-- "Retry until it validates." Past three retries the cost grows and the schema is the real problem.
+- "Một lần từ chối là một lệnh gọi thất bại, hãy thử lại nó." Nó là một kết quả hạng nhất với một lý do đính kèm; ghi nhật ký nó và trả về nó với kiểu.
+- "Chế độ nghiêm ngặt loại bỏ mọi lỗi." Nó loại bỏ lỗi parse và vi phạm schema đối với một phản hồi hoàn tất; các lần từ chối, phản hồi bị cắt và các giá trị sai với đúng kiểu vẫn còn.
+- "Thử lại cho đến khi xác thực được." Quá ba lần thử lại thì chi phí tăng lên và schema là vấn đề thực sự.
 
 ## Taught in
 
-The lesson [structured output](../../../phases/13-tools-and-protocols/04-structured-output/) names the three failure modes, the retry pattern and the refusal branch, and the lesson [structured outputs](../../../phases/11-llm-engineering/03-structured-outputs/) covers validation with error feedback.
+Bài học [structured output](../../../phases/13-tools-and-protocols/04-structured-output/) nêu tên ba chế độ lỗi, mẫu thử lại và nhánh từ chối, và bài học [structured outputs](../../../phases/11-llm-engineering/03-structured-outputs/) trình bày việc xác thực với phản hồi lỗi.

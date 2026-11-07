@@ -16,55 +16,55 @@ related: [prompting-structured-output/self-consistency-at-temperature-zero, prom
 updated: 2026-11-03
 ---
 
-A team runs every question through the full escalation pipeline from the lesson: one deterministic chain, then five sampled chains with a vote, then a tree search when the vote is weak. Latency and cost are now the top complaint. As the staff engineer, how do you restructure the pipeline, and what do you measure to defend the new shape?
+Một nhóm chạy mọi câu hỏi qua pipeline nâng cấp đầy đủ từ bài học: một chuỗi xác định, rồi năm chuỗi lấy mẫu với một phiếu bầu, rồi một tìm kiếm cây khi phiếu yếu. Độ trễ và chi phí giờ là phàn nàn hàng đầu. Là kỹ sư staff, bạn tái cấu trúc pipeline như thế nào, và bạn đo gì để bảo vệ hình dạng mới?
 
 ## Short answer
 
-Make the pipeline earn each stage. Most questions should end at the cheap stage, so start the vote at the minimum of three samples and widen it only on disagreement, and reserve the tree search, which costs up to 39 calls at a branching factor of 3 and a depth of 3, for the questions where the vote fails. Measure accuracy against cost per question for each stage on a held-out set, and report the share of questions that each stage resolves.
+Khiến pipeline chứng minh mỗi giai đoạn đáng chi phí. Phần lớn câu hỏi nên kết thúc ở giai đoạn rẻ, nên bắt đầu phiếu bầu ở tối thiểu ba mẫu và chỉ mở rộng khi bất đồng, và dành tìm kiếm cây, tốn đến 39 lời gọi ở hệ số phân nhánh 3 và độ sâu 3, cho các câu hỏi nơi phiếu bầu thất bại. Đo độ chính xác theo chi phí mỗi câu hỏi cho mỗi giai đoạn trên một tập giữ lại, và báo cáo tỷ phần câu hỏi mỗi giai đoạn giải quyết.
 
 ## Full answer
 
 ### What the lesson's pipeline does
 
-The deterministic chain runs once. The vote runs five samples at temperature 0.7 and accepts when 4 of 5 agree, a confidence of 0.8, and the majority matches the deterministic answer. Anything else goes to the tree search, where every node is a model call.
+Chuỗi xác định chạy một lần. Phiếu bầu chạy năm mẫu ở temperature 0.7 và chấp nhận khi 4 trong 5 đồng ý, độ tự tin 0.8, và đa số khớp đáp án xác định. Bất cứ điều gì khác đến tìm kiếm cây, nơi mỗi node là một lời gọi mô hình.
 
 ### Where the money goes
 
-| Stage | Calls | Token overhead |
+| Giai đoạn | Lời gọi | Chi phí token bổ sung |
 |---|---|---|
-| One few-shot chain | 1 | 300 to 600 tokens |
-| Vote over five chains | 5 | five times the tokens |
-| Tree search | 10 to 40 or more | 10 to 40 times the tokens |
-| A reasoning model | 1 | hidden, 2 to 10 times internal |
+| Một chuỗi few-shot | 1 | 300 đến 600 token |
+| Phiếu bầu trên năm chuỗi | 5 | token gấp năm |
+| Tìm kiếm cây | 10 đến 40 hoặc hơn | token gấp 10 đến 40 lần |
+| Một mô hình suy luận | 1 | ẩn, nội bộ gấp 2 đến 10 lần |
 
-Run on every question, the vote alone multiplies the bill by five, and the tree search is unbounded in the tail.
+Chạy trên mọi câu hỏi, chỉ phiếu bầu đã nhân hóa đơn gấp năm, và tìm kiếm cây không bị chặn ở phần đuôi.
 
 ### The restructure
 
-1. **Route by task first.** Simple recall and single-step classification get a single zero-shot call; the chain and the vote are for multi-step problems.
-2. **Vote small, widen on doubt.** Three samples is the minimum for a meaningful vote and five captures most of the benefit; start at three and add samples only when the three disagree.
-3. **Cap the tree.** Keep it for problems with a large but evaluatable search space, set a call budget per question, and report how often the budget is hit.
-4. **Test a reasoning model as a drop-in.** It runs the chain internally and subsumes the vote on many tasks; its hidden cost belongs on the same curve as the other stages.
+1. **Định tuyến theo tác vụ trước.** Nhớ lại đơn giản và phân loại một bước nhận một lời gọi zero-shot đơn; chuỗi và phiếu bầu dành cho các vấn đề nhiều bước.
+2. **Bầu nhỏ, mở rộng khi nghi ngờ.** Ba mẫu là tối thiểu cho một phiếu bầu có ý nghĩa và năm nắm phần lớn lợi ích; bắt đầu ở ba và chỉ thêm mẫu khi ba mẫu bất đồng.
+3. **Giới hạn cây.** Giữ nó cho các vấn đề có không gian tìm kiếm lớn nhưng đánh giá được, đặt một ngân sách lời gọi mỗi câu hỏi, và báo cáo ngân sách bị chạm thường xuyên thế nào.
+4. **Kiểm thử một mô hình suy luận như thay thế trực tiếp.** Nó chạy chuỗi nội bộ và bao hàm phiếu bầu trên nhiều tác vụ; chi phí ẩn của nó thuộc cùng đường cong với các giai đoạn khác.
 
 ### What defends it
 
-- The accuracy against total tokens curve from a sweep of N over 1, 3, 5, 7 and 10 on a held-out set, with the knee marked.
-- The share of questions resolved at each stage, and the accuracy of each stage on the questions it resolved.
-- The share of questions that only the tree search gets right, against its share of the bill.
+- Đường cong độ chính xác theo tổng token từ một lượt quét N trên 1, 3, 5, 7 và 10 trên một tập giữ lại, với điểm gối được đánh dấu.
+- Tỷ phần câu hỏi được giải quyết ở mỗi giai đoạn, và độ chính xác mỗi giai đoạn trên các câu hỏi nó giải quyết.
+- Tỷ phần câu hỏi chỉ tìm kiếm cây trả lời đúng, đối chiếu tỷ phần hóa đơn của nó.
 
 ## Follow-ups
 
-- **Level 3:** What does the tree search cost at the lesson's defaults? Expected: each node is a model call, so a branching factor of 3 and a depth of 3 means up to 39 calls.
-- **Level 4:** Where does a reasoning model fit in the new shape? Expected: as a drop-in for the chain and the vote on many tasks, one call with hidden internal reasoning at 2 to 10 times the tokens, compared on the same accuracy against cost curve.
-- **Level 4:** How do you pick the vote size? Expected: sweep N over 1, 3, 5, 7 and 10 on a held-out set and plot accuracy against total tokens; the lesson puts the knee near 5 and the minimum meaningful vote at 3.
-- **Level 4:** Which one number justifies keeping the tree search at all? Expected: the share of questions that only the tree search gets right, against its share of the bill; if that share is near zero, cut the stage.
+- **Level 3:** Tìm kiếm cây tốn gì ở các mặc định của bài học? Expected: mỗi node là một lời gọi mô hình, nên hệ số phân nhánh 3 và độ sâu 3 có nghĩa đến 39 lời gọi.
+- **Level 4:** Một mô hình suy luận nằm ở đâu trong hình dạng mới? Expected: như một thay thế trực tiếp cho chuỗi và phiếu bầu trên nhiều tác vụ, một lời gọi với suy luận nội bộ ẩn ở token gấp 2 đến 10 lần, được so sánh trên cùng đường cong độ chính xác theo chi phí.
+- **Level 4:** Bạn chọn kích thước phiếu bầu như thế nào? Expected: quét N trên 1, 3, 5, 7 và 10 trên một tập giữ lại và vẽ độ chính xác theo tổng token; bài học đặt điểm gối gần 5 và phiếu bầu có ý nghĩa tối thiểu ở 3.
+- **Level 4:** Con số nào biện minh cho việc giữ tìm kiếm cây? Expected: tỷ phần câu hỏi chỉ tìm kiếm cây trả lời đúng, đối chiếu tỷ phần hóa đơn; nếu tỷ phần đó gần không, cắt giai đoạn.
 
 ## Wrong answers
 
-- "Run the tree search on everything for the best accuracy." It costs 10 to 40 or more calls per question, and the lesson keeps it for large, evaluatable search spaces.
-- "Drop the vote and keep one chain at temperature zero." One chain is cheap but carries no confidence signal; the vote share is what tells you when to stop or escalate.
-- "Set the confidence gate to 1.0 to be safe." Then any single disagreement triggers the tree search; the lesson accepts 4 of 5.
+- "Chạy tìm kiếm cây trên mọi thứ để có độ chính xác tốt nhất." Nó tốn 10 đến 40 lời gọi hoặc hơn mỗi câu hỏi, và bài học giữ nó cho các không gian tìm kiếm lớn, đánh giá được.
+- "Bỏ phiếu bầu và giữ một chuỗi ở temperature không." Một chuỗi rẻ nhưng không mang tín hiệu độ tự tin; tỷ phần phiếu là điều nói khi nào dừng hoặc nâng cấp.
+- "Đặt cổng độ tự tin ở 1.0 cho chắc." Khi đó bất kỳ bất đồng đơn lẻ nào kích hoạt tìm kiếm cây; bài học chấp nhận 4 trong 5.
 
 ## Taught in
 
-The lesson [few-shot and chain-of-thought](../../../phases/11-llm-engineering/02-few-shot-cot/) builds the escalation pipeline and gives the cost of each technique.
+Bài học [few-shot và chain-of-thought](../../../phases/11-llm-engineering/02-few-shot-cot/) xây pipeline nâng cấp và đưa ra chi phí mỗi kỹ thuật.

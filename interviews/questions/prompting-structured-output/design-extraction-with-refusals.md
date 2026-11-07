@@ -16,58 +16,58 @@ related: [prompting-structured-output/three-failure-modes-structured, prompting-
 updated: 2026-11-03
 ---
 
-Design the extraction service for purchase-order emails. The input is free text; the output is a typed record with a customer, line items and a total. Cover the schema, the enforcement mode, the retry and refusal handling, and how you prove it works before it touches the accounting system.
+Thiết kế dịch vụ trích xuất cho các email đơn mua hàng. Đầu vào là văn bản tự do; đầu ra là một bản ghi có kiểu với khách hàng, các dòng hàng và tổng. Bao phủ schema, chế độ thực thi, xử lý thử lại và từ chối, và cách bạn chứng minh nó hoạt động trước khi chạm hệ thống kế toán.
 
 ## Short answer
 
-Write one JSON Schema 2020-12 with the constraints that matter: required fields, enums for closed sets, a minimum of zero on the total, additional properties forbidden, and any reasoning field ahead of any decision field. Run it in the provider's strict schema mode so that a response that finishes cannot have a parse error or a schema violation, check the stop reason so that a response cut at the token limit goes to the error path, and treat a refusal as a typed outcome that goes to a review queue. Prove it with a labeled set of real emails scored per field, a refusal check on inputs that must not extract, and a run beside the human process before any record is written.
+Viết một JSON Schema 2020-12 với các ràng buộc quan trọng: các trường bắt buộc, enum cho các tập đóng, giá trị tối thiểu không trên tổng, cấm thuộc tính bổ sung, và bất kỳ trường suy luận nào đứng trước bất kỳ trường quyết định nào. Chạy nó trong chế độ schema nghiêm ngặt của nhà cung cấp để một phản hồi kết thúc không thể có lỗi phân tích hoặc vi phạm schema, kiểm tra lý do dừng để một phản hồi bị cắt ở giới hạn token đến đường lỗi, và xem từ chối là một kết quả có kiểu đến hàng đợi đánh giá. Chứng minh bằng một tập email thật có nhãn được chấm theo trường, một kiểm tra từ chối trên các đầu vào không được trích xuất, và một lần chạy cạnh quy trình con người trước khi bất kỳ bản ghi nào được ghi.
 
 ## Full answer
 
 ### The schema
 
-- `type`, `properties` and `required` for the shape; every property listed as required, with null allowed where the source can lack a value.
-- `enum` for closed sets such as currency or status; `minimum` on the total; `pattern`, `minLength` and `maxLength` on identifiers; `items` for the line items.
-- `additionalProperties: false` everywhere, which blocks invented fields and which strict mode demands.
-- Field order as logic: any `reasoning` field before `total` or `status`, because the model commits to the first field it writes.
+- `type`, `properties` và `required` cho hình dạng; mọi thuộc tính được liệt kê là bắt buộc, với null được phép nơi nguồn có thể thiếu một giá trị.
+- `enum` cho các tập đóng như tiền tệ hoặc trạng thái; `minimum` trên tổng; `pattern`, `minLength` và `maxLength` trên định danh; `items` cho các dòng hàng.
+- `additionalProperties: false` ở mọi nơi, chặn các trường bịa và là điều chế độ nghiêm ngặt yêu cầu.
+- Thứ tự trường như logic: bất kỳ trường `reasoning` nào trước `total` hoặc `status`, vì mô hình chốt trường đầu nó viết.
 
-In Python, a Pydantic model generates this schema; the service keeps the schema as the contract and the model as its binding.
+Trong Python, một mô hình Pydantic sinh schema này; dịch vụ giữ schema làm hợp đồng và mô hình làm binding của nó.
 
 ### The enforcement mode
 
-| Situation | Pick |
+| Tình huống | Lựa chọn |
 |---|---|
-| A hosted frontier model, a flat schema | the provider's strict schema mode |
-| Several providers, retries acceptable | a retry library over the Pydantic model, which is portable and does not touch logits |
-| A local model, validity required | a grammar engine, finite state for a flat schema and context-free for a recursive one |
+| Một mô hình tiên phong được host, một schema phẳng | chế độ schema nghiêm ngặt của nhà cung cấp |
+| Nhiều nhà cung cấp, chấp nhận thử lại | một thư viện thử lại trên mô hình Pydantic, di chuyển được và không chạm logit |
+| Một mô hình cục bộ, yêu cầu tính hợp lệ | một grammar engine, trạng thái hữu hạn cho một schema phẳng và phi ngữ cảnh cho một schema đệ quy |
 
-Strict mode is the default here: a finished output parses and validates by construction. Two failures remain: the refusal, and a response cut at the token limit, which can still fail to parse. Check the stop reason before you read the output, and send an incomplete response to the error path.
+Chế độ nghiêm ngặt là mặc định ở đây: một đầu ra hoàn tất phân tích và xác thực theo cấu tạo. Hai lỗi còn lại: từ chối, và một phản hồi bị cắt ở giới hạn token, vẫn có thể không phân tích được. Kiểm tra lý do dừng trước khi đọc đầu ra, và gửi một phản hồi chưa hoàn tất đến đường lỗi.
 
 ### Retry and refusal
 
-Outside strict mode: generate, parse, validate, inject the typed errors and retry, at most three times. More than three means the schema or the prompt is wrong for some inputs. In every mode: a refusal is a first-class outcome with a reason attached. Log it, return it typed, send it to the review queue, and never retry it, because forcing a record on an input that does not fit produces an invented record.
+Ngoài chế độ nghiêm ngặt: sinh, phân tích, xác thực, chèn các lỗi có kiểu và thử lại, tối đa ba lần. Hơn ba có nghĩa schema hoặc prompt sai cho một số đầu vào. Trong mọi chế độ: một từ chối là một kết quả hạng nhất có lý do gắn kèm. Ghi log, trả nó có kiểu, gửi đến hàng đợi đánh giá, và không bao giờ thử lại, vì ép một bản ghi trên đầu vào không phù hợp tạo một bản ghi bịa.
 
 ### Proof before accounting sees a record
 
-1. **A labeled set** of real emails with gold records; the structured outputs lesson uses 50 documents. Report exact match, accuracy per field and type compliance.
-2. **A refusal check.** Construct inputs that must not extract, such as a lyric, a proof or a blank email, and count refusals against invented outputs.
-3. **A confidence per field** from repeated extraction or token probabilities, with low-confidence records routed to a human.
-4. **A schema version** on every record, and a schema diff that separates breaking changes from non-breaking ones before any deploy.
-5. **A side-by-side run** against the human process on the labeled set, with the service writing nothing until the field-level numbers clear the bar you set with finance.
+1. **Một tập có nhãn** các email thật với các bản ghi chuẩn; bài học đầu ra có cấu trúc dùng 50 tài liệu. Báo cáo exact match, độ chính xác mỗi trường và tuân thủ kiểu.
+2. **Một kiểm tra từ chối.** Tạo các đầu vào không được trích xuất, như một lời bài hát, một chứng minh hoặc một email trống, và đếm các từ chối đối chiếu các đầu ra bịa.
+3. **Một độ tự tin mỗi trường** từ trích xuất lặp hoặc xác suất token, với các bản ghi độ tự tin thấp được định tuyến đến một người.
+4. **Một phiên bản schema** trên mọi bản ghi, và một schema diff tách các thay đổi phá vỡ khỏi các thay đổi không phá vỡ trước bất kỳ deploy nào.
+5. **Một lần chạy cạnh nhau** đối chiếu quy trình con người trên tập có nhãn, với dịch vụ không ghi gì đến khi các con số cấp trường vượt mốc bạn đặt với tài chính.
 
 ## Follow-ups
 
-- **Level 3:** Why forbid additional properties? Expected: it blocks invented fields, and strict mode requires it everywhere.
-- **Level 3:** You expect to switch providers next year. Which mode do you pick? Expected: a retry library over the Pydantic model for portability, or keep the schema identical across providers so each strict mode receives the same contract.
-- **Level 4:** How do you version the schema once records exist? Expected: a version field on each record and a schema diff that separates breaking changes from non-breaking ones. Strict mode makes every field required, so an added field is breaking too, because the records written before it do not contain it; removed fields and changed types are breaking, and relaxed constraints are not.
-- **Level 4:** Which failure can this design not remove, and where does it go? Expected: a wrong value with the right type; it goes to the field-level eval and the confidence flags, and the low-confidence records go to review.
+- **Level 3:** Tại sao cấm thuộc tính bổ sung? Expected: nó chặn các trường bịa, và chế độ nghiêm ngặt yêu cầu ở mọi nơi.
+- **Level 3:** Bạn kỳ vọng đổi nhà cung cấp năm sau. Bạn chọn chế độ nào? Expected: một thư viện thử lại trên mô hình Pydantic cho khả năng di chuyển, hoặc giữ schema giống hệt giữa các nhà cung cấp để mỗi chế độ nghiêm ngặt nhận cùng hợp đồng.
+- **Level 4:** Bạn quản lý phiên bản schema một khi các bản ghi tồn tại như thế nào? Expected: một trường phiên bản trên mỗi bản ghi và một schema diff tách các thay đổi phá vỡ khỏi không phá vỡ. Chế độ nghiêm ngặt khiến mọi trường bắt buộc, nên một trường thêm cũng phá vỡ, vì các bản ghi viết trước không chứa nó; các trường bị bỏ và kiểu thay đổi phá vỡ, và các ràng buộc nới lỏng không phá vỡ.
+- **Level 4:** Thiết kế này không thể loại bỏ lỗi nào, và nó đi đâu? Expected: một giá trị sai với kiểu đúng; nó đến đánh giá cấp trường và các cờ độ tự tin, và các bản ghi độ tự tin thấp đến đánh giá.
 
 ## Wrong answers
 
-- "Prompt for JSON and parse it, the model is good." That works 85 to 95 percent of the time and fails six different ways; accounting needs the contract.
-- "Retry refusals until the model gives a record." A refusal says the input does not fit; forcing a record invents one.
-- "Validation after generation is as good as strict mode." It is reliable but pays for every retry, and a truncated output costs a turn each time.
+- "Prompt cho JSON và phân tích nó, mô hình tốt." Điều đó hoạt động 85 đến 95 phần trăm thời gian và thất bại sáu cách khác nhau; kế toán cần hợp đồng.
+- "Thử lại các từ chối đến khi mô hình cho một bản ghi." Một từ chối nói đầu vào không phù hợp; ép một bản ghi bịa ra một bản ghi.
+- "Xác thực sau sinh tốt như chế độ nghiêm ngặt." Nó đáng tin cậy nhưng trả cho mọi lần thử lại, và một đầu ra bị cắt tốn một lượt mỗi lần.
 
 ## Taught in
 
-The lesson [structured output](../../../phases/13-tools-and-protocols/04-structured-output/) gives the schema constructs, the strict mode rules, the retry pattern and the refusal handling, the lesson [structured outputs](../../../phases/11-llm-engineering/03-structured-outputs/) sets the labeled eval and the schema diff, and the lesson [constrained decoding](../../../phases/05-nlp-foundations-to-advanced/20-structured-outputs-constrained-decoding/) gives the mode table and the field order rule.
+Bài học [đầu ra có cấu trúc](../../../phases/13-tools-and-protocols/04-structured-output/) đưa ra các cấu trúc schema, các quy tắc chế độ nghiêm ngặt, mẫu thử lại và xử lý từ chối, bài học [các đầu ra có cấu trúc](../../../phases/11-llm-engineering/03-structured-outputs/) đặt đánh giá có nhãn và schema diff, và bài học [constrained decoding](../../../phases/05-nlp-foundations-to-advanced/20-structured-outputs-constrained-decoding/) đưa ra bảng chế độ và quy tắc thứ tự trường.

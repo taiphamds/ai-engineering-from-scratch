@@ -16,45 +16,45 @@ related: [prompting-structured-output/cot-when-it-hurts]
 updated: 2026-11-03
 ---
 
-A classification prompt has eight output labels. One engineer wants twenty examples in the prompt to be safe, another wants none and a longer instruction. How many examples do you include, which ones, and what decides it?
+Một prompt phân loại có tám nhãn đầu ra. Một kỹ sư muốn hai mươi ví dụ trong prompt cho chắc, một người khác muốn không ví dụ và một instruction dài hơn. Bạn bao gồm bao nhiêu ví dụ, những ví dụ nào, và điều gì quyết định?
 
 ## Short answer
 
-Three to five for most tasks, and for a classifier with many labels one example per label, so eight here. Pick examples that are semantically close to the input and that cover every label, because similar examples beat random ones by 5 to 15 percent on classification. Below three the model has too little signal to extract the pattern; above five you pay context tokens on every call for diminishing returns.
+Ba đến năm cho phần lớn tác vụ, và với một bộ phân loại nhiều nhãn, một ví dụ mỗi nhãn, nên tám ở đây. Chọn các ví dụ gần ngữ nghĩa với đầu vào và bao phủ mọi nhãn, vì các ví dụ tương tự thắng các ví dụ ngẫu nhiên 5 đến 15 phần trăm trên phân loại. Dưới ba, mô hình có quá ít tín hiệu để trích xuất mẫu; trên năm, bạn trả token ngữ cảnh trên mọi lời gọi cho lợi ích giảm dần.
 
 ## Full answer
 
 ### Examples are compressed instructions
 
-Instead of describing the format, you show it. Instead of explaining the reasoning, you demonstrate it. The model matches a pattern more reliably than it interprets an abstract rule. On simple sentiment tasks zero-shot and few-shot land within 2 percent of each other; on multi-step arithmetic and symbolic reasoning the examples add 10 to 25 percent.
+Thay vì mô tả định dạng, bạn cho thấy nó. Thay vì giải thích suy luận, bạn minh họa nó. Mô hình khớp một mẫu đáng tin cậy hơn diễn giải một quy tắc trừu tượng. Trên các tác vụ sentiment đơn giản, zero-shot và few-shot nằm trong 2 phần trăm của nhau; trên số học nhiều bước và suy luận ký hiệu, các ví dụ thêm 10 đến 25 phần trăm.
 
 ### Which examples
 
-1. **Semantic similarity.** Pick the examples closest to the input in embedding space. At request time this means a pool of labeled examples and a nearest-neighbor selection per query.
-2. **Label diversity.** Cover every output category, or the model never sees that a label exists.
-3. **Difficulty matching.** Match the complexity of the target problem.
+1. **Độ tương tự ngữ nghĩa.** Chọn các ví dụ gần đầu vào nhất trong không gian embedding. Lúc yêu cầu, điều này có nghĩa một pool ví dụ có nhãn và một lựa chọn láng giềng gần nhất mỗi truy vấn.
+2. **Đa dạng nhãn.** Bao phủ mọi nhóm đầu ra, nếu không mô hình không bao giờ thấy một nhãn tồn tại.
+3. **Khớp độ khó.** Khớp độ phức tạp vấn đề mục tiêu.
 
 ### The cost side
 
-Few-shot adds 200 to 500 tokens to every call. Two things keep that cheap. Hold the count at the knee, three to five. And if the examples are a fixed set, put them in the stable part of the prompt, after the system message and the tool definitions and before anything that changes per request, so a prefix cache serves them at the discounted rate. Examples picked per query by nearest neighbor change between requests, and a prefix cache stops at the first differing token. Put those below the cache breakpoint: the system message and the tool definitions above them still hit, and the examples pay the full rate.
+Few-shot thêm 200 đến 500 token vào mọi lời gọi. Hai điều giữ nó rẻ. Giữ số lượng ở điểm gối, ba đến năm. Và nếu các ví dụ là một tập cố định, đặt chúng trong phần ổn định của prompt, sau system message và các định nghĩa công cụ và trước bất cứ thứ gì thay đổi mỗi yêu cầu, để một prefix cache phục vụ chúng ở giá giảm. Các ví dụ được chọn mỗi truy vấn bằng láng giềng gần nhất thay đổi giữa các yêu cầu, và một prefix cache dừng ở token khác biệt đầu tiên. Đặt chúng dưới cache breakpoint: system message và các định nghĩa công cụ phía trên vẫn cache hit, và các ví dụ trả giá đầy đủ.
 
 ### When zero-shot wins
 
-Simple factual questions, creative tasks where examples constrain the output, and tasks where finding good examples is harder than writing a good instruction. The prompt engineering lesson still recommends two or three examples for a prompt that has to behave the same across providers, because examples transfer better than instructions alone.
+Các câu hỏi sự thật đơn giản, các tác vụ sáng tạo nơi ví dụ ràng buộc đầu ra, và các tác vụ nơi tìm ví dụ tốt khó hơn viết một instruction tốt. Bài học prompt engineering vẫn khuyến nghị hai hoặc ba ví dụ cho một prompt phải hành xử giống nhau giữa các nhà cung cấp, vì các ví dụ chuyển tốt hơn chỉ instruction.
 
 ## Follow-ups
 
-- **Level 2:** When does zero-shot win? Expected: simple factual questions, creative tasks where examples constrain, and tasks where good examples are harder to find than a good instruction.
-- **Level 2:** What do examples do that an instruction cannot? Expected: they show the format and the reasoning instead of describing them, and the model matches a shown pattern more reliably than it interprets a rule.
-- **Level 3:** How do you choose the examples at request time? Expected: embed a labeled pool and select the nearest examples to the input while keeping label coverage; the lesson measured a 5 to 15 percent gain over random selection.
-- **Level 3:** The examples cost 200 to 500 tokens on every call. How do you contain that? Expected: keep the count at three to five; place a fixed set of examples in the stable prefix so the prompt cache serves them at the discounted rate, and place examples picked per query below the breakpoint, because they change on every request.
+- **Level 2:** Khi nào zero-shot thắng? Expected: các câu hỏi sự thật đơn giản, các tác vụ sáng tạo nơi ví dụ ràng buộc, và các tác vụ nơi khó tìm ví dụ tốt hơn một instruction tốt.
+- **Level 2:** Các ví dụ làm gì mà một instruction không thể? Expected: chúng cho thấy định dạng và suy luận thay vì mô tả, và mô hình khớp một mẫu được cho thấy đáng tin cậy hơn diễn giải một quy tắc.
+- **Level 3:** Bạn chọn các ví dụ lúc yêu cầu như thế nào? Expected: embed một pool có nhãn và chọn các ví dụ gần đầu vào nhất trong khi giữ bao phủ nhãn; bài học đo mức tăng 5 đến 15 phần trăm so với lựa chọn ngẫu nhiên.
+- **Level 3:** Các ví dụ tốn 200 đến 500 token trên mọi lời gọi. Bạn hạn chế điều đó như thế nào? Expected: giữ số lượng ở ba đến năm; đặt một tập ví dụ cố định trong prefix ổn định để prompt cache phục vụ ở giá giảm, và đặt các ví dụ chọn mỗi truy vấn dưới breakpoint, vì chúng thay đổi trên mọi yêu cầu.
 
 ## Wrong answers
 
-- "More examples are always safer." Above five the returns diminish and every example costs context on every call.
-- "Random examples are fine, the model generalizes." Similar examples beat random ones by 5 to 15 percent on classification.
-- "Describe the labels in detail and skip the examples." For a format-sensitive task with many labels, examples transfer the pattern better than a description, and across providers too.
+- "Nhiều ví dụ hơn luôn an toàn hơn." Trên năm, lợi ích giảm dần và mọi ví dụ tốn ngữ cảnh trên mọi lời gọi.
+- "Các ví dụ ngẫu nhiên ổn, mô hình tổng quát hóa." Các ví dụ tương tự thắng các ví dụ ngẫu nhiên 5 đến 15 phần trăm trên phân loại.
+- "Mô tả các nhãn chi tiết và bỏ ví dụ." Với một tác vụ nhạy định dạng có nhiều nhãn, các ví dụ truyền mẫu tốt hơn một mô tả, và cả giữa các nhà cung cấp.
 
 ## Taught in
 
-The lesson [few-shot and chain-of-thought](../../../phases/11-llm-engineering/02-few-shot-cot/) gives the counts and the selection principles, the lesson [prompt engineering](../../../phases/11-llm-engineering/01-prompt-engineering/) recommends examples for cross-provider prompts, and the lesson [prompt caching](../../../phases/11-llm-engineering/15-prompt-caching/) places them in the cacheable prefix.
+Bài học [few-shot và chain-of-thought](../../../phases/11-llm-engineering/02-few-shot-cot/) đưa ra các số lượng và nguyên tắc lựa chọn, bài học [prompt engineering](../../../phases/11-llm-engineering/01-prompt-engineering/) khuyến nghị các ví dụ cho các prompt xuyên nhà cung cấp, và bài học [prompt caching](../../../phases/11-llm-engineering/15-prompt-caching/) đặt chúng trong prefix có thể cache.

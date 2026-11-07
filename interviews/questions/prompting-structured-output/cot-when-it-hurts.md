@@ -16,48 +16,48 @@ related: [prompting-structured-output/self-consistency-at-temperature-zero, prom
 updated: 2026-11-03
 ---
 
-Your team adds "think step by step" to every prompt in the product, including a high-volume classifier and the calls to a reasoning model. Where does that help, where does it hurt, and why?
+Nhóm của bạn thêm "nghĩ từng bước" vào mọi prompt trong sản phẩm, gồm một bộ phân loại khối lượng cao và các lời gọi đến một mô hình suy luận. Điều đó giúp ở đâu, gây hại ở đâu, và tại sao?
 
 ## Short answer
 
-It helps on multi-step problems, where each reasoning token becomes context for the next one and the model computes its way to the answer. It hurts on simple recall and single-step classification, where it adds 50 to 200 tokens of reasoning per query for no gain, and on reasoning models, which already run a chain of thought internally and can get worse with the extra instruction. Pick the technique per task from the accuracy requirement, the latency budget and the cost.
+Nó giúp trên các vấn đề nhiều bước, nơi mỗi token suy luận thành ngữ cảnh cho token tiếp theo và mô hình tính đường đến câu trả lời. Nó gây hại trên nhớ lại đơn giản và phân loại một bước, nơi nó thêm 50 đến 200 token suy luận mỗi truy vấn không có lợi ích, và trên các mô hình suy luận, vốn đã chạy một chain of thought nội bộ và có thể tệ hơn với chỉ dẫn bổ sung. Chọn kỹ thuật theo tác vụ từ yêu cầu độ chính xác, ngân sách độ trễ và chi phí.
 
 ## Full answer
 
 ### Why it works
 
-A transformer without a visible chain has to compress all the reasoning into the hidden state of one forward pass. With the chain, the intermediate steps are tokens, and every token extends the context for the next. On the grade-school math benchmark the lesson shows one model moving from 78 percent zero-shot to 91 percent with the phrase alone and to 95 percent with worked examples.
+Một transformer không có chuỗi nhìn thấy phải nén toàn bộ suy luận vào trạng thái ẩn của một lượt forward. Với chuỗi, các bước trung gian là token, và mỗi token mở rộng ngữ cảnh cho token tiếp theo. Trên benchmark toán tiểu học, bài học cho thấy một mô hình chuyển từ 78 phần trăm zero-shot lên 91 phần trăm chỉ với cụm từ và lên 95 phần trăm với các ví dụ có lời giải.
 
 ### Where it does not pay
 
-- **Simple factual recall and single-step classification.** There is nothing to reason through, and the chain is pure overhead.
-- **High-throughput, low-complexity tasks.** The 50 to 200 extra tokens on every call are cost and latency.
-- **Reasoning models.** They run the chain internally before they answer; the instruction is redundant and sometimes counterproductive.
-- **Wide search problems.** On the lesson's arithmetic puzzle, standard prompting solved 7.3 percent of cases, a single chain solved 4.0 percent, and a tree search over branches solved 74 percent.
+- **Nhớ lại sự thật đơn giản và phân loại một bước.** Không có gì để suy luận qua, và chuỗi là chi phí thuần.
+- **Các tác vụ thông lượng cao, độ phức tạp thấp.** 50 đến 200 token thêm trên mọi lời gọi là chi phí và độ trễ.
+- **Các mô hình suy luận.** Chúng chạy chuỗi nội bộ trước khi trả lời; chỉ dẫn dư thừa và đôi khi phản tác dụng.
+- **Các vấn đề tìm kiếm rộng.** Trên câu đố số học của bài học, prompting tiêu chuẩn giải 7.3 phần trăm trường hợp, một chuỗi đơn giải 4.0 phần trăm, và một tìm kiếm cây trên các nhánh giải 74 phần trăm.
 
 ### Choose per task
 
-| Technique | Calls | Token overhead | Fits |
+| Kỹ thuật | Lời gọi | Chi phí token bổ sung | Phù hợp |
 |---|---|---|---|
-| Zero-shot | 1 | none | simple tasks |
-| Few-shot | 1 | 200 to 500 tokens | format matching |
-| Zero-shot chain | 1 | 50 to 200 tokens | a quick reasoning lift |
-| Few-shot chain | 1 | 300 to 600 tokens | the best single call |
-| Self-consistency with 5 samples | 5 | five times the tokens | high-stakes reasoning |
+| Zero-shot | 1 | không có | các tác vụ đơn giản |
+| Few-shot | 1 | 200 đến 500 token | khớp định dạng |
+| Chuỗi zero-shot | 1 | 50 đến 200 token | tăng suy luận nhanh |
+| Chuỗi few-shot | 1 | 300 đến 600 token | lời gọi đơn tốt nhất |
+| Self-consistency với 5 mẫu | 5 | token gấp năm | suy luận hệ trọng |
 
 ## Follow-ups
 
-- **Level 1:** Why does writing the steps out raise accuracy? Expected: each reasoning token becomes context for the next token, so the model computes the answer in steps instead of in one pass.
-- **Level 2:** What does the classifier pay for the extra phrase? Expected: 50 to 200 tokens of reasoning per query, which at volume is cost and latency for no accuracy gain.
-- **Level 2:** Why leave the phrase out for a reasoning model? Expected: it already runs its chain internally before the answer, so the instruction is redundant and sometimes counterproductive.
-- **Level 3:** Is there a task where a single chain is worse than a plain answer? Expected: yes, the lesson's search puzzle, where the chain solved fewer cases than standard prompting and a tree search solved most.
+- **Level 1:** Tại sao viết các bước ra tăng độ chính xác? Expected: mỗi token suy luận thành ngữ cảnh cho token tiếp theo, nên mô hình tính câu trả lời theo bước thay vì trong một lượt.
+- **Level 2:** Bộ phân loại trả gì cho cụm từ thêm? Expected: 50 đến 200 token suy luận mỗi truy vấn, ở khối lượng lớn là chi phí và độ trễ mà không tăng độ chính xác.
+- **Level 2:** Tại sao bỏ cụm từ cho một mô hình suy luận? Expected: nó đã chạy chuỗi nội bộ trước câu trả lời, nên chỉ dẫn dư thừa và đôi khi phản tác dụng.
+- **Level 3:** Có tác vụ nào một chuỗi đơn tệ hơn một câu trả lời thường? Expected: có, câu đố tìm kiếm của bài học, nơi chuỗi giải ít trường hợp hơn prompting tiêu chuẩn và một tìm kiếm cây giải phần lớn.
 
 ## Wrong answers
 
-- "It never hurts, worst case it is neutral." It costs tokens on every call, and it lowered accuracy on the wide search puzzle and on reasoning models.
-- "Few-shot and chain of thought are the same thing." Few-shot shows examples; chain of thought shows reasoning; the two combine into few-shot chain of thought.
-- "Always run it at temperature zero." A single chain at zero is fine, but sampling several chains for a vote needs temperature above zero, or every sample is identical.
+- "Nó không bao giờ gây hại, trường hợp tệ nhất là trung tính." Nó tốn token trên mọi lời gọi, và giảm độ chính xác trên câu đố tìm kiếm rộng và trên các mô hình suy luận.
+- "Few-shot và chain of thought là cùng thứ." Few-shot cho ví dụ; chain of thought cho suy luận; hai thứ kết hợp thành few-shot chain of thought.
+- "Luôn chạy nó ở temperature không." Một chuỗi đơn ở không ổn, nhưng lấy mẫu nhiều chuỗi cho một phiếu bầu cần temperature trên không, nếu không mọi mẫu giống hệt.
 
 ## Taught in
 
-The lesson [few-shot and chain-of-thought](../../../phases/11-llm-engineering/02-few-shot-cot/) gives the mechanism, the benchmark table, the cases where the chain hurts and the technique comparison.
+Bài học [few-shot và chain-of-thought](../../../phases/11-llm-engineering/02-few-shot-cot/) đưa ra cơ chế, bảng benchmark, các trường hợp chuỗi gây hại và so sánh kỹ thuật.

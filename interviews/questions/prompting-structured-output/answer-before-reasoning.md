@@ -16,46 +16,46 @@ related: [prompting-structured-output/json-mode-is-not-a-schema, prompting-struc
 updated: 2026-11-03
 ---
 
-A classifier uses constrained decoding with a schema of two fields, `answer` and `reasoning`, in that order. The output is always valid JSON and the accuracy is worse than the free-text version was. What is wrong?
+Một bộ phân loại dùng constrained decoding với một schema có hai trường, `answer` và `reasoning`, theo thứ tự đó. Đầu ra luôn là JSON hợp lệ và độ chính xác tệ hơn phiên bản văn bản tự do trước đó. Điều gì sai?
 
 ## Short answer
 
-The field order. The model commits to the answer before it writes any reasoning, so the reasoning tokens never shape the answer, and you lose the gain that step-by-step gives. Put `reasoning` first and `answer` last; the schema stays valid, and no validator will ever flag the difference, because the order is logic and not formatting.
+Thứ tự trường. Mô hình chốt câu trả lời trước khi viết bất kỳ suy luận nào, nên các token suy luận không bao giờ định hình câu trả lời, và bạn mất mức tăng mà từng bước mang lại. Đặt `reasoning` trước và `answer` cuối; schema giữ hợp lệ, và không bộ xác thực nào từng gắn cờ khác biệt, vì thứ tự là logic chứ không phải định dạng.
 
 ## Full answer
 
 ### The pitfall
 
-The constrained decoding lesson calls it the pitfall that costs you. With `answer` first, the model writes the decision token at the first position where the grammar allows it, and the reasoning that follows is a story about a choice already made. With `reasoning` first, the chain comes before the decision, and the decision token is conditioned on it. Both documents validate. Only one is right.
+Bài học constrained decoding gọi nó là cạm bẫy khiến bạn trả giá. Với `answer` trước, mô hình viết token quyết định ở vị trí đầu ngữ pháp cho phép, và suy luận theo sau là một câu chuyện về một lựa chọn đã đưa ra. Với `reasoning` trước, chuỗi đến trước quyết định, và token quyết định được điều kiện hóa trên nó. Cả hai tài liệu xác thực. Chỉ một đúng.
 
-The lesson's skill refuses any design that puts an `answer` or `decision` field before the reasoning fields.
+Skill của bài học từ chối bất kỳ thiết kế nào đặt một trường `answer` hoặc `decision` trước các trường suy luận.
 
 ### Neighbors of the same mistake
 
-| Schema choice | What goes wrong | Fix |
+| Lựa chọn schema | Điều gì sai | Cách sửa |
 |---|---|---|
-| A strict pattern for a value that can be missing, such as a date | the model invents a value to satisfy the grammar | allow null or a sentinel |
-| A field left optional that matters | the model omits it when it is inconvenient | make it required and allow null, so the absence is explicit |
-| Nesting four levels deep or more | each level is one more place to lose the structure | flatten |
-| An enum with thousands of options | the grammar compiles slowly or times out | predict a short list of candidates first, then constrain to it |
+| Một pattern nghiêm ngặt cho một giá trị có thể thiếu, như một ngày | mô hình bịa một giá trị để thỏa ngữ pháp | cho phép null hoặc một sentinel |
+| Một trường quan trọng bị để tùy chọn | mô hình bỏ nó khi bất tiện | làm nó bắt buộc và cho phép null, để sự vắng mặt tường minh |
+| Lồng sâu bốn cấp trở lên | mỗi cấp là thêm một nơi mất cấu trúc | làm phẳng |
+| Một enum có hàng nghìn lựa chọn | ngữ pháp biên dịch chậm hoặc timeout | dự đoán một danh sách ứng viên ngắn trước, rồi ràng buộc vào nó |
 
 ### Why the unconstrained reply did better
 
-A free-text reply tends to explain before it concludes, so it had the chain by accident. The constrained schema removed it. The fix restores it on purpose.
+Một phản hồi văn bản tự do có xu hướng giải thích trước khi kết luận, nên nó tình cờ có chuỗi. Schema ràng buộc loại bỏ nó. Cách sửa khôi phục nó có chủ đích.
 
 ## Follow-ups
 
-- **Level 2:** Why can no validator catch this? Expected: both orders are valid against the schema; the harm is in what the model has seen when it writes the answer token.
-- **Level 2:** The schema forces a date pattern and the model fills in dates that are not in the text. Which related mistake is that? Expected: a grammar too strict for missing data; allow null or a sentinel so the model does not invent a value.
-- **Level 3:** A field is optional and the model leaves it out when it matters. What do you change? Expected: make it required and allow null, so the model has to state that the value is missing.
-- **Level 3:** The schema nests four levels deep and errors rise. What do you do? Expected: flatten, because each level of nesting is one more place to lose track of the structure.
+- **Level 2:** Tại sao không bộ xác thực nào có thể bắt điều này? Expected: cả hai thứ tự hợp lệ theo schema; tác hại nằm ở những gì mô hình đã thấy khi viết token câu trả lời.
+- **Level 2:** Schema ép một pattern ngày và mô hình điền các ngày không có trong văn bản. Đó là sai lầm liên quan nào? Expected: một ngữ pháp quá nghiêm ngặt cho dữ liệu thiếu; cho phép null hoặc một sentinel để mô hình không bịa một giá trị.
+- **Level 3:** Một trường tùy chọn và mô hình bỏ nó khi nó quan trọng. Bạn thay đổi gì? Expected: làm nó bắt buộc và cho phép null, để mô hình phải nêu giá trị thiếu.
+- **Level 3:** Schema lồng sâu bốn cấp và lỗi tăng. Bạn làm gì? Expected: làm phẳng, vì mỗi cấp lồng là thêm một nơi mất dấu cấu trúc.
 
 ## Wrong answers
 
-- "Constrained decoding guarantees a correct output." It guarantees the shape; the lesson shows valid JSON with a wrong answer.
-- "Order does not matter in JSON." It does not matter to the parser; it matters to the model, which writes the fields in order.
-- "Add a check that the reasoning supports the answer." That is an eval, not a fix; the fix is to generate the reasoning first.
+- "Constrained decoding bảo đảm một đầu ra đúng." Nó bảo đảm hình dạng; bài học cho thấy JSON hợp lệ với một đáp án sai.
+- "Thứ tự không quan trọng trong JSON." Nó không quan trọng với parser; nó quan trọng với mô hình, viết các trường theo thứ tự.
+- "Thêm một kiểm tra rằng suy luận hỗ trợ câu trả lời." Đó là một đánh giá, không phải một cách sửa; cách sửa là sinh suy luận trước.
 
 ## Taught in
 
-The lesson [constrained decoding](../../../phases/05-nlp-foundations-to-advanced/20-structured-outputs-constrained-decoding/) names the field order pitfall and the strict grammar pitfall, and the lesson [structured outputs](../../../phases/11-llm-engineering/03-structured-outputs/) covers nesting depth and optional fields.
+Bài học [constrained decoding](../../../phases/05-nlp-foundations-to-advanced/20-structured-outputs-constrained-decoding/) nêu cạm bẫy thứ tự trường và cạm bẫy ngữ pháp nghiêm ngặt, và bài học [đầu ra có cấu trúc](../../../phases/11-llm-engineering/03-structured-outputs/) trình bày độ sâu lồng và các trường tùy chọn.

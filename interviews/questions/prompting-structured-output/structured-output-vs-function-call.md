@@ -16,46 +16,46 @@ related: [prompting-structured-output/tool-description-is-a-prompt, prompting-st
 updated: 2026-11-03
 ---
 
-You need two things from the same model: a typed summary of a support ticket, and the ability to look up the customer's account during the conversation. A teammate wants to build both as tools. Which mechanism fits each, and why does the distinction matter?
+Bạn cần hai thứ từ cùng một mô hình: một bản tóm tắt có kiểu của một phiếu hỗ trợ, và khả năng tra cứu tài khoản khách hàng trong cuộc hội thoại. Một đồng đội muốn xây dựng cả hai dưới dạng công cụ. Cơ chế nào phù hợp với từng thứ, và tại sao sự phân biệt này quan trọng?
 
 ## Short answer
 
-The ticket summary is structured output: the typed data is the final product, so use the schema mode and validate it. The account lookup is a function call: the model declares an intent to act, your code executes it and feeds the result back, so the output is an intermediate step. The two share the JSON Schema machinery but differ in what happens next, and mixing them hides which outputs are data and which are actions your code runs.
+Bản tóm tắt phiếu là structured output: dữ liệu có kiểu là sản phẩm cuối cùng, nên dùng chế độ schema và xác thực nó. Việc tra cứu tài khoản là một function call: mô hình khai báo ý định hành động, mã của bạn thực thi nó và đưa kết quả trở lại, nên đầu ra là một bước trung gian. Cả hai dùng chung cơ chế JSON Schema nhưng khác nhau ở điều xảy ra tiếp theo, và trộn lẫn chúng che khuất đầu ra nào là dữ liệu và đầu ra nào là hành động mà mã của bạn chạy.
 
 ## Full answer
 
 ### Two uses of one mechanism
 
-| | Structured output | Function call |
+| | Đầu ra có cấu trúc | Lệnh gọi hàm |
 |---|---|---|
-| What the model emits | a record that matches a schema | a function name and typed arguments |
-| What happens next | your code validates and stores it | your code executes it and returns the result to the model |
-| The output is | the final product | an intermediate step |
-| Fits | extraction, classification, typed summaries | lookups, writes, anything that touches another system |
+| Mô hình phát ra gì | một bản ghi khớp với một schema | một tên hàm và các đối số có kiểu |
+| Điều gì xảy ra tiếp theo | mã của bạn xác thực và lưu nó | mã của bạn thực thi nó và trả kết quả về mô hình |
+| Đầu ra là | sản phẩm cuối cùng | một bước trung gian |
+| Phù hợp với | trích xuất, phân loại, các bản tóm tắt có kiểu | tra cứu, ghi, bất cứ thứ gì chạm vào hệ thống khác |
 
-The function calling lesson states the rule: use structured outputs when you want data, use function calling when you want the model to interact with an external system. The model never executes anything; it only decides what to call and with what arguments.
+Bài học về function calling nêu quy tắc: dùng structured outputs khi bạn muốn dữ liệu, dùng function calling khi bạn muốn mô hình tương tác với một hệ thống bên ngoài. Mô hình không bao giờ thực thi bất cứ thứ gì; nó chỉ quyết định gọi gì và với những đối số nào.
 
 ### When tool use is the right way to get data
 
-The structured outputs lesson gives the exception. When the model has to choose among several schemas based on the input, for example 10 extraction schemas, tool use gives you the selection and the structure in one step. One provider also delivers its schema mode through tool use, with the schema on the tool input. In that case name the tool for the data it returns, never execute it, and route its arguments straight to the validator.
+Bài học về structured outputs đưa ra ngoại lệ. Khi mô hình phải chọn giữa nhiều schema dựa trên đầu vào, chẳng hạn 10 schema trích xuất, việc dùng công cụ cho bạn cả sự lựa chọn và cấu trúc trong một bước. Một nhà cung cấp cũng cung cấp chế độ schema thông qua việc dùng công cụ, với schema trên đầu vào của công cụ. Trong trường hợp đó, đặt tên công cụ theo dữ liệu nó trả về, không bao giờ thực thi nó, và chuyển thẳng các đối số của nó tới bộ xác thực.
 
 ### Why the distinction matters in code
 
-A record gets schema validation and a semantic check. An action gets argument validation, an allowlist, result sanitizing and a call budget before anything runs, because the model chose what to execute. If the summary and the lookup live in one registry, the security rules for actions either cover data they do not need to, or miss an action they should.
+Một bản ghi được xác thực schema và kiểm tra ngữ nghĩa. Một hành động được xác thực đối số, áp dụng danh sách cho phép, làm sạch kết quả và ngân sách lệnh gọi trước khi bất cứ thứ gì chạy, vì mô hình đã chọn thứ sẽ thực thi. Nếu bản tóm tắt và việc tra cứu nằm trong một registry, các quy tắc bảo mật cho hành động hoặc bao phủ dữ liệu mà chúng không cần bao phủ, hoặc bỏ sót một hành động mà chúng nên bao phủ.
 
 ## Follow-ups
 
-- **Level 2:** When is tool use the right way to get structured data? Expected: when the model must pick one of several schemas from the input; the lesson's example is 10 extraction schemas, where tool use gives the selection and the structure together.
-- **Level 2:** In the lookup case, who runs the function? Expected: your code; the model emits the name and the arguments, and the result goes back as a message.
-- **Level 3:** What differs in validation between the two? Expected: data gets schema validation and a semantic check; an action gets argument validation, an allowlist and a call budget before it runs.
-- **Level 3:** A provider offers schema output only through tool use. How do you keep the distinction? Expected: name the tool for the data it returns, never execute it, send its arguments to the validator as the final record, and keep real actions in a separate registry.
+- **Level 2:** Khi nào dùng công cụ là cách phù hợp để lấy dữ liệu có cấu trúc? Expected: khi mô hình phải chọn một trong nhiều schema từ đầu vào; ví dụ của bài học là 10 schema trích xuất, trong đó việc dùng công cụ cho cả sự lựa chọn và cấu trúc cùng nhau.
+- **Level 2:** Trong trường hợp tra cứu, ai chạy hàm? Expected: mã của bạn; mô hình phát ra tên và các đối số, và kết quả quay lại dưới dạng một thông điệp.
+- **Level 3:** Việc xác thực giữa hai thứ khác nhau ở đâu? Expected: dữ liệu được xác thực schema và kiểm tra ngữ nghĩa; một hành động được xác thực đối số, áp dụng danh sách cho phép và ngân sách lệnh gọi trước khi nó chạy.
+- **Level 3:** Một nhà cung cấp chỉ cung cấp đầu ra schema thông qua việc dùng công cụ. Bạn giữ sự phân biệt bằng cách nào? Expected: đặt tên công cụ theo dữ liệu nó trả về, không bao giờ thực thi nó, gửi các đối số của nó tới bộ xác thực như bản ghi cuối cùng, và giữ các hành động thực sự trong một registry riêng.
 
 ## Wrong answers
 
-- "They are the same thing with different names." They share the schema machinery; one produces the final data, the other requests an action your code performs.
-- "Use function calling for everything, it is more flexible." Every tool is an executable surface with security rules; data extraction does not need one.
-- "The model runs the lookup itself." The model never executes anything; it emits a call and your code is the executor.
+- "Chúng là cùng một thứ với các tên khác nhau." Chúng dùng chung cơ chế schema; một thứ tạo ra dữ liệu cuối cùng, thứ còn lại yêu cầu một hành động mà mã của bạn thực hiện.
+- "Dùng function calling cho mọi thứ, nó linh hoạt hơn." Mọi công cụ là một bề mặt có thể thực thi với các quy tắc bảo mật; trích xuất dữ liệu không cần một thứ như vậy.
+- "Mô hình tự chạy việc tra cứu." Mô hình không bao giờ thực thi bất cứ thứ gì; nó phát ra một lệnh gọi và mã của bạn là bộ thực thi.
 
 ## Taught in
 
-The lesson [function calling](../../../phases/11-llm-engineering/09-function-calling/) separates data from action and gives the five-step loop, and the lesson [structured outputs](../../../phases/11-llm-engineering/03-structured-outputs/) covers tool use as a way to choose among schemas.
+Bài học [function calling](../../../phases/11-llm-engineering/09-function-calling/) tách dữ liệu khỏi hành động và cung cấp vòng lặp năm bước, và bài học [structured outputs](../../../phases/11-llm-engineering/03-structured-outputs/) trình bày việc dùng công cụ như một cách chọn giữa các schema.
