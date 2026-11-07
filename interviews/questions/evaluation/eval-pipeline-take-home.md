@@ -16,48 +16,48 @@ related: [evaluation/regression-gate-ci, evaluation/perplexity-padding-and-shift
 updated: 2026-11-03
 ---
 
-Take home. We give you a small instruction tuned model, a held out corpus, a set of short factual prompts with gold answers, a set of open form prompts with reference answers, and no network access. Build an evaluation pipeline that reports more than one number and explains its aggregate, and describe how it would run in CI once a network and a judge model are available. What do you deliver, and what do you leave out on purpose?
+Bài làm ở nhà. Chúng tôi cho bạn một mô hình nhỏ đã instruction-tune, một corpus giữ lại, một tập prompt thực tế ngắn với các câu trả lời chuẩn, một tập prompt dạng mở với các câu trả lời tham chiếu, và không có truy cập mạng. Xây dựng một pipeline đánh giá báo cáo nhiều hơn một con số và giải thích điểm tổng hợp của nó, và mô tả nó sẽ chạy trong CI như thế nào khi có mạng và một mô hình chấm. Bạn bàn giao gì, và bạn chủ ý bỏ gì?
 
 ## Short answer
 
-Deliver one runnable file with four evals: held out perplexity with honest token accounting, normalized exact match on the factual set, token F1 on the open form set, and a deterministic mock judge on a 1 to 5 scale with the same interface a real judge will have. Report every per eval number, a weighted aggregate with the weights in a config, and per example records for diagnosis. Leave out the real judge, intervals on the aggregate and anything that needs a network, and say so in the readme.
+Bàn giao một file chạy được với bốn đánh giá: perplexity trên tập giữ lại với việc tính token trung thực, exact match đã chuẩn hóa trên tập thực tế, token F1 trên tập dạng mở, và một bộ chấm giả lập có tính xác định trên một thang 1 đến 5 với cùng giao diện một bộ chấm thật sẽ có. Báo cáo mọi con số theo đánh giá, một điểm tổng hợp có trọng số với các trọng số trong một cấu hình, và các bản ghi theo ví dụ để chẩn đoán. Bỏ bộ chấm thật, các khoảng trên điểm tổng hợp và bất cứ thứ gì cần mạng, và nói vậy trong readme.
 
 ## Full answer
 
 ### The four evals
 
-Each eval covers a dimension the others miss. Perplexity says whether the model fits the language at all. Exact match says whether it produces the gold string on short answers. Token F1 forgives paraphrase on open answers. The judge scores quality that string metrics cannot see. Each is a function from the model and a dataset to a result with the metric, the per example details and a name.
+Mỗi đánh giá bao phủ một chiều mà các đánh giá khác bỏ sót. Perplexity nói liệu mô hình có khớp ngôn ngữ hay không. Exact match nói liệu nó có tạo chuỗi chuẩn trên các câu trả lời ngắn không. Token F1 bỏ qua khác biệt diễn đạt trên các câu trả lời mở. Bộ chấm chấm chất lượng mà các metric chuỗi không thấy được. Mỗi đánh giá là một hàm từ mô hình và một dataset đến một kết quả với metric, các chi tiết theo ví dụ và một tên.
 
 ### The details a reviewer checks
 
-- **Perplexity.** Sum the loss over real target positions, exclude pad targets from the denominator, shift the targets by one, divide once at the end.
-- **Normalization.** Lowercase, strip, collapse whitespace, drop trailing terminal punctuation when the sides differ only by it. Token F1 is one when both sides are empty and zero when only one is.
-- **Mock judge.** A 5 when the normalized strings match, a 4 at token F1 of at least 0.8, a 3 between 0.5 and 0.8, a 2 between 0.2 and 0.5, a 1 otherwise, with a one line rationale. It is not a judge. It fixes the interface so a real model is a one function swap.
+- **Perplexity.** Cộng loss trên các vị trí mục tiêu thật, loại các mục tiêu pad khỏi mẫu số, dịch các mục tiêu một vị trí, chia một lần lúc cuối.
+- **Chuẩn hóa.** Chuyển chữ thường, bỏ khoảng trắng hai đầu, gộp khoảng trắng, bỏ dấu câu kết thúc ở cuối khi hai phía chỉ khác bởi nó. Token F1 bằng một khi cả hai phía rỗng và không khi chỉ một phía rỗng.
+- **Bộ chấm giả lập.** Mức 5 khi các chuỗi đã chuẩn hóa khớp, mức 4 tại token F1 ít nhất 0.8, mức 3 giữa 0.5 và 0.8, mức 2 giữa 0.2 và 0.5, mức 1 trong trường hợp khác, với một lý do một dòng. Nó không phải một bộ chấm. Nó cố định giao diện để một mô hình thật là việc thay một hàm.
 
 ### The aggregate
 
-Normalize each eval into the unit range: perplexity as one over one plus the log of perplexity, exact match and F1 as they are, the judge divided by 5. The default weights are 0.2, 0.3, 0.3 and 0.2. Put them in a config and print them in the report, because the choice is a product decision, not a fact. Write the report with stable JSON keys and a table for the terminal.
+Chuẩn hóa mỗi đánh giá vào khoảng đơn vị: perplexity thành một chia một cộng log của perplexity, exact match và F1 giữ nguyên, bộ chấm chia cho 5. Các trọng số mặc định là 0.2, 0.3, 0.3 và 0.2. Đặt chúng trong một cấu hình và in chúng trong báo cáo, vì lựa chọn là một quyết định sản phẩm, không phải một sự thật. Viết báo cáo với các khóa JSON ổn định và một bảng cho terminal.
 
 ### The CI story
 
-When a network exists, swap the mock judge for a real one and calibrate it against at least 50 hand labeled cases, with a Spearman correlation of 0.7 or more, before its scores gate anything. Grow the suite to about 200 cases, compare two runs with Wilson and bootstrap intervals, block on a regression beyond 0.3 on any criterion, trigger on prompt and model paths, and upload the report as an artifact.
+Khi có mạng, thay bộ chấm giả lập bằng một bộ chấm thật và hiệu chuẩn nó với ít nhất 50 trường hợp gán nhãn tay, với tương quan Spearman 0.7 hoặc hơn, trước khi các điểm của nó kiểm soát bất cứ thứ gì. Phát triển bộ đánh giá đến khoảng 200 trường hợp, so sánh hai lần chạy với các khoảng Wilson và bootstrap, chặn khi có thoái lui quá 0.3 trên bất kỳ tiêu chí nào, kích hoạt trên các đường dẫn prompt và mô hình, và tải báo cáo lên dưới dạng một artifact.
 
 ### What to leave out and why
 
-The real judge, because there is no network and no human labels to calibrate it. Intervals on the aggregate, because the weights make it a product number; put intervals on the components. Contamination checks, because the training corpus is not provided. Say each omission in the readme.
+Bộ chấm thật, vì không có mạng và không có nhãn con người để hiệu chuẩn nó. Các khoảng trên điểm tổng hợp, vì các trọng số làm nó thành một con số sản phẩm; đặt các khoảng trên các thành phần. Các phép kiểm tra nhiễm bẩn, vì corpus huấn luyện không được cung cấp. Nêu mỗi sự bỏ sót trong readme.
 
 ## Follow-ups
 
-- **Level 3:** Why keep a mock judge in the deliverable at all? Expected: it fixes the interface and the aggregation path so the real judge is a one function swap, and it keeps the loop runnable offline.
-- **Level 3:** Why is the weighted mean a product decision? Expected: weights encode what the product values; the pipeline exposes them in config and reports every component so a reviewer can see what the aggregate hides.
-- **Level 4:** What is the first thing you add when a network appears? Expected: a real judge behind the same function, then a calibration run against hand labels before any of its scores gate anything.
+- **Level 3:** Tại sao giữ một bộ chấm giả lập trong sản phẩm bàn giao? Expected: nó cố định giao diện và đường tổng hợp để bộ chấm thật là việc thay một hàm, và nó giữ vòng lặp chạy được offline.
+- **Level 3:** Tại sao trung bình có trọng số là một quyết định sản phẩm? Expected: các trọng số mã hóa điều sản phẩm coi trọng; pipeline cung cấp chúng trong cấu hình và báo cáo mọi thành phần để một người rà soát có thể thấy điều điểm tổng hợp che giấu.
+- **Level 4:** Điều đầu tiên bạn thêm khi có mạng là gì? Expected: một bộ chấm thật đằng sau cùng hàm, rồi một lần chạy hiệu chuẩn với nhãn tay trước khi bất kỳ điểm nào của nó kiểm soát bất cứ thứ gì.
 
 ## Wrong answers
 
-- "One accuracy number is the deliverable." A single metric never describes a model; the brief asks for several and for an explanation of the aggregate.
-- "Skip perplexity, it is not a task metric." It is the cheapest check that the model fits the language at all, and wrong accounting there is what a reviewer looks for.
-- "Hard code the weights." The weights are the product decision; expose them and print them next to the numbers.
+- "Một con số độ chính xác là sản phẩm bàn giao." Một metric duy nhất không bao giờ mô tả một mô hình; đề bài yêu cầu nhiều metric và một giải thích điểm tổng hợp.
+- "Bỏ perplexity, nó không phải một metric nhiệm vụ." Nó là phép kiểm tra rẻ nhất rằng mô hình khớp ngôn ngữ, và tính sai ở đó là điều một người rà soát tìm.
+- "Ghi cứng các trọng số." Các trọng số là quyết định sản phẩm; đưa chúng ra và in chúng cạnh các con số.
 
 ## Taught in
 
-The [eval pipeline capstone](../../../phases/19-capstone-projects/41-eval-pipeline/) builds the four evals and the aggregator, the [evaluation and testing lesson](../../../phases/11-llm-engineering/10-evaluation/) adds the CI gate, and the [LLM evaluation frameworks lesson](../../../phases/05-nlp-foundations-to-advanced/27-llm-evaluation-frameworks/) gives the judge calibration rules.
+[Capstone pipeline đánh giá](../../../phases/19-capstone-projects/41-eval-pipeline/) xây dựng bốn đánh giá và bộ tổng hợp, [bài học đánh giá và kiểm thử](../../../phases/11-llm-engineering/10-evaluation/) thêm cổng CI, và [bài học các framework đánh giá LLM](../../../phases/05-nlp-foundations-to-advanced/27-llm-evaluation-frameworks/) đưa ra các quy tắc hiệu chuẩn bộ chấm.

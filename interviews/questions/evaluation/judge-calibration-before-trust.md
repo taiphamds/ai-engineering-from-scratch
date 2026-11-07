@@ -16,46 +16,46 @@ related: [evaluation/pick-the-eval-method]
 updated: 2026-11-03
 ---
 
-You wrote a rubric, and a judge model now scores faithfulness for your retrieval system. The dashboard shows a high mean, and the team wants to use it as the release gate from Monday. What has to happen before this number can block or approve a release?
+Bạn viết một rubric, và một mô hình chấm giờ chấm tính trung thành cho hệ thống truy xuất của bạn. Dashboard hiển thị một trung bình cao, và nhóm muốn dùng nó làm cổng phát hành từ thứ Hai. Điều gì phải xảy ra trước khi con số này có thể chặn hoặc phê duyệt một bản phát hành?
 
 ## Short answer
 
-Calibrate the judge against people first. Hand label about 100 cases, score them with the judge, and compute the Spearman correlation between the two rankings. Below 0.7 the rubric needs work and the number is noise. Then freeze the judge model and version, and read the bottom scores as well as the mean.
+Hiệu chuẩn bộ chấm với con người trước. Gán nhãn tay khoảng 100 trường hợp, chấm chúng bằng bộ chấm, và tính tương quan Spearman giữa hai thứ hạng. Dưới 0.7 rubric cần chỉnh sửa và con số là nhiễu. Rồi đóng băng mô hình chấm và phiên bản, và đọc các điểm thấp nhất cũng như trung bình.
 
 ## Full answer
 
 ### Why a raw judge score lies
 
-A judge fails in three silent ways. It carries biases: it prefers longer answers, answers from its own model family and answers that match the prompt style. It can return bad JSON, which becomes a missing score that drops out of the aggregate and raises the mean. It drifts: a new judge version changes every metric at once.
+Một bộ chấm thất bại theo ba cách âm thầm. Nó mang thiên lệch: nó thích các câu trả lời dài hơn, các câu trả lời từ họ mô hình riêng và các câu trả lời khớp phong cách prompt. Nó có thể trả về JSON xấu, trở thành một điểm thiếu bị bỏ khỏi tổng hợp và nâng trung bình. Nó thay đổi dần: một phiên bản bộ chấm mới thay đổi mọi metric cùng lúc.
 
 ### The calibration run
 
-1. Label at least 50 cases by hand; the lesson uses 100. Cover the bottom of the distribution, not only easy cases.
-2. Score the same cases with the judge.
-3. Plot judge against human and compute the Spearman rank correlation.
-4. A correlation below 0.7 means the rubric needs work. A judge at 0.3 is noise.
+1. Gán nhãn tay ít nhất 50 trường hợp; bài học dùng 100. Bao phủ phần đáy phân phối, không chỉ các trường hợp dễ.
+2. Chấm cùng các trường hợp bằng bộ chấm.
+3. Vẽ bộ chấm so với con người và tính tương quan hạng Spearman.
+4. Một tương quan dưới 0.7 nghĩa là rubric cần chỉnh sửa. Một bộ chấm ở 0.3 là nhiễu.
 
-Use a judge from a different model family than the generator. A model that grades its own family inflates the score by about 10 to 20 percent.
+Dùng một bộ chấm từ một họ mô hình khác với bộ sinh. Một mô hình chấm họ riêng của nó thổi phồng điểm khoảng 10 đến 20 phần trăm.
 
 ### After the run
 
-- Freeze the judge model and version. When you upgrade, run the old and the new judge on the same baseline before you compare anything.
-- Inspect the bottom quantile. A mean of 0.85 can hide a 5 percent slice of catastrophic failures.
-- Version the eval set and tag it with every change, so that a score this month means the same as a score last month.
+- Đóng băng mô hình chấm và phiên bản. Khi bạn nâng cấp, chạy bộ chấm cũ và mới trên cùng baseline trước khi so sánh bất cứ thứ gì.
+- Kiểm tra phân vị đáy. Một trung bình 0.85 có thể che giấu một phần 5 phần trăm các thất bại thảm họa.
+- Quản lý phiên bản tập đánh giá và gắn thẻ nó với mọi thay đổi, để một điểm tháng này có cùng nghĩa với một điểm tháng trước.
 
 ## Follow-ups
 
-- **Level 2:** Why Spearman and not the mean difference between judge and human scores? Expected: Spearman compares rankings, so a judge that is harsh but orders the cases the same way still passes.
-- **Level 2:** What is the smallest hand labeled set the lesson accepts? Expected: it refuses a judge tested on fewer than 50 human labeled examples.
-- **Level 3:** The judge is the same model that writes the answers. What will the calibration run probably show? Expected: inflated scores by about 10 to 20 percent; switch the judge to another model family.
-- **Level 3:** The correlation passes, but the bottom decile holds confident wrong scores. Do you ship? Expected: no; the mean correlation can hide catastrophic failures, so inspect the lowest 10 percent before the number gates anything.
+- **Level 2:** Tại sao Spearman chứ không phải chênh lệch trung bình giữa điểm bộ chấm và con người? Expected: Spearman so sánh thứ hạng, vì vậy một bộ chấm khắt khe nhưng sắp xếp các trường hợp cùng cách vẫn đạt.
+- **Level 2:** Tập gán nhãn tay nhỏ nhất bài học chấp nhận là gì? Expected: nó từ chối một bộ chấm được kiểm thử trên ít hơn 50 ví dụ do con người gán nhãn.
+- **Level 3:** Bộ chấm là cùng mô hình viết các câu trả lời. Lần hiệu chuẩn có lẽ sẽ cho thấy gì? Expected: các điểm bị thổi phồng khoảng 10 đến 20 phần trăm; chuyển bộ chấm sang một họ mô hình khác.
+- **Level 3:** Tương quan đạt, nhưng nhóm mười phần trăm thấp nhất chứa các điểm tự tin nhưng sai. Bạn có phát hành không? Expected: không; tương quan trung bình có thể che giấu các thất bại thảm họa, vì vậy kiểm tra 10 phần trăm thấp nhất trước khi con số kiểm soát bất cứ thứ gì.
 
 ## Wrong answers
 
-- "The rubric is clear, so the judge is right." Length and family biases survive a clear rubric; only a correlation against human labels shows their size.
-- "It agrees with our old metric, so it is calibrated." The old metric may share the bias; calibrate against people.
-- "Calibrate once and keep upgrading the judge." Each judge version changes every score; freeze the version or rerun the baseline in parallel.
+- "Rubric rõ, vì vậy bộ chấm đúng." Thiên lệch độ dài và họ vẫn tồn tại với một rubric rõ; chỉ một tương quan với nhãn con người cho thấy độ lớn của chúng.
+- "Nó đồng ý với metric cũ của chúng tôi, vì vậy nó đã được hiệu chuẩn." Metric cũ có thể cùng thiên lệch; hiệu chuẩn với con người.
+- "Hiệu chuẩn một lần và tiếp tục nâng cấp bộ chấm." Mỗi phiên bản bộ chấm thay đổi mọi điểm; đóng băng phiên bản hoặc chạy lại baseline song song.
 
 ## Taught in
 
-The [LLM evaluation frameworks lesson](../../../phases/05-nlp-foundations-to-advanced/27-llm-evaluation-frameworks/) gives the calibration recipe and the three silent failures of a judge.
+[Bài học các framework đánh giá LLM](../../../phases/05-nlp-foundations-to-advanced/27-llm-evaluation-frameworks/) đưa ra công thức hiệu chuẩn và ba thất bại âm thầm của một bộ chấm.

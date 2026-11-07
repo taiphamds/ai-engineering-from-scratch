@@ -16,49 +16,49 @@ related: [evaluation/niah-is-not-enough]
 updated: 2026-11-03
 ---
 
-Your team will adopt a new model next quarter and needs a long context evaluation that runs again on every future upgrade. Design the battery for a product that answers questions over long documents and sometimes has to combine facts from several places: the tests, the sampling grid, the metrics, the cutoffs and the regression procedure.
+Nhóm của bạn sẽ áp dụng một mô hình mới vào quý tới và cần một đánh giá ngữ cảnh dài chạy lại trên mọi lần nâng cấp trong tương lai. Thiết kế bộ kiểm thử cho một sản phẩm trả lời câu hỏi trên các tài liệu dài và đôi khi phải kết hợp các sự kiện từ nhiều nơi: các kiểm thử, lưới lấy mẫu, các metric, các ngưỡng cắt và quy trình hồi quy.
 
 ## Short answer
 
-Build a fixed in house harness with three parts: a needle grid over depth and length on your own documents, a multi hop variable tracing task at the same lengths, and a slice of real long document questions. Sample five depths at each length and record pass rates, time to first token and cost per query. Publish two cutoffs, the effective retrieval length at a 90 percent pass and the effective reasoning length at 70 percent, and rerun the same harness on every upgrade.
+Xây dựng một harness nội bộ cố định với ba phần: một lưới needle trên độ sâu và độ dài trên tài liệu riêng của bạn, một nhiệm vụ truy vết biến nhiều bước ở cùng các độ dài, và một phần các câu hỏi tài liệu dài thật. Lấy mẫu năm độ sâu tại mỗi độ dài và ghi lại tỷ lệ đạt, thời gian đến token đầu tiên và chi phí mỗi truy vấn. Công bố hai ngưỡng cắt, độ dài truy xuất hiệu dụng tại mức đạt 90 phần trăm và độ dài suy luận hiệu dụng tại 70 phần trăm, và chạy lại cùng harness trên mọi lần nâng cấp.
 
 ## Full answer
 
 ### The tests
 
-1. **Domain needle.** Plant a fact from your domain in filler built from your documents at a chosen depth ratio and total length. Use needles that share no words with the filler, so retrieval needs one step of reasoning rather than keyword matching.
-2. **Multi needle.** Plant three facts at different depths and ask for all three. Single needle success does not predict this.
-3. **Variable tracing.** Plant a chain such as a first value, a second defined from the first and a third defined from the second, and ask for the last one. This is the task that fails first, and it is the one your product does when it combines facts.
-4. **Real questions.** A fixed subset of your long documents with answers, graded per category.
+1. **Needle theo miền.** Cài một sự kiện từ miền của bạn vào phần lấp được xây dựng từ các tài liệu của bạn tại một tỷ lệ độ sâu và tổng độ dài được chọn. Dùng các needle không chung từ với phần lấp, để truy xuất cần một bước suy luận thay vì khớp từ khóa.
+2. **Nhiều needle.** Cài ba sự kiện ở các độ sâu khác nhau và yêu cầu cả ba. Thành công với một needle không dự đoán điều này.
+3. **Truy vết biến.** Cài một chuỗi chẳng hạn một giá trị đầu, một giá trị thứ hai được định nghĩa từ giá trị đầu và một giá trị thứ ba được định nghĩa từ giá trị thứ hai, và yêu cầu giá trị cuối. Đây là nhiệm vụ thất bại đầu tiên, và là nhiệm vụ sản phẩm của bạn làm khi kết hợp các sự kiện.
+4. **Câu hỏi thật.** Một tập con cố định của các tài liệu dài của bạn có câu trả lời, được chấm theo hạng mục.
 
 ### The grid
 
-Depths 0, 0.25, 0.5, 0.75 and 1.0 at each length, because models under attend to the middle. Lengths 1k, 4k, 16k, 64k and your target. Plot pass rate as a heatmap per task type.
+Các độ sâu 0, 0.25, 0.5, 0.75 và 1.0 tại mỗi độ dài, vì các mô hình thiếu chú ý đến phần giữa. Các độ dài 1k, 4k, 16k, 64k và mục tiêu của bạn. Vẽ tỷ lệ đạt thành một heatmap theo loại nhiệm vụ.
 
 ### The metrics
 
-Retrieval pass rate, reasoning pass rate, time to first token and cost per query at every length. A million token prompt can take 30 to 120 seconds to prefill, so the product's length budget comes from latency as much as from accuracy.
+Tỷ lệ đạt truy xuất, tỷ lệ đạt suy luận, thời gian đến token đầu tiên và chi phí mỗi truy vấn tại mọi độ dài. Một prompt triệu token có thể mất 30 đến 120 giây để prefill, vì vậy ngân sách độ dài của sản phẩm đến từ độ trễ cũng nhiều như từ độ chính xác.
 
 ### The cutoffs
 
-The effective retrieval length is the longest length where the needle grid passes at 90 percent. The effective reasoning length is the longest length where tracing passes at 70 percent. Expect the second to be 25 to 50 percent of the advertised window, and put both on the spec sheet.
+Độ dài truy xuất hiệu dụng là độ dài dài nhất nơi lưới needle đạt ở 90 phần trăm. Độ dài suy luận hiệu dụng là độ dài dài nhất nơi truy vết đạt ở 70 phần trăm. Mong đợi độ dài thứ hai bằng 25 đến 50 phần trăm cửa sổ được quảng cáo, và đặt cả hai trên bảng đặc tả.
 
 ### The regression rule
 
-Keep the harness fixed and version it. Run it on every candidate model and publish the deltas per task type. Refuse the model card as evidence, refuse vendor self reported scores, and refuse a needle only result for a multi hop workload.
+Giữ harness cố định và quản lý phiên bản nó. Chạy nó trên mọi mô hình ứng viên và công bố các chênh lệch theo loại nhiệm vụ. Từ chối model card làm bằng chứng, từ chối điểm tự báo cáo của nhà cung cấp, và từ chối một kết quả chỉ needle cho một workload nhiều bước.
 
 ## Follow-ups
 
-- **Level 3:** Why a fixed harness instead of the newest public benchmark each time? Expected: a regression needs the same test on both models; a changing benchmark confounds the model change with the test change.
-- **Level 3:** The new model passes the needle grid at the target length but fails tracing at a quarter of it. What do you ship? Expected: the reasoning effective length as the product limit; chunk or retrieve beyond it and say so on the spec sheet.
-- **Level 4:** Prefill at the target length takes two minutes. Does it change the design? Expected: yes; the length budget is what the product can afford in latency and cost, not what the model can read.
+- **Level 3:** Tại sao một harness cố định thay vì benchmark công khai mới nhất mỗi lần? Expected: một phép kiểm tra hồi quy cần cùng bài kiểm thử trên cả hai mô hình; một benchmark thay đổi trộn lẫn thay đổi mô hình với thay đổi bài kiểm thử.
+- **Level 3:** Mô hình mới vượt lưới needle ở độ dài mục tiêu nhưng thất bại truy vết ở một phần tư độ dài đó. Bạn phát hành gì? Expected: độ dài hiệu dụng suy luận làm giới hạn sản phẩm; chia đoạn hoặc truy xuất vượt nó và nói vậy trên bảng đặc tả.
+- **Level 4:** Prefill ở độ dài mục tiêu mất hai phút. Điều đó có thay đổi thiết kế không? Expected: có; ngân sách độ dài là thứ sản phẩm chịu được về độ trễ và chi phí, không phải thứ mô hình có thể đọc.
 
 ## Wrong answers
 
-- "Run the needle test at the advertised length and stop." Needle only says nothing about multi hop; the lesson refuses it for any multi hop workload.
-- "Use the vendor's published long context scores." They are self reported; rerun independently on your use case.
-- "Test the middle depth at one length." Models under attend to the middle and degrade with length; one point hides both effects.
+- "Chạy kiểm thử needle ở độ dài được quảng cáo rồi dừng." Chỉ needle không nói gì về nhiều bước; bài học từ chối nó cho bất kỳ workload nhiều bước nào.
+- "Dùng điểm ngữ cảnh dài được công bố của nhà cung cấp." Chúng được tự báo cáo; chạy lại độc lập trên trường hợp sử dụng của bạn.
+- "Kiểm thử độ sâu giữa ở một độ dài." Các mô hình thiếu chú ý đến phần giữa và suy giảm theo độ dài; một điểm che giấu cả hai hiệu ứng.
 
 ## Taught in
 
-The [long context evaluation lesson](../../../phases/05-nlp-foundations-to-advanced/28-long-context-evaluation/) gives the battery, the sampling grid, the two cutoffs and the regression rule.
+[Bài học đánh giá ngữ cảnh dài](../../../phases/05-nlp-foundations-to-advanced/28-long-context-evaluation/) đưa ra bộ kiểm thử, lưới lấy mẫu, hai ngưỡng cắt và quy tắc hồi quy.

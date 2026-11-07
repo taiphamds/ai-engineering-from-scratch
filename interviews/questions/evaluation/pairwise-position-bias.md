@@ -16,44 +16,44 @@ related: [evaluation/judge-calibration-before-trust]
 updated: 2026-11-03
 ---
 
-You compare two prompt versions by showing a judge model both outputs and asking which one is better. Version B wins 70 percent of the pairs. You then swap the two outputs and version A wins most of them. What went wrong, and how do you run the comparison?
+Bạn so sánh hai phiên bản prompt bằng cách cho một mô hình chấm thấy cả hai đầu ra và hỏi cái nào tốt hơn. Phiên bản B thắng 70 phần trăm các cặp. Rồi bạn hoán đổi hai đầu ra và phiên bản A thắng phần lớn. Điều gì sai, và bạn chạy phép so sánh như thế nào?
 
 ## Short answer
 
-The judge has position bias: it prefers the option it reads first. Your first run measured the order, not the prompt. Score every pair in both orders, count a win only when the same version wins twice, and treat split decisions as ties. Then report the win rate with a confidence interval.
+Bộ chấm có thiên lệch vị trí: nó thích lựa chọn nó đọc trước. Lần chạy đầu của bạn đo thứ tự, không phải prompt. Chấm mọi cặp theo cả hai thứ tự, chỉ tính một chiến thắng khi cùng phiên bản thắng hai lần, và coi các quyết định chia rẽ là hòa. Rồi báo cáo tỷ lệ thắng với một khoảng tin cậy.
 
 ## Full answer
 
 ### Why pairwise at all
 
-A pairwise judge never has to decide whether an output is a 3 or a 4 on a scale. It only picks a winner, so it avoids the scale calibration problem of a single grader. That makes it the right tool for a head to head test of two prompt versions.
+Một bộ chấm theo cặp không bao giờ phải quyết định liệu một đầu ra là mức 3 hay mức 4 trên một thang. Nó chỉ chọn một người thắng, vì vậy tránh vấn đề hiệu chuẩn thang của một bộ chấm đơn lẻ. Điều đó làm nó thành công cụ đúng cho một kiểm thử đối đầu của hai phiên bản prompt.
 
 ### The bias
 
-Judges prefer the first option presented. The lesson's rule is short: always randomize the order and run both. One order gives you a number about the layout of the prompt.
+Các bộ chấm thích lựa chọn được trình bày đầu tiên. Quy tắc của bài học ngắn: luôn ngẫu nhiên hóa thứ tự và chạy cả hai. Một thứ tự cho bạn một con số về bố trí của prompt.
 
 ### The protocol
 
-1. For each input, score the pair in both orders.
-2. A version wins the pair only when it wins in both orders.
-3. A pair that flips with the order is a tie.
-4. Report the win rate and its confidence interval. A win rate near one half means the judge cannot separate the versions.
+1. Với mỗi đầu vào, chấm cặp theo cả hai thứ tự.
+2. Một phiên bản chỉ thắng cặp khi thắng ở cả hai thứ tự.
+3. Một cặp đảo theo thứ tự là một lần hòa.
+4. Báo cáo tỷ lệ thắng và khoảng tin cậy của nó. Một tỷ lệ thắng gần một nửa nghĩa là bộ chấm không thể phân biệt các phiên bản.
 
-Also check length. If version B is longer, the judge may reward verbosity. Normalize for length or state in the rubric that length does not count, and see if the preference survives.
+Cũng kiểm tra độ dài. Nếu phiên bản B dài hơn, bộ chấm có thể thưởng cho sự dài dòng. Chuẩn hóa theo độ dài hoặc nêu trong rubric rằng độ dài không được tính, và xem liệu sở thích còn tồn tại không.
 
 ## Follow-ups
 
-- **Level 2:** Why does a pairwise comparison avoid rubric calibration problems? Expected: the judge only picks a winner and never places an output on a numeric scale.
-- **Level 2:** Version B is also longer. What else do you control? Expected: verbosity bias; normalize for length or exclude it in the rubric, then check whether the preference remains.
-- **Level 3:** After both orders, 40 percent of the pairs flip with the order. What does that tell you? Expected: the judge cannot tell the versions apart on those pairs; count them as ties and expect a win rate close to one half.
-- **Level 3:** How many pairs make a 55 percent win rate real? Expected: enough that the interval excludes one half; use a Wilson or bootstrap interval, and expect to need hundreds of pairs.
+- **Level 2:** Tại sao một phép so sánh theo cặp tránh các vấn đề hiệu chuẩn rubric? Expected: bộ chấm chỉ chọn một người thắng và không bao giờ đặt một đầu ra lên một thang số.
+- **Level 2:** Phiên bản B cũng dài hơn. Bạn kiểm soát điều gì khác? Expected: thiên lệch dài dòng; chuẩn hóa theo độ dài hoặc loại trừ nó trong rubric, rồi kiểm tra liệu sở thích còn không.
+- **Level 3:** Sau cả hai thứ tự, 40 phần trăm các cặp đảo theo thứ tự. Điều đó cho bạn biết gì? Expected: bộ chấm không thể phân biệt các phiên bản trên các cặp đó; tính chúng là hòa và mong đợi một tỷ lệ thắng gần một nửa.
+- **Level 3:** Bao nhiêu cặp làm một tỷ lệ thắng 55 phần trăm thành thật? Expected: đủ để khoảng loại trừ một nửa; dùng một khoảng Wilson hoặc bootstrap, và mong đợi cần hàng trăm cặp.
 
 ## Wrong answers
 
-- "The judge is random, so use a different judge." Position bias is systematic, not random; another judge has it too, and the protocol is the fix.
-- "Always put the baseline first." That fixes the bias in one direction and hides it; run both orders.
-- "Pairwise comparison is only for human raters." Judges run pairwise well once the order is randomized and both orders are scored.
+- "Bộ chấm ngẫu nhiên, vì vậy dùng một bộ chấm khác." Thiên lệch vị trí có hệ thống, không ngẫu nhiên; một bộ chấm khác cũng có nó, và quy trình là cách sửa.
+- "Luôn đặt baseline trước." Điều đó cố định thiên lệch theo một hướng và che giấu nó; chạy cả hai thứ tự.
+- "So sánh theo cặp chỉ dành cho người chấm." Các bộ chấm chạy theo cặp tốt khi thứ tự được ngẫu nhiên hóa và cả hai thứ tự được chấm.
 
 ## Taught in
 
-The [LLM evaluation frameworks lesson](../../../phases/05-nlp-foundations-to-advanced/27-llm-evaluation-frameworks/) names position bias and the both orders rule, and the [evaluation and testing lesson](../../../phases/11-llm-engineering/10-evaluation/) explains why pairwise comparison avoids scale calibration.
+[Bài học các framework đánh giá LLM](../../../phases/05-nlp-foundations-to-advanced/27-llm-evaluation-frameworks/) nêu thiên lệch vị trí và quy tắc cả hai thứ tự, và [bài học đánh giá và kiểm thử](../../../phases/11-llm-engineering/10-evaluation/) giải thích tại sao so sánh theo cặp tránh hiệu chuẩn thang.

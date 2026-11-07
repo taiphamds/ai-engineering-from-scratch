@@ -16,43 +16,43 @@ related: [evaluation/paired-difference-interval, evaluation/eval-pipeline-take-h
 updated: 2026-11-03
 ---
 
-A leaderboard ranks your candidate models by one aggregate score, and the top model wins by a small margin. A colleague on the code team says that the top model is the worst of the three on their work. Both read the same report. How is this possible, what does the aggregate hide, and how do you publish so that both readers are served?
+Một bảng xếp hạng xếp các mô hình ứng viên của bạn theo một điểm tổng hợp, và mô hình đứng đầu thắng với một khoảng cách nhỏ. Một đồng nghiệp trong nhóm mã nguồn nói mô hình đứng đầu là mô hình tệ nhất trong ba mô hình trên công việc của họ. Cả hai đọc cùng báo cáo. Điều này có thể xảy ra như thế nào, điểm tổng hợp che giấu điều gì, và bạn công bố như thế nào để phục vụ cả hai người đọc?
 
 ## Short answer
 
-The aggregate is a weighted mean, so a model can win overall and lose in one category, and a small margin can sit inside the interval on the mean. Publish the per category means next to the aggregate, with intervals, and print the weights. If the leaderboard also mixes scales, a task with a wider range dominates the mean without anyone noticing.
+Điểm tổng hợp là một trung bình có trọng số, vì vậy một mô hình có thể thắng tổng thể và thua trong một hạng mục, và một khoảng cách nhỏ có thể nằm trong khoảng của trung bình. Công bố các trung bình theo hạng mục cạnh điểm tổng hợp, với các khoảng, và in các trọng số. Nếu bảng xếp hạng cũng trộn các thang đo, một nhiệm vụ có phạm vi rộng hơn chi phối trung bình mà không ai nhận ra.
 
 ## Full answer
 
 ### Where the aggregate comes from
 
-The eval pipeline normalizes each eval into the unit range and takes a weighted mean; the default mix there is 0.2 for perplexity, 0.3 for exact match, 0.3 for token F1 and 0.2 for the judge. The aggregator in the leaderboard lesson takes the plain mean over tasks. In both cases the headline is one weighting of several numbers, and a different weighting is a different winner.
+Pipeline đánh giá chuẩn hóa mỗi đánh giá vào khoảng đơn vị và lấy một trung bình có trọng số; cơ cấu mặc định ở đó là 0.2 cho perplexity, 0.3 cho exact match, 0.3 cho token F1 và 0.2 cho bộ chấm. Bộ tổng hợp trong bài học bảng xếp hạng lấy trung bình thông thường trên các nhiệm vụ. Trong cả hai trường hợp con số nổi bật là một cách gán trọng số cho nhiều con số, và một cách gán trọng số khác là một người thắng khác.
 
 ### What it hides
 
-- **Category weakness.** The per category column, such as math, reasoning, code and safety, is the only place where a model that is strong overall and weak on code shows up.
-- **Task imbalance and outliers.** The mean is sensitive to both; the win rate is less sensitive and loses magnitude.
-- **Scale leakage.** A task that scores from 0 to 100 next to tasks in the unit range dominates the mean, so the aggregator refuses scores outside the unit range.
-- **The margin.** A small gap between the top two means nothing until the paired bootstrap of their per task difference excludes zero.
+- **Điểm yếu theo hạng mục.** Cột theo hạng mục, chẳng hạn toán, suy luận, mã nguồn và an toàn, là nơi duy nhất một mô hình mạnh tổng thể và yếu về mã nguồn hiện ra.
+- **Mất cân bằng nhiệm vụ và ngoại lệ.** Trung bình nhạy cảm với cả hai; tỷ lệ thắng ít nhạy cảm hơn và mất độ lớn.
+- **Rò rỉ thang đo.** Một nhiệm vụ chấm từ 0 đến 100 cạnh các nhiệm vụ trong khoảng đơn vị chi phối trung bình, vì vậy bộ tổng hợp từ chối các điểm ngoài khoảng đơn vị.
+- **Khoảng cách.** Một khoảng cách nhỏ giữa hai mô hình đứng đầu không có nghĩa gì cho đến khi bootstrap ghép cặp của chênh lệch theo nhiệm vụ của chúng loại trừ không.
 
-The long context lesson states the same rule from another angle: report per category accuracy, because aggregate scores hide large task level differences.
+Bài học ngữ cảnh dài nêu cùng quy tắc từ một góc khác: báo cáo độ chính xác theo hạng mục, vì các điểm tổng hợp che giấu các khác biệt lớn ở cấp nhiệm vụ.
 
 ### How to publish
 
-Three layers on one page. The aggregate at the top with its weights printed. Below it, every per eval or per category number with intervals and the win rate. Below that, the per example records a reviewer needs to chase a regression. Add the paired difference interval for the top two models, and if a category matters to the product, a block rule on that category.
+Ba lớp trên một trang. Điểm tổng hợp ở đầu với các trọng số được in. Bên dưới nó, mọi con số theo đánh giá hoặc theo hạng mục với các khoảng và tỷ lệ thắng. Bên dưới nữa, các bản ghi theo ví dụ mà một người rà soát cần để truy tìm một sự thoái lui. Thêm khoảng chênh lệch ghép cặp cho hai mô hình đứng đầu, và nếu một hạng mục quan trọng với sản phẩm, một quy tắc chặn trên hạng mục đó.
 
 ## Follow-ups
 
-- **Level 3:** The code team wants the code category to count double. Do you change the headline? Expected: no; keep the unweighted table and, if agreed, add a second weighted view with its weights printed, as the capstone leaves weighting an explicit hook.
-- **Level 3:** The top two means differ by less than their intervals. What does the leaderboard show? Expected: the paired bootstrap of the per task difference; if it includes zero the two are tied and the rank order is a coin flip.
-- **Level 4:** Which single change to the report would have stopped this argument? Expected: per category means with intervals under the headline, so the code weakness was visible on the same page.
+- **Level 3:** Nhóm mã nguồn muốn hạng mục mã nguồn được tính gấp đôi. Bạn có thay đổi con số nổi bật không? Expected: không; giữ bảng không trọng số và, nếu được thống nhất, thêm một chế độ xem có trọng số thứ hai với các trọng số được in, vì capstone để việc gán trọng số là một điểm mở rộng tường minh.
+- **Level 3:** Hai trung bình đứng đầu khác nhau ít hơn các khoảng của chúng. Bảng xếp hạng cho thấy gì? Expected: bootstrap ghép cặp của chênh lệch theo nhiệm vụ; nếu nó chứa không thì hai mô hình hòa và thứ tự xếp hạng là một lần tung đồng xu.
+- **Level 4:** Thay đổi đơn lẻ nào cho báo cáo đã có thể ngăn cuộc tranh luận này? Expected: các trung bình theo hạng mục với các khoảng dưới con số nổi bật, để điểm yếu mã nguồn hiện rõ trên cùng trang.
 
 ## Wrong answers
 
-- "The aggregate is the objective answer." It is the answer to one weighting; a different weighting is a different winner.
-- "Drop the aggregate and show only categories." The headline exists so people can decide; keep it, label its weights and put the categories under it.
-- "Rank by win rate instead." Win rate hides magnitude; publish both and the paired interval.
+- "Điểm tổng hợp là câu trả lời khách quan." Nó là câu trả lời cho một cách gán trọng số; một cách gán trọng số khác là một người thắng khác.
+- "Bỏ điểm tổng hợp và chỉ hiển thị các hạng mục." Con số nổi bật tồn tại để mọi người có thể quyết định; giữ nó, gắn nhãn các trọng số và đặt các hạng mục dưới nó.
+- "Thay vào đó xếp hạng theo tỷ lệ thắng." Tỷ lệ thắng che giấu độ lớn; công bố cả hai và khoảng ghép cặp.
 
 ## Taught in
 
-The [eval pipeline capstone](../../../phases/19-capstone-projects/41-eval-pipeline/) shows the three layers of a report and the weighted aggregate, the [leaderboard aggregation capstone](../../../phases/19-capstone-projects/74-leaderboard-aggregation/) adds categories and intervals, and the [long context evaluation lesson](../../../phases/05-nlp-foundations-to-advanced/28-long-context-evaluation/) warns that an aggregate hides what each task type does.
+[Capstone pipeline đánh giá](../../../phases/19-capstone-projects/41-eval-pipeline/) cho thấy ba lớp của một báo cáo và điểm tổng hợp có trọng số, [capstone tổng hợp bảng xếp hạng](../../../phases/19-capstone-projects/74-leaderboard-aggregation/) thêm các hạng mục và khoảng, và [bài học đánh giá ngữ cảnh dài](../../../phases/05-nlp-foundations-to-advanced/28-long-context-evaluation/) cảnh báo rằng một điểm tổng hợp che giấu điều mỗi loại nhiệm vụ làm.

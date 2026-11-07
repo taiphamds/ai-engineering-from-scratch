@@ -16,43 +16,43 @@ related: [evaluation/two-pass-at-k-formulas]
 updated: 2026-11-03
 ---
 
-Your coding agent scores a pass at one of 0.6 on the fixture suite and a pass at five of 0.95. One manager reads this as a failing agent; another reads it as a passing agent. What does each number tell you, and what do you put in the report?
+Agent lập trình của bạn đạt pass at one 0.6 trên bộ fixture và pass at five 0.95. Một quản lý đọc điều này là một agent thất bại; người khác đọc là một agent đạt. Mỗi con số cho bạn biết gì, và bạn đặt gì vào báo cáo?
 
 ## Short answer
 
-Pass at one says the first sample fixes the task on about six tasks in ten. Pass at five says that at least one of five samples passes on almost every task, so the right answer is usually within reach and the gap is selection. Report both, with the raw pass counts per task, because pass at k alone hides an agent that succeeds once in twenty tries.
+Pass at one nói mẫu đầu tiên sửa nhiệm vụ trên khoảng sáu nhiệm vụ trong mười. Pass at five nói ít nhất một trong năm mẫu đạt trên gần như mọi nhiệm vụ, vì vậy câu trả lời đúng thường trong tầm với và khoảng trống là lựa chọn. Báo cáo cả hai, với các số đếm đạt thô theo nhiệm vụ, vì chỉ pass at k che giấu một agent thành công một lần trong hai mươi lần thử.
 
 ## Full answer
 
 ### What the harness computes
 
-The harness runs each fixture task k times. Each sample goes through a deterministic verifier: a file equals an expected file, a regex matches, or a shell command exits zero. The per task pass rate p is passes over samples. Pass at k is the chance that k samples contain at least one pass. The harness also stores the raw counts, so a reviewer can see the variance behind the rate.
+Harness chạy mỗi nhiệm vụ fixture k lần. Mỗi mẫu đi qua một bộ xác minh có tính xác định: một file bằng một file kỳ vọng, một regex khớp, hoặc một lệnh shell thoát bằng không. Tỷ lệ đạt p theo nhiệm vụ là số lần đạt chia số mẫu. Pass at k là xác suất k mẫu chứa ít nhất một lần đạt. Harness cũng lưu các số đếm thô, để một người rà soát có thể thấy phương sai đằng sau tỷ lệ.
 
 ### Reading the gap
 
-A low pass at one with a high pass at five says the agent is stochastic, not incapable. The fix is sampling plus ranking: generate several candidates and let a verifier choose. It is not always more training. Without a selector in production, the user receives the first sample, so pass at one is the number they feel.
+Một pass at one thấp với một pass at five cao nói agent có tính ngẫu nhiên, không phải bất tài. Cách sửa là lấy mẫu cộng xếp hạng: sinh nhiều ứng viên và để một bộ xác minh chọn. Không phải luôn thêm huấn luyện. Không có bộ chọn trong production, người dùng nhận mẫu đầu tiên, vì vậy pass at one là con số họ cảm nhận.
 
 ### Why both numbers stay
 
-Pass at k papers over a real failure. An agent that passes once in twenty tries has a respectable pass at twenty and is useless. The harness prints both so that neither manager can read the result alone.
+Pass at k che đậy một thất bại thật. Một agent đạt một lần trong hai mươi lần thử có một pass at twenty đáng kể và vô ích. Harness in cả hai để không quản lý nào có thể đọc riêng kết quả.
 
 ### The rest of the report
 
-The harness exists to stop three failures: an unverified pass, where the agent claims success and nobody checks; an undetected regression, where a prompt change makes the loud task 4 percent better and the quiet task 14 percent worse; and per task drift, where Monday ran 100 tasks and Friday ran 95 because five were renamed. So the report carries pass at one, pass at k, per task counts, mean and 95th percentile latency, and mean cost, over the same fixed task list every run.
+Harness tồn tại để ngăn ba thất bại: đạt chưa được xác minh, nơi agent tuyên bố thành công và không ai kiểm tra; thoái lui không được phát hiện, nơi một thay đổi prompt làm nhiệm vụ nổi bật tốt hơn 4 phần trăm và nhiệm vụ ít nổi bật tệ hơn 14 phần trăm; và thay đổi theo nhiệm vụ, nơi thứ Hai chạy 100 nhiệm vụ và thứ Sáu chạy 95 vì năm nhiệm vụ được đổi tên. Vì vậy báo cáo mang pass at one, pass at k, số đếm theo nhiệm vụ, trung bình và phân vị thứ 95 của độ trễ, và chi phí trung bình, trên cùng danh sách nhiệm vụ cố định mỗi lần chạy.
 
 ## Follow-ups
 
-- **Level 2:** What do you need in production to turn a high pass at five into a high pass at one? Expected: a verifier that selects the passing sample, such as tests that run; without it the user gets the first sample.
-- **Level 2:** Why does the harness print raw pass counts next to the rate? Expected: to show variance per task and expose a task that passes once in many tries.
-- **Level 3:** The pass rate rose from Monday to Friday while five fixtures were renamed. Is it real? Expected: no; the task set changed, so the runs are not comparable, and the harness must run every fixture every time in a fixed order.
-- **Level 3:** Which three failure modes does the harness exist to prevent? Expected: unverified pass, undetected regression across tasks, and drift in the task set.
+- **Level 2:** Bạn cần gì trong production để biến một pass at five cao thành một pass at one cao? Expected: một bộ xác minh chọn mẫu đạt, chẳng hạn các kiểm thử chạy; không có nó người dùng nhận mẫu đầu tiên.
+- **Level 2:** Tại sao harness in các số đếm đạt thô cạnh tỷ lệ? Expected: để cho thấy phương sai theo nhiệm vụ và phơi bày một nhiệm vụ đạt một lần trong nhiều lần thử.
+- **Level 3:** Tỷ lệ đạt tăng từ thứ Hai đến thứ Sáu trong khi năm fixture được đổi tên. Có thật không? Expected: không; tập nhiệm vụ thay đổi, vì vậy các lần chạy không so sánh được, và harness phải chạy mọi fixture mỗi lần theo một thứ tự cố định.
+- **Level 3:** Harness tồn tại để ngăn ba chế độ thất bại nào? Expected: đạt chưa được xác minh, thoái lui không được phát hiện giữa các nhiệm vụ, và thay đổi tập nhiệm vụ.
 
 ## Wrong answers
 
-- "Pass at five is the real score." It measures the ceiling with selection; users get one sample unless you build the selector.
-- "A pass at one of 0.6 means the agent is broken." It means the first sample fails on four tasks in ten; the high pass at five says the capability is there and selection is the gap.
-- "Trust the agent's own success report." Self reported success is the first failure mode the harness exists to remove; a deterministic verifier decides.
+- "Pass at five là điểm thật." Nó đo trần với lựa chọn; người dùng nhận một mẫu trừ khi bạn xây bộ chọn.
+- "Một pass at one 0.6 nghĩa là agent hỏng." Nó nghĩa là mẫu đầu tiên thất bại trên bốn nhiệm vụ trong mười; pass at five cao nói năng lực có đó và lựa chọn là khoảng trống.
+- "Tin báo cáo thành công riêng của agent." Thành công tự báo cáo là chế độ thất bại đầu tiên mà harness tồn tại để loại bỏ; một bộ xác minh có tính xác định quyết định.
 
 ## Taught in
 
-The [eval harness with fixture tasks capstone](../../../phases/19-capstone-projects/27-eval-harness-fixture-tasks/) defines pass at one and pass at k and explains why both are reported.
+[Capstone harness đánh giá với nhiệm vụ fixture](../../../phases/19-capstone-projects/27-eval-harness-fixture-tasks/) định nghĩa pass at one và pass at k và giải thích tại sao cả hai được báo cáo.

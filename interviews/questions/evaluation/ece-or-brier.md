@@ -16,47 +16,47 @@ related: [evaluation/perplexity-health-check]
 updated: 2026-11-03
 ---
 
-Your multiple choice eval reports an expected calibration error of 0.02 on a hundred predictions with ten bins, and the team calls the model well calibrated. What does that number measure, what does it miss, and which second number do you add?
+Đánh giá trắc nghiệm của bạn báo cáo một expected calibration error 0.02 trên một trăm dự đoán với mười bin, và nhóm gọi mô hình được hiệu chuẩn tốt. Con số đó đo gì, nó bỏ sót gì, và bạn thêm con số thứ hai nào?
 
 ## Short answer
 
-ECE bins predictions by confidence and averages the gap between confidence and accuracy, weighted by bin size. With ten bins and a hundred predictions you cannot tell 0.02 from noise, and inside one bin overconfident and underconfident predictions can offset each other in the bin average. Add the Brier score, the mean squared error between confidence and outcome per prediction, and report how many bins were populated.
+ECE chia các dự đoán vào bin theo độ tin cậy và lấy trung bình khoảng cách giữa độ tin cậy và độ chính xác, được gán trọng số theo kích thước bin. Với mười bin và một trăm dự đoán bạn không thể phân biệt 0.02 với nhiễu, và bên trong một bin các dự đoán quá tự tin và thiếu tự tin có thể bù nhau trong trung bình bin. Thêm điểm Brier, sai số bình phương trung bình giữa độ tin cậy và kết quả theo dự đoán, và báo cáo bao nhiêu bin có dữ liệu.
 
 ## Full answer
 
 ### What ECE computes
 
-Sort the predictions into equal width confidence bins, ten by the publishing convention or 15 by the comparison convention. In each bin take the mean confidence and the mean accuracy. ECE is the sum over bins of the absolute gap, weighted by the bin's share of the predictions. The capstone returns the count of populated bins with the value, so the runner can refuse to report a single number on too few samples.
+Phân các dự đoán vào các bin độ tin cậy có chiều rộng bằng nhau, mười theo quy ước công bố hoặc 15 theo quy ước so sánh. Trong mỗi bin lấy độ tin cậy trung bình và độ chính xác trung bình. ECE là tổng trên các bin của khoảng cách tuyệt đối, được gán trọng số theo tỷ lệ dự đoán của bin. Capstone trả về số bin có dữ liệu cùng giá trị, để runner có thể từ chối báo cáo một con số đơn lẻ trên quá ít mẫu.
 
 ### What it misses
 
-ECE is biased by bin count and sample size. The absolute gap per bin stops gaps in different bins from cancelling, but the bin means can hide spread: overconfident and underconfident predictions in the same bin offset each other, so a low ECE can hide poor calibration at the level of single predictions.
+ECE bị lệch bởi số bin và kích thước mẫu. Khoảng cách tuyệt đối theo bin ngăn các khoảng cách trong các bin khác nhau triệt tiêu, nhưng các trung bình bin có thể che giấu độ phân tán: các dự đoán quá tự tin và thiếu tự tin trong cùng bin bù nhau, vì vậy một ECE thấp có thể che giấu hiệu chuẩn kém ở cấp các dự đoán đơn lẻ.
 
 ### What Brier adds
 
-Brier is the mean of the squared difference between confidence and the outcome, per prediction. It penalizes every miss directly, so cancellation is impossible. It decomposes into reliability, resolution and uncertainty. A predictor that says one half on everything has a Brier score of exactly 0.25, and an ECE equal to the gap between one half and the accuracy.
+Brier là trung bình của chênh lệch bình phương giữa độ tin cậy và kết quả, theo dự đoán. Nó phạt mọi lần sai trực tiếp, vì vậy triệt tiêu là không thể. Nó phân rã thành độ tin cậy, độ phân giải và sự không chắc chắn. Một bộ dự đoán nói một nửa trên mọi thứ có một điểm Brier chính xác 0.25, và một ECE bằng khoảng cách giữa một nửa và độ chính xác.
 
 ### The diagram
 
-Keep the per bin mean confidence, mean accuracy and count. Plotted, the diagonal is perfect calibration. That data also lets a reader compute adaptive variants of ECE later.
+Giữ độ tin cậy trung bình, độ chính xác trung bình và số đếm theo bin. Khi vẽ, đường chéo là hiệu chuẩn hoàn hảo. Dữ liệu đó cũng cho phép một người đọc tính các biến thể thích nghi của ECE sau này.
 
 ### Where confidence comes from
 
-For multiple choice, a softmax over the option log likelihoods. For free text, the model's stated probability or the exponential of its mean log likelihood. The harness accepts any number in the unit range per prediction; where it comes from is the adapter's job. A model that states high confidence and is right far less often shows the gap in that bin.
+Với trắc nghiệm, một softmax trên log likelihood của các lựa chọn. Với văn bản tự do, xác suất do mô hình nêu hoặc hàm mũ của log likelihood trung bình của nó. Harness chấp nhận bất kỳ số nào trong khoảng đơn vị theo dự đoán; nó đến từ đâu là công việc của adapter. Một mô hình nêu độ tin cậy cao và đúng ít hơn nhiều cho thấy khoảng cách trong bin đó.
 
 ## Follow-ups
 
-- **Level 3:** A predictor says one half on every item. What is its Brier score, and why? Expected: exactly 0.25, because the squared error is 0.25 whether the outcome is zero or one.
-- **Level 3:** Why can ECE be low while calibration is bad? Expected: inside one bin, overconfident and underconfident predictions offset each other in the bin means; the absolute gap stops cancelling only across bins, and Brier penalizes each prediction's error.
-- **Level 4:** Why is calibration a per model report and not a per task metric? Expected: the runner accumulates confidence and correctness pairs across the whole eval and computes it once; per task bins would be nearly empty.
-- **Level 4:** One model has higher accuracy and a worse Brier score than a rival. Which do you deploy? Expected: the capstone argues for the better calibrated one, because it reports its uncertainty reliably; confirm with the reliability diagram.
+- **Level 3:** Một bộ dự đoán nói một nửa trên mọi mục. Điểm Brier của nó là gì, và tại sao? Expected: chính xác 0.25, vì sai số bình phương là 0.25 dù kết quả là không hay một.
+- **Level 3:** Tại sao ECE có thể thấp trong khi hiệu chuẩn kém? Expected: bên trong một bin, các dự đoán quá tự tin và thiếu tự tin bù nhau trong các trung bình bin; khoảng cách tuyệt đối chỉ ngăn triệt tiêu giữa các bin, và Brier phạt sai số của mỗi dự đoán.
+- **Level 4:** Tại sao hiệu chuẩn là một báo cáo theo mô hình chứ không phải một metric theo nhiệm vụ? Expected: runner tích lũy các cặp độ tin cậy và tính đúng đắn trên toàn bộ đánh giá và tính nó một lần; các bin theo nhiệm vụ sẽ gần như rỗng.
+- **Level 4:** Một mô hình có độ chính xác cao hơn và điểm Brier tệ hơn một đối thủ. Bạn triển khai mô hình nào? Expected: capstone lập luận cho mô hình được hiệu chuẩn tốt hơn, vì nó báo cáo sự không chắc chắn một cách đáng tin cậy; xác nhận bằng biểu đồ độ tin cậy.
 
 ## Wrong answers
 
-- "An ECE of 0.02 means calibrated." On a hundred predictions with ten bins the value is inside the noise; report populated bins and collect a larger sample.
-- "Accuracy is enough." Two models with equal accuracy can differ in whether their confidence means anything; the capstone calls calibration the most ignored axis.
-- "Brier replaces ECE." They answer different questions; ECE shows the shape per bin and Brier the per prediction error. Report both with the diagram data.
+- "Một ECE 0.02 nghĩa là đã hiệu chuẩn." Trên một trăm dự đoán với mười bin giá trị nằm trong nhiễu; báo cáo các bin có dữ liệu và thu thập một mẫu lớn hơn.
+- "Độ chính xác là đủ." Hai mô hình có cùng độ chính xác có thể khác nhau về việc độ tin cậy của chúng có ý nghĩa gì không; capstone gọi hiệu chuẩn là trục bị bỏ qua nhiều nhất.
+- "Brier thay thế ECE." Chúng trả lời các câu hỏi khác nhau; ECE cho thấy hình dạng theo bin và Brier sai số theo dự đoán. Báo cáo cả hai với dữ liệu biểu đồ.
 
 ## Taught in
 
-The [perplexity and calibration capstone](../../../phases/19-capstone-projects/73-perplexity-calibration/) defines ECE, Brier and the reliability diagram and explains the sample size caveat.
+[Capstone perplexity và hiệu chuẩn](../../../phases/19-capstone-projects/73-perplexity-calibration/) định nghĩa ECE, Brier và biểu đồ độ tin cậy và giải thích lưu ý kích thước mẫu.

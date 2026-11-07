@@ -16,49 +16,49 @@ related: [evaluation/judge-calibration-before-trust, evaluation/pairwise-positio
 updated: 2026-11-03
 ---
 
-Two engineers ran the same judge on the same 100 answers with the instruction "rate from 1 to 5 how good the answer is" and got means almost a full point apart. How do you rewrite the rubric so the scores become reproducible, and what else goes into the judge prompt?
+Hai kỹ sư chạy cùng bộ chấm trên cùng 100 câu trả lời với chỉ dẫn "chấm từ 1 đến 5 câu trả lời tốt đến mức nào" và nhận các trung bình cách nhau gần một điểm đầy đủ. Bạn viết lại rubric như thế nào để các điểm có thể tái lập, và còn gì khác đi vào prompt của bộ chấm?
 
 ## Short answer
 
-Anchor every level to behavior a reader can check. A rubric that states what a 5, a 4 and a 3 look like reduces judge variance by 30 to 40 percent compared with an unanchored scale. Score several criteria separately, give the judge the input, the output and the reference, and ask for the reasoning next to the number.
+Neo mọi mức vào hành vi mà một người đọc có thể kiểm tra. Một rubric nêu mức 5, mức 4 và mức 3 trông như thế nào giảm phương sai bộ chấm 30 đến 40 phần trăm so với một thang không có neo. Chấm nhiều tiêu chí riêng biệt, cho bộ chấm đầu vào, đầu ra và tham chiếu, và yêu cầu lý luận cạnh con số.
 
 ## Full answer
 
 ### From vague to anchored
 
-The bad rubric asks how good the answer is. The good rubric describes each level:
+Rubric xấu hỏi câu trả lời tốt đến mức nào. Rubric tốt mô tả mỗi mức:
 
-- **5**: factually correct, directly addresses the question, includes specific details, gives actionable information.
-- **4**: correct and on topic, but short on detail or slightly verbose.
-- **3**: mostly correct with a minor inaccuracy, or partially misses the intent.
-- **2**: significant factual errors, or only tangentially related.
-- **1**: wrong, off topic or harmful.
+- **5**: đúng về thực tế, trực tiếp trả lời câu hỏi, bao gồm các chi tiết cụ thể, đưa ra thông tin có thể hành động.
+- **4**: đúng và đúng chủ đề, nhưng thiếu chi tiết hoặc hơi dài dòng.
+- **3**: phần lớn đúng với một điểm không chính xác nhỏ, hoặc bỏ sót một phần ý định.
+- **2**: các lỗi thực tế đáng kể, hoặc chỉ liên quan gián tiếp.
+- **1**: sai, lạc chủ đề hoặc có hại.
 
 ### One criterion per score
 
-Score relevance, correctness, helpfulness and safety on separate scales. A single overall score collapses the dimensions, and optimizing it produces terse answers that are technically right and useless.
+Chấm tính liên quan, tính đúng đắn, tính hữu ích và an toàn trên các thang riêng. Một điểm tổng thể duy nhất gộp các chiều, và tối ưu hóa nó tạo ra các câu trả lời ngắn gọn đúng về kỹ thuật và vô ích.
 
 ### What the judge sees
 
-The input, the output, the reference answer when one exists, and the anchored rubric for the criterion. Ask for a structured answer with the score and a short reason, so that a reviewer can audit the judge.
+Đầu vào, đầu ra, câu trả lời tham chiếu khi có, và rubric có neo cho tiêu chí. Yêu cầu một câu trả lời có cấu trúc với điểm và một lý do ngắn, để một người rà soát có thể kiểm toán bộ chấm.
 
 ### Prove it
 
-Run the judge three times on each case and compute an agreement statistic across the runs. Below 0.7 the rubric is still ambiguous. If the judge keeps wavering between two adjacent levels, switch that criterion to a pairwise comparison, which removes the scale.
+Chạy bộ chấm ba lần trên mỗi trường hợp và tính một thống kê đồng thuận giữa các lần chạy. Dưới 0.7 rubric vẫn mơ hồ. Nếu bộ chấm tiếp tục dao động giữa hai mức liền kề, chuyển tiêu chí đó sang một phép so sánh theo cặp, loại bỏ thang đo.
 
 ## Follow-ups
 
-- **Level 2:** Why score four criteria instead of one overall score? Expected: one score collapses dimensions; a model can be correct and useless, and the single number hides the trade.
-- **Level 2:** How do you show the new rubric is reproducible? Expected: run the judge several times per case and compute an agreement statistic; below 0.7 rewrite again.
-- **Level 3:** The judge still wavers between 3 and 4 on many cases. What design change removes that? Expected: pairwise comparison, which only asks which output is better.
-- **Level 3:** One criterion has a reference answer and another has none. Does the rubric change? Expected: yes; correctness anchors to the reference, while helpfulness and safety anchor to properties of the output alone.
+- **Level 2:** Tại sao chấm bốn tiêu chí thay vì một điểm tổng thể? Expected: một điểm gộp các chiều; một mô hình có thể đúng và vô ích, và con số đơn lẻ che giấu sự đánh đổi.
+- **Level 2:** Bạn cho thấy rubric mới có thể tái lập như thế nào? Expected: chạy bộ chấm nhiều lần mỗi trường hợp và tính một thống kê đồng thuận; dưới 0.7 viết lại lần nữa.
+- **Level 3:** Bộ chấm vẫn dao động giữa 3 và 4 trên nhiều trường hợp. Thay đổi thiết kế nào loại bỏ điều đó? Expected: so sánh theo cặp, chỉ hỏi đầu ra nào tốt hơn.
+- **Level 3:** Một tiêu chí có một câu trả lời tham chiếu và tiêu chí khác không có. Rubric có thay đổi không? Expected: có; tính đúng đắn neo vào tham chiếu, trong khi tính hữu ích và an toàn neo vào các thuộc tính chỉ của đầu ra.
 
 ## Wrong answers
 
-- "Lower the temperature of the judge." A deterministic judge still applies a vague scale differently across cases; the rubric is the fix.
-- "Average more runs." Averaging noise costs money and leaves a scale that two readers interpret differently.
-- "One overall score is simpler." Simpler to read and wrong to optimize; the lesson warns that single metric optimization produces terse useless answers.
+- "Hạ temperature của bộ chấm." Một bộ chấm có tính xác định vẫn áp dụng một thang mơ hồ khác nhau giữa các trường hợp; rubric là cách sửa.
+- "Lấy trung bình nhiều lần chạy hơn." Lấy trung bình nhiễu tốn tiền và để lại một thang mà hai người đọc diễn giải khác nhau.
+- "Một điểm tổng thể đơn giản hơn." Đơn giản hơn để đọc và sai để tối ưu; bài học cảnh báo rằng tối ưu hóa một metric duy nhất tạo ra các câu trả lời ngắn gọn vô ích.
 
 ## Taught in
 
-The [evaluation and testing lesson](../../../phases/11-llm-engineering/10-evaluation/) gives the anchored rubric, the four criteria and the agreement check.
+[Bài học đánh giá và kiểm thử](../../../phases/11-llm-engineering/10-evaluation/) đưa ra rubric có neo, bốn tiêu chí và phép kiểm tra đồng thuận.

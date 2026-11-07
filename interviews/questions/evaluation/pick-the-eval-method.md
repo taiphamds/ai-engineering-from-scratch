@@ -16,49 +16,49 @@ related: [evaluation/judge-calibration-before-trust]
 updated: 2026-11-03
 ---
 
-You can score a summarization feature in three ways: n-gram overlap against a reference, a strong model that grades with a rubric, or human experts. The team has one afternoon and a small budget. How do you decide which to use, and for what?
+Bạn có thể chấm một tính năng tóm tắt theo ba cách: trùng lặp n-gram với một tham chiếu, một mô hình mạnh chấm bằng một rubric, hoặc các chuyên gia con người. Nhóm có một buổi chiều và một ngân sách nhỏ. Bạn quyết định dùng cái nào như thế nào, và cho việc gì?
 
 ## Short answer
 
-Use all three, each for a different job. Overlap metrics are free and instant but agree with people only 40 to 60 percent of the time, so they serve as a baseline and a smoke test. A judge model costs a few dollars per thousand cases and agrees 82 to 88 percent with people on a well anchored rubric, so it is the default scorer. People are the ground truth, so spend them on calibrating the judge and on edge cases, not on every commit.
+Dùng cả ba, mỗi cái cho một công việc khác. Các metric trùng lặp miễn phí và tức thời nhưng chỉ đồng ý với con người 40 đến 60 phần trăm thời gian, vì vậy chúng làm baseline và smoke test. Một mô hình chấm tốn vài đô la mỗi nghìn trường hợp và đồng ý 82 đến 88 phần trăm với con người trên một rubric có neo tốt, vì vậy nó là bộ chấm mặc định. Con người là chuẩn sự thật, vì vậy dành họ cho hiệu chuẩn bộ chấm và các trường hợp biên, không cho mọi commit.
 
 ## Full answer
 
 ### The trade
 
-| Method | Speed | Cost per thousand | Agreement with people | Use |
+| Phương pháp | Tốc độ | Chi phí mỗi nghìn | Đồng thuận với con người | Sử dụng |
 |---|---|---|---|---|
-| BLEU or ROUGE | under a second | nothing | 40 to 60 percent | baselines, smoke tests |
-| Embedding similarity | about 30 seconds | nothing | 55 to 70 percent | screening |
-| Judge model, small tier | about 3 minutes | about 8 dollars | 82 to 86 percent | default CI judge |
-| Judge model, large tier | about 5 minutes | about 25 dollars | 85 to 88 percent | high stakes, safety |
-| Human expert | about 2 hours | about 500 dollars | ground truth | calibration, policy |
+| BLEU hoặc ROUGE | dưới một giây | không gì | 40 đến 60 phần trăm | baseline, smoke test |
+| Độ tương đồng embedding | khoảng 30 giây | không gì | 55 đến 70 phần trăm | sàng lọc |
+| Mô hình chấm, tầng nhỏ | khoảng 3 phút | khoảng 8 đô la | 82 đến 86 phần trăm | bộ chấm CI mặc định |
+| Mô hình chấm, tầng lớn | khoảng 5 phút | khoảng 25 đô la | 85 đến 88 phần trăm | hệ trọng, an toàn |
+| Chuyên gia con người | khoảng 2 giờ | khoảng 500 đô la | chuẩn sự thật | hiệu chuẩn, chính sách |
 
 ### Why each one stays
 
-Overlap metrics miss meaning. Two answers with no shared words can both be right, and a high ROUGE answer can be wrong in context. They stay because they cost nothing, run in seconds and do not drift when a judge model changes.
+Các metric trùng lặp bỏ sót ý nghĩa. Hai câu trả lời không chung từ đều có thể đúng, và một câu trả lời ROUGE cao có thể sai trong ngữ cảnh. Chúng ở lại vì không tốn gì, chạy trong vài giây và không thay đổi khi một mô hình chấm thay đổi.
 
-The judge captures relevance, correctness, helpfulness and safety. It stays the workhorse because it scales. It needs a rubric with anchored levels and a calibration run against human labels before its number means anything.
+Bộ chấm nắm tính liên quan, tính đúng đắn, tính hữu ích và an toàn. Nó vẫn là công cụ chủ lực vì mở rộng quy mô được. Nó cần một rubric có các mức có neo và một lần hiệu chuẩn với các nhãn con người trước khi con số của nó có nghĩa gì.
 
-Human review is slow and expensive. It stays because it is the only ground truth. Reserve it for calibrating the automated scores and for the cases the judge cannot settle.
+Rà soát của con người chậm và đắt. Nó ở lại vì là chuẩn sự thật duy nhất. Dành nó cho hiệu chuẩn các điểm tự động và cho các trường hợp bộ chấm không thể phân định.
 
 ### For the afternoon
 
-Run the overlap metric on everything to catch gross breakage. Run the judge on the golden set with the four criteria. Have two people label a small slice and compare it with the judge before anyone reads the mean.
+Chạy metric trùng lặp trên mọi thứ để bắt hỏng hóc lớn. Chạy bộ chấm trên tập chuẩn với bốn tiêu chí. Cho hai người gán nhãn một phần nhỏ và so sánh với bộ chấm trước khi bất kỳ ai đọc trung bình.
 
 ## Follow-ups
 
-- **Level 1:** What does ROUGE measure? Expected: recall of reference n-grams, built for summarization.
-- **Level 2:** Why keep the overlap metric once you have a judge? Expected: it is free and fast, it catches gross regressions in seconds, and it does not move when the judge model changes.
-- **Level 2:** When is a judge not enough? Expected: high stakes or policy decisions, and any time the judge has not been calibrated against human labels on this task.
-- **Level 3:** The lesson says the judge must be at least as capable as the model it grades. Why? Expected: a weak judge gives noisy, inconsistent scores and cannot see the errors a stronger model makes.
+- **Level 1:** ROUGE đo gì? Expected: recall của các n-gram tham chiếu, được xây cho tóm tắt.
+- **Level 2:** Tại sao giữ metric trùng lặp khi bạn đã có một bộ chấm? Expected: nó miễn phí và nhanh, bắt các thoái lui lớn trong vài giây, và không dịch chuyển khi mô hình chấm thay đổi.
+- **Level 2:** Khi nào một bộ chấm không đủ? Expected: các quyết định hệ trọng hoặc chính sách, và bất kỳ lúc nào bộ chấm chưa được hiệu chuẩn với các nhãn con người trên nhiệm vụ này.
+- **Level 3:** Bài học nói bộ chấm phải có năng lực ít nhất ngang mô hình nó chấm. Tại sao? Expected: một bộ chấm yếu cho điểm nhiễu, không nhất quán và không thể thấy các lỗi một mô hình mạnh hơn mắc.
 
 ## Wrong answers
 
-- "People are the gold standard, so grade everything by hand." Human review takes hours and costs about 500 dollars per thousand cases, so it cannot run on every change.
-- "Overlap metrics are useless for generation." They catch gross regressions and cost nothing; they only miss meaning.
-- "Pick one metric and optimize it." Optimizing only correctness yields terse answers that nobody can use; score several criteria.
+- "Con người là tiêu chuẩn vàng, vì vậy chấm mọi thứ bằng tay." Rà soát của con người mất nhiều giờ và tốn khoảng 500 đô la mỗi nghìn trường hợp, vì vậy không thể chạy trên mọi thay đổi.
+- "Các metric trùng lặp vô ích cho việc sinh." Chúng bắt các thoái lui lớn và không tốn gì; chúng chỉ bỏ sót ý nghĩa.
+- "Chọn một metric và tối ưu nó." Chỉ tối ưu tính đúng đắn cho các câu trả lời ngắn gọn mà không ai dùng được; chấm nhiều tiêu chí.
 
 ## Taught in
 
-The [evaluation and testing lesson](../../../phases/11-llm-engineering/10-evaluation/) compares the three methods by speed, cost and agreement with people.
+[Bài học đánh giá và kiểm thử](../../../phases/11-llm-engineering/10-evaluation/) so sánh ba phương pháp theo tốc độ, chi phí và đồng thuận với con người.

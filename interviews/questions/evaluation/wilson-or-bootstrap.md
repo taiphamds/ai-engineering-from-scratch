@@ -16,11 +16,11 @@ related: [evaluation/fifty-cases-is-not-enough]
 updated: 2026-11-03
 ---
 
-Your eval report shows two kinds of numbers: a pass rate, which is the share of cases that scored 4 or more, and a mean judge score on a 1 to 5 scale. A reviewer asks for error bars on both. Which interval do you use for each, and why not the same one?
+Báo cáo đánh giá của bạn hiển thị hai loại con số: một tỷ lệ đạt, là tỷ lệ trường hợp đạt 4 trở lên, và một điểm bộ chấm trung bình trên một thang 1 đến 5. Một người rà soát yêu cầu thanh sai số trên cả hai. Bạn dùng khoảng nào cho mỗi loại, và tại sao không cùng một khoảng?
 
 ## Short answer
 
-Use a Wilson interval for the pass rate and a bootstrap interval for the mean score. A pass rate is a proportion, and the Wilson interval stays correct at small samples and near zero or one, where the normal approximation breaks. A mean of ordinal judge scores has no clean closed form, and the bootstrap resamples the scores with replacement and works with any distribution.
+Dùng một khoảng Wilson cho tỷ lệ đạt và một khoảng bootstrap cho điểm trung bình. Một tỷ lệ đạt là một tỷ lệ, và khoảng Wilson giữ đúng ở các mẫu nhỏ và gần không hoặc một, nơi xấp xỉ chuẩn hỏng. Một trung bình các điểm bộ chấm thứ bậc không có dạng đóng gọn, và bootstrap lấy mẫu lại các điểm có hoàn lại và hoạt động với bất kỳ phân phối nào.
 
 ## Full answer
 
@@ -31,28 +31,28 @@ center = (p + z^2 / (2n)) / (1 + z^2 / n)
 spread = z * sqrt( (p (1 - p) + z^2 / (4n)) / n ) / (1 + z^2 / n)
 ```
 
-With z at 1.96 for 95 percent. The center moves toward one half when n is small, and the bounds are clamped to zero and one. At 50 cases and 90 percent accuracy it gives 78 to 97 percent. The normal interval would give bounds that can leave the unit range and a width that is wrong at the extremes.
+Với z ở 1.96 cho 95 phần trăm. Tâm dịch về một nửa khi n nhỏ, và các cận được chặn về không và một. Ở 50 trường hợp và độ chính xác 90 phần trăm nó cho 78 đến 97 phần trăm. Khoảng chuẩn sẽ cho các cận có thể rời khoảng đơn vị và một độ rộng sai ở các cực.
 
 ### The bootstrap interval
 
-Resample the n scores with replacement, compute the mean, repeat a thousand times, sort the means and read the percentiles at alpha over two from each end. It assumes only that the sample represents the population. It cannot repair a biased or tiny sample, and it costs compute rather than algebra.
+Lấy mẫu lại n điểm có hoàn lại, tính trung bình, lặp một nghìn lần, sắp xếp các trung bình và đọc các phân vị tại alpha chia hai từ mỗi đầu. Nó chỉ giả định rằng mẫu đại diện tổng thể. Nó không thể sửa một mẫu chệch hoặc rất nhỏ, và nó tốn tính toán thay vì đại số.
 
 ### Comparing two runs
 
-Neither interval compares two systems by itself. For two prompt versions that ran on the same cases, build the interval on the paired per case difference, by bootstrap over cases or a paired test. Two separate intervals that overlap do not prove equality, and two that do not overlap are not needed to prove a difference.
+Không khoảng nào tự nó so sánh hai hệ thống. Với hai phiên bản prompt chạy trên cùng các trường hợp, xây khoảng trên chênh lệch ghép cặp theo trường hợp, bằng bootstrap trên các trường hợp hoặc một kiểm định ghép cặp. Hai khoảng riêng chồng nhau không chứng minh bằng nhau, và hai khoảng không chồng nhau không cần thiết để chứng minh một khác biệt.
 
 ## Follow-ups
 
-- **Level 3:** What goes wrong with a plus or minus one standard error interval on a proportion? Expected: at small n or near zero or one it gives bounds outside the unit range and the wrong width; Wilson corrects both.
-- **Level 3:** What does a bootstrap assume? Expected: that the sample represents the population; it needs no distribution shape, but it cannot fix a biased or tiny sample.
-- **Level 4:** Two prompt versions ran on the same 200 cases. Which interval decides? Expected: an interval on the paired per case difference; two overlapping intervals do not prove equality.
+- **Level 3:** Điều gì sai với một khoảng cộng hoặc trừ một sai số chuẩn trên một tỷ lệ? Expected: ở n nhỏ hoặc gần không hoặc một nó cho các cận ngoài khoảng đơn vị và độ rộng sai; Wilson sửa cả hai.
+- **Level 3:** Một bootstrap giả định gì? Expected: rằng mẫu đại diện tổng thể; nó không cần hình dạng phân phối, nhưng không thể sửa một mẫu chệch hoặc rất nhỏ.
+- **Level 4:** Hai phiên bản prompt chạy trên cùng 200 trường hợp. Khoảng nào quyết định? Expected: một khoảng trên chênh lệch ghép cặp theo trường hợp; hai khoảng chồng nhau không chứng minh bằng nhau.
 
 ## Wrong answers
 
-- "Plus or minus the standard error is fine." The normal interval fails at small samples and extreme proportions, exactly where releases are decided.
-- "Bootstrap works for the pass rate too, so use it everywhere." It works, but Wilson is closed form, cheap and built for proportions; keep the code auditable.
-- "Overlapping intervals mean no difference." Two separate intervals can overlap while the paired difference excludes zero; compare the difference.
+- "Cộng hoặc trừ sai số chuẩn là ổn." Khoảng chuẩn thất bại ở các mẫu nhỏ và các tỷ lệ cực đoan, chính là nơi các bản phát hành được quyết định.
+- "Bootstrap cũng hoạt động cho tỷ lệ đạt, vì vậy dùng nó ở mọi nơi." Nó hoạt động, nhưng Wilson có dạng đóng, rẻ và được xây cho các tỷ lệ; giữ mã kiểm toán được.
+- "Các khoảng chồng nhau nghĩa là không có khác biệt." Hai khoảng riêng có thể chồng nhau trong khi chênh lệch ghép cặp loại trừ không; so sánh chênh lệch.
 
 ## Taught in
 
-The [evaluation and testing lesson](../../../phases/11-llm-engineering/10-evaluation/) builds the Wilson and the bootstrap interval and explains when each applies.
+[Bài học đánh giá và kiểm thử](../../../phases/11-llm-engineering/10-evaluation/) xây dựng khoảng Wilson và bootstrap và giải thích khi nào mỗi loại áp dụng.

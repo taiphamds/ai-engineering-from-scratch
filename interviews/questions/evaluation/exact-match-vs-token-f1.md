@@ -16,45 +16,45 @@ related: [evaluation/tokenizer-is-the-benchmark]
 updated: 2026-11-03
 ---
 
-Your question answering system returns "June 29th, 2007." The reference says "June 29, 2007." A teammate reports that this case gets a zero and asks you to replace the whole eval with token F1. What do you tell them?
+Hệ thống hỏi đáp của bạn trả về "June 29th, 2007." Tham chiếu nói "June 29, 2007." Một đồng đội báo cáo rằng trường hợp này nhận không và yêu cầu bạn thay toàn bộ đánh giá bằng token F1. Bạn nói gì với họ?
 
 ## Short answer
 
-Both metrics are right for different answer shapes. Exact match compares the whole string after normalization, so one extra character makes it zero. Token F1 compares the bags of tokens, so this pair scores about 75 percent. First add normalization to exact match, then pick the metric by the shape of the answers you grade.
+Cả hai metric đúng cho các hình dạng câu trả lời khác nhau. Exact match so sánh toàn bộ chuỗi sau chuẩn hóa, vì vậy một ký tự thêm làm nó bằng không. Token F1 so sánh các túi token, vì vậy cặp này đạt khoảng 75 phần trăm. Trước tiên thêm chuẩn hóa vào exact match, rồi chọn metric theo hình dạng của các câu trả lời bạn chấm.
 
 ## Full answer
 
 ### What each metric compares
 
-Exact match normalizes both sides and then asks for equality. The capstone's exact match eval lowercases, strips the ends, collapses runs of whitespace and drops trailing terminal punctuation when the two sides differ only by it. After that step "Paris", "Paris." and "  paris  " all count as the same answer. The suffix in "29th" is not punctuation, so this pair still fails.
+Exact match chuẩn hóa cả hai phía rồi kiểm tra bằng nhau. Đánh giá exact match của capstone chuyển chữ thường, bỏ hai đầu, gộp các dãy khoảng trắng và bỏ dấu câu kết thúc ở cuối khi hai phía chỉ khác bởi nó. Sau bước đó "Paris", "Paris." và "  paris  " đều tính là cùng câu trả lời. Hậu tố trong "29th" không phải dấu câu, vì vậy cặp này vẫn thất bại.
 
-Token F1 splits both sides into tokens, counts the multiset intersection, and takes the harmonic mean of precision and recall. It forgives word order and paraphrase. It is fooled by lexical overlap: a prediction that shares most tokens with the reference but changes one fact still scores high.
+Token F1 chia cả hai phía thành các token, đếm giao đa tập, và lấy trung bình điều hòa của precision và recall. Nó bỏ qua khác biệt thứ tự từ và diễn đạt lại. Nó bị đánh lừa bởi trùng lặp từ vựng: một dự đoán dùng chung phần lớn token với tham chiếu nhưng thay đổi một sự kiện vẫn đạt điểm cao.
 
 ### Which one to use
 
-| Answer shape | Metric |
+| Hình dạng câu trả lời | Metric |
 |---|---|
-| A date, a number, a letter, a label | Exact match with normalization |
-| A short phrase with several valid wordings | Token F1, best score over all references |
-| A sentence or a paragraph | Token F1 as a floor, a calibrated judge for meaning |
+| Một ngày tháng, một con số, một chữ cái, một nhãn | Exact match với chuẩn hóa |
+| Một cụm ngắn có nhiều cách diễn đạt hợp lệ | Token F1, điểm tốt nhất trên tất cả tham chiếu |
+| Một câu hoặc một đoạn | Token F1 làm mức sàn, một bộ chấm được hiệu chuẩn cho ý nghĩa |
 
 ### Why not switch everything
 
-Token F1 pays for shared words, not for correctness. A long answer that repeats the question and then gives the wrong entity can score higher than a short correct answer. Keep exact match where the answer is deterministic. Use token F1 where paraphrase is normal. Use a judge where only meaning counts, and calibrate it first.
+Token F1 thưởng cho các từ dùng chung, không cho tính đúng đắn. Một câu trả lời dài lặp lại câu hỏi rồi cho thực thể sai có thể đạt điểm cao hơn một câu trả lời đúng ngắn. Giữ exact match nơi câu trả lời có tính xác định. Dùng token F1 nơi diễn đạt lại là bình thường. Dùng một bộ chấm nơi chỉ ý nghĩa được tính, và hiệu chuẩn nó trước.
 
 ## Follow-ups
 
-- **Level 1:** What does a token F1 of one mean? Expected: the prediction and the reference have the same multiset of tokens after normalization, in any order.
-- **Level 2:** The reference is "Paris" and the prediction is "Paris." Which metric fails without normalization? Expected: exact match; with the trailing punctuation rule it passes.
-- **Level 2:** When do you take the best score over several references? Expected: when a question has more than one valid answer string; the F1 and ROUGE-L metrics take the highest scoring target.
-- **Level 3:** Token F1 is high and the answer is wrong. How did that happen? Expected: lexical overlap with wrong content, such as a wrong entity inside a sentence that shares most tokens with the reference; grade the entity with exact match or use a judge.
+- **Level 1:** Một token F1 bằng một có nghĩa là gì? Expected: dự đoán và tham chiếu có cùng đa tập token sau chuẩn hóa, theo bất kỳ thứ tự nào.
+- **Level 2:** Tham chiếu là "Paris" và dự đoán là "Paris." Metric nào thất bại khi không có chuẩn hóa? Expected: exact match; với quy tắc dấu câu cuối nó đạt.
+- **Level 2:** Khi nào bạn lấy điểm tốt nhất trên nhiều tham chiếu? Expected: khi một câu hỏi có nhiều hơn một chuỗi câu trả lời hợp lệ; các metric F1 và ROUGE-L lấy mục tiêu đạt điểm cao nhất.
+- **Level 3:** Token F1 cao và câu trả lời sai. Điều đó xảy ra như thế nào? Expected: trùng lặp từ vựng với nội dung sai, chẳng hạn một thực thể sai bên trong một câu dùng chung phần lớn token với tham chiếu; chấm thực thể bằng exact match hoặc dùng một bộ chấm.
 
 ## Wrong answers
 
-- "Exact match is broken, so remove it." Exact match with normalization is the right metric for dates, numbers and multiple choice letters; the missing step is normalization.
-- "Token F1 understands meaning." It counts shared tokens; two answers with no shared tokens can both be right, and a wrong answer can share most tokens.
-- "A human would give this 100, so always use a judge." A judge costs money and needs a calibration run; for a date, normalized exact match is free and exact.
+- "Exact match hỏng, vì vậy loại bỏ nó." Exact match với chuẩn hóa là metric đúng cho ngày tháng, con số và chữ cái trắc nghiệm; bước thiếu là chuẩn hóa.
+- "Token F1 hiểu ý nghĩa." Nó đếm các token dùng chung; hai câu trả lời không có token dùng chung đều có thể đúng, và một câu trả lời sai có thể dùng chung phần lớn token.
+- "Một người sẽ cho trường hợp này 100, vì vậy luôn dùng một bộ chấm." Một bộ chấm tốn tiền và cần một lần hiệu chuẩn; với một ngày tháng, exact match đã chuẩn hóa miễn phí và chính xác.
 
 ## Taught in
 
-The [LLM evaluation frameworks lesson](../../../phases/05-nlp-foundations-to-advanced/27-llm-evaluation-frameworks/) opens with this pair, and the [eval pipeline capstone](../../../phases/19-capstone-projects/41-eval-pipeline/) gives the normalization rules for exact match and token F1.
+[Bài học các framework đánh giá LLM](../../../phases/05-nlp-foundations-to-advanced/27-llm-evaluation-frameworks/) mở đầu bằng cặp này, và [capstone pipeline đánh giá](../../../phases/19-capstone-projects/41-eval-pipeline/) đưa ra các quy tắc chuẩn hóa cho exact match và token F1.

@@ -16,43 +16,43 @@ related: [evaluation/judge-calibration-before-trust]
 updated: 2026-11-03
 ---
 
-Overnight every metric on the eval dashboard moved by several points, up for some criteria and down for others, with no prompt change and no model change in the product. The last merged change switched the judge to the newest version of its model. What happened, and how should such a change be made?
+Qua đêm mọi metric trên dashboard đánh giá dịch chuyển vài điểm, tăng cho một số tiêu chí và giảm cho số khác, không có thay đổi prompt và không có thay đổi mô hình trong sản phẩm. Thay đổi được gộp cuối cùng chuyển bộ chấm sang phiên bản mới nhất của mô hình của nó. Điều gì đã xảy ra, và một thay đổi như vậy nên được thực hiện như thế nào?
 
 ## Short answer
 
-The judge is part of the measurement, so a new judge version changes every metric at once while the product stands still. Freeze the judge model and version in the pipeline. When you upgrade, run the old and the new judge on the same baseline in parallel, calibrate the new judge against the human labeled set, and reset the baseline before you compare anything new.
+Bộ chấm là một phần của phép đo, vì vậy một phiên bản bộ chấm mới thay đổi mọi metric cùng lúc trong khi sản phẩm đứng yên. Đóng băng mô hình chấm và phiên bản trong pipeline. Khi bạn nâng cấp, chạy bộ chấm cũ và mới trên cùng baseline song song, hiệu chuẩn bộ chấm mới với tập do con người gán nhãn, và đặt lại baseline trước khi so sánh bất cứ thứ gì mới.
 
 ## Full answer
 
 ### Why everything moved
 
-A judge score is a function of the output and of the judge. Change the judge and every stored score is in a different unit. The lesson lists judge version drift as one of the three silent failures and asks you to flag any pipeline where a judge upgrade lands without a parallel baseline eval.
+Một điểm bộ chấm là một hàm của đầu ra và của bộ chấm. Thay bộ chấm và mọi điểm đã lưu ở một đơn vị khác. Bài học liệt kê sự thay đổi theo phiên bản bộ chấm là một trong ba thất bại âm thầm và yêu cầu bạn đánh dấu bất kỳ pipeline nào nơi một nâng cấp bộ chấm được đưa vào mà không có một đánh giá baseline song song.
 
 ### The upgrade protocol
 
-1. Pin the judge model and version, and record both with every run.
-2. Before a switch, score a frozen baseline set with the old and the new judge.
-3. Calibrate the new judge: Spearman correlation with the hand labeled set of 0.7 or more.
-4. If the new judge calibrates better, adopt it and rescore the stored baselines so that history and new runs share one judge.
-5. Mark the switch on every chart.
+1. Ghim mô hình chấm và phiên bản, và ghi lại cả hai với mọi lần chạy.
+2. Trước một lần chuyển, chấm một tập baseline đóng băng bằng bộ chấm cũ và mới.
+3. Hiệu chuẩn bộ chấm mới: tương quan Spearman với tập gán nhãn tay từ 0.7 trở lên.
+4. Nếu bộ chấm mới hiệu chuẩn tốt hơn, áp dụng nó và chấm lại các baseline đã lưu để lịch sử và các lần chạy mới dùng chung một bộ chấm.
+5. Đánh dấu lần chuyển trên mọi biểu đồ.
 
 ### Other things that move every score
 
-An edit to the eval set without a version tag. A change in how missing scores are counted. A run that dropped some tasks. Tag the dataset with every change and record the task count.
+Một chỉnh sửa tập đánh giá không có thẻ phiên bản. Một thay đổi cách đếm các điểm thiếu. Một lần chạy bỏ một số nhiệm vụ. Gắn thẻ dataset với mọi thay đổi và ghi lại số nhiệm vụ.
 
 ## Follow-ups
 
-- **Level 2:** What else can move every score without a product change? Expected: an eval set edit without a version tag, or a change in how missing scores are counted.
-- **Level 2:** How do you tell a judge change from a product regression next time? Expected: the run metadata records the judge model and version, so a diff of the metadata answers it.
-- **Level 3:** The new judge correlates better with the human labels. Do you adopt it? Expected: yes, but rescore the stored baseline with it first so that old and new numbers share one judge.
-- **Level 3:** You must keep a trendline across the switch. How? Expected: score a fixed frozen set with both judges, publish the offset per criterion, and mark the switch on the chart.
+- **Level 2:** Điều gì khác có thể dịch chuyển mọi điểm mà không có thay đổi sản phẩm? Expected: một chỉnh sửa tập đánh giá không có thẻ phiên bản, hoặc một thay đổi cách đếm các điểm thiếu.
+- **Level 2:** Bạn phân biệt một thay đổi bộ chấm với một thoái lui sản phẩm lần tới như thế nào? Expected: metadata lần chạy ghi lại mô hình chấm và phiên bản, vì vậy một phép so sánh metadata trả lời điều đó.
+- **Level 3:** Bộ chấm mới tương quan tốt hơn với các nhãn con người. Bạn có áp dụng nó không? Expected: có, nhưng chấm lại baseline đã lưu bằng nó trước để các con số cũ và mới dùng chung một bộ chấm.
+- **Level 3:** Bạn phải giữ một đường xu hướng qua lần chuyển. Bằng cách nào? Expected: chấm một tập đóng băng cố định bằng cả hai bộ chấm, công bố độ lệch theo tiêu chí, và đánh dấu lần chuyển trên biểu đồ.
 
 ## Wrong answers
 
-- "Newer judge, higher scores, ship it." The product did not change; the number did. A judge change needs a parallel baseline.
-- "Follow the newest judge version automatically." Automatic upgrades make every trendline meaningless; pin the version.
-- "A minor version does not need recalibration." Any version change can change the scores; rerun the correlation.
+- "Bộ chấm mới hơn, điểm cao hơn, phát hành." Sản phẩm không thay đổi; con số thay đổi. Một thay đổi bộ chấm cần một baseline song song.
+- "Tự động theo phiên bản bộ chấm mới nhất." Các nâng cấp tự động làm mọi đường xu hướng vô nghĩa; ghim phiên bản.
+- "Một phiên bản nhỏ không cần hiệu chuẩn lại." Bất kỳ thay đổi phiên bản nào cũng có thể thay đổi điểm; chạy lại tương quan.
 
 ## Taught in
 
-The [LLM evaluation frameworks lesson](../../../phases/05-nlp-foundations-to-advanced/27-llm-evaluation-frameworks/) names drift over judge versions and requires a side by side run on a frozen baseline before any upgrade lands.
+[Bài học các framework đánh giá LLM](../../../phases/05-nlp-foundations-to-advanced/27-llm-evaluation-frameworks/) nêu sự thay đổi qua các phiên bản bộ chấm và yêu cầu một lần chạy cạnh nhau trên một baseline đóng băng trước khi bất kỳ nâng cấp nào được đưa vào.

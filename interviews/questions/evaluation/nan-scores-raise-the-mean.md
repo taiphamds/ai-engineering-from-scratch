@@ -16,46 +16,46 @@ related: [evaluation/mean-hides-the-tail]
 updated: 2026-11-03
 ---
 
-Your judge returns a JSON object with a score for each case. The pipeline parses it, and mean faithfulness rose from one week to the next with no change to the product. The logs show that the judge's output failed to parse on a growing share of cases. Explain the rise and fix the pipeline.
+Bộ chấm của bạn trả về một đối tượng JSON có điểm cho mỗi trường hợp. Pipeline phân tích nó, và tính trung thành trung bình tăng từ tuần này sang tuần tiếp theo mà không thay đổi sản phẩm. Các log cho thấy đầu ra của bộ chấm không phân tích cú pháp được trên một tỷ lệ trường hợp tăng dần. Giải thích mức tăng và sửa pipeline.
 
 ## Short answer
 
-A parse failure becomes a missing score, and the aggregate silently drops missing scores. The cases that fail to parse are often the worst outputs, so dropping them lifts the mean. Catch the failure explicitly, record it as its own outcome, count it against the score or report it next to the mean, and alert when the failure share grows.
+Một lỗi phân tích cú pháp trở thành một điểm thiếu, và phần tổng hợp âm thầm bỏ các điểm thiếu. Các trường hợp không phân tích cú pháp được thường là các đầu ra tệ nhất, vì vậy bỏ chúng nâng trung bình. Bắt thất bại tường minh, ghi lại nó như một kết quả riêng, tính nó vào điểm hoặc báo cáo nó cạnh trung bình, và cảnh báo khi tỷ lệ thất bại tăng.
 
 ## Full answer
 
 ### The mechanism
 
-Bad JSON from the judge becomes a not a number value. A mean over a column with such values excludes them. The lesson names this as the second silent failure of a judge and asks for the parse to fail loudly with its own status.
+JSON xấu từ bộ chấm trở thành một giá trị không phải số. Một trung bình trên một cột có các giá trị như vậy loại trừ chúng. Bài học nêu đây là thất bại âm thầm thứ hai của một bộ chấm và yêu cầu việc phân tích thất bại rõ ràng với trạng thái riêng.
 
 ### Why the exclusion is biased
 
-The judge breaks its format most often on long, odd or refused outputs. Those are also the low scoring outputs. So the exclusion removes the bottom of the distribution, and the mean rises for a reason that has nothing to do with quality.
+Bộ chấm phá định dạng thường xuyên nhất trên các đầu ra dài, lạ hoặc bị từ chối. Những đầu ra đó cũng là các đầu ra điểm thấp. Vì vậy việc loại trừ bỏ đáy phân phối, và trung bình tăng vì một lý do không liên quan đến chất lượng.
 
 ### The fix
 
-1. Wrap the parse in an explicit check and give every case a status: scored, parse failed, judge error.
-2. Report the parsed share with every run. A rising failure share fails the run.
-3. Publish the mean two ways: with failures counted as zero and with failures excluded. If the two differ a lot, the failures are not random.
-4. Allow one retry with a repair prompt, record that a retry happened, and cap retries.
-5. Store the raw judge text so a reviewer can read what broke.
+1. Bọc việc phân tích trong một phép kiểm tra tường minh và cho mọi trường hợp một trạng thái: đã chấm, phân tích thất bại, lỗi bộ chấm.
+2. Báo cáo tỷ lệ phân tích được với mọi lần chạy. Một tỷ lệ thất bại tăng làm lần chạy thất bại.
+3. Công bố trung bình theo hai cách: với các thất bại tính là không và với các thất bại bị loại trừ. Nếu hai giá trị khác nhau nhiều, các thất bại không ngẫu nhiên.
+4. Cho phép một lần retry với một prompt sửa chữa, ghi lại rằng một lần retry đã xảy ra, và giới hạn retry.
+5. Lưu văn bản bộ chấm thô để một người rà soát có thể đọc điều bị hỏng.
 
 ### Verify the diagnosis
 
-Recompute last week's mean with failures counted as zero. If the rise disappears, you have the cause.
+Tính lại trung bình tuần trước với các thất bại tính là không. Nếu mức tăng biến mất, bạn có nguyên nhân.
 
 ## Follow-ups
 
-- **Level 3:** Why are the failed cases not a random sample? Expected: the judge breaks its format most on long, odd or refused outputs, which are also the low scoring ones.
-- **Level 3:** Do you score a failed parse as a zero or leave it out? Expected: both, with the parsed share; a gate should treat a rising failure share as a failed run.
-- **Level 4:** How do you design the judge output so this cannot happen silently again? Expected: a strict schema, a validator that rejects anything else, a status field per case, and a run level parse failure metric with an alert.
+- **Level 3:** Tại sao các trường hợp thất bại không phải một mẫu ngẫu nhiên? Expected: bộ chấm phá định dạng nhiều nhất trên các đầu ra dài, lạ hoặc bị từ chối, cũng là những đầu ra điểm thấp.
+- **Level 3:** Bạn chấm một lần phân tích thất bại là không hay bỏ nó? Expected: cả hai, với tỷ lệ phân tích được; một cổng nên coi một tỷ lệ thất bại tăng là một lần chạy thất bại.
+- **Level 4:** Bạn thiết kế đầu ra bộ chấm như thế nào để điều này không thể xảy ra âm thầm lần nữa? Expected: một schema nghiêm ngặt, một bộ xác thực từ chối bất cứ thứ gì khác, một trường trạng thái mỗi trường hợp, và một metric lỗi phân tích cú pháp cấp lần chạy có cảnh báo.
 
 ## Wrong answers
 
-- "The mean rose, so quality rose." Nothing in the product changed; the denominator did.
-- "Retry until it parses." Retries without a record hide the failure and can change the score; record every retry and cap them.
-- "Exclude failures, they are judge bugs." The exclusion is biased toward bad outputs; the product number is wrong whatever the cause.
+- "Trung bình tăng, vì vậy chất lượng tăng." Không có gì trong sản phẩm thay đổi; mẫu số thay đổi.
+- "Retry cho đến khi phân tích được." Retry không có bản ghi che giấu thất bại và có thể thay đổi điểm; ghi lại mọi lần retry và giới hạn chúng.
+- "Loại trừ các thất bại, chúng là lỗi bộ chấm." Việc loại trừ thiên về các đầu ra xấu; con số sản phẩm sai bất kể nguyên nhân.
 
 ## Taught in
 
-The [LLM evaluation frameworks lesson](../../../phases/05-nlp-foundations-to-advanced/27-llm-evaluation-frameworks/) lists JSON parsing failures as a silent judge failure and requires an explicit failure mode.
+[Bài học các framework đánh giá LLM](../../../phases/05-nlp-foundations-to-advanced/27-llm-evaluation-frameworks/) liệt kê các lỗi phân tích JSON là một thất bại bộ chấm âm thầm và yêu cầu một chế độ thất bại tường minh.

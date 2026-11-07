@@ -16,59 +16,59 @@ related: [evaluation/two-pass-at-k-formulas]
 updated: 2026-11-03
 ---
 
-You must score generated code by running it. A teammate proposes a call to the interpreter's eval function inside the harness process with a try block around it. Design the execution contract instead, and say how a timeout, a crash and a denylist hit each appear in the result.
+Bạn phải chấm mã được sinh bằng cách chạy nó. Một đồng đội đề xuất một lời gọi hàm eval của trình thông dịch bên trong tiến trình harness với một khối try quanh nó. Thay vào đó thiết kế hợp đồng thực thi, và nói một lần hết thời gian, một lần sập và một lần chạm denylist mỗi thứ xuất hiện trong kết quả như thế nào.
 
 ## Short answer
 
-Run every candidate in a fresh interpreter subprocess with a wall clock timeout, an output cap and an import denylist, never in the harness process. The score is the fraction of assertions that pass. A timeout, a syntax error, an assertion failure and any other crash each map to a distinct exit reason, so a reviewer can tell a slow solution from a wrong one while the score for most of them is zero.
+Chạy mọi ứng viên trong một tiến trình con trình thông dịch mới với một timeout thời gian thực, một giới hạn đầu ra và một denylist import, không bao giờ trong tiến trình harness. Điểm là tỷ lệ các assertion đạt. Một lần hết thời gian, một lỗi cú pháp, một assertion thất bại và bất kỳ lần sập khác mỗi thứ ánh xạ đến một lý do thoát riêng, để một người rà soát có thể phân biệt một lời giải chậm với một lời giải sai trong khi điểm cho phần lớn chúng bằng không.
 
 ## Full answer
 
 ### Why the subprocess
 
-An in process call cannot survive a generated infinite loop, and it cannot survive a generated call that deletes the file system. A fresh interpreter per candidate takes the code on standard input, writes a JSON envelope of per assertion results to standard output, and dies when it overruns. The harness keeps running.
+Một lời gọi trong tiến trình không thể sống sót qua một vòng lặp vô hạn được sinh, và nó không thể sống sót qua một lời gọi được sinh xóa hệ thống file. Một trình thông dịch mới mỗi ứng viên nhận mã trên đầu vào chuẩn, ghi một vỏ JSON của các kết quả theo assertion lên đầu ra chuẩn, và chết khi vượt quá. Harness tiếp tục chạy.
 
 ### The contract
 
-1. **Extract** the first fenced code block from the generation, with the same post process rule the task spec uses.
-2. **Build** a runner script around the code with the task's assertion strings.
-3. **Spawn** a new interpreter with a default budget of 3 seconds of wall clock, clamped between 0.1 and thirty seconds by the runner.
-4. **Cap** the output: the runner streams standard output and kills the child when the total passes 256 KB, recorded as an error with the detail output overflow.
-5. **Deny** dangerous imports by rewriting them to raise an import error: the operating system shell call, subprocess, socket, shutil, the request libraries, and the foreign function interface. The list is a backstop. The timeout and the cap are the load bearing controls.
+1. **Trích xuất** code block có hàng rào đầu tiên từ phần sinh, với cùng quy tắc hậu xử lý mà đặc tả nhiệm vụ dùng.
+2. **Xây dựng** một runner script quanh mã với các chuỗi assertion của nhiệm vụ.
+3. **Khởi chạy** một trình thông dịch mới với một ngân sách mặc định 3 giây thời gian thực, được runner chặn giữa 0.1 và ba mươi giây.
+4. **Giới hạn** đầu ra: runner stream đầu ra chuẩn và giết tiến trình con khi tổng vượt 256 KB, được ghi thành một lỗi với chi tiết tràn đầu ra.
+5. **Cấm** các import nguy hiểm bằng cách viết lại chúng để phát sinh một lỗi import: lời gọi shell hệ điều hành, subprocess, socket, shutil, các thư viện request, và giao diện hàm ngoại. Danh sách là một biện pháp dự phòng. Timeout và giới hạn là các biện pháp kiểm soát chịu lực chính.
 
 ### The result vocabulary
 
-| Exit reason | Meaning |
+| Lý do thoát | Ý nghĩa |
 |---|---|
-| pass | every assertion passed |
-| assertion_fail | the code ran and at least one assertion failed |
-| syntax_error | the code did not import |
-| timeout | the wall clock expired |
-| error | any other crash, including a denylist hit and output overflow |
+| pass | mọi assertion đạt |
+| assertion_fail | mã đã chạy và ít nhất một assertion thất bại |
+| syntax_error | mã không import được |
+| timeout | thời gian thực đã hết |
+| error | bất kỳ lần sập khác, gồm một lần chạm denylist và tràn đầu ra |
 
-The score stays a fraction: two of three assertions is 0.667. The exit reason is metadata, so the leaderboard layer can decide whether a timeout counts as zero or as missing data.
+Điểm giữ là một tỷ lệ: hai trong ba assertion là 0.667. Lý do thoát là metadata, để lớp bảng xếp hạng có thể quyết định liệu một lần hết thời gian tính là không hay là dữ liệu thiếu.
 
 ### What the smaller harness does
 
-The smaller harness in the leaderboard lesson runs the prediction in a namespace with stripped builtins, and its test asserts that an import of the operating system module fails. It also caps the batch size for rate limits and pins the task files with a hash so a moved score can be traced to a moved task.
+Harness nhỏ hơn trong bài học bảng xếp hạng chạy dự đoán trong một namespace với các built-in bị lược bỏ, và kiểm thử của nó khẳng định rằng một import module hệ điều hành thất bại. Nó cũng giới hạn kích thước batch cho các giới hạn tốc độ và ghim các file nhiệm vụ bằng một hash để một điểm dịch chuyển có thể được truy về một nhiệm vụ dịch chuyển.
 
 ### What this is not
 
-Not a sandbox for untrusted code from the open web, not a home for stateful tasks with files or network. Those need a container or a microVM.
+Không phải một sandbox cho mã không đáng tin từ web mở, không phải một nơi cho các nhiệm vụ có trạng thái với file hoặc mạng. Những thứ đó cần một container hoặc một microVM.
 
 ## Follow-ups
 
-- **Level 3:** Why is the denylist not the main control? Expected: determined code can escape any in process guard; the wall clock timeout and the output cap bound run time and output size whatever the code does. They do not bound memory or file writes, so production adds a read only file system and network isolation, or a container.
-- **Level 3:** A candidate prints inside an infinite loop. Which control fires? Expected: the output cap at 256 KB, recorded as an error with the detail output overflow; the timeout would fire later.
-- **Level 4:** How should the leaderboard treat timeouts, zero or missing? Expected: a documented choice; zero if slow code is wrong for the task, missing if you measure correctness alone, and the exit reason lets you report both.
-- **Level 4:** When do assertion strings stop being enough? Expected: when the eval should match production CI; replace them with real unit test files in a container and stop calling the strings tests.
+- **Level 3:** Tại sao denylist không phải biện pháp kiểm soát chính? Expected: mã quyết tâm có thể thoát bất kỳ biện pháp bảo vệ trong tiến trình nào; timeout thời gian thực và giới hạn đầu ra chặn thời gian chạy và kích thước đầu ra bất kể mã làm gì. Chúng không chặn bộ nhớ hoặc việc ghi file, vì vậy production thêm một hệ thống file chỉ đọc và cách ly mạng, hoặc một container.
+- **Level 3:** Một ứng viên in bên trong một vòng lặp vô hạn. Biện pháp kiểm soát nào kích hoạt? Expected: giới hạn đầu ra tại 256 KB, được ghi thành một lỗi với chi tiết tràn đầu ra; timeout sẽ kích hoạt sau.
+- **Level 4:** Bảng xếp hạng nên xử lý các lần hết thời gian như thế nào, không hay thiếu? Expected: một lựa chọn được tài liệu hóa; không nếu mã chậm là sai cho nhiệm vụ, thiếu nếu bạn chỉ đo tính đúng đắn, và lý do thoát cho phép bạn báo cáo cả hai.
+- **Level 4:** Khi nào các chuỗi assertion ngừng đủ? Expected: khi đánh giá nên khớp production CI; thay chúng bằng các file kiểm thử đơn vị thật trong một container và ngừng gọi các chuỗi là kiểm thử.
 
 ## Wrong answers
 
-- "A try block around the call is a sandbox." It catches exceptions, not infinite loops, not file deletion, not memory floods.
-- "The denylist makes it safe." It is a conservative backstop; the capstone states that it is not bulletproof.
-- "Score a timeout as a crash." Keep them distinct in the exit reason; the score can be zero for both, but the reason tells you whether to raise the budget.
+- "Một khối try quanh lời gọi là một sandbox." Nó bắt ngoại lệ, không bắt các vòng lặp vô hạn, không bắt xóa file, không bắt tràn bộ nhớ.
+- "Denylist làm nó an toàn." Nó là một biện pháp dự phòng bảo thủ; capstone nêu rằng nó không chắc chắn tuyệt đối.
+- "Chấm một lần hết thời gian là một lần sập." Giữ chúng riêng biệt trong lý do thoát; điểm có thể bằng không cho cả hai, nhưng lý do cho bạn biết liệu có tăng ngân sách không.
 
 ## Taught in
 
-The [code exec metric capstone](../../../phases/19-capstone-projects/72-code-exec-metric/) gives the subprocess contract, the exit reasons and the limits, and the [language model evaluation harness capstone](../../../phases/19-capstone-projects/49-lm-eval-harness/) runs predictions in a stripped namespace and pins the task files.
+[Capstone metric thực thi mã](../../../phases/19-capstone-projects/72-code-exec-metric/) đưa ra hợp đồng tiến trình con, các lý do thoát và giới hạn, và [capstone harness đánh giá mô hình ngôn ngữ](../../../phases/19-capstone-projects/49-lm-eval-harness/) chạy các dự đoán trong một namespace lược bỏ và ghim các file nhiệm vụ.

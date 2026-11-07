@@ -16,42 +16,42 @@ related: [evaluation/judge-calibration-before-trust]
 updated: 2026-11-03
 ---
 
-Your product generates answers with one model, and your eval pipeline grades them using that same model plus a rubric. Scores rose after the last release and the team is pleased. A reviewer asks why the gain might not be real. What is the risk, and what do you change?
+Sản phẩm của bạn sinh các câu trả lời bằng một mô hình, và pipeline đánh giá chấm chúng bằng chính mô hình đó cộng một rubric. Điểm tăng sau bản phát hành cuối và nhóm hài lòng. Một người rà soát hỏi tại sao lợi ích có thể không thật. Rủi ro là gì, và bạn thay đổi gì?
 
 ## Short answer
 
-A model that grades its own family prefers its own style, so self evaluation inflates scores by about 10 to 20 percent. The rise can mean the judge likes the new outputs more, not that users do. Move the judge to a different model family, calibrate it against human labels, and score the baseline and the new version again under that judge.
+Một mô hình chấm họ riêng của nó thích phong cách riêng, vì vậy tự đánh giá thổi phồng các điểm khoảng 10 đến 20 phần trăm. Mức tăng có thể nghĩa là bộ chấm thích các đầu ra mới hơn, không phải người dùng thích. Chuyển bộ chấm sang một họ mô hình khác, hiệu chuẩn nó với nhãn con người, và chấm lại baseline cùng phiên bản mới dưới bộ chấm đó.
 
 ## Full answer
 
 ### Where the bias comes from
 
-A judge is a model with preferences. It favors longer answers, answers from its own model family and answers that match the prompt style. When the judge comes from the generator's own family, every release that moves the output toward the judge's taste looks like an improvement. The lesson calls this self preference and measures the inflation at about 10 to 20 percent.
+Một bộ chấm là một mô hình có sở thích. Nó ưu tiên các câu trả lời dài hơn, các câu trả lời từ họ mô hình riêng và các câu trả lời khớp phong cách prompt. Khi bộ chấm đến từ họ riêng của bộ sinh, mọi bản phát hành chuyển đầu ra về thị hiếu của bộ chấm trông như một cải thiện. Bài học gọi đây là tự ưu tiên và đo mức thổi phồng khoảng 10 đến 20 phần trăm.
 
 ### Why the release looked better
 
-A release changes tone, length and structure as well as content. The judge rewards the first three. Without a separate signal you cannot tell which part of the gain is content.
+Một bản phát hành thay đổi giọng điệu, độ dài và cấu trúc cũng như nội dung. Bộ chấm thưởng ba thứ đầu. Không có một tín hiệu riêng bạn không thể biết phần nào của lợi ích là nội dung.
 
 ### What to change
 
-1. Pick a judge from a different model family. Use the cheapest model that still meets the calibration threshold.
-2. Calibrate it: hand label at least 50 cases, the lesson uses 100, and require a Spearman correlation of 0.7 or more with the human ranking.
-3. Score the old and the new release under the same judge and report the difference, not the absolute score.
-4. Normalize for length, or state in the rubric that length does not count.
+1. Chọn một bộ chấm từ một họ mô hình khác. Dùng mô hình rẻ nhất vẫn đáp ứng ngưỡng hiệu chuẩn.
+2. Hiệu chuẩn nó: gán nhãn tay ít nhất 50 trường hợp, bài học dùng 100, và yêu cầu một tương quan Spearman 0.7 hoặc hơn với thứ hạng con người.
+3. Chấm bản phát hành cũ và mới dưới cùng bộ chấm và báo cáo chênh lệch, không phải điểm tuyệt đối.
+4. Chuẩn hóa theo độ dài, hoặc nêu trong rubric rằng độ dài không được tính.
 
 ## Follow-ups
 
-- **Level 2:** Which two other judge biases does the lesson name next to self preference? Expected: position bias in pairwise comparison and verbosity bias toward longer answers.
-- **Level 2:** The judge from another family is cheaper but correlates less with people. Which one do you take? Expected: the cheapest judge that still meets the calibration threshold; below the threshold the number is noise whatever the family.
-- **Level 3:** You cannot change the judge family this quarter. What limits the damage? Expected: calibrate against human labels and publish the correlation, normalize for length, and read only relative changes under the frozen judge.
-- **Level 3:** After the switch, how do you tell a real gain from a judge preference? Expected: both versions scored by the new judge, the difference with a confidence interval, and a human labeled slice of the cases that moved most.
+- **Level 2:** Bài học nêu hai thiên lệch bộ chấm nào khác cạnh tự ưu tiên? Expected: thiên lệch vị trí trong so sánh theo cặp và thiên lệch dài dòng hướng đến các câu trả lời dài hơn.
+- **Level 2:** Bộ chấm từ họ khác rẻ hơn nhưng tương quan ít hơn với con người. Bạn chọn bộ nào? Expected: bộ chấm rẻ nhất vẫn đáp ứng ngưỡng hiệu chuẩn; dưới ngưỡng con số là nhiễu bất kể họ.
+- **Level 3:** Bạn không thể thay họ bộ chấm trong quý này. Điều gì hạn chế thiệt hại? Expected: hiệu chuẩn với nhãn con người và công bố tương quan, chuẩn hóa theo độ dài, và chỉ đọc các thay đổi tương đối dưới bộ chấm đóng băng.
+- **Level 3:** Sau khi chuyển, bạn phân biệt một lợi ích thật với một sở thích bộ chấm như thế nào? Expected: cả hai phiên bản được chấm bởi bộ chấm mới, chênh lệch với một khoảng tin cậy, và một phần do con người gán nhãn của các trường hợp dịch chuyển nhiều nhất.
 
 ## Wrong answers
 
-- "The judge has a rubric, so its family does not matter." The rubric does not remove the preference for its own style; the lesson measures a 10 to 20 percent inflation.
-- "Use the strongest model we have as the judge, which is the one we ship." Strength does not remove self preference; a different family at similar strength is the fix.
-- "Scores went up, so quality went up." The score is a proxy; the output may have moved toward what the judge rewards, such as length and tone.
+- "Bộ chấm có một rubric, vì vậy họ của nó không quan trọng." Rubric không loại bỏ sở thích với phong cách riêng; bài học đo mức thổi phồng 10 đến 20 phần trăm.
+- "Dùng mô hình mạnh nhất chúng ta có làm bộ chấm, chính là mô hình chúng ta phát hành." Sức mạnh không loại bỏ tự ưu tiên; một họ khác ở sức mạnh tương tự là cách sửa.
+- "Điểm tăng, vì vậy chất lượng tăng." Điểm là một đại diện; đầu ra có thể đã chuyển về những gì bộ chấm thưởng, chẳng hạn độ dài và giọng điệu.
 
 ## Taught in
 
-The [LLM evaluation frameworks lesson](../../../phases/05-nlp-foundations-to-advanced/27-llm-evaluation-frameworks/) lists self evaluation as a pitfall, and the [evaluation lesson](../../../phases/10-llms-from-scratch/10-evaluation/) names self preference among the judge failure modes.
+[Bài học các framework đánh giá LLM](../../../phases/05-nlp-foundations-to-advanced/27-llm-evaluation-frameworks/) liệt kê tự đánh giá là một bẫy, và [bài học đánh giá](../../../phases/10-llms-from-scratch/10-evaluation/) nêu tự ưu tiên trong số các chế độ thất bại bộ chấm.

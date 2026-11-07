@@ -16,41 +16,41 @@ related: [evaluation/benchmarks-stop-discriminating]
 updated: 2026-11-03
 ---
 
-A model you fine tuned jumped eight points on a public benchmark after you added a new web scraped corpus to the training mix. Leadership wants to announce it. Design the audit that tells you whether the jump is capability or leakage, and say what you would publish instead if it is leakage.
+Một mô hình bạn fine-tune tăng tám điểm trên một benchmark công khai sau khi bạn thêm một corpus thu thập từ web mới vào cơ cấu huấn luyện. Ban lãnh đạo muốn công bố nó. Thiết kế cuộc kiểm toán cho bạn biết mức tăng là năng lực hay rò rỉ, và nói bạn sẽ công bố gì thay vào đó nếu đó là rò rỉ.
 
 ## Short answer
 
-Audit for contamination before anyone announces anything. Search the new corpus for the benchmark questions and their close paraphrases and report the share found, then rerun the model on a versioned custom eval that the corpus cannot contain and diff the individual test cases against the previous model. If the overlap is material and the custom eval did not move, the jump is memorization, and you publish the custom eval result with the contamination share.
+Kiểm toán nhiễm bẩn trước khi bất kỳ ai công bố bất cứ điều gì. Tìm các câu hỏi benchmark và các bản diễn đạt lại gần giống của chúng trong corpus mới và báo cáo tỷ lệ tìm thấy, rồi chạy lại mô hình trên một đánh giá tùy chỉnh có phiên bản mà corpus không thể chứa và so sánh các trường hợp kiểm thử riêng lẻ với mô hình trước. Nếu phần trùng lặp đáng kể và đánh giá tùy chỉnh không dịch chuyển, mức tăng là ghi nhớ, và bạn công bố kết quả đánh giá tùy chỉnh với tỷ lệ nhiễm bẩn.
 
 ## Full answer
 
 ### Why the jump is suspect
 
-Training corpora scrape the web and the benchmark questions live on the web. Nobody has to intend it. A new scraped corpus is the most likely path for the test to enter training, and a saturated benchmark rewards memorization with large jumps. The same lesson lists teaching to the test and saturation as the other two mechanisms that move a score without moving capability.
+Các corpus huấn luyện thu thập web và các câu hỏi benchmark nằm trên web. Không ai phải có chủ ý. Một corpus mới thu thập là đường có khả năng nhất để bài kiểm thử đi vào huấn luyện, và một benchmark bão hòa thưởng cho sự ghi nhớ bằng các bước tăng lớn. Cùng bài học liệt kê dạy để làm bài kiểm thử và bão hòa là hai cơ chế khác dịch chuyển một điểm mà không dịch chuyển năng lực.
 
 ### The audit
 
-1. **Contamination search.** Check what share of the eval questions, or close paraphrases of them, appear in the new corpus. Report exact matches and near matches separately with the method.
-2. **Model diff.** Compare the two model versions case by case: which items improved, which regressed, which stayed. If the improvements cluster on the items the search found, the diff names the leak.
-3. **Custom eval.** Run both models on your own versioned suite of at least 200 cases with edge cases, kept separate from every training and prompt example. A real gain shows there with an interval; a leak does not.
-4. **Separation check.** Confirm that no eval case overlaps with the prompt examples or the fine tuning data, because a test case that was also a training example measures memorization.
+1. **Tìm nhiễm bẩn.** Kiểm tra tỷ lệ các câu hỏi đánh giá, hoặc các bản diễn đạt lại gần giống của chúng, xuất hiện trong corpus mới. Báo cáo các lần khớp chính xác và khớp gần riêng biệt cùng phương pháp.
+2. **So sánh mô hình.** So sánh hai phiên bản mô hình theo từng trường hợp: những mục nào cải thiện, những mục nào thoái lui, những mục nào giữ nguyên. Nếu các cải thiện tập trung trên các mục mà việc tìm kiếm phát hiện, phép so sánh nêu sự rò rỉ.
+3. **Đánh giá tùy chỉnh.** Chạy cả hai mô hình trên bộ đánh giá có phiên bản riêng của bạn gồm ít nhất 200 trường hợp có các trường hợp biên, giữ tách biệt khỏi mọi ví dụ huấn luyện và prompt. Một lợi ích thật xuất hiện ở đó với một khoảng; một sự rò rỉ thì không.
+4. **Kiểm tra tách biệt.** Xác nhận rằng không trường hợp đánh giá nào trùng với các ví dụ prompt hoặc dữ liệu fine-tuning, vì một trường hợp kiểm thử cũng từng là một ví dụ huấn luyện đo sự ghi nhớ.
 
 ### What to publish
 
-The custom eval numbers with intervals, the contamination share and the method, and the benchmark score with that caveat attached. Never a bare benchmark number. And add the dedup step to the training pipeline so the next corpus is checked against every eval set before training starts.
+Các con số đánh giá tùy chỉnh với các khoảng, tỷ lệ nhiễm bẩn và phương pháp, và điểm benchmark với lưu ý đó đính kèm. Không bao giờ một con số benchmark trần. Và thêm bước khử trùng lặp vào pipeline huấn luyện để corpus tiếp theo được kiểm tra với mọi tập đánh giá trước khi huấn luyện bắt đầu.
 
 ## Follow-ups
 
-- **Level 3:** The search finds exact matches for a small share and paraphrases for more. Which count? Expected: both; paraphrases leak the answer as well, so report exact and near matches separately with the method.
-- **Level 3:** The custom eval also rose. Is the jump real? Expected: more likely, if the suite is versioned, separate from training data and large enough that the rise exceeds its interval.
-- **Level 4:** How do you prevent the question next time? Expected: deduplicate training corpora against every eval set before training, keep eval data out of prompts and fine tuning data, and record the check in the training report.
+- **Level 3:** Việc tìm kiếm thấy các lần khớp chính xác cho một tỷ lệ nhỏ và các bản diễn đạt lại cho nhiều hơn. Cái nào được tính? Expected: cả hai; các bản diễn đạt lại cũng làm rò rỉ câu trả lời, vì vậy báo cáo các lần khớp chính xác và khớp gần riêng biệt cùng phương pháp.
+- **Level 3:** Đánh giá tùy chỉnh cũng tăng. Mức tăng có thật không? Expected: có khả năng hơn, nếu bộ đánh giá có phiên bản, tách biệt khỏi dữ liệu huấn luyện và đủ lớn để mức tăng vượt khoảng của nó.
+- **Level 4:** Bạn ngăn câu hỏi này lần tới như thế nào? Expected: khử trùng lặp các corpus huấn luyện với mọi tập đánh giá trước huấn luyện, giữ dữ liệu đánh giá ngoài prompt và dữ liệu fine-tuning, và ghi lại phép kiểm tra trong báo cáo huấn luyện.
 
 ## Wrong answers
 
-- "We did not include the benchmark on purpose, so it is clean." Web scale scraping includes it without intent; the lesson calls this the normal path to contamination.
-- "Eight points is too large to be noise." Noise is not the alternative; memorization is, and it produces large jumps.
-- "Announce the benchmark and add the caveat later." Publish the custom eval with intervals and the contamination share; a bare benchmark number is the claim you cannot defend.
+- "Chúng tôi không cố ý đưa benchmark vào, vì vậy nó sạch." Thu thập ở quy mô web đưa nó vào mà không có chủ ý; bài học gọi đây là đường bình thường dẫn đến nhiễm bẩn.
+- "Tám điểm quá lớn để là nhiễu." Nhiễu không phải phương án khác; ghi nhớ mới là nó, và nó tạo ra các bước tăng lớn.
+- "Công bố benchmark và thêm lưu ý sau." Công bố đánh giá tùy chỉnh với các khoảng và tỷ lệ nhiễm bẩn; một con số benchmark trần là tuyên bố bạn không thể bảo vệ.
 
 ## Taught in
 
-The [evaluation lesson](../../../phases/10-llms-from-scratch/10-evaluation/) explains contamination and sets the contamination detection and model diff exercises, and the [evaluation and testing lesson](../../../phases/11-llm-engineering/10-evaluation/) warns against testing on training examples.
+[Bài học đánh giá](../../../phases/10-llms-from-scratch/10-evaluation/) giải thích nhiễm bẩn và đặt các bài tập phát hiện nhiễm bẩn và so sánh mô hình, và [bài học đánh giá và kiểm thử](../../../phases/11-llm-engineering/10-evaluation/) cảnh báo việc kiểm thử trên các ví dụ huấn luyện.

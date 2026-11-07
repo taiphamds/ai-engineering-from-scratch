@@ -16,11 +16,11 @@ related: [evaluation/perplexity-health-check]
 updated: 2026-11-03
 ---
 
-A colleague's perplexity eval computes the cross entropy at every position of every padded batch, averages it over the batch, exponentiates, and then averages the per batch values. The reported perplexity looks very good and gets better whenever the batch size grows. Read the description, name the bugs and give the correct computation.
+Đánh giá perplexity của một đồng nghiệp tính cross entropy tại mọi vị trí của mọi batch được pad, lấy trung bình nó trên batch, lấy hàm mũ, rồi lấy trung bình các giá trị theo batch. Perplexity được báo cáo trông rất tốt và tốt hơn bất cứ khi nào kích thước batch tăng. Đọc mô tả, nêu các lỗi và đưa ra phép tính đúng.
 
 ## Short answer
 
-There are three bugs: pad positions sit in the denominator, so the loss is diluted and the number improves with more padding, which is what a larger batch brings. Averaging per batch gives each token of a short batch more weight than each token of a long batch. And the targets must shift by one, because the logits at a position predict the next token. Sum the loss over real target positions across the corpus, count those positions, divide once, and exponentiate.
+Có ba lỗi: các vị trí pad nằm trong mẫu số, vì vậy loss bị pha loãng và con số cải thiện với nhiều padding hơn, là thứ một batch lớn hơn mang lại. Lấy trung bình theo batch cho mỗi token của một batch ngắn nhiều trọng số hơn mỗi token của một batch dài. Và các mục tiêu phải dịch một vị trí, vì logits tại một vị trí dự đoán token tiếp theo. Cộng loss trên các vị trí mục tiêu thật xuyên corpus, đếm các vị trí đó, chia một lần, và lấy hàm mũ.
 
 ## Full answer
 
@@ -36,30 +36,30 @@ total_tokens += target_mask.sum()
 ppl = exp(total_nll / total_tokens)
 ```
 
-The shift aligns a prediction with the token that follows it. The mask removes pad targets from the numerator and from the denominator. The division happens once, at the end, over the whole corpus. The calibration capstone wraps the same rule in a function that takes per sequence negative log likelihoods and token counts and divides the two sums.
+Phép dịch căn một dự đoán với token theo sau nó. Mask loại các mục tiêu pad khỏi tử số và mẫu số. Phép chia xảy ra một lần, lúc cuối, trên toàn bộ corpus. Capstone hiệu chuẩn bọc cùng quy tắc trong một hàm nhận negative log likelihood theo chuỗi và số token rồi chia hai tổng.
 
 ### Why each bug matters
 
-- **Padding in the denominator.** A pad target contributes zero loss after masking but still counts as a position. The mean falls as padding grows, so a larger batch with more padding reports a better model.
-- **Mean of per batch values.** A batch of short sequences and a batch of long ones get equal weight, so short sequences count more per token than long ones. The sum then divide form weights every real token the same.
-- **No shift.** The loss still falls during training if the targets are misaligned, so the bug is silent there. In the metric it means the number is not next token likelihood.
+- **Padding trong mẫu số.** Một mục tiêu pad đóng góp loss bằng không sau mask nhưng vẫn tính là một vị trí. Trung bình giảm khi padding tăng, vì vậy một batch lớn hơn có nhiều padding hơn báo cáo một mô hình tốt hơn.
+- **Trung bình các giá trị theo batch.** Một batch chuỗi ngắn và một batch chuỗi dài nhận trọng số bằng nhau, vì vậy các chuỗi ngắn tính nhiều hơn mỗi token so với các chuỗi dài. Dạng cộng rồi chia cho mọi token thật cùng trọng số.
+- **Không dịch.** Loss vẫn giảm trong huấn luyện nếu các mục tiêu lệch, vì vậy lỗi âm thầm ở đó. Trong metric nó nghĩa là con số không phải likelihood token tiếp theo.
 
 ### Contract checks
 
-A perplexity below one is impossible; the total loss is negative, which most often means the adapter returned log p instead of negative log p. Zero real tokens must not divide; the capstone returns not a number for that case and lets the runner decide.
+Một perplexity dưới một là không thể; tổng loss âm, thường nhất nghĩa là adapter trả về log p thay vì âm log p. Không token thật thì không được chia; capstone trả về không phải số cho trường hợp đó và để runner quyết định.
 
 ## Follow-ups
 
-- **Level 3:** Why is the off by one silent during training but fatal in the metric? Expected: the model still learns from misaligned targets and the loss keeps going down, but the metric no longer measures next token likelihood.
-- **Level 3:** The adapter returns per sequence means. Can the harness combine them? Expected: only with the token counts; a mean of means weights sequences equally instead of tokens.
-- **Level 4:** Perplexity on the held out set is far lower than on production text. What do you suspect? Expected: a tokenizer mismatch or a leak of the held out text into training; check both before you claim quality.
+- **Level 3:** Tại sao lỗi lệch một âm thầm trong huấn luyện nhưng nghiêm trọng trong metric? Expected: mô hình vẫn học từ các mục tiêu lệch và loss tiếp tục giảm, nhưng metric không còn đo likelihood token tiếp theo.
+- **Level 3:** Adapter trả về các trung bình theo chuỗi. Harness có thể kết hợp chúng không? Expected: chỉ với số token; một trung bình các trung bình gán trọng số đều cho các chuỗi thay vì token.
+- **Level 4:** Perplexity trên tập giữ lại thấp hơn nhiều so với trên văn bản production. Bạn nghi ngờ gì? Expected: một tokenizer không khớp hoặc một sự rò rỉ văn bản giữ lại vào huấn luyện; kiểm tra cả hai trước khi tuyên bố chất lượng.
 
 ## Wrong answers
 
-- "Masking the loss is enough." The mask must also leave the denominator; counting pad positions dilutes the mean.
-- "Averaging per batch perplexities is close enough." It gives short sequences more weight per token and depends on the batch composition; the sum then divide form is the definition.
-- "A lower number is always a better model." It is a better fit to this text; it says nothing about the task.
+- "Mask loss là đủ." Mask cũng phải rời mẫu số; đếm các vị trí pad pha loãng trung bình.
+- "Lấy trung bình perplexity theo batch đủ gần." Nó cho các chuỗi ngắn nhiều trọng số hơn mỗi token và phụ thuộc vào thành phần batch; dạng cộng rồi chia là định nghĩa.
+- "Một con số thấp hơn luôn là một mô hình tốt hơn." Đó là khớp tốt hơn với văn bản này; nó không nói gì về nhiệm vụ.
 
 ## Taught in
 
-The [eval pipeline capstone](../../../phases/19-capstone-projects/41-eval-pipeline/) names the two traps and the correct accounting, and the [perplexity and calibration capstone](../../../phases/19-capstone-projects/73-perplexity-calibration/) gives the corpus level function and its contract.
+[Capstone pipeline đánh giá](../../../phases/19-capstone-projects/41-eval-pipeline/) nêu hai bẫy và phép tính đúng, và [capstone perplexity và hiệu chuẩn](../../../phases/19-capstone-projects/73-perplexity-calibration/) đưa ra hàm cấp corpus và hợp đồng của nó.

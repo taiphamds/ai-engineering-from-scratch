@@ -16,11 +16,11 @@ related: [evaluation/perplexity-padding-and-shift]
 updated: 2026-11-03
 ---
 
-A colleague reports that the new checkpoint reaches a perplexity of 10 on the held out text, better than last week, and wants to ship it as the stronger model. What does the number mean, and what does it not tell you?
+Một đồng nghiệp báo cáo checkpoint mới đạt perplexity 10 trên văn bản giữ lại, tốt hơn tuần trước, và muốn phát hành nó là mô hình mạnh hơn. Con số có nghĩa gì, và nó không cho bạn biết gì?
 
 ## Short answer
 
-Perplexity is the exponential of the mean negative log likelihood per token. A value of 10 means that at each position the model is as uncertain as a uniform choice among 10 options. Lower is better only while the test set and the tokenizer stay fixed. It says nothing about instruction following, reasoning or factual accuracy, so treat it as a sanity check and run the task evals before you ship.
+Perplexity là hàm mũ của negative log likelihood trung bình mỗi token. Một giá trị 10 nghĩa là tại mỗi vị trí mô hình không chắc chắn như một lựa chọn đồng đều giữa 10 phương án. Thấp hơn chỉ tốt hơn khi tập kiểm thử và tokenizer giữ cố định. Nó không nói gì về làm theo chỉ dẫn, suy luận hoặc độ chính xác thực tế, vì vậy coi nó là một phép kiểm tra hợp lý và chạy các đánh giá nhiệm vụ trước khi phát hành.
 
 ## Full answer
 
@@ -30,30 +30,30 @@ Perplexity is the exponential of the mean negative log likelihood per token. A v
 PPL = exp( -(1/N) * sum_i log P(token_i | context) )
 ```
 
-A perplexity of one means the model assigns probability one to every real token. A perplexity equal to the vocabulary size means the model is uniform and learnt nothing. A strong base model on a standard corpus sits around eight to twelve; a bad one on the same text sits at fifty plus.
+Một perplexity bằng một nghĩa là mô hình gán xác suất một cho mọi token thật. Một perplexity bằng kích thước từ vựng nghĩa là mô hình đồng đều và chưa học gì. Một mô hình cơ sở mạnh trên một corpus chuẩn nằm quanh tám đến mười hai; một mô hình xấu trên cùng văn bản nằm ở năm mươi trở lên.
 
 ### What it misses
 
-A model can reach low perplexity by predicting common patterns well while it is bad at rare but important ones. The number also ignores everything a chat model is for: following instructions, reasoning and being right. Use it to catch a broken checkpoint or a tokenizer mismatch, not to pick a winner.
+Một mô hình có thể đạt perplexity thấp bằng cách dự đoán các mẫu phổ biến tốt trong khi kém ở các mẫu hiếm nhưng quan trọng. Con số cũng bỏ qua mọi thứ mà một mô hình chat dành cho: làm theo chỉ dẫn, suy luận và đúng. Dùng nó để bắt một checkpoint hỏng hoặc tokenizer không khớp, không để chọn một người thắng.
 
 ### Two checks before you trust it
 
-1. **Same text, same tokenizer.** The number depends on both. Two models measured on different held out sets cannot be compared.
-2. **Honest counting.** Sum the loss over real token positions and divide once at the end. Pad positions must not be in the denominator, and the logits at one position predict the next token. A value below one is impossible. It means the summed negative log likelihood came out negative, and the usual cause is an adapter that returned log p instead of negative log p.
+1. **Cùng văn bản, cùng tokenizer.** Con số phụ thuộc vào cả hai. Hai mô hình được đo trên các tập giữ lại khác nhau không thể so sánh.
+2. **Đếm trung thực.** Cộng loss trên các vị trí token thật và chia một lần lúc cuối. Các vị trí pad không được nằm trong mẫu số, và logits tại một vị trí dự đoán token tiếp theo. Một giá trị dưới một là không thể. Nó nghĩa là negative log likelihood được cộng ra âm, và nguyên nhân thường là một adapter trả về log p thay vì âm log p.
 
 ## Follow-ups
 
-- **Level 1:** Which perplexity value means the model is never surprised? Expected: one, because every real token then has probability one.
-- **Level 2:** Two models were measured on different test sets. Can you compare their perplexities? Expected: no; the number depends on the text and the tokenizer, so measure both on the same set.
-- **Level 2:** The adapter reports a perplexity of 0.8. What happened? Expected: the summed loss is negative, most likely because the adapter returned log p instead of negative log p; a perplexity below one is impossible, so the contract was violated.
-- **Level 3:** Why does the eval sum the loss over non pad positions and divide at the end instead of averaging per batch perplexities? Expected: averaging per batch gives each token of a short batch more weight than each token of a long batch, and pad positions shrink the loss; the sum over real tokens matches the definition.
+- **Level 1:** Giá trị perplexity nào nghĩa là mô hình không bao giờ ngạc nhiên? Expected: một, vì khi đó mọi token thật có xác suất một.
+- **Level 2:** Hai mô hình được đo trên các tập kiểm thử khác nhau. Bạn có thể so sánh perplexity của chúng không? Expected: không; con số phụ thuộc vào văn bản và tokenizer, vì vậy đo cả hai trên cùng tập.
+- **Level 2:** Adapter báo cáo perplexity 0.8. Điều gì xảy ra? Expected: loss được cộng là âm, rất có thể vì adapter trả về log p thay vì âm log p; perplexity dưới một là không thể, vì vậy hợp đồng đã bị vi phạm.
+- **Level 3:** Tại sao đánh giá cộng loss trên các vị trí không pad và chia lúc cuối thay vì lấy trung bình perplexity theo batch? Expected: lấy trung bình theo batch cho mỗi token của một batch ngắn nhiều trọng số hơn mỗi token của một batch dài, và các vị trí pad làm co loss; tổng trên các token thật khớp định nghĩa.
 
 ## Wrong answers
 
-- "Lower perplexity means a better assistant." It measures fit to the text distribution, not instruction following or correctness.
-- "Perplexities from two papers are comparable." They depend on the test set and the tokenizer, so only same set comparisons hold.
-- "Aim for a perplexity near one." The held out text is not the model's own output; a value near one would suggest the test text was in the training data.
+- "Perplexity thấp hơn nghĩa là một trợ lý tốt hơn." Nó đo khớp với phân phối văn bản, không phải làm theo chỉ dẫn hoặc tính đúng đắn.
+- "Perplexity từ hai bài báo so sánh được." Chúng phụ thuộc vào tập kiểm thử và tokenizer, vì vậy chỉ so sánh cùng tập mới đúng.
+- "Nhắm perplexity gần một." Văn bản giữ lại không phải đầu ra riêng của mô hình; một giá trị gần một sẽ gợi ý văn bản kiểm thử đã có trong dữ liệu huấn luyện.
 
 ## Taught in
 
-The [evaluation lesson](../../../phases/10-llms-from-scratch/10-evaluation/) presents perplexity as a quick health check, and the [perplexity and calibration capstone](../../../phases/19-capstone-projects/73-perplexity-calibration/) gives the corpus level computation and its contract.
+[Bài học đánh giá](../../../phases/10-llms-from-scratch/10-evaluation/) trình bày perplexity như một phép kiểm tra sức khỏe nhanh, và [capstone perplexity và hiệu chuẩn](../../../phases/19-capstone-projects/73-perplexity-calibration/) đưa ra phép tính cấp corpus và hợp đồng của nó.

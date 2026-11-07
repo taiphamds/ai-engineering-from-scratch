@@ -16,11 +16,11 @@ related: [evaluation/pass-at-k-reading]
 updated: 2026-11-03
 ---
 
-Two harnesses in the repository compute pass at k. The first takes the empirical pass rate p and returns `1 - (1 - p) ** k`. The second takes the sample count n, the pass count c and k, and returns `1 - C(n - c, k) / C(n, k)`. Read both. When do they agree, when do they differ, and which one goes in the report?
+Hai harness trong repo tính pass at k. Cái đầu lấy tỷ lệ đạt thực nghiệm p và trả về `1 - (1 - p) ** k`. Cái thứ hai lấy số mẫu n, số lần đạt c và k, và trả về `1 - C(n - c, k) / C(n, k)`. Đọc cả hai. Khi nào chúng đồng ý, khi nào khác nhau, và cái nào đi vào báo cáo?
 
 ## Short answer
 
-The first formula treats every draw as independent with success probability p and is a plug in estimate. The second counts the exact chance that k samples drawn from the n you ran contain at least one pass, and it is the unbiased estimator that code generation benchmarks use. They agree only as n grows large; for the samples you ran, the plug in is lower and noisier, and it extrapolates when k exceeds n. Report the unbiased one with the raw counts next to it.
+Công thức đầu coi mọi lần lấy là độc lập với xác suất thành công p và là một ước lượng thế vào. Công thức thứ hai đếm xác suất chính xác rằng k mẫu lấy từ n mẫu bạn chạy chứa ít nhất một lần đạt, và nó là ước lượng không chệch mà các benchmark sinh mã dùng. Chúng chỉ đồng ý khi n tăng lớn; với các mẫu bạn chạy, ước lượng thế vào thấp hơn và nhiễu hơn, và nó ngoại suy khi k vượt n. Báo cáo ước lượng không chệch với các số đếm thô cạnh nó.
 
 ## Full answer
 
@@ -34,7 +34,7 @@ def pass_at_k(empirical_pass_rate, k):
     return 1 - (1 - p) ** k
 ```
 
-It clamps p and assumes independent draws. It accepts any k, including a k larger than the number of samples the harness ran, so it can print a pass at ten from five samples.
+Nó chặn p và giả định các lần lấy độc lập. Nó chấp nhận bất kỳ k nào, gồm k lớn hơn số mẫu harness chạy, vì vậy nó có thể in pass at ten từ năm mẫu.
 
 ### Reading the second function
 
@@ -50,29 +50,29 @@ def pass_at_k(n, c, k):
     return 1 - math.exp(log_prob)
 ```
 
-It refuses to extrapolate: for k above n it returns whether any sample passed, which is a different quantity and should be labeled as such. When fewer than k samples failed, every k subset holds a pass, so it returns one. Otherwise it multiplies the chance that each of k draws without replacement is a failure, in log space to avoid large binomial coefficients. The estimator layer averages this value over tasks.
+Nó từ chối ngoại suy: với k trên n nó trả về liệu bất kỳ mẫu nào đạt, là một đại lượng khác và nên được gắn nhãn như vậy. Khi ít hơn k mẫu thất bại, mọi tập con k chứa một lần đạt, vì vậy nó trả về một. Nếu không nó nhân xác suất mỗi lần trong k lần lấy không hoàn lại là một thất bại, trong không gian log để tránh các hệ số nhị thức lớn. Lớp ước lượng lấy trung bình giá trị này trên các nhiệm vụ.
 
 ### Where they differ
 
-Take k equal to n. The second says one whenever a single sample passed. The first says less than one, because it imagines drawing with replacement. In general, drawing without replacement makes all k failures less likely, so the exact value is at or above the plug in for the same n and c. The plug in is also a biased estimate with high variance at small n.
+Lấy k bằng n. Cái thứ hai nói một bất cứ khi nào một mẫu duy nhất đạt. Cái đầu nói nhỏ hơn một, vì nó tưởng tượng lấy có hoàn lại. Nhìn chung, lấy không hoàn lại làm tất cả k thất bại ít có khả năng hơn, vì vậy giá trị chính xác bằng hoặc trên ước lượng thế vào cho cùng n và c. Ước lượng thế vào cũng là một ước lượng chệch có phương sai cao ở n nhỏ.
 
 ### What to report
 
-Run n samples per task with n at least k, as in the capstone's example of ten samples and pass at five. Report pass at one as c over n, pass at k from the unbiased function, and the raw counts. Never print a pass at k for a k you did not sample.
+Chạy n mẫu mỗi nhiệm vụ với n ít nhất bằng k, như trong ví dụ của capstone về mười mẫu và pass at five. Báo cáo pass at one là c chia n, pass at k từ hàm không chệch, và các số đếm thô. Không bao giờ in một pass at k cho k mà bạn chưa lấy mẫu.
 
 ## Follow-ups
 
-- **Level 3:** In the second function, why return one when n minus c is smaller than k? Expected: you cannot pick k failing samples from fewer than k failures, so every k subset contains a pass.
-- **Level 3:** Why compute the product in log space? Expected: binomial coefficients overflow for moderate n; the log of the ratio is a short sum of logs.
-- **Level 4:** A team ran five samples per task and reports pass at ten. What is wrong? Expected: k exceeds n, so nothing was measured; the second function falls back to whether any sample passed and the first extrapolates.
-- **Level 4:** Do the two functions agree on pass at one? Expected: yes; both reduce to c over n when k is one.
+- **Level 3:** Trong hàm thứ hai, tại sao trả về một khi n trừ c nhỏ hơn k? Expected: bạn không thể chọn k mẫu thất bại từ ít hơn k thất bại, vì vậy mọi tập con k chứa một lần đạt.
+- **Level 3:** Tại sao tính tích trong không gian log? Expected: các hệ số nhị thức tràn với n vừa phải; log của tỷ số là một tổng log ngắn.
+- **Level 4:** Một nhóm chạy năm mẫu mỗi nhiệm vụ và báo cáo pass at ten. Điều gì sai? Expected: k vượt n, vì vậy không gì được đo; hàm thứ hai quay về liệu bất kỳ mẫu nào đạt và hàm đầu ngoại suy.
+- **Level 4:** Hai hàm có đồng ý trên pass at one không? Expected: có; cả hai rút gọn thành c chia n khi k là một.
 
 ## Wrong answers
 
-- "They are the same formula." They agree only as n grows; for the samples you ran, the plug in is lower and noisier.
-- "Pass at k is the probability the agent is right." It is the chance that a set of k samples contains at least one pass; without a selector the user still gets one sample.
-- "More samples per task raise pass at one." They make the estimate more precise; the value is the per sample pass rate.
+- "Chúng là cùng công thức." Chúng chỉ đồng ý khi n tăng; với các mẫu bạn chạy, ước lượng thế vào thấp hơn và nhiễu hơn.
+- "Pass at k là xác suất agent đúng." Nó là xác suất một tập k mẫu chứa ít nhất một lần đạt; không có bộ chọn người dùng vẫn nhận một mẫu.
+- "Thêm mẫu mỗi nhiệm vụ nâng pass at one." Chúng làm ước lượng chính xác hơn; giá trị là tỷ lệ đạt mỗi mẫu.
 
 ## Taught in
 
-The [eval harness capstone](../../../phases/19-capstone-projects/27-eval-harness-fixture-tasks/) uses the independence formula, and the [code exec metric capstone](../../../phases/19-capstone-projects/72-code-exec-metric/) gives the unbiased estimator and its edge cases.
+[Capstone harness đánh giá](../../../phases/19-capstone-projects/27-eval-harness-fixture-tasks/) dùng công thức độc lập, và [capstone metric thực thi mã](../../../phases/19-capstone-projects/72-code-exec-metric/) đưa ra ước lượng không chệch và các trường hợp biên của nó.
