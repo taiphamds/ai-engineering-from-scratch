@@ -16,43 +16,43 @@ related: [rag/read-the-rrf-function, rag/error-code-query-misses]
 updated: 2026-11-03
 ---
 
-You have a BM25 ranked list and a vector ranked list for the same query. An engineer proposes to merge them as alpha times the BM25 score plus one minus alpha times the cosine. What is wrong with that, and what do you do instead?
+Bạn có một danh sách xếp hạng BM25 và một danh sách xếp hạng vector cho cùng truy vấn. Một kỹ sư đề xuất gộp chúng thành alpha nhân điểm BM25 cộng một trừ alpha nhân cosine. Điều đó sai ở đâu, và bạn làm gì thay vào đó?
 
 ## Short answer
 
-BM25 scores are unbounded and change with the corpus, while a cosine sits between -1 and 1, so a weighted sum needs a new alpha every time you re-index. Reciprocal rank fusion merges by rank instead: each document gets the sum, over the lists, of one over k plus its rank, with k at 60. Ranks are comparable across the two retrievers, so nothing has to be calibrated.
+Các điểm BM25 không bị chặn và thay đổi theo kho ngữ liệu, trong khi một cosine nằm giữa -1 và 1, nên một tổng có trọng số cần một alpha mới mỗi lần bạn lập chỉ mục lại. Reciprocal rank fusion thay vào đó gộp theo thứ hạng: mỗi tài liệu nhận tổng, trên các danh sách, của một chia cho k cộng thứ hạng của nó, với k bằng 60. Các thứ hạng có thể so sánh giữa hai retriever, nên không có gì phải hiệu chuẩn.
 
 ## Full answer
 
 ### The formula and one worked case
 
-A document at rank 1 in the vector list and rank 5 in the BM25 list gets 1/(60+1) + 1/(60+5) = 0.0164 + 0.0154 = 0.0318. A document at rank 3 and rank 2 gets 1/(60+3) + 1/(60+2) = 0.0159 + 0.0161 = 0.0320. The second document wins by a hair: a document that is good in both lists beats one that is first in one list and deep in the other.
+Một tài liệu ở hạng 1 trong danh sách vector và hạng 5 trong danh sách BM25 nhận 1/(60+1) + 1/(60+5) = 0.0164 + 0.0154 = 0.0318. Một tài liệu ở hạng 3 và hạng 2 nhận 1/(60+3) + 1/(60+2) = 0.0159 + 0.0161 = 0.0320. Tài liệu thứ hai thắng sít sao: một tài liệu tốt trong cả hai danh sách đánh bại một tài liệu đứng đầu một danh sách và nằm sâu trong danh sách kia.
 
 ### What k does
 
-With k at 60, rank 1 contributes 1/61 and rank 10 contributes 1/70. The contribution decays slowly, so deep candidates still vote. A smaller k lets the top results dominate. A larger k flattens the curve.
+Với k bằng 60, hạng 1 đóng góp 1/61 và hạng 10 đóng góp 1/70. Đóng góp suy giảm chậm, nên các ứng viên sâu vẫn bỏ phiếu. Một k nhỏ hơn để các kết quả đầu chi phối. Một k lớn hơn làm phẳng đường cong.
 
 ### Why ranks and not scores
 
-A linear combination of scores needs an alpha tuned per corpus, and it breaks on every re-index because the BM25 score spread moves. Ranks do not have a scale. The capstone lesson notes that the rank-based baseline has beaten score interpolation in every public TREC track since 2010, and that the production search engines that document hybrid search came to the same conclusion.
+Một tổ hợp tuyến tính của các điểm cần một alpha được tinh chỉnh theo từng kho ngữ liệu, và nó hỏng ở mỗi lần lập chỉ mục lại vì độ phân tán điểm BM25 dịch chuyển. Các thứ hạng không có thang đo. Bài học capstone lưu ý rằng baseline dựa trên thứ hạng đã đánh bại nội suy điểm trong mọi track TREC công khai kể từ 2010, và rằng các công cụ tìm kiếm production có ghi tài liệu về tìm kiếm lai đã đi đến cùng kết luận.
 
 ### A knob that keeps the method honest
 
-If you have evidence that one retriever beats the other on your data, multiply its rank contribution by a weight. The rank decay shape stays and the method stays scale free.
+Nếu bạn có bằng chứng rằng một retriever đánh bại retriever kia trên dữ liệu của bạn, nhân đóng góp thứ hạng của nó với một trọng số. Hình dạng suy giảm thứ hạng giữ nguyên và phương pháp vẫn độc lập với thang đo.
 
 ## Follow-ups
 
-- **Level 2:** What does the constant k control? Expected: how fast the contribution decays with rank; at 60, rank 1 gives 1/61 and rank 10 gives 1/70, so deep candidates still count.
-- **Level 2:** When would you lower k? Expected: when the top result of each list should dominate the fused order.
-- **Level 3:** You know BM25 is better on your corpus. How do you express that? Expected: a per-list weight that multiplies the rank contribution of the BM25 list; the decay shape and the scale-free property both survive.
-- **Level 3:** Why does the rank method survive a re-index when the weighted sum does not? Expected: ranks keep their meaning when the corpus changes, while BM25 scores and their spread move, so the tuned alpha no longer fits.
+- **Level 2:** Hằng số k kiểm soát gì? Expected: mức nhanh mà đóng góp suy giảm theo thứ hạng; ở 60, hạng 1 cho 1/61 và hạng 10 cho 1/70, nên các ứng viên sâu vẫn được tính.
+- **Level 2:** Khi nào bạn hạ k? Expected: khi kết quả đầu của mỗi danh sách nên chi phối thứ tự hợp nhất.
+- **Level 3:** Bạn biết BM25 tốt hơn trên kho ngữ liệu của mình. Bạn biểu diễn điều đó bằng cách nào? Expected: một trọng số theo từng danh sách nhân đóng góp thứ hạng của danh sách BM25; hình dạng suy giảm và đặc tính độc lập với thang đo đều giữ lại.
+- **Level 3:** Tại sao phương pháp thứ hạng sống sót qua một lần lập chỉ mục lại khi tổng có trọng số không thể? Expected: các thứ hạng giữ ý nghĩa khi kho ngữ liệu thay đổi, trong khi điểm BM25 và độ phân tán của chúng dịch chuyển, nên alpha đã tinh chỉnh không còn phù hợp.
 
 ## Wrong answers
 
-- "Normalize both scores to a zero to one range and add them." The two distributions still differ per query and per corpus, so the tuned balance drifts after a re-index.
-- "Take the document with the highest score in either list." One unbounded BM25 score then dominates every query; ranks are the comparable unit.
-- "Fusion is only a tie-breaker between the two lists." In the demo it decides the top result on every query class; a document good in both lists beats one that is top in only one.
+- "Chuẩn hóa cả hai điểm vào một khoảng từ không đến một và cộng chúng." Hai phân phối vẫn khác theo từng truy vấn và từng kho ngữ liệu, nên sự cân bằng đã tinh chỉnh trôi dạt sau một lần lập chỉ mục lại.
+- "Lấy tài liệu có điểm cao nhất trong một trong hai danh sách." Một điểm BM25 không bị chặn khi đó chi phối mọi truy vấn; thứ hạng là đơn vị có thể so sánh.
+- "Hợp nhất chỉ là một cách phá hòa giữa hai danh sách." Trong demo, nó quyết định kết quả đầu trên mọi lớp truy vấn; một tài liệu tốt trong cả hai danh sách đánh bại một tài liệu chỉ đứng đầu trong một danh sách.
 
 ## Taught in
 
-The lesson [hybrid retrieval](../../../phases/19-capstone-projects/65-hybrid-retrieval-bm25-dense/) gives the published formula, the role of k and the case against score interpolation, and the lesson [advanced RAG](../../../phases/11-llm-engineering/07-advanced-rag/) works the two-document example.
+Bài học [truy xuất lai](../../../phases/19-capstone-projects/65-hybrid-retrieval-bm25-dense/) cung cấp công thức đã công bố, vai trò của k và lập luận chống nội suy điểm, và bài học [RAG nâng cao](../../../phases/11-llm-engineering/07-advanced-rag/) giải ví dụ hai tài liệu.

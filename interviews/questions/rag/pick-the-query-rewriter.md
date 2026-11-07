@@ -16,49 +16,49 @@ related: [rag/hyde-invents-a-symbol]
 updated: 2026-11-03
 ---
 
-Your pipeline offers three query rewriters: write a hypothetical answer and search with it, write several paraphrases and merge, or decompose it into sub-questions and merge. A user asks "what does our team do when uploads fail and the budget is gone?" Which rewriter fits, and when would each of the other two be the right pick?
+Pipeline của bạn cung cấp ba bộ viết lại truy vấn: viết một câu trả lời giả định và tìm kiếm bằng nó, viết nhiều cách diễn đạt lại và gộp, hoặc phân rã nó thành các câu hỏi con và gộp. Một người dùng hỏi "nhóm của chúng ta làm gì khi upload thất bại và ngân sách đã hết?" Bộ viết lại nào phù hợp, và khi nào mỗi bộ trong hai bộ còn lại là lựa chọn đúng?
 
 ## Short answer
 
-Split it, because the question joins two topics with a conjunction, an upload failure and an exhausted budget, and no single chunk holds both. The hypothetical answer fits a jargon-heavy question whose words do not match the corpus vocabulary. Paraphrases fit a short question that could be asked in many equally good ways.
+Chia nó, vì câu hỏi nối hai chủ đề bằng một liên từ, một lần upload thất bại và một ngân sách cạn kiệt, và không chunk đơn lẻ nào giữ cả hai. Câu trả lời giả định phù hợp với một câu hỏi nhiều thuật ngữ chuyên môn có các từ không khớp từ vựng kho ngữ liệu. Các cách diễn đạt lại phù hợp với một câu hỏi ngắn có thể được hỏi theo nhiều cách tốt ngang nhau.
 
 ## Full answer
 
 ### The three, side by side
 
-| Rewriter | What it does | Wins when | Loses when |
+| Bộ viết lại | Nó làm gì | Thắng khi | Thua khi |
 |---|---|---|---|
-| Hypothetical answer | the model writes a passage in the corpus voice; its embedding replaces the query vector | the query and the corpus use different words | the model invents an identifier that is not in the index |
-| Paraphrases | the model writes N rewrites; retrieve each; merge the lists by rank fusion | any of several phrasings would have asked it better | the rewrites all converge, so the merge equals one retrieval |
-| Sub-questions | the model splits the question; retrieve each part; merge | the question has conjunctions or two unrelated topics | the question is atomic and gets split anyway |
+| Câu trả lời giả định | mô hình viết một đoạn bằng giọng kho ngữ liệu; embedding của nó thay vector truy vấn | truy vấn và kho ngữ liệu dùng các từ khác nhau | mô hình bịa một định danh không có trong chỉ mục |
+| Các cách diễn đạt lại | mô hình viết N bản viết lại; truy xuất từng bản; gộp các danh sách bằng hợp nhất thứ hạng | bất kỳ cách nào trong nhiều cách diễn đạt đều sẽ hỏi tốt hơn | các bản viết lại đều hội tụ, nên việc gộp bằng một lần truy xuất |
+| Các câu hỏi con | mô hình chia câu hỏi; truy xuất từng phần; gộp | câu hỏi có các liên từ hoặc hai chủ đề không liên quan | câu hỏi là nguyên tử nhưng vẫn bị chia |
 
 ### Costs
 
-Each rewriter adds one model call before retrieval, and the advanced RAG lesson puts the hypothetical answer at 500 to 2000 ms extra. The retrievals after the call run in parallel, so the model call is the floor. Cache the rewriter output by a hash of the query, because many queries repeat.
+Mỗi bộ viết lại thêm một lệnh gọi mô hình trước truy xuất, và bài học RAG nâng cao đặt câu trả lời giả định ở mức thêm 500 đến 2000 ms. Các lần truy xuất sau lệnh gọi chạy song song, nên lệnh gọi mô hình là mức sàn. Cache đầu ra bộ viết lại theo một hash của truy vấn, vì nhiều truy vấn lặp lại.
 
 ### Guards
 
-- Cap the hypothetical to two or three sentences; longer ones collect noise, shorter ones lose the lexical signal.
-- Add an explicit diversity instruction to the paraphrase prompt, and drop near duplicates by Jaccard overlap.
-- Check that the sub-questions are distinct before the fan-out, so an atomic question returns unchanged.
+- Giới hạn đoạn giả định ở hai hoặc ba câu; các đoạn dài hơn thu nhiễu, các đoạn ngắn hơn mất tín hiệu từ vựng.
+- Thêm một chỉ dẫn đa dạng tường minh vào prompt diễn đạt lại, và bỏ các bản gần trùng theo độ trùng Jaccard.
+- Kiểm tra các câu hỏi con khác biệt trước khi fan-out, để một câu hỏi nguyên tử được trả về không đổi.
 
 ### Choosing per query
 
-The end-to-end lesson picks a strategy from heuristics on query length, conjunctions and jargon ratio. The other option is to run all three in parallel and fuse the three result sets; the cost is three model calls and one fusion.
+Bài học đầu cuối chọn một chiến lược từ các heuristic về độ dài truy vấn, các liên từ và tỷ lệ thuật ngữ chuyên môn. Lựa chọn khác là chạy cả ba song song và hợp nhất ba tập kết quả; chi phí là ba lệnh gọi mô hình và một lần hợp nhất.
 
 ## Follow-ups
 
-- **Level 2:** What does a rewriter cost in latency? Expected: one model call before retrieval, 500 to 2000 ms for a hypothetical answer in the advanced RAG lesson, with the retrievals after it in parallel.
-- **Level 2:** The paraphrases come back nearly identical. What happens and what do you change? Expected: the merged list equals one retrieval; add a diversity instruction and drop near duplicates by Jaccard overlap.
-- **Level 3:** The splitter turns an atomic question into three parts. What is the damage and the guard? Expected: the same document comes back three times at a lower rank and the merge is worse; test that the parts are distinct before the fan-out.
-- **Level 3:** How does the end-to-end system choose without a human? Expected: heuristics on length, conjunctions and jargon ratio, or run all three and fuse.
+- **Level 2:** Một bộ viết lại tốn bao nhiêu độ trễ? Expected: một lệnh gọi mô hình trước truy xuất, 500 đến 2000 ms cho một câu trả lời giả định trong bài học RAG nâng cao, với các lần truy xuất sau đó chạy song song.
+- **Level 2:** Các cách diễn đạt lại quay về gần như giống hệt nhau. Điều gì xảy ra và bạn thay đổi gì? Expected: danh sách gộp bằng một lần truy xuất; thêm một chỉ dẫn đa dạng và bỏ các bản gần trùng theo độ trùng Jaccard.
+- **Level 3:** Bộ chia biến một câu hỏi nguyên tử thành ba phần. Thiệt hại và biện pháp bảo vệ là gì? Expected: cùng tài liệu quay về ba lần ở thứ hạng thấp hơn và việc gộp tệ hơn; kiểm tra các phần khác biệt trước khi fan-out.
+- **Level 3:** Hệ thống đầu cuối chọn mà không có con người bằng cách nào? Expected: các heuristic về độ dài, các liên từ và tỷ lệ thuật ngữ chuyên môn, hoặc chạy cả ba và hợp nhất.
 
 ## Wrong answers
 
-- "Always write the hypothetical answer, it is the strongest." It bridges a vocabulary gap and does nothing for a two-topic question; an invented identifier can also hurt the lexical side.
-- "A rewriter fixes a weak retriever." It only moves the query closer to the corpus voice; a chunker that cut the answer still loses.
-- "Split every query into sub-questions." Atomic questions get over-split and come back worse than the original.
+- "Luôn viết câu trả lời giả định, nó mạnh nhất." Nó nối một khoảng cách từ vựng và không làm gì cho một câu hỏi hai chủ đề; một định danh bịa ra cũng có thể làm hại phía từ vựng.
+- "Một bộ viết lại sửa một retriever yếu." Nó chỉ chuyển truy vấn gần giọng kho ngữ liệu hơn; một bộ chia chunk đã cắt câu trả lời vẫn thua.
+- "Chia mọi truy vấn thành các câu hỏi con." Các câu hỏi nguyên tử bị chia quá mức và quay về tệ hơn bản gốc.
 
 ## Taught in
 
-The lesson [query rewriting](../../../phases/19-capstone-projects/67-query-rewriting-hyde/) builds the three rewriters and their failure modes, and the lesson [advanced RAG](../../../phases/11-llm-engineering/07-advanced-rag/) gives the latency cost.
+Bài học [viết lại truy vấn](../../../phases/19-capstone-projects/67-query-rewriting-hyde/) xây dựng ba bộ viết lại và các chế độ lỗi của chúng, và bài học [RAG nâng cao](../../../phases/11-llm-engineering/07-advanced-rag/) cung cấp chi phí độ trễ.

@@ -16,64 +16,64 @@ related: [rag/design-rag-over-company-docs, rag/hyde-invents-a-symbol]
 updated: 2026-11-03
 ---
 
-Design a code search service that answers questions such as "how is the upload retry budget enforced" across 10 repositories with about 2M lines of code, and that stays fresh on every push. What is different from document retrieval, and where does it break?
+Thiết kế một dịch vụ tìm kiếm mã trả lời các câu hỏi như "ngân sách thử lại upload được thực thi như thế nào" trên 10 repository với khoảng 2M dòng mã, và giữ cập nhật trên mỗi lần push. Điều gì khác với truy xuất tài liệu, và nó hỏng ở đâu?
 
 ## Short answer
 
-Chunk at syntax tree nodes, functions and classes, not at fixed windows, and give each chunk three retrievable forms: a dense code embedding, BM25 terms with the symbol name weighted above the body, and a one-sentence natural-language summary. Retrieve hybrid, rerank with a cross-encoder, and synthesize with mandatory file and line citations that a post-filter enforces. Freshness is the hard part: a push triggers a symbol-level diff so that only changed chunks re-embed and only affected cross-file edges recompute.
+Chia chunk tại các nút cây cú pháp, hàm và lớp, không phải tại các cửa sổ cố định, và cho mỗi chunk ba dạng có thể truy xuất: một embedding mã dense, các thuật ngữ BM25 với tên symbol có trọng số cao hơn phần thân, và một bản tóm tắt ngôn ngữ tự nhiên một câu. Truy xuất lai, xếp hạng lại bằng một cross-encoder, và tổng hợp với các trích dẫn file và dòng bắt buộc mà một bộ lọc sau thực thi. Độ tươi là phần khó: một lần push kích hoạt một diff ở cấp symbol để chỉ các chunk thay đổi được nhúng lại và chỉ các cạnh liên file bị ảnh hưởng được tính lại.
 
 ## Full answer
 
 ### Why fixed windows fail on code
 
-A fixed window cuts an identifier in half and separates a function body from its signature. The capstone parses each file with a syntax tree parser, extracts function and class nodes, and emits one chunk per node with its repository, path, start line, end line, symbol and body. The chunk boundary is the unit the user wants cited.
+Một cửa sổ cố định cắt đôi một định danh và tách thân hàm khỏi chữ ký của nó. Capstone parse mỗi file bằng một parser cây cú pháp, trích xuất các nút hàm và lớp, và phát ra một chunk mỗi nút với repository, đường dẫn, dòng bắt đầu, dòng kết thúc, symbol và phần thân của nó. Ranh giới chunk là đơn vị mà người dùng muốn được trích dẫn.
 
 ### Three representations per chunk
 
-| Form | Catches |
+| Dạng | Bắt được |
 |---|---|
-| Dense embedding of the code | paraphrased questions about behavior |
-| BM25 with field weights, symbol name 4, summary 2, body 1 | literal symbol names and "find the function named X" |
-| A one-sentence summary from a small cached model | a user who says "authorized" when the code says `check_permission` |
+| Embedding dense của mã | các câu hỏi diễn đạt lại về hành vi |
+| BM25 với trọng số trường, tên symbol 4, tóm tắt 2, phần thân 1 | các tên symbol nguyên văn và "tìm hàm tên X" |
+| Một bản tóm tắt một câu từ một mô hình nhỏ được cache | một người dùng nói "được ủy quyền" khi mã nói `check_permission` |
 
-Users ask in English about code that uses other words. The summary adds the modality that neither the code embedding nor the lexical index covers.
+Người dùng hỏi bằng tiếng Anh về mã dùng những từ khác. Bản tóm tắt thêm phương thức mà cả embedding mã lẫn chỉ mục từ vựng đều không bao phủ.
 
 ### The symbol graph
 
-Record edges for imports, calls and inheritance across files and repositories. At query time, expand retrieval along the edges so that a question which crosses four repositories still finds the chain from the caller to the budget configuration.
+Ghi các cạnh cho import, lời gọi và kế thừa qua các file và repository. Ở thời điểm truy vấn, mở rộng truy xuất theo các cạnh để một câu hỏi đi qua bốn repository vẫn tìm thấy chuỗi từ bên gọi đến cấu hình ngân sách.
 
 ### The query path
 
-Retrieve dense and BM25 in parallel, de-duplicate by repository, path and symbol, rerank the top 50 and keep the top 10, synthesize with a cached system prompt, and require a repository, path and line range anchor on every claim. A claim without an anchor is flagged for a re-ask or dropped.
+Truy xuất dense và BM25 song song, khử trùng lặp theo repository, đường dẫn và symbol, xếp hạng lại top 50 và giữ top 10, tổng hợp với một system prompt được cache, và yêu cầu một điểm neo repository, đường dẫn và khoảng dòng trên mọi khẳng định. Một khẳng định không có điểm neo bị đánh dấu để hỏi lại hoặc bị bỏ.
 
 ### Incremental freshness
 
-A push triggers a diff of changed files and changed symbols. Only chunks whose text changed re-embed. The cross-file edges of the changed chunks recompute, which covers imports, calls and inheritance, so a changed call or base class does not leave a stale edge. A deleted file or symbol removes its chunks from the dense and lexical indexes and its edges from the graph, so search cannot return it after the push. The capstone's target is a 50-file push searchable in under 60 seconds on the 2M line fleet.
+Một lần push kích hoạt một diff của các file thay đổi và các symbol thay đổi. Chỉ các chunk có văn bản thay đổi được nhúng lại. Các cạnh liên file của các chunk thay đổi được tính lại, bao gồm import, lời gọi và kế thừa, nên một lời gọi hoặc lớp cơ sở thay đổi không để lại một cạnh lỗi thời. Một file hoặc symbol bị xóa loại các chunk của nó khỏi các chỉ mục dense và từ vựng và các cạnh của nó khỏi đồ thị, nên tìm kiếm không thể trả về nó sau lần push. Mục tiêu của capstone là một lần push 50 file có thể tìm kiếm trong dưới 60 giây trên tập repository 2M dòng.
 
 ### Evaluation
 
-Label 100 cross-repository questions with gold file and line answers. Measure MRR at 10, nDCG at 10, citation faithfulness as the fraction of claims with a verifiable anchor, and p50 and p99 latency. Re-run the set weekly and alert on an MRR at 10 drop above 5 percent.
+Gán nhãn 100 câu hỏi liên repository với các đáp án file và dòng chuẩn. Đo MRR ở 10, nDCG ở 10, độ trung thực trích dẫn là tỷ lệ khẳng định có một điểm neo xác minh được, và độ trễ p50 và p99. Chạy lại tập hàng tuần và cảnh báo khi MRR ở 10 giảm trên 5 phần trăm.
 
 ### Where it breaks
 
-- **Generated code.** Boilerplate from code generators poisons retrieval with near duplicates; flag generated chunks in the payload and down-weight them. The capstone injects 20 percent generated code to show the effect.
-- **Monorepo duplication.** Repeated utility code spreads the lexical signal over copies; de-duplicate by symbol.
-- **The long tail.** Rarely imported symbols have weak embeddings; the lexical side and the summary carry them.
-- **A big push.** A commit that retouches half the files is where the incremental path is tested; measure the push-to-searchable time, not only the average.
+- **Mã được sinh.** Mã khuôn mẫu từ các bộ sinh mã đầu độc truy xuất bằng các bản gần trùng lặp; đánh dấu các chunk được sinh trong payload và giảm trọng số của chúng. Capstone đưa vào 20 phần trăm mã được sinh để cho thấy tác động.
+- **Trùng lặp monorepo.** Mã tiện ích lặp lại phân tán tín hiệu từ vựng qua các bản sao; khử trùng lặp theo symbol.
+- **Đuôi dài.** Các symbol hiếm khi được import có embedding yếu; phía từ vựng và bản tóm tắt gánh chúng.
+- **Một lần push lớn.** Một commit chạm lại một nửa các file là nơi đường gia tăng được kiểm thử; đo thời gian từ push tới có thể tìm kiếm, không chỉ trung bình.
 
 ## Follow-ups
 
-- **Level 3:** Why three forms per chunk and not one good embedding? Expected: users ask how something is authorized while the code says `check_permission`; the summary bridges a vocabulary gap that neither the code embedding nor BM25 covers.
-- **Level 3:** What does the symbol graph buy at query time? Expected: expansion across repository boundaries, from a function to its callers and imports, so a question that spans several repositories finds the whole chain.
-- **Level 4:** Generated boilerplate enters the corpus. What happens and what do you do? Expected: near-duplicate code poisons retrieval; flag generated chunks in the payload and down-weight them.
-- **Level 4:** What is the freshness target and how do you hold it? Expected: a 50-file push searchable in under 60 seconds on the 2M line fleet, by re-embedding only changed chunks and recomputing only affected edges.
+- **Level 3:** Tại sao ba dạng cho mỗi chunk mà không phải một embedding tốt? Expected: người dùng hỏi một thứ được ủy quyền như thế nào trong khi mã nói `check_permission`; bản tóm tắt nối một khoảng cách từ vựng mà cả embedding mã lẫn BM25 đều không bao phủ.
+- **Level 3:** Đồ thị symbol mang lại gì ở thời điểm truy vấn? Expected: mở rộng qua các ranh giới repository, từ một hàm tới các bên gọi và import của nó, để một câu hỏi trải qua nhiều repository tìm thấy toàn bộ chuỗi.
+- **Level 4:** Mã khuôn mẫu được sinh đi vào kho ngữ liệu. Điều gì xảy ra và bạn làm gì? Expected: mã gần trùng lặp đầu độc truy xuất; đánh dấu các chunk được sinh trong payload và giảm trọng số của chúng.
+- **Level 4:** Mục tiêu độ tươi là gì và bạn giữ nó bằng cách nào? Expected: một lần push 50 file có thể tìm kiếm trong dưới 60 giây trên tập repository 2M dòng, bằng cách chỉ nhúng lại các chunk thay đổi và chỉ tính lại các cạnh bị ảnh hưởng.
 
 ## Wrong answers
 
-- "Chunk code every 512 tokens like prose." Fixed windows cut identifiers in half and separate a function from its signature; cut at syntax tree nodes.
-- "Re-index the whole fleet on every push." Two million lines per commit never catches up; diff at the symbol level.
-- "Citations are optional for code answers." The capstone rejects any claim without a file and line anchor; the post-filter drops or re-asks.
+- "Chia mã mỗi 512 token như văn xuôi." Các cửa sổ cố định cắt đôi định danh và tách một hàm khỏi chữ ký của nó; cắt tại các nút cây cú pháp.
+- "Lập chỉ mục lại toàn bộ tập repository trên mỗi lần push." Hai triệu dòng mỗi commit không bao giờ theo kịp; diff ở cấp symbol.
+- "Trích dẫn là tùy chọn cho câu trả lời về mã." Capstone từ chối mọi khẳng định không có một điểm neo file và dòng; bộ lọc sau bỏ hoặc hỏi lại.
 
 ## Taught in
 
-The capstone [codebase RAG](../../../phases/19-capstone-projects/02-rag-over-codebase/) sets the syntax-aware chunks, the three forms, the symbol graph, the incremental re-index and the eval, and the lesson [advanced RAG](../../../phases/11-llm-engineering/07-advanced-rag/) supplies hybrid search and reranking.
+Capstone [RAG trên codebase](../../../phases/19-capstone-projects/02-rag-over-codebase/) đặt ra các chunk nhận biết cú pháp, ba dạng, đồ thị symbol, lập chỉ mục lại gia tăng và đánh giá, và bài học [RAG nâng cao](../../../phases/11-llm-engineering/07-advanced-rag/) cung cấp tìm kiếm lai và xếp hạng lại.

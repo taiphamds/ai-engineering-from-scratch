@@ -16,45 +16,45 @@ related: [rag/bi-encoder-vs-cross-encoder, rag/cross-encoder-passes-per-query]
 updated: 2026-11-03
 ---
 
-You add a cross-encoder behind a hybrid retriever. The prompt receives K chunks. The team wants a rule for N, the number of candidates the reranker scores, and one engineer proposes a small N to protect the latency budget. How do you choose N, and what do you refuse?
+Bạn thêm một cross-encoder phía sau một retriever lai. Prompt nhận K chunk. Nhóm muốn một quy tắc cho N, số ứng viên mà reranker chấm điểm, và một kỹ sư đề xuất một N nhỏ để bảo vệ ngân sách độ trễ. Bạn chọn N bằng cách nào, và bạn từ chối gì?
 
 ## Short answer
 
-Choose N from the recall curve of the reranked output and the latency budget together. Sweep N on a held-out query set; the lift saturates at a knee somewhere around 20 to 50 candidates, and past it every extra candidate costs a forward pass for nothing. Keep N at least three times K, because the reranker can only promote a chunk that the retriever put in the pool.
+Chọn N từ đường cong recall của đầu ra được xếp hạng lại và ngân sách độ trễ cùng nhau. Quét N trên một tập truy vấn giữ lại; mức tăng bão hòa ở một điểm gối đâu đó quanh 20 đến 50 ứng viên, và vượt qua nó mỗi ứng viên thêm tốn một lượt truyền xuôi vô ích. Giữ N ít nhất ba lần K, vì reranker chỉ có thể đẩy lên một chunk mà retriever đã đặt trong nhóm.
 
 ## Full answer
 
 ### The one tunable
 
-The two-stage pipeline has one knob. The bi-encoder returns N candidates, the cross-encoder scores each pair and keeps K. The lesson shows the shape of the curve with illustrative values: recall at 1 rises from N of 5 to N of 20, rises less to N of 50, and does not change at N of 100. The values are not measurements from the fixture; the knee is real.
+Pipeline hai giai đoạn có một núm chỉnh. Bi-encoder trả về N ứng viên, cross-encoder chấm mỗi cặp và giữ K. Bài học cho thấy hình dạng đường cong với các giá trị minh họa: recall ở 1 tăng từ N bằng 5 tới N bằng 20, tăng ít hơn tới N bằng 50, và không thay đổi ở N bằng 100. Các giá trị không phải phép đo từ fixture; điểm gối là thật.
 
 ### The cap
 
-The cross-encoder cannot raise recall above the bi-encoder recall at N. A low N caps quality, not only latency. If N equals K, the reranker can reorder the K candidates but cannot bring a new one in, so recall at K cannot move and the lift looks like zero.
+Cross-encoder không thể nâng recall cao hơn recall bi-encoder ở N. Một N thấp giới hạn chất lượng, không chỉ độ trễ. Nếu N bằng K, reranker có thể sắp xếp lại K ứng viên nhưng không thể đưa một ứng viên mới vào, nên recall ở K không thể dịch chuyển và mức tăng trông như bằng không.
 
 ### The cost side
 
-- Batch the N pairs into one forward pass. Scored one by one, the latency multiplies by N.
-- Plan the memory. A 22M parameter cross-encoder takes 88 MB at float32 before any batch.
-- Cache reranker output by the hash of the query and the document id. A stable corpus reranks the same way, so hits buy a free latency cut.
+- Gom N cặp vào một lượt truyền xuôi. Chấm từng cái một thì độ trễ nhân lên N lần.
+- Lên kế hoạch bộ nhớ. Một cross-encoder 22M tham số tốn 88 MB ở float32 trước bất kỳ batch nào.
+- Cache đầu ra reranker theo hash của truy vấn và id tài liệu. Một kho ngữ liệu ổn định được xếp hạng lại theo cùng cách, nên các lần trúng mang lại một mức cắt độ trễ miễn phí.
 
 ### Pin the three together
 
-The bi-encoder, the cross-encoder and N are one choice. A change in any of them invalidates the eval, so the sweep runs again after a model change.
+Bi-encoder, cross-encoder và N là một lựa chọn. Một thay đổi trong bất kỳ thứ nào vô hiệu hóa đánh giá, nên việc quét chạy lại sau một thay đổi mô hình.
 
 ## Follow-ups
 
-- **Level 3:** Why does the curve flatten? Expected: past the knee the extra candidates are rarely relevant, so the reranker has nothing more to promote while each one still costs a forward pass.
-- **Level 3:** You cut N from 50 to 10 to save latency. What else moves? Expected: the recall cap, because the reranker cannot see a chunk outside the pool; run the eval again instead of assuming.
-- **Level 4:** The embedder is upgraded. Is the chosen N still valid? Expected: no; a new bi-encoder changes recall at N, so the sweep must run again before the release.
-- **Level 4:** How do you get the latency back without a smaller N? Expected: one batched forward pass for the N pairs, and a cache keyed on the query and the document id.
+- **Level 3:** Tại sao đường cong phẳng đi? Expected: vượt qua điểm gối, các ứng viên thêm hiếm khi liên quan, nên reranker không có gì thêm để đẩy lên trong khi mỗi ứng viên vẫn tốn một lượt truyền xuôi.
+- **Level 3:** Bạn cắt N từ 50 xuống 10 để tiết kiệm độ trễ. Còn gì dịch chuyển? Expected: trần recall, vì reranker không thể thấy một chunk ngoài nhóm; chạy lại đánh giá thay vì giả định.
+- **Level 4:** Bộ nhúng được nâng cấp. N đã chọn còn hợp lệ không? Expected: không; một bi-encoder mới thay đổi recall ở N, nên việc quét phải chạy lại trước bản phát hành.
+- **Level 4:** Bạn lấy lại độ trễ mà không có một N nhỏ hơn bằng cách nào? Expected: một lượt truyền xuôi theo batch cho N cặp, và một cache được khóa theo truy vấn và id tài liệu.
 
 ## Wrong answers
 
-- "Set N equal to K to save time." Then the reranker can only reorder the K chunks and never bring a new one in, so recall at K cannot move.
-- "The larger N, the better." Past the knee the lift saturates and each extra candidate costs one forward pass.
-- "Pick N once and keep it." N is pinned with the two models; a change in either one invalidates the choice.
+- "Đặt N bằng K để tiết kiệm thời gian." Khi đó reranker chỉ có thể sắp xếp lại K chunk và không bao giờ đưa một chunk mới vào, nên recall ở K không thể dịch chuyển.
+- "N càng lớn càng tốt." Vượt qua điểm gối, mức tăng bão hòa và mỗi ứng viên thêm tốn một lượt truyền xuôi.
+- "Chọn N một lần và giữ nó." N được ghim cùng hai mô hình; một thay đổi trong bất kỳ mô hình nào vô hiệu hóa lựa chọn.
 
 ## Taught in
 
-The lesson [cross-encoder](../../../phases/19-capstone-projects/66-reranker-cross-encoder/) gives the latency against quality curve, the three times K rule and the batching and memory notes.
+Bài học [cross-encoder](../../../phases/19-capstone-projects/66-reranker-cross-encoder/) cung cấp đường cong độ trễ theo chất lượng, quy tắc ba lần K và các ghi chú batching và bộ nhớ.

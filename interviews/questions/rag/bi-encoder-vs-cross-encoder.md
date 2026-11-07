@@ -16,43 +16,43 @@ related: [rag/rerank-pool-size, rag/cross-encoder-passes-per-query]
 updated: 2026-11-03
 ---
 
-A retrieval pipeline uses one model to find candidate chunks and a second model to order them. Explain what each model sees as input, and why the second model does not run over the whole corpus.
+Một pipeline truy xuất dùng một mô hình để tìm các chunk ứng viên và một mô hình thứ hai để sắp xếp chúng. Giải thích mỗi mô hình thấy gì ở đầu vào, và tại sao mô hình thứ hai không chạy trên toàn bộ kho ngữ liệu.
 
 ## Short answer
 
-A bi-encoder embeds the query and each document on their own and compares the vectors, so every document vector is computed once at index time. A cross-encoder reads the query and one document together as a single sequence and outputs one relevance score, so it can see how the two texts interact. That score costs one forward pass for each pair, so the cross-encoder runs only on a short candidate list.
+Một bi-encoder nhúng truy vấn và từng tài liệu riêng rẽ và so sánh các vector, nên mỗi vector tài liệu được tính một lần ở thời điểm lập chỉ mục. Một cross-encoder đọc truy vấn và một tài liệu cùng nhau như một chuỗi duy nhất và xuất ra một điểm liên quan, nên nó có thể thấy hai văn bản tương tác như thế nào. Điểm đó tốn một lượt truyền xuôi cho mỗi cặp, nên cross-encoder chỉ chạy trên một danh sách ứng viên ngắn.
 
 ## Full answer
 
 ### Input shape
 
-The bi-encoder maps a text to a vector. The query vector and the document vectors live in the same space, and the rank is the cosine between them. The two encodings never see each other, so the model has to compress all that is useful about a document into one vector without knowing the question.
+Bi-encoder ánh xạ một văn bản thành một vector. Vector truy vấn và các vector tài liệu nằm trong cùng không gian, và thứ hạng là cosine giữa chúng. Hai biểu diễn mã hóa không bao giờ thấy nhau, nên mô hình phải nén mọi thứ hữu ích về một tài liệu vào một vector mà không biết câu hỏi.
 
-The cross-encoder takes `[CLS] query_tokens [SEP] document_tokens [SEP]` as one sequence. Attention runs across the join, so every document token can attend to every query token. The output at the first position goes into one linear head that gives one number.
+Cross-encoder nhận `[CLS] query_tokens [SEP] document_tokens [SEP]` như một chuỗi. Attention chạy qua chỗ nối, nên mọi token tài liệu có thể chú ý tới mọi token truy vấn. Đầu ra ở vị trí đầu đi vào một head tuyến tính cho ra một con số.
 
 ### Cost
 
-The bi-encoder embeds once and answers queries for ever. The cross-encoder runs once per pair. On a 10 million document corpus that is 10 million forward passes for one query, which no request budget allows. The advanced RAG lesson puts the gap at 100 to 1000 times slower than a bi-encoder.
+Bi-encoder nhúng một lần và trả lời truy vấn mãi mãi. Cross-encoder chạy một lần cho mỗi cặp. Trên một kho ngữ liệu 10 triệu tài liệu, đó là 10 triệu lượt truyền xuôi cho một truy vấn, điều không ngân sách yêu cầu nào cho phép. Bài học RAG nâng cao đặt khoảng cách ở mức chậm hơn một bi-encoder từ 100 đến 1000 lần.
 
 ### Staging
 
-Retrieve the top N with the cheap model, then rerank N down to K with the expensive one. N is small, 50 to 200. The quality is the cross-encoder quality, capped by the recall of the first stage at N. A low N caps quality, not only latency.
+Truy xuất top N bằng mô hình rẻ, rồi xếp hạng lại N xuống K bằng mô hình đắt. N nhỏ, 50 đến 200. Chất lượng là chất lượng cross-encoder, bị chặn bởi recall của giai đoạn đầu ở N. Một N thấp giới hạn chất lượng, không chỉ độ trễ.
 
-The production point is a cross-encoder of about 22M parameters. Larger rerankers are kept for offline work or for a very small K.
+Điểm phù hợp cho production là một cross-encoder khoảng 22M tham số. Các reranker lớn hơn được giữ cho công việc offline hoặc cho một K rất nhỏ.
 
 ## Follow-ups
 
-- **Level 1:** Which of the two outputs can you compute before any query arrives? Expected: the bi-encoder document vectors; a cross-encoder score depends on the query.
-- **Level 2:** What caps the quality of the two-stage pipeline? Expected: the recall of the first stage at N, because the reranker can only reorder what the retriever returned.
-- **Level 2:** Does the order of the two texts in the pair matter? Expected: yes, the cross-encoder is not symmetric; feed the query first, or recall collapses.
-- **Level 3:** A team promises a p95 under 100 ms with a 22M parameter reranker. What do you plan first? Expected: memory, because the weights take 88 MB at float32, and batching, because scoring the N candidates one by one multiplies the latency by N.
+- **Level 1:** Đầu ra nào trong hai đầu ra bạn có thể tính trước khi có bất kỳ truy vấn nào đến? Expected: các vector tài liệu bi-encoder; một điểm cross-encoder phụ thuộc vào truy vấn.
+- **Level 2:** Điều gì giới hạn chất lượng của pipeline hai giai đoạn? Expected: recall của giai đoạn đầu ở N, vì reranker chỉ có thể sắp xếp lại những gì retriever trả về.
+- **Level 2:** Thứ tự của hai văn bản trong cặp có quan trọng không? Expected: có, cross-encoder không đối xứng; đưa truy vấn trước, nếu không recall sụp đổ.
+- **Level 3:** Một nhóm hứa p95 dưới 100 ms với một reranker 22M tham số. Bạn lên kế hoạch gì trước? Expected: bộ nhớ, vì trọng số tốn 88 MB ở float32, và batching, vì chấm điểm N ứng viên từng cái một nhân độ trễ lên N lần.
 
 ## Wrong answers
 
-- "The cross-encoder is a better embedding model." It does not produce an embedding; it produces one score for one query and one document.
-- "Run the cross-encoder over every chunk for the best quality." On a 10 million document corpus that is 10 million forward passes per query.
-- "A larger reranker always wins." The 22M parameter class is the production point; larger models lose more latency than they gain and are kept for offline reranking or a very small K.
+- "Cross-encoder là một mô hình embedding tốt hơn." Nó không tạo một embedding; nó tạo một điểm cho một truy vấn và một tài liệu.
+- "Chạy cross-encoder trên mọi chunk để có chất lượng tốt nhất." Trên một kho ngữ liệu 10 triệu tài liệu, đó là 10 triệu lượt truyền xuôi cho mỗi truy vấn.
+- "Một reranker lớn hơn luôn thắng." Lớp 22M tham số là điểm phù hợp cho production; các mô hình lớn hơn mất nhiều độ trễ hơn những gì chúng thu được và được giữ cho xếp hạng lại offline hoặc một K rất nhỏ.
 
 ## Taught in
 
-The lesson [cross-encoder](../../../phases/19-capstone-projects/66-reranker-cross-encoder/) builds the two-stage pipeline, and the lesson [advanced RAG](../../../phases/11-llm-engineering/07-advanced-rag/) gives the cost gap.
+Bài học [cross-encoder](../../../phases/19-capstone-projects/66-reranker-cross-encoder/) xây dựng pipeline hai giai đoạn, và bài học [RAG nâng cao](../../../phases/11-llm-engineering/07-advanced-rag/) cung cấp khoảng cách chi phí.

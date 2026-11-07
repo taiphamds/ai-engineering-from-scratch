@@ -16,49 +16,49 @@ related: [rag/recall-at-k-first]
 updated: 2026-11-03
 ---
 
-A product team wants an assistant that answers questions about the internal policy wiki. One engineer proposes to tune the model on the wiki pages. Another proposes to search the pages at question time and paste the matches into the prompt. Which do you pick, and in which case would you still tune the model?
+Một nhóm sản phẩm muốn một trợ lý trả lời các câu hỏi về wiki chính sách nội bộ. Một kỹ sư đề xuất tinh chỉnh mô hình trên các trang wiki. Một người khác đề xuất tìm kiếm các trang ở thời điểm hỏi và dán các kết quả khớp vào prompt. Bạn chọn gì, và trong trường hợp nào bạn vẫn tinh chỉnh mô hình?
 
 ## Short answer
 
-Pick retrieval for knowledge. The model never changes, the document store updates in minutes, and you can show the passages behind each answer. Tuning fits when you need a style, a tone or a reasoning pattern that a prompt cannot reach, not when you need facts.
+Chọn truy xuất cho kiến thức. Mô hình không bao giờ thay đổi, kho tài liệu cập nhật trong vài phút, và bạn có thể cho thấy các đoạn đứng sau mỗi câu trả lời. Tinh chỉnh phù hợp khi bạn cần một phong cách, một giọng điệu hoặc một mẫu suy luận mà prompt không đạt được, không phải khi bạn cần các dữ kiện.
 
 ## Full answer
 
 ### Why retrieval wins on facts
 
-The lesson lines the two up on five concerns:
+Bài học đặt hai cách cạnh nhau trên năm mối quan tâm:
 
-| Concern | Tuned model | Retrieval |
+| Mối quan tâm | Mô hình đã tinh chỉnh | Truy xuất |
 |---|---|---|
-| Cost | a training run costs from $1,000 to more than $100,000 | a query costs $0.01 to $0.10 for the embedding and the model call |
-| Freshness | stale until the next training run | re-index the changed page and the next query sees it |
-| Audit | no way to trace a fact to a page | the retrieved passages are visible and can be returned |
-| Grounding | the model still invents facts freely | the prompt tells the model to answer only from the passages |
-| Privacy | the pages are baked into the weights | the pages stay in your own store |
+| Chi phí | một lần huấn luyện tốn từ $1,000 đến hơn $100,000 | một truy vấn tốn $0.01 đến $0.10 cho embedding và lệnh gọi mô hình |
+| Độ tươi | lỗi thời cho đến lần huấn luyện tiếp theo | lập chỉ mục lại trang thay đổi và truy vấn tiếp theo thấy nó |
+| Kiểm toán | không có cách lần một dữ kiện về một trang | các đoạn truy xuất được hiển thị và có thể trả về |
+| Tính có căn cứ | mô hình vẫn tự do bịa dữ kiện | prompt bảo mô hình chỉ trả lời từ các đoạn |
+| Riêng tư | các trang được gắn vào trọng số | các trang nằm trong kho riêng của bạn |
 
-Tuning changes the weights for good. Retrieval changes the context for one request. For facts, a temporary context is what you want.
+Tinh chỉnh thay đổi trọng số lâu dài. Truy xuất thay đổi ngữ cảnh cho một yêu cầu. Đối với các dữ kiện, một ngữ cảnh tạm thời là điều bạn muốn.
 
 ### The one case for tuning
 
-When the goal is how the model writes or reasons, and prompting does not get there, tuning is the right tool. A fixed voice, a house format or a reasoning habit lives in the weights better than in a long instruction.
+Khi mục tiêu là cách mô hình viết hoặc suy luận, và prompting không đạt được, tinh chỉnh là công cụ đúng. Một giọng cố định, một định dạng riêng hoặc một thói quen suy luận nằm trong trọng số tốt hơn trong một chỉ dẫn dài.
 
 ### The shape of the system
 
-Retrieval runs in two phases. The index phase chunks each page, embeds each chunk and stores the vectors with the text. The query phase embeds the question, finds the top k chunks, builds a prompt from them and calls the model. The lesson budgets k at 5 to 10 chunks and 2,500 to 5,000 tokens of retrieved text per query.
+Truy xuất chạy trong hai pha. Pha lập chỉ mục chia chunk từng trang, nhúng từng chunk và lưu các vector với văn bản. Pha truy vấn nhúng câu hỏi, tìm các chunk top k, xây dựng một prompt từ chúng và gọi mô hình. Bài học đặt ngân sách k ở 5 đến 10 chunk và 2,500 đến 5,000 token văn bản truy xuất mỗi truy vấn.
 
 ## Follow-ups
 
-- **Level 1:** A policy page changes. What happens in each approach? Expected: with retrieval you re-index that page and the next answer uses the new text; with a tuned model the old fact stays until you train again.
-- **Level 2:** A legal reviewer asks which page an answer came from. Which approach can show it? Expected: retrieval, because the passages that went into the prompt are known and can be returned with the answer.
-- **Level 2:** Why is the privacy story different? Expected: with retrieval the pages stay in your store and only the matched chunks go to the model for one call; with tuning the content is inside the weights of the model you deploy.
-- **Level 3:** The answer is wrong even though the right passage is in the store. Which stage do you check first? Expected: retrieval, with recall at k, because the model cannot use a passage that the search did not return.
+- **Level 1:** Một trang chính sách thay đổi. Điều gì xảy ra trong mỗi cách tiếp cận? Expected: với truy xuất bạn lập chỉ mục lại trang đó và câu trả lời tiếp theo dùng văn bản mới; với một mô hình đã tinh chỉnh, dữ kiện cũ giữ lại cho đến khi bạn huấn luyện lại.
+- **Level 2:** Một người rà soát pháp lý hỏi câu trả lời đến từ trang nào. Cách tiếp cận nào có thể cho thấy điều đó? Expected: truy xuất, vì các đoạn đi vào prompt được biết và có thể trả về với câu trả lời.
+- **Level 2:** Tại sao câu chuyện riêng tư khác nhau? Expected: với truy xuất, các trang nằm trong kho của bạn và chỉ các chunk khớp đến mô hình cho một lệnh gọi; với tinh chỉnh, nội dung nằm bên trong trọng số của mô hình bạn triển khai.
+- **Level 3:** Câu trả lời sai dù đoạn đúng nằm trong kho. Bạn kiểm tra giai đoạn nào trước? Expected: truy xuất, với recall ở k, vì mô hình không thể dùng một đoạn mà tìm kiếm không trả về.
 
 ## Wrong answers
 
-- "Tune the model, because then it knows the documents." The weights hold a copy that goes stale, and nothing in the output says which page a fact came from.
-- "Retrieval is always better." A fixed style, a tone or a reasoning pattern is learned better by tuning than by a prompt.
-- "Skip the search and put the whole wiki in the prompt." The lesson budgets 2,500 to 5,000 tokens of retrieved text per query; a whole wiki does not fit, and unrelated text dilutes the prompt.
+- "Tinh chỉnh mô hình, vì khi đó nó biết các tài liệu." Trọng số giữ một bản sao sẽ lỗi thời, và không gì trong đầu ra nói một dữ kiện đến từ trang nào.
+- "Truy xuất luôn tốt hơn." Một phong cách cố định, một giọng điệu hoặc một mẫu suy luận được học bằng tinh chỉnh tốt hơn bằng một prompt.
+- "Bỏ qua tìm kiếm và đặt toàn bộ wiki vào prompt." Bài học đặt ngân sách 2,500 đến 5,000 token văn bản truy xuất mỗi truy vấn; toàn bộ wiki không vừa, và văn bản không liên quan pha loãng prompt.
 
 ## Taught in
 
-The lesson [RAG](../../../phases/11-llm-engineering/06-rag/) compares the two approaches and builds the index and query phases.
+Bài học [RAG](../../../phases/11-llm-engineering/06-rag/) so sánh hai cách tiếp cận và xây dựng các pha lập chỉ mục và truy vấn.

@@ -16,7 +16,7 @@ related: [rag/rrf-beats-score-sum]
 updated: 2026-11-03
 ---
 
-Read this fusion function from the advanced RAG lesson. Explain the `+ 1` in the denominator, say what the function ignores on purpose, and describe what happens to a document that appears in only one of the lists.
+Đọc hàm hợp nhất này từ bài học RAG nâng cao. Giải thích `+ 1` trong mẫu số, nói hàm cố ý bỏ qua gì, và mô tả điều xảy ra với một tài liệu chỉ xuất hiện trong một trong các danh sách.
 
 ```python
 def reciprocal_rank_fusion(ranked_lists, k=60):
@@ -32,43 +32,43 @@ def reciprocal_rank_fusion(ranked_lists, k=60):
 
 ## Short answer
 
-`enumerate` starts at zero, so the `+ 1` turns the index into a rank that starts at one, and the top document gets 1/61 as the published formula defines. The function drops the score that came with each document, because ranks are the comparable unit across retrievers. A document present in one list gets one contribution and no penalty for the other, so it can still place well if it ranked high where it appeared.
+`enumerate` bắt đầu từ không, nên `+ 1` biến chỉ số thành một thứ hạng bắt đầu từ một, và tài liệu đầu nhận 1/61 như công thức đã công bố định nghĩa. Hàm bỏ điểm đi cùng mỗi tài liệu, vì thứ hạng là đơn vị có thể so sánh giữa các retriever. Một tài liệu hiện diện trong một danh sách nhận một đóng góp và không có hình phạt cho danh sách kia, nên nó vẫn có thể có vị trí tốt nếu nó được xếp cao ở nơi xuất hiện.
 
 ## Full answer
 
 ### Walk the loop
 
-1. The outer loop visits each ranked list, for example the vector list and the BM25 list.
-2. The inner loop reads each entry as a pair and discards the second element, the retriever's own score.
-3. The contribution for a document at zero-based index `rank` is `1.0 / (k + rank + 1)`, which is one over k plus the one-based rank.
-4. Contributions sum per document id across the lists.
-5. The result is sorted by the summed contribution, highest first.
+1. Vòng lặp ngoài thăm từng danh sách đã xếp hạng, chẳng hạn danh sách vector và danh sách BM25.
+2. Vòng lặp trong đọc từng mục như một cặp và bỏ phần tử thứ hai, điểm riêng của retriever.
+3. Đóng góp cho một tài liệu ở chỉ số tính từ không `rank` là `1.0 / (k + rank + 1)`, tức một chia cho k cộng thứ hạng tính từ một.
+4. Các đóng góp được cộng theo từng id tài liệu trên các danh sách.
+5. Kết quả được sắp theo tổng đóng góp, cao nhất trước.
 
 ### What the caller does
 
-The hybrid search in the same lesson asks each retriever for three times the final top k, fuses the two lists and returns the first top k of the fused result. The deeper candidate lists let a document that is good in both retrievers reach the final list even when it is first in neither.
+Tìm kiếm lai trong cùng bài học yêu cầu mỗi retriever lấy ba lần top k cuối cùng, hợp nhất hai danh sách và trả về top k đầu tiên của kết quả hợp nhất. Các danh sách ứng viên sâu hơn cho phép một tài liệu tốt ở cả hai retriever đến danh sách cuối ngay cả khi nó không đứng đầu ở bên nào.
 
 ### The capstone version
 
-The hybrid retrieval lesson adds a `weights` list with one multiplier per ranked list, applied to each rank contribution, and raises an error when the number of weights does not match the number of lists. It also keeps a map from document id to document so it can return documents instead of ids.
+Bài học truy xuất lai thêm một danh sách `weights` với một hệ số nhân cho mỗi danh sách đã xếp hạng, áp dụng cho mỗi đóng góp thứ hạng, và phát sinh một lỗi khi số trọng số không khớp số danh sách. Nó cũng giữ một ánh xạ từ id tài liệu sang tài liệu để có thể trả về các tài liệu thay vì id.
 
 ### The key
 
-Fusion runs on the document id. Two chunks of the same document are two keys. The capstone lesson recommends de-duplication by document, because a term that is out of vocabulary for BM25 gives a zero and the dense retriever still returns noise; per-document fusion absorbs that.
+Hợp nhất chạy trên id tài liệu. Hai chunk của cùng tài liệu là hai khóa. Bài học capstone khuyến nghị khử trùng lặp theo tài liệu, vì một thuật ngữ ngoài từ vựng của BM25 cho không và retriever dense vẫn trả về nhiễu; hợp nhất theo từng tài liệu hấp thụ điều đó.
 
 ## Follow-ups
 
-- **Level 2:** What changes if you delete the `+ 1`? Expected: the top document gets 1/60 instead of 1/61, the curve shifts a little, and the constant no longer matches the published definition.
-- **Level 2:** Why does the caller fetch three times the final k from each retriever? Expected: a deeper list lets a document that ranks well in both retrievers reach the fused top k even when it is first in neither.
-- **Level 3:** How does the capstone version let you favor one retriever? Expected: a weights list with one multiplier per ranked list, applied to the rank contribution, with an error when the lengths differ.
-- **Level 3:** What is the fusion key, and why does that matter for chunks? Expected: the document id; chunks of one document are separate keys unless you de-duplicate by document, which the lesson recommends.
+- **Level 2:** Điều gì thay đổi nếu bạn xóa `+ 1`? Expected: tài liệu đầu nhận 1/60 thay vì 1/61, đường cong dịch một ít, và hằng số không còn khớp định nghĩa đã công bố.
+- **Level 2:** Tại sao bên gọi lấy ba lần k cuối cùng từ mỗi retriever? Expected: một danh sách sâu hơn cho phép một tài liệu xếp hạng tốt ở cả hai retriever đến top k hợp nhất ngay cả khi nó không đứng đầu ở bên nào.
+- **Level 3:** Phiên bản capstone cho phép bạn ưu ái một retriever bằng cách nào? Expected: một danh sách weights với một hệ số nhân cho mỗi danh sách đã xếp hạng, áp dụng cho đóng góp thứ hạng, với một lỗi khi các độ dài khác nhau.
+- **Level 3:** Khóa hợp nhất là gì, và tại sao điều đó quan trọng với chunk? Expected: id tài liệu; các chunk của một tài liệu là các khóa riêng trừ khi bạn khử trùng lặp theo tài liệu, điều bài học khuyến nghị.
 
 ## Wrong answers
 
-- "The function averages the two scores." It never reads the scores; it sums a function of the ranks.
-- "A document missing from one list is penalized." It gets no contribution from that list, which is not a penalty; it can still rank first if it was first in the other.
-- "k is the number of results to keep." k is the decay constant in the denominator; the caller slices the fused list to the final top k.
+- "Hàm lấy trung bình hai điểm." Nó không bao giờ đọc các điểm; nó cộng một hàm của các thứ hạng.
+- "Một tài liệu thiếu ở một danh sách bị phạt." Nó không nhận đóng góp từ danh sách đó, điều không phải một hình phạt; nó vẫn có thể xếp đầu nếu nó đứng đầu ở danh sách kia.
+- "k là số kết quả cần giữ." k là hằng số suy giảm trong mẫu số; bên gọi cắt danh sách hợp nhất thành top k cuối cùng.
 
 ## Taught in
 
-The lesson [advanced RAG](../../../phases/11-llm-engineering/07-advanced-rag/) gives this function and its caller, and the lesson [hybrid retrieval](../../../phases/19-capstone-projects/65-hybrid-retrieval-bm25-dense/) adds the weights and the de-duplication advice.
+Bài học [RAG nâng cao](../../../phases/11-llm-engineering/07-advanced-rag/) cung cấp hàm này và bên gọi của nó, và bài học [truy xuất lai](../../../phases/19-capstone-projects/65-hybrid-retrieval-bm25-dense/) thêm các trọng số và lời khuyên khử trùng lặp.

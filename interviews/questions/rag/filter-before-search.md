@@ -16,50 +16,50 @@ related: [rag/jurisdiction-leak-in-shared-index, rag/design-rag-over-company-doc
 updated: 2026-11-03
 ---
 
-A question asks what changed in the security policy last month. Your vector search returns a two-year-old security document because it is semantically close. Design the retrieval step so that this cannot happen, and say what else the same mechanism buys you in a regulated deployment.
+Một câu hỏi hỏi điều gì thay đổi trong chính sách bảo mật tháng trước. Tìm kiếm vector của bạn trả về một tài liệu bảo mật hai năm tuổi vì nó gần về ngữ nghĩa. Thiết kế bước truy xuất để điều này không thể xảy ra, và nói cùng cơ chế còn mang lại gì cho bạn trong một triển khai chịu quy định.
 
 ## Short answer
 
-Store metadata with each chunk, such as the source, the creation date, the category, the author and the version, and filter on it before the similarity search runs. For this question the filter is the security category and the last 30 days, so the old document is never a candidate. Under regulation the same pre-filter carries role labels and jurisdiction tags, so a user only retrieves chunks they are allowed to see.
+Lưu metadata với mỗi chunk, như nguồn, ngày tạo, danh mục, tác giả và phiên bản, và lọc theo nó trước khi tìm kiếm tương đồng chạy. Với câu hỏi này, bộ lọc là danh mục bảo mật và 30 ngày qua, nên tài liệu cũ không bao giờ là ứng viên. Dưới quy định, cùng bộ lọc trước mang các nhãn vai trò và tag khu vực tài phán, nên một người dùng chỉ truy xuất các chunk mà họ được phép thấy.
 
 ## Full answer
 
 ### Pre-filter, not post-filter
 
-A filter after the top k comes back can leave nothing: if every slot in the top k went to old documents, the right one never had a chance. A filter applied ahead of the search shrinks the space the similarity search runs over, which the advanced RAG lesson calls critical for performance at scale, and an excluded document cannot fill a slot. Vector stores support this as metadata pre-filtering.
+Một bộ lọc sau khi top k quay về có thể không để lại gì: nếu mọi chỗ trong top k đã thuộc về các tài liệu cũ, tài liệu đúng chưa bao giờ có cơ hội. Một bộ lọc được áp dụng trước tìm kiếm thu hẹp không gian mà tìm kiếm tương đồng chạy trên đó, điều bài học RAG nâng cao gọi là thiết yếu cho hiệu năng ở quy mô lớn, và một tài liệu bị loại không thể lấp một chỗ. Các kho vector hỗ trợ điều này dưới dạng lọc trước theo metadata.
 
 ### What to store
 
-| Field | Used for |
+| Trường | Dùng cho |
 |---|---|
-| Source document | citations and per-document de-duplication |
-| Creation date and version | time windows and stale-document control |
-| Category | scope, such as security or billing |
-| Author | provenance |
-| Role label | who may see the chunk |
-| Jurisdiction tag | which regulatory scope the chunk belongs to |
+| Tài liệu nguồn | trích dẫn và khử trùng lặp theo từng tài liệu |
+| Ngày tạo và phiên bản | các cửa sổ thời gian và kiểm soát tài liệu lỗi thời |
+| Danh mục | phạm vi, như bảo mật hoặc thanh toán |
+| Tác giả | nguồn gốc |
+| Nhãn vai trò | ai được thấy chunk |
+| Tag khu vực tài phán | chunk thuộc phạm vi quy định nào |
 
 ### The regulated pipeline
 
-The production capstone orders the query side as: filter by role and jurisdiction first, then parallel dense and BM25 retrieval, then rank fusion, then the top 20 to the reranker, then the top 5 to the generator. The labels are produced at ingestion, next to the chunk summaries, so nothing downstream has to guess them.
+Capstone production sắp thứ tự phía truy vấn như sau: lọc theo vai trò và khu vực tài phán trước, rồi truy xuất dense và BM25 song song, rồi hợp nhất thứ hạng, rồi top 20 tới reranker, rồi top 5 tới bộ sinh. Các nhãn được tạo ở bước nạp dữ liệu, cạnh các bản tóm tắt chunk, nên không gì phía sau phải đoán chúng.
 
 ### Prove it
 
-Access control that is not tested is a hope. The capstone runs a pre-release red team with cross-jurisdiction leak probes, and its exercise builds a second corpus slice under another jurisdiction and runs a 20-question cross-jurisdiction probe, scored pass or fail.
+Kiểm soát truy cập không được kiểm thử là một niềm hy vọng. Capstone chạy một đợt red team trước phát hành với các phép dò rò rỉ liên khu vực tài phán, và bài tập của nó xây dựng một lát kho ngữ liệu thứ hai dưới một khu vực tài phán khác và chạy một phép dò liên khu vực tài phán 20 câu hỏi, được chấm đạt hoặc không đạt.
 
 ## Follow-ups
 
-- **Level 2:** Why filter before the search and not after? Expected: the search space shrinks, which helps at scale, and an excluded document can never take a slot in the top k.
-- **Level 2:** Which fields do you store with each chunk? Expected: source, date, category, author and version, plus role and jurisdiction labels in a regulated setting.
-- **Level 3:** How do you test that the role filter holds? Expected: a probe set of cross-jurisdiction questions, which the capstone runs as a 20-question check scored pass or fail.
-- **Level 3:** Where does the filter sit relative to the reranker and the generator? Expected: before retrieval; the capstone filters, then runs hybrid retrieval, then the reranker gets the top 20 and the generator gets the top 5.
+- **Level 2:** Tại sao lọc trước tìm kiếm mà không phải sau? Expected: không gian tìm kiếm thu hẹp, giúp ích ở quy mô lớn, và một tài liệu bị loại không bao giờ có thể chiếm một chỗ trong top k.
+- **Level 2:** Bạn lưu những trường nào với mỗi chunk? Expected: nguồn, ngày, danh mục, tác giả và phiên bản, cùng các nhãn vai trò và khu vực tài phán trong một môi trường chịu quy định.
+- **Level 3:** Bạn kiểm thử bộ lọc vai trò giữ vững bằng cách nào? Expected: một tập dò các câu hỏi liên khu vực tài phán, mà capstone chạy như một kiểm tra 20 câu hỏi được chấm đạt hoặc không đạt.
+- **Level 3:** Bộ lọc nằm ở đâu so với reranker và bộ sinh? Expected: trước truy xuất; capstone lọc, rồi chạy truy xuất lai, rồi reranker nhận top 20 và bộ sinh nhận top 5.
 
 ## Wrong answers
 
-- "Put the date into the query text so the embedding reflects it." An embedding does not enforce a date; a semantically close old document still scores high.
-- "Filter the results after the top k comes back." If the top k is all old documents the filter leaves nothing, and the right one never had a chance.
-- "Tell the model not to use documents from another jurisdiction." Access control belongs in retrieval, before the text reaches the prompt.
+- "Đặt ngày vào văn bản truy vấn để embedding phản ánh nó." Một embedding không thực thi một ngày; một tài liệu cũ gần về ngữ nghĩa vẫn có điểm cao.
+- "Lọc các kết quả sau khi top k quay về." Nếu top k toàn các tài liệu cũ, bộ lọc không để lại gì, và tài liệu đúng chưa bao giờ có cơ hội.
+- "Bảo mô hình không dùng các tài liệu từ một khu vực tài phán khác." Kiểm soát truy cập thuộc về truy xuất, trước khi văn bản đến prompt.
 
 ## Taught in
 
-The lesson [advanced RAG](../../../phases/11-llm-engineering/07-advanced-rag/) explains metadata pre-filtering, and the capstone [production RAG](../../../phases/19-capstone-projects/08-production-rag-chatbot/) applies the access filters ahead of retrieval and probes them in the red team.
+Bài học [RAG nâng cao](../../../phases/11-llm-engineering/07-advanced-rag/) giải thích lọc trước theo metadata, và capstone [RAG production](../../../phases/19-capstone-projects/08-production-rag-chatbot/) áp dụng các bộ lọc truy cập trước truy xuất và dò chúng trong đợt red team.

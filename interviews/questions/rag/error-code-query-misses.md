@@ -16,42 +16,42 @@ related: [rag/rrf-beats-score-sum, rag/read-the-rrf-function]
 updated: 2026-11-03
 ---
 
-Support agents search the knowledge base with the exact error code from a ticket, such as E-4021. The vector search returns articles about error handling in general and misses the one article that contains that code. What is happening, and what do you add?
+Các nhân viên hỗ trợ tìm kiếm cơ sở tri thức bằng mã lỗi chính xác từ một phiếu, như E-4021. Tìm kiếm vector trả về các bài viết về xử lý lỗi nói chung và bỏ lỡ bài viết duy nhất chứa mã đó. Điều gì đang xảy ra, và bạn thêm gì?
 
 ## Short answer
 
-The embedding model treats a rare code as noise, so the query vector lands near articles about errors in general and not near the one exact match. Add a lexical index with BM25 next to the vector index, run both for every query, and merge the two ranked lists with reciprocal rank fusion. The exact token wins on BM25, and the fused list puts that article first.
+Mô hình embedding xem một mã hiếm là nhiễu, nên vector truy vấn rơi gần các bài viết về lỗi nói chung chứ không gần kết quả khớp chính xác duy nhất. Thêm một chỉ mục từ vựng với BM25 cạnh chỉ mục vector, chạy cả hai cho mọi truy vấn, và gộp hai danh sách đã xếp hạng bằng reciprocal rank fusion. Token chính xác thắng trên BM25, và danh sách hợp nhất đặt bài viết đó đầu tiên.
 
 ## Full answer
 
 ### Two retrievers, two strengths
 
-Semantic search understands meaning. "How do I cancel my subscription" matches "steps to terminate your plan" with no shared word. It misses exact matches, because a code such as E-4021 carries no meaning for the model to embed.
+Tìm kiếm ngữ nghĩa hiểu ý nghĩa. "Tôi hủy đăng ký như thế nào" khớp với "các bước chấm dứt gói của bạn" mà không chung từ nào. Nó bỏ lỡ các kết quả khớp chính xác, vì một mã như E-4021 không mang ý nghĩa để mô hình nhúng.
 
-Lexical search does the opposite. BM25 scores a document by summing, over the query terms, an inverse document frequency factor times a saturating term frequency factor with a length correction. A term that appears in few documents weighs most, so a rare code is exactly what BM25 is best at. It fails when the query and the document share no words.
+Tìm kiếm từ vựng làm ngược lại. BM25 chấm điểm một tài liệu bằng cách lấy tổng, trên các thuật ngữ truy vấn, của một hệ số tần suất tài liệu nghịch đảo nhân một hệ số tần suất thuật ngữ bão hòa với hiệu chỉnh độ dài. Một thuật ngữ xuất hiện trong ít tài liệu có trọng số lớn nhất, nên một mã hiếm chính là thứ BM25 giỏi nhất. Nó thất bại khi truy vấn và tài liệu không chung từ nào.
 
 ### Hybrid search
 
-Run both retrievers in parallel and fuse by rank: each document gets the sum of one over k plus its rank in each list, with k at 60. The capstone demo shows the three cases. The literal symbol query sits at BM25 rank 1 and dense rank 4, and fuses to rank 1. The paraphrased query sits at BM25 rank 6 and dense rank 1, and fuses to rank 1. The fusion wins on both query classes, so the fix for the error code does not cost the paraphrased queries.
+Chạy cả hai retriever song song và hợp nhất theo thứ hạng: mỗi tài liệu nhận tổng của một chia cho k cộng thứ hạng của nó trong mỗi danh sách, với k bằng 60. Demo capstone cho thấy ba trường hợp. Truy vấn symbol nguyên văn nằm ở BM25 hạng 1 và dense hạng 4, và hợp nhất thành hạng 1. Truy vấn diễn đạt lại nằm ở BM25 hạng 6 và dense hạng 1, và hợp nhất thành hạng 1. Hợp nhất thắng trên cả hai lớp truy vấn, nên cách sửa cho mã lỗi không đánh đổi các truy vấn diễn đạt lại.
 
 ### Two details that matter
 
-- **Field weighting.** If the codes live in a title or symbol field, repeat those tokens at index time so a title match counts more than a body match. The math stays the same.
-- **Out-of-vocabulary codes.** A code present in the ticket and absent from every article gets zero from BM25, because its document frequency is zero, while the dense side still returns plausible-looking neighbors. De-duplicate by document so the empty lexical side adds no stray rank contributions. Rank fusion still scores the documents that only the dense side returns, so they stay in the fused list and can rank first. Check that a retrieved article contains the code, and when none does, say that no retrieved article contains it instead of answering from the neighbors.
+- **Trọng số trường.** Nếu các mã nằm trong một trường tiêu đề hoặc symbol, lặp các token đó ở thời điểm lập chỉ mục để một kết quả khớp tiêu đề được tính nhiều hơn một kết quả khớp phần thân. Phép toán giữ nguyên.
+- **Các mã ngoài từ vựng.** Một mã hiện diện trong phiếu và vắng mặt trong mọi bài viết nhận không từ BM25, vì tần suất tài liệu của nó bằng không, trong khi phía dense vẫn trả về các láng giềng trông có vẻ hợp lý. Khử trùng lặp theo tài liệu để phía từ vựng trống không thêm các đóng góp thứ hạng lạc chỗ. Hợp nhất thứ hạng vẫn chấm điểm các tài liệu mà chỉ phía dense trả về, nên chúng vẫn ở trong danh sách hợp nhất và có thể xếp đầu. Kiểm tra một bài viết được truy xuất có chứa mã, và khi không có bài nào, nói rằng không bài viết được truy xuất nào chứa nó thay vì trả lời từ các láng giềng.
 
 ## Follow-ups
 
-- **Level 2:** Why does BM25 give a rare code so much weight? Expected: the inverse document frequency factor; a term in few documents scores high and a term in most documents scores low.
-- **Level 2:** The code is in the ticket but in no article at all. What does each retriever return? Expected: BM25 contributes nothing for that term, and the dense retriever still returns neighbors that look plausible and are wrong, and the fusion keeps them; check that a retrieved article contains the code, and when none does, say that no retrieved article contains it.
-- **Level 3:** How do the paraphrased queries fare after you add the lexical index? Expected: they still win, because the fusion is rank based; in the demo the paraphrased query sat at BM25 rank 6 and dense rank 1 and fused to rank 1.
-- **Level 3:** The codes live in a short title field and the body is long prose. What do you tune? Expected: field weighting, which repeats the title tokens at index time so a title match counts more.
+- **Level 2:** Tại sao BM25 cho một mã hiếm trọng số lớn đến vậy? Expected: hệ số tần suất tài liệu nghịch đảo; một thuật ngữ trong ít tài liệu có điểm cao và một thuật ngữ trong phần lớn tài liệu có điểm thấp.
+- **Level 2:** Mã có trong phiếu nhưng hoàn toàn không có trong bài viết nào. Mỗi retriever trả về gì? Expected: BM25 không đóng góp gì cho thuật ngữ đó, và retriever dense vẫn trả về các láng giềng trông hợp lý nhưng sai, và hợp nhất giữ chúng lại; kiểm tra một bài viết được truy xuất có chứa mã, và khi không có bài nào, nói rằng không bài viết được truy xuất nào chứa nó.
+- **Level 3:** Các truy vấn diễn đạt lại ra sao sau khi bạn thêm chỉ mục từ vựng? Expected: chúng vẫn thắng, vì hợp nhất dựa trên thứ hạng; trong demo, truy vấn diễn đạt lại nằm ở BM25 hạng 6 và dense hạng 1 và hợp nhất thành hạng 1.
+- **Level 3:** Các mã nằm trong một trường tiêu đề ngắn và phần thân là văn xuôi dài. Bạn tinh chỉnh gì? Expected: trọng số trường, lặp các token tiêu đề ở thời điểm lập chỉ mục để một kết quả khớp tiêu đề được tính nhiều hơn.
 
 ## Wrong answers
 
-- "Switch to a better embedding model." A rare code has no meaning to learn; the fix is a lexical signal next to the semantic one.
-- "Lower the similarity threshold so more articles come back." More neighbors on the wrong topic do not include the one exact match.
-- "Replace the vector search with BM25." Then the queries that share no words with the article fail; run both and fuse.
+- "Chuyển sang một mô hình embedding tốt hơn." Một mã hiếm không có ý nghĩa để học; cách sửa là một tín hiệu từ vựng bên cạnh tín hiệu ngữ nghĩa.
+- "Hạ ngưỡng tương đồng để nhiều bài viết quay về hơn." Nhiều láng giềng lạc đề hơn không bao gồm kết quả khớp chính xác duy nhất.
+- "Thay tìm kiếm vector bằng BM25." Khi đó các truy vấn không chung từ với bài viết thất bại; chạy cả hai và hợp nhất.
 
 ## Taught in
 
-The lesson [advanced RAG](../../../phases/11-llm-engineering/07-advanced-rag/) contrasts the two retrievers, and the lesson [hybrid retrieval](../../../phases/19-capstone-projects/65-hybrid-retrieval-bm25-dense/) shows the three query classes, field weighting and the out-of-vocabulary case.
+Bài học [RAG nâng cao](../../../phases/11-llm-engineering/07-advanced-rag/) đối chiếu hai retriever, và bài học [truy xuất lai](../../../phases/19-capstone-projects/65-hybrid-retrieval-bm25-dense/) cho thấy ba lớp truy vấn, trọng số trường và trường hợp ngoài từ vựng.

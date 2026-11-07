@@ -16,45 +16,45 @@ related: [rag/filter-before-search, rag/design-rag-over-company-docs]
 updated: 2026-11-03
 ---
 
-A regulated-domain assistant serves analysts in two jurisdictions from one index. In a red-team probe, a question asked under one jurisdiction returned a contract clause that belongs to the other. The reranker and the generator behave as designed. Where is the leak, how do you close it, and how do you prove that it stays closed?
+Một trợ lý lĩnh vực chịu quy định phục vụ các nhà phân tích ở hai khu vực tài phán từ một chỉ mục. Trong một phép dò red-team, một câu hỏi được hỏi dưới một khu vực tài phán trả về một điều khoản hợp đồng thuộc khu vực kia. Reranker và bộ sinh hoạt động như thiết kế. Rò rỉ ở đâu, bạn đóng nó bằng cách nào, và bạn chứng minh nó giữ đóng bằng cách nào?
 
 ## Short answer
 
-The leak is in retrieval: the jurisdiction tag was not applied as a pre-filter before the similarity search, so a semantically close chunk from the other jurisdiction entered the candidate pool, and nothing downstream is built to remove it. Close it by tagging every chunk with role and jurisdiction at ingestion and filtering on both before hybrid retrieval runs. Prove it with a cross-jurisdiction probe set in the red-team suite, scored pass or fail with a severity, and run before every release.
+Rò rỉ ở truy xuất: tag khu vực tài phán đã không được áp dụng như một bộ lọc trước trước tìm kiếm tương đồng, nên một chunk gần về ngữ nghĩa từ khu vực tài phán kia đi vào nhóm ứng viên, và không gì phía sau được xây để loại nó. Đóng nó bằng cách gắn tag mọi chunk với vai trò và khu vực tài phán ở bước nạp dữ liệu và lọc theo cả hai trước khi truy xuất lai chạy. Chứng minh bằng một tập dò liên khu vực tài phán trong bộ red-team, được chấm đạt hoặc không đạt với một mức nghiêm trọng, và chạy trước mỗi bản phát hành.
 
 ## Full answer
 
 ### Why downstream stages cannot save you
 
-The reranker orders the candidates it receives by relevance, and the leaked clause is relevant. The generator cites what it is given. The output guard scrubs personal data and blocks forbidden topics; it does not know which jurisdiction a clause belongs to. Access control has to happen before the text reaches the prompt, and the only stage that sees the whole corpus is retrieval.
+Reranker sắp xếp các ứng viên nó nhận theo mức liên quan, và điều khoản bị rò rỉ là liên quan. Bộ sinh trích dẫn những gì được cho. Biện pháp bảo vệ đầu ra làm sạch dữ liệu cá nhân và chặn các chủ đề bị cấm; nó không biết một điều khoản thuộc khu vực tài phán nào. Kiểm soát truy cập phải xảy ra trước khi văn bản đến prompt, và giai đoạn duy nhất thấy toàn bộ kho ngữ liệu là truy xuất.
 
 ### The capstone order
 
-Filter by role and jurisdiction first. Then run dense and BM25 retrieval in parallel, fuse by rank, send the top 20 to the reranker, the top 5 to the generator, then the guards, then cite and return. The tags come from ingestion, where each chunk receives a summary, a role label and a jurisdiction tag.
+Lọc theo vai trò và khu vực tài phán trước. Rồi chạy truy xuất dense và BM25 song song, hợp nhất theo thứ hạng, gửi top 20 tới reranker, top 5 tới bộ sinh, rồi các biện pháp bảo vệ, rồi trích dẫn và trả về. Các tag đến từ nạp dữ liệu, nơi mỗi chunk nhận một bản tóm tắt, một nhãn vai trò và một tag khu vực tài phán.
 
 ### Closing it
 
-1. Tag at ingestion, and make ingestion refuse a chunk that has no tag.
-2. Filter before retrieval, not on the top k after it; a post-filter can leave an empty result and still lets an untagged chunk through.
-3. Treat the caller's jurisdiction as a request parameter, never as a hint in the prompt.
+1. Gắn tag ở bước nạp dữ liệu, và cho bước nạp dữ liệu từ chối một chunk không có tag.
+2. Lọc trước truy xuất, không phải trên top k sau đó; một bộ lọc sau có thể để lại một kết quả trống và vẫn để một chunk không có tag đi qua.
+3. Xem khu vực tài phán của bên gọi là một tham số yêu cầu, không bao giờ là một gợi ý trong prompt.
 
 ### Proving it
 
-The capstone runs a pre-release red team of 50 adversarial prompts that include cross-jurisdiction leaks, scored pass or fail with a severity. Its exercise adds a second corpus slice under another jurisdiction and runs a 20-question cross-jurisdiction probe. Put that probe in the release gate for every change to ingestion or retrieval, and carry the leak count on the drift dashboard as a hard zero.
+Capstone chạy một đợt red team trước phát hành gồm 50 prompt đối kháng bao gồm các rò rỉ liên khu vực tài phán, được chấm đạt hoặc không đạt với một mức nghiêm trọng. Bài tập của nó thêm một lát kho ngữ liệu thứ hai dưới một khu vực tài phán khác và chạy một phép dò liên khu vực tài phán 20 câu hỏi. Đặt phép dò đó trong cổng phát hành cho mọi thay đổi đối với nạp dữ liệu hoặc truy xuất, và mang số rò rỉ trên dashboard drift như một yêu cầu bắt buộc bằng không.
 
 ## Follow-ups
 
-- **Level 3:** Why can the reranker not catch the leaked clause? Expected: it only orders the candidates it receives, and a clause from the wrong jurisdiction is still relevant to the question.
-- **Level 3:** Why is the output guard not the fix? Expected: it scrubs personal data and blocks forbidden topics; it cannot tell which jurisdiction a clause belongs to.
-- **Level 4:** The tags exist and the leak persists. What do you check? Expected: whether the filter runs before retrieval or on the top k after it, and whether ingestion lets an untagged chunk in.
-- **Level 4:** How do you keep the proof current? Expected: run the probe set in the red team on every change to ingestion or retrieval, and show the leak count on the drift dashboard with a zero threshold.
+- **Level 3:** Tại sao reranker không thể bắt điều khoản bị rò rỉ? Expected: nó chỉ sắp xếp các ứng viên nó nhận, và một điều khoản từ sai khu vực tài phán vẫn liên quan tới câu hỏi.
+- **Level 3:** Tại sao biện pháp bảo vệ đầu ra không phải cách sửa? Expected: nó làm sạch dữ liệu cá nhân và chặn các chủ đề bị cấm; nó không thể biết một điều khoản thuộc khu vực tài phán nào.
+- **Level 4:** Các tag tồn tại và rò rỉ vẫn tiếp diễn. Bạn kiểm tra gì? Expected: liệu bộ lọc chạy trước truy xuất hay trên top k sau đó, và liệu nạp dữ liệu có cho một chunk không có tag vào không.
+- **Level 4:** Bạn giữ bằng chứng cập nhật bằng cách nào? Expected: chạy tập dò trong red team trên mọi thay đổi đối với nạp dữ liệu hoặc truy xuất, và hiển thị số rò rỉ trên dashboard drift với một ngưỡng bằng không.
 
 ## Wrong answers
 
-- "Add a sentence to the system prompt about the user's jurisdiction." The model cannot verify which jurisdiction a chunk belongs to; access control belongs in retrieval.
-- "Separate indexes solve it, no tags needed." Role filtering still needs labels, shared documents get duplicated, and the probe is still needed to prove the split holds.
-- "The red team passed once, so it is closed." One pass proves one build; the probe runs on every ingestion or retrieval change.
+- "Thêm một câu vào system prompt về khu vực tài phán của người dùng." Mô hình không thể xác minh một chunk thuộc khu vực tài phán nào; kiểm soát truy cập thuộc về truy xuất.
+- "Các chỉ mục riêng giải quyết điều đó, không cần tag." Lọc vai trò vẫn cần nhãn, các tài liệu dùng chung bị sao chép, và phép dò vẫn cần để chứng minh sự phân chia giữ vững.
+- "Red team đã đạt một lần, nên nó đã đóng." Một lần đạt chứng minh một bản build; phép dò chạy trên mọi thay đổi nạp dữ liệu hoặc truy xuất.
 
 ## Taught in
 
-The capstone [production RAG](../../../phases/19-capstone-projects/08-production-rag-chatbot/) applies its access filter ahead of retrieval and probes it in its red team, and the lesson [advanced RAG](../../../phases/11-llm-engineering/07-advanced-rag/) explains metadata pre-filtering.
+Capstone [RAG production](../../../phases/19-capstone-projects/08-production-rag-chatbot/) áp dụng bộ lọc truy cập trước truy xuất và dò nó trong red team, và bài học [RAG nâng cao](../../../phases/11-llm-engineering/07-advanced-rag/) giải thích lọc trước theo metadata.

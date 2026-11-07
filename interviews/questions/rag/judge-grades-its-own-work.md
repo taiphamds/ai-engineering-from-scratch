@@ -16,43 +16,43 @@ related: [rag/diagnose-from-the-metric-table, rag/faithfulness-vs-relevance]
 updated: 2026-11-03
 ---
 
-Your faithfulness score comes from a model that reads each claim next to the retrieved context and answers yes or no. The score has sat near the top for a month, yet reviewers keep finding invented facts in sampled answers. The generator and the judge are the same model. What is going on, and what do you change?
+Điểm độ trung thực của bạn đến từ một mô hình đọc từng khẳng định cạnh ngữ cảnh truy xuất và trả lời có hoặc không. Điểm đã nằm gần đỉnh trong một tháng, nhưng người review liên tục tìm thấy các dữ kiện bịa ra trong những câu trả lời được lấy mẫu. Bộ sinh và bộ chấm là cùng một mô hình. Điều gì đang xảy ra, và bạn thay đổi gì?
 
 ## Short answer
 
-A judge from the same family as the generator grades its own output as more faithful than it is, so the number stays high while the samples show the truth. Switch the judge to a different model family or hand-grade a sample, and add a sample-level review, because a per-sentence check can pass while the whole answer misleads.
+Một bộ chấm từ cùng họ với bộ sinh chấm đầu ra của chính nó là trung thực hơn thực tế, nên con số giữ cao trong khi các mẫu cho thấy sự thật. Chuyển bộ chấm sang một họ mô hình khác hoặc chấm tay một mẫu, và thêm một lần xem xét ở cấp mẫu, vì một kiểm tra theo từng câu có thể đạt trong khi toàn bộ câu trả lời gây hiểu lầm.
 
 ## Full answer
 
 ### How the metric is built
 
-The eval splits the answer into sentence-shaped claims, asks the judge whether each claim is supported by the retrieved context, and reports the fraction that pass. The lesson ships a deterministic stand-in judge based on token overlap so the eval runs offline, and swaps in a model call in production. The question answering lesson describes the production form: entailment between each claim and the context, with no gold answer needed.
+Đánh giá tách câu trả lời thành các khẳng định có dạng câu, hỏi bộ chấm liệu mỗi khẳng định có được ngữ cảnh truy xuất hỗ trợ không, và báo cáo tỷ lệ đạt. Bài học cung cấp một bộ chấm thay thế xác định dựa trên độ trùng token để đánh giá chạy offline, và thay bằng một lệnh gọi mô hình trong production. Bài học hỏi đáp mô tả dạng production: suy dẫn giữa mỗi khẳng định và ngữ cảnh, không cần câu trả lời chuẩn.
 
 ### Two blind spots
 
-1. **Judge bias.** A model judges the output of its own family as more faithful than it is. The lesson's rule: use a different model family for the judge than for the generator, or hand-grade a sample.
-2. **Micro-checks miss macro-claims.** Each sentence can be supported while the answer as a whole draws a conclusion that the context does not. Add a sample-level qualitative review on top of the automated metric.
+1. **Thiên lệch bộ chấm.** Một mô hình đánh giá đầu ra của họ riêng là trung thực hơn thực tế. Quy tắc của bài học: dùng một họ mô hình khác cho bộ chấm so với bộ sinh, hoặc chấm tay một mẫu.
+2. **Các kiểm tra vi mô bỏ lỡ các khẳng định vĩ mô.** Mỗi câu có thể được hỗ trợ trong khi toàn bộ câu trả lời rút ra một kết luận mà ngữ cảnh không rút ra. Thêm một lần xem xét định tính ở cấp mẫu bên trên chỉ số tự động.
 
 ### What to change
 
-- Change the judge family, then measure the disagreement between the old judge and the new one on the same fixture. The lesson's exercise does the same between the mock judge and a real model.
-- Hand-grade a fixed sample each week and treat it as the calibration set for the automated score.
-- Consider graded faithfulness with three values, unsupported, partially supported and fully supported, instead of a yes or no.
-- Keep answer relevance next to faithfulness. A grounded answer to the wrong question is strong on one metric and weak on the other.
+- Đổi họ bộ chấm, rồi đo sự bất đồng giữa bộ chấm cũ và bộ chấm mới trên cùng fixture. Bài tập của bài học làm cùng điều đó giữa bộ chấm giả và một mô hình thực.
+- Chấm tay một mẫu cố định mỗi tuần và xem nó là tập hiệu chuẩn cho điểm tự động.
+- Cân nhắc độ trung thực phân bậc với ba giá trị, không được hỗ trợ, được hỗ trợ một phần và được hỗ trợ đầy đủ, thay vì có hoặc không.
+- Giữ mức liên quan câu trả lời cạnh độ trung thực. Một câu trả lời có căn cứ cho sai câu hỏi mạnh ở một chỉ số và yếu ở chỉ số kia.
 
 ## Follow-ups
 
-- **Level 3:** How do you size the judge problem before you change anything? Expected: hand-grade a sample of claims and measure the disagreement between the judge and the human labels.
-- **Level 3:** Every sentence passes but the answer as a whole misleads. Which check catches that? Expected: a sample-level qualitative review in addition to the per-claim metric.
-- **Level 4:** Why can a high faithfulness score sit next to a useless answer? Expected: faithfulness compares the answer with the context and not with the question, so a grounded off-topic answer scores high on faithfulness and low on relevance.
-- **Level 4:** The team wants the strongest model available as judge, and it is also the generator. What do you say? Expected: pick the judge for independence first; a strong judge of its own family is still biased, so use another family and keep a human-graded calibration sample.
+- **Level 3:** Bạn xác định quy mô vấn đề bộ chấm trước khi thay đổi bất cứ thứ gì bằng cách nào? Expected: chấm tay một mẫu các khẳng định và đo sự bất đồng giữa bộ chấm và các nhãn con người.
+- **Level 3:** Mọi câu đều đạt nhưng toàn bộ câu trả lời gây hiểu lầm. Kiểm tra nào bắt được điều đó? Expected: một lần xem xét định tính ở cấp mẫu ngoài chỉ số theo từng khẳng định.
+- **Level 4:** Tại sao một điểm độ trung thực cao có thể nằm cạnh một câu trả lời vô dụng? Expected: độ trung thực so sánh câu trả lời với ngữ cảnh chứ không với câu hỏi, nên một câu trả lời lạc đề có căn cứ có điểm cao về độ trung thực và thấp về mức liên quan.
+- **Level 4:** Nhóm muốn mô hình mạnh nhất hiện có làm bộ chấm, và nó cũng là bộ sinh. Bạn nói gì? Expected: chọn bộ chấm vì tính độc lập trước; một bộ chấm mạnh đối với họ riêng vẫn thiên lệch, nên dùng họ khác và giữ một mẫu hiệu chuẩn được con người chấm.
 
 ## Wrong answers
 
-- "The score is high, so the reviewers are wrong." The score is one model's opinion of its own family's output; the sampled answers are the ground truth.
-- "Make the judge stricter and the problem goes away." A stricter prompt or threshold does not remove a bias toward the judge's own family; only another family or a human sample does.
-- "Replace faithfulness with answer relevance." They measure different things; relevance asks whether the answer addresses the question and says nothing about grounding.
+- "Điểm cao, nên người review sai." Điểm là ý kiến của một mô hình về đầu ra của họ riêng; các câu trả lời được lấy mẫu là sự thật chuẩn.
+- "Làm bộ chấm nghiêm ngặt hơn và vấn đề biến mất." Một prompt hoặc ngưỡng nghiêm ngặt hơn không loại bỏ thiên lệch đối với họ riêng của bộ chấm; chỉ một họ khác hoặc một mẫu con người mới làm được.
+- "Thay độ trung thực bằng mức liên quan câu trả lời." Chúng đo những thứ khác nhau; mức liên quan hỏi liệu câu trả lời có giải quyết câu hỏi không và không nói gì về tính có căn cứ.
 
 ## Taught in
 
-The lesson [RAG evaluation](../../../phases/19-capstone-projects/68-rag-eval-precision-recall/) names judge bias and the macro-claim gap, and the lesson [question answering](../../../phases/05-nlp-foundations-to-advanced/13-question-answering/) describes entailment-based faithfulness in production.
+Bài học [đánh giá RAG](../../../phases/19-capstone-projects/68-rag-eval-precision-recall/) nêu thiên lệch bộ chấm và khoảng hở khẳng định vĩ mô, và bài học [hỏi đáp](../../../phases/05-nlp-foundations-to-advanced/13-question-answering/) mô tả độ trung thực dựa trên suy dẫn trong production.

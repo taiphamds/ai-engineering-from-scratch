@@ -16,45 +16,45 @@ related: [rag/recall-at-k-first, rag/judge-grades-its-own-work]
 updated: 2026-11-03
 ---
 
-After a release, the nightly RAG eval shows recall at 5 unchanged and still high, MRR down from last week, and faithfulness unchanged. Nobody touched the retriever. Which stage do you suspect, how do you confirm it, and what would other patterns have told you?
+Sau một bản phát hành, đánh giá RAG hàng đêm cho thấy recall ở 5 không thay đổi và vẫn cao, MRR giảm so với tuần trước, và độ trung thực không đổi. Không ai chạm vào retriever. Bạn nghi ngờ giai đoạn nào, xác nhận bằng cách nào, và những mẫu khác sẽ cho bạn biết gì?
 
 ## Short answer
 
-The reranker. On average the gold chunk still arrives in the top 5, so recall holds, but it sits lower in the list, so MRR falls, and the generator stays grounded in what it receives. Confirm it from the per-query trace: compare the rank of the gold chunk before and after the release, then look at what changed in the reranker, such as its weights, its candidate pool size, or the order of the query and the document in the pair.
+Reranker. Tính trung bình, chunk chuẩn vẫn đến trong top 5, nên recall giữ nguyên, nhưng nó nằm thấp hơn trong danh sách, nên MRR giảm, và bộ sinh vẫn bám vào những gì nó nhận được. Xác nhận từ trace theo từng truy vấn: so sánh thứ hạng của chunk chuẩn trước và sau bản phát hành, rồi xem điều gì thay đổi trong reranker, như trọng số, kích thước nhóm ứng viên, hoặc thứ tự truy vấn và tài liệu trong cặp.
 
 ## Full answer
 
 ### Why the pattern points at one stage
 
-MRR is the mean over queries of one divided by the rank of the first relevant document. Rank 1 contributes 1.0, rank 2 contributes 0.5, rank 10 contributes 0.1, so the metric is dominated by the top of the list. Recall at 5 is blind to position inside the top 5. A move in MRR with recall flat suggests that the right chunk moved down inside the window, and the stage that sets the order inside the window is the reranker. A flat average does not prove it: one query can lose its gold chunk from the top 5 while another gains one. The per-query rank trace below separates reranker movement from retrieval loss.
+MRR là trung bình trên các truy vấn của một chia cho thứ hạng của tài liệu liên quan đầu tiên. Hạng 1 đóng góp 1.0, hạng 2 đóng góp 0.5, hạng 10 đóng góp 0.1, nên chỉ số bị chi phối bởi đầu danh sách. Recall ở 5 không thấy vị trí bên trong top 5. Một sự dịch chuyển MRR với recall phẳng gợi ý rằng chunk đúng đã chuyển xuống trong cửa sổ, và giai đoạn đặt thứ tự bên trong cửa sổ là reranker. Một trung bình phẳng không chứng minh điều đó: một truy vấn có thể mất chunk chuẩn khỏi top 5 trong khi truy vấn khác có thêm một chunk. Trace thứ hạng theo từng truy vấn bên dưới tách chuyển động của reranker khỏi mất mát truy xuất.
 
 ### The full table
 
-| Symptom | Likely cause | What to fix |
+| Triệu chứng | Nguyên nhân có khả năng | Điều cần sửa |
 |---|---|---|
-| Low recall at k, low precision at k | the chunker cut the answer, or the retriever cannot find it | chunk boundaries, or the retrieval modality |
-| Decent recall at k, low MRR | the right chunk is in the top k but not at position 1 | the reranker |
-| High MRR, low faithfulness | the generator invents content with the right context in front of it | the generation prompt, force cite or refuse |
-| High faithfulness, low relevance | the answer is grounded but off topic | the query rewriter, or the prompt |
-| All four high, users still complain | the eval set is not representative | add real user queries to the qrels |
+| Recall ở k thấp, precision ở k thấp | bộ chia chunk cắt câu trả lời, hoặc retriever không thể tìm nó | ranh giới chunk, hoặc phương thức truy xuất |
+| Recall ở k khá, MRR thấp | chunk đúng ở trong top k nhưng không ở vị trí 1 | reranker |
+| MRR cao, độ trung thực thấp | bộ sinh bịa nội dung với ngữ cảnh đúng trước mặt | prompt sinh, buộc trích dẫn hoặc từ chối |
+| Độ trung thực cao, mức liên quan thấp | câu trả lời có căn cứ nhưng lạc đề | bộ viết lại truy vấn, hoặc prompt |
+| Cả bốn đều cao, người dùng vẫn phàn nàn | tập đánh giá không có tính đại diện | thêm các truy vấn người dùng thực vào qrels |
 
 ### Confirm, do not guess
 
-Persist the metric trace per query on every CI run. Then the question is not "which number fell" but "which queries fell, and to which rank". Slice by query class. A fall confined to one class, such as queries that carry a literal symbol, points at a different change than a fall across every class.
+Lưu bền vững trace chỉ số theo từng truy vấn trên mỗi lần chạy CI. Khi đó câu hỏi không phải "con số nào giảm" mà là "những truy vấn nào giảm, và xuống hạng nào". Phân lát theo lớp truy vấn. Một mức giảm chỉ trong một lớp, như các truy vấn mang một symbol nguyên văn, chỉ tới một thay đổi khác với một mức giảm trên mọi lớp.
 
 ## Follow-ups
 
-- **Level 3:** The trace shows the gold chunk at rank 3 only for literal identifier queries. What does the slice suggest? Expected: a change that hurt the lexical signal inside the pool for those queries; slice by class to find it rather than averaging it away.
-- **Level 3:** Which release changes can move MRR while recall at 5 stays fixed? Expected: anything inside the reranker: new weights, a smaller candidate pool, or the query and the document swapped in the pair.
-- **Level 4:** Faithfulness is also down while recall and MRR are fine. Where do you look? Expected: the generation prompt, and the judge itself, because a judge from the same model family grades its own output too kindly; hand-grade a sample.
-- **Level 4:** Why keep the per-query trace rather than the averages? Expected: a 90 percent average hides a class that always misses, and when a user complains you can find the matching qrel and see whether the eval would have caught it.
+- **Level 3:** Trace cho thấy chunk chuẩn ở hạng 3 chỉ với các truy vấn định danh nguyên văn. Lát cắt gợi ý gì? Expected: một thay đổi làm hại tín hiệu từ vựng trong nhóm cho các truy vấn đó; phân lát theo lớp để tìm nó thay vì lấy trung bình làm nó biến mất.
+- **Level 3:** Những thay đổi phát hành nào có thể làm MRR dịch chuyển trong khi recall ở 5 giữ nguyên? Expected: bất kỳ thứ gì bên trong reranker: trọng số mới, một nhóm ứng viên nhỏ hơn, hoặc truy vấn và tài liệu bị đổi chỗ trong cặp.
+- **Level 4:** Độ trung thực cũng giảm trong khi recall và MRR vẫn ổn. Bạn xem ở đâu? Expected: prompt sinh, và chính bộ chấm, vì một bộ chấm từ cùng họ mô hình chấm đầu ra của chính nó quá dễ; chấm tay một mẫu.
+- **Level 4:** Tại sao giữ trace theo từng truy vấn thay vì các trung bình? Expected: một trung bình 90 phần trăm giấu một lớp luôn bỏ lỡ, và khi một người dùng phàn nàn bạn có thể tìm qrel tương ứng và xem liệu đánh giá có bắt được nó không.
 
 ## Wrong answers
 
-- "The retriever regressed." Nobody touched the retriever and recall at 5 did not move; a flat average can still hide a query that lost its gold chunk, so check the per-query rank trace before you blame retrieval.
-- "The model started to hallucinate." Faithfulness did not move; the generator is still grounded in what it receives.
-- "Run it again, it is noise." The eval is offline and deterministic on the fixture; one metric down with the others flat points at one stage.
+- "Retriever đã suy giảm." Không ai chạm vào retriever và recall ở 5 không dịch chuyển; một trung bình phẳng vẫn có thể giấu một truy vấn mất chunk chuẩn, nên kiểm tra trace thứ hạng theo từng truy vấn trước khi bạn đổ lỗi cho truy xuất.
+- "Mô hình bắt đầu ảo giác." Độ trung thực không dịch chuyển; bộ sinh vẫn bám vào những gì nó nhận được.
+- "Chạy lại, đó là nhiễu." Đánh giá là offline và xác định trên fixture; một chỉ số giảm với các chỉ số khác phẳng chỉ tới một giai đoạn.
 
 ## Taught in
 
-The lesson [RAG evaluation](../../../phases/19-capstone-projects/68-rag-eval-precision-recall/) defines MRR and gives the symptom table.
+Bài học [đánh giá RAG](../../../phases/19-capstone-projects/68-rag-eval-precision-recall/) định nghĩa MRR và cung cấp bảng triệu chứng.

@@ -16,47 +16,47 @@ related: [rag/diagnose-from-the-metric-table, rag/rag-or-fine-tune]
 updated: 2026-11-03
 ---
 
-A user reports that the document assistant gave a wrong answer. The pipeline has a chunker, a retriever, a reranker and a generator. You get one metric to look at before anything else. Which one, and why that one?
+Một người dùng báo rằng trợ lý tài liệu đã đưa một câu trả lời sai. Pipeline có một bộ chia chunk, một retriever, một reranker và một bộ sinh. Bạn được xem một chỉ số trước bất cứ thứ gì khác. Chỉ số nào, và tại sao là nó?
 
 ## Short answer
 
-Recall at k on the retrieval stage. If the gold chunk is not in the top k, no reranker can bring it back and the generator usually lacks the evidence for the right answer, unless another chunk happens to hold it, so the later metrics are hard to read. Recall comes first in the order, but it is not a gate: when recall holds, or when another retrieved chunk holds the evidence, move on to the rank position and then to the generated text, because a failure there stays hidden otherwise.
+Recall ở k trên giai đoạn truy xuất. Nếu chunk chuẩn không ở trong top k, không reranker nào có thể mang nó trở lại và bộ sinh thường thiếu bằng chứng cho câu trả lời đúng, trừ khi một chunk khác tình cờ giữ nó, nên các chỉ số sau khó đọc. Recall đứng trước trong thứ tự, nhưng nó không phải một cổng: khi recall giữ vững, hoặc khi một chunk truy xuất khác giữ bằng chứng, chuyển sang vị trí thứ hạng rồi sang văn bản được sinh, vì một lỗi ở đó vẫn bị giấu nếu không làm vậy.
 
 ## Full answer
 
 ### The two retrieval metrics
 
-Precision at k asks what share of the top k is gold. If the gold set has three documents and the top 3 returns two of them plus one wrong one, precision at 3 is 2 / 3. Recall at k asks what share of the gold set is in the top k. If the top 5 holds all three gold documents, recall at 5 is 1.0.
+Precision ở k hỏi tỷ lệ nào của top k là chuẩn. Nếu tập chuẩn có ba tài liệu và top 3 trả về hai trong số đó cùng một tài liệu sai, precision ở 3 là 2 / 3. Recall ở k hỏi tỷ lệ nào của tập chuẩn nằm trong top k. Nếu top 5 giữ cả ba tài liệu chuẩn, recall ở 5 là 1.0.
 
-Production teams quote recall. The generator can ignore an extra chunk with ease. It cannot invent an answer from a chunk it never saw.
+Các nhóm production trích dẫn recall. Bộ sinh có thể dễ dàng bỏ qua một chunk thêm. Nó không thể bịa một câu trả lời từ một chunk chưa bao giờ thấy.
 
 ### The order of the checks
 
-| Symptom | Likely cause | What to fix |
+| Triệu chứng | Nguyên nhân có khả năng | Điều cần sửa |
 |---|---|---|
-| Low recall and low precision | the chunker cut the answer or the retriever cannot find it | chunk boundaries or the retrieval modality |
-| Decent recall, low MRR | the right chunk is in the top k but not at position 1 | the reranker |
-| High MRR, low faithfulness | the generator invents content despite the right context | the generation prompt, cite or refuse |
-| High faithfulness, low relevance | the answer is grounded but off topic | the query rewriter or the prompt |
-| All four high, users still complain | the eval set does not represent real queries | add real user queries to the qrels |
+| Recall thấp và precision thấp | bộ chia chunk cắt câu trả lời hoặc retriever không thể tìm nó | ranh giới chunk hoặc phương thức truy xuất |
+| Recall khá, MRR thấp | chunk đúng nằm trong top k nhưng không ở vị trí 1 | reranker |
+| MRR cao, độ trung thực thấp | bộ sinh bịa nội dung dù có ngữ cảnh đúng | prompt sinh, trích dẫn hoặc từ chối |
+| Độ trung thực cao, mức liên quan thấp | câu trả lời có căn cứ nhưng lạc đề | bộ viết lại truy vấn hoặc prompt |
+| Cả bốn đều cao, người dùng vẫn phàn nàn | tập đánh giá không đại diện các truy vấn thực | thêm các truy vấn người dùng thực vào qrels |
 
 ### Keep the eval cheap
 
-Tier the qrels: a smoke set of 20 queries that runs in CI, a regression set of 200 that runs nightly, and a deep set of 2000 that runs weekly. Treat a recall regression like a failing test.
+Phân tầng qrels: một tập smoke 20 truy vấn chạy trong CI, một tập hồi quy 200 chạy mỗi đêm, và một tập sâu 2000 chạy hàng tuần. Xem một suy giảm recall như một kiểm thử thất bại.
 
 ## Follow-ups
 
-- **Level 1:** What does precision at k add once recall is fine? Expected: it shows how much of the returned list is noise, which matters when a wrong chunk poisons the answer or wastes tokens.
-- **Level 2:** Recall at 5 is fine but the gold chunk sits at rank 4 or 5. Which metric shows that, and which stage do you fix? Expected: MRR, and the reranker.
-- **Level 3:** Recall averages 90 percent and one team still complains every day. What is hidden? Expected: one query class that always misses; slice the qrels by class, such as literal, paraphrased and multi-topic, and report each slice.
-- **Level 3:** How do you keep the eval fast enough to run on every change? Expected: tiers, with a smoke set of 20 queries in CI, 200 nightly and 2000 weekly.
+- **Level 1:** Precision ở k thêm gì khi recall đã ổn? Expected: nó cho thấy bao nhiêu trong danh sách trả về là nhiễu, điều quan trọng khi một chunk sai đầu độc câu trả lời hoặc lãng phí token.
+- **Level 2:** Recall ở 5 ổn nhưng chunk chuẩn nằm ở hạng 4 hoặc 5. Chỉ số nào cho thấy điều đó, và bạn sửa giai đoạn nào? Expected: MRR, và reranker.
+- **Level 3:** Recall trung bình 90 phần trăm và một nhóm vẫn phàn nàn mỗi ngày. Điều gì bị giấu? Expected: một lớp truy vấn luôn bỏ lỡ; phân lát qrels theo lớp, như nguyên văn, diễn đạt lại và đa chủ đề, và báo cáo từng lát.
+- **Level 3:** Bạn giữ đánh giá đủ nhanh để chạy trên mỗi thay đổi bằng cách nào? Expected: các tầng, với một tập smoke 20 truy vấn trong CI, 200 mỗi đêm và 2000 hàng tuần.
 
 ## Wrong answers
 
-- "Read the answer and judge it." The answer alone cannot tell which of the four stages failed.
-- "Precision at k, because the noise caused the wrong answer." Precision matters once the right chunk is present; a missing chunk is the first thing to rule out.
-- "Faithfulness, because the model hallucinated." A faithful answer to the wrong chunks is still wrong; faithfulness only grades the generator against what it saw.
+- "Đọc câu trả lời và đánh giá nó." Chỉ câu trả lời không thể cho biết giai đoạn nào trong bốn giai đoạn đã thất bại.
+- "Precision ở k, vì nhiễu gây ra câu trả lời sai." Precision quan trọng khi chunk đúng đã hiện diện; một chunk bị thiếu là điều đầu tiên cần loại trừ.
+- "Độ trung thực, vì mô hình đã ảo giác." Một câu trả lời trung thực với các chunk sai vẫn sai; độ trung thực chỉ chấm bộ sinh theo những gì nó thấy.
 
 ## Taught in
 
-The lesson [RAG evaluation](../../../phases/19-capstone-projects/68-rag-eval-precision-recall/) defines the metrics and the diagnosis table, and the lesson [question answering](../../../phases/05-nlp-foundations-to-advanced/13-question-answering/) says to measure the retriever before the reader.
+Bài học [đánh giá RAG](../../../phases/19-capstone-projects/68-rag-eval-precision-recall/) định nghĩa các chỉ số và bảng chẩn đoán, và bài học [hỏi đáp](../../../phases/05-nlp-foundations-to-advanced/13-question-answering/) nói đo retriever trước reader.

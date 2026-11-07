@@ -16,52 +16,52 @@ related: [rag/overlap-measure-first, rag/take-home-stratified-eval]
 updated: 2026-11-03
 ---
 
-A team is about to index a new document corpus and asks you to review the chunker. They picked semantic splitting, 1000 tokens per chunk and 20 percent overlap, because a blog post recommended it. What do you tell them?
+Một nhóm sắp lập chỉ mục một kho ngữ liệu tài liệu mới và yêu cầu bạn xem xét bộ chia chunk. Họ chọn chia theo ngữ nghĩa, 1000 token mỗi chunk và chồng lấn 20 phần trăm, vì một bài blog đã khuyến nghị nó. Bạn nói gì với họ?
 
 ## Short answer
 
-Start from the query type, not from a post. Factoid questions want 256 to 512 tokens, analytical or multi-hop questions 512 to 1024, and whole-section questions 1024 to 2048. Begin with recursive splitting at 512 tokens and no overlap, then measure recall at 5 on a 50-query set before you move any knob.
+Bắt đầu từ loại truy vấn, không phải từ một bài viết. Các câu hỏi dữ kiện muốn 256 đến 512 token, các câu hỏi phân tích hoặc multi-hop 512 đến 1024, và các câu hỏi toàn phần 1024 đến 2048. Bắt đầu bằng chia đệ quy ở 512 token và không chồng lấn, rồi đo recall ở 5 trên một tập 50 truy vấn trước khi bạn thay bất kỳ núm chỉnh nào.
 
 ## Full answer
 
 ### Why size follows the question
 
-A chunk must be large enough to hold the answer plus its local context, and small enough that the top k returns the answer and not noise. Too small, at 64 to 128 tokens, and a chunk says "it increased 15% last quarter" with no subject. Too large, at 2048 tokens and more, and one chunk is 10% about revenue and 90% about headcount, so its embedding points nowhere.
+Một chunk phải đủ lớn để chứa câu trả lời cùng ngữ cảnh cục bộ của nó, và đủ nhỏ để top k trả về câu trả lời chứ không phải nhiễu. Quá nhỏ, ở 64 đến 128 token, và một chunk nói "nó tăng 15% trong quý trước" mà không có chủ thể. Quá lớn, ở 2048 token trở lên, và một chunk có 10% về doanh thu và 90% về nhân sự, nên embedding của nó không chỉ tới đâu.
 
-| Query type | Chunk size |
+| Loại truy vấn | Kích thước chunk |
 |---|---|
-| Factoid | 256 to 512 tokens |
-| Analytical or multi-hop | 512 to 1024 tokens |
-| Whole-section comprehension | 1024 to 2048 tokens |
+| Dữ kiện | 256 đến 512 token |
+| Phân tích hoặc multi-hop | 512 đến 1024 token |
+| Hiểu toàn phần | 1024 đến 2048 token |
 
 ### What the measurements say
 
-- Recursive splitting at 512 tokens beat semantic splitting 69% to 54% in the chunking study.
-- Overlap gave zero measurable benefit in the sparse retrieval study, and every overlapped token is embedded and stored again, so the index cost grows with the overlap.
-- Response quality drops sharply around 2,500 tokens of context, so bigger chunks hit a cliff.
-- Semantic splitting without a minimum size produces 40-token fragments that hurt retrieval.
+- Chia đệ quy ở 512 token đánh bại chia theo ngữ nghĩa với tỷ lệ 69% so với 54% trong nghiên cứu chunking.
+- Chồng lấn không mang lại lợi ích đo được trong nghiên cứu truy xuất thưa, và mọi token chồng lấn được nhúng và lưu lại, nên chi phí chỉ mục tăng theo chồng lấn.
+- Chất lượng phản hồi giảm mạnh quanh 2,500 token ngữ cảnh, nên các chunk lớn hơn chạm một vách dốc.
+- Chia theo ngữ nghĩa không có kích thước tối thiểu tạo ra các mảnh 40 token làm hại truy xuất.
 
 ### Pick a default without a benchmark
 
-Three properties decide the first chunker: the document type, the paragraph length, and whether the format carries structure. Prose with no structure gets recursive splitting. Markdown and API docs get the header splitter. Code gets a syntax-aware splitter. When in doubt, recursive splitting is the strongest single baseline.
+Ba đặc tính quyết định bộ chia chunk đầu tiên: loại tài liệu, độ dài đoạn văn, và định dạng có mang cấu trúc không. Văn xuôi không cấu trúc nhận chia đệ quy. Markdown và tài liệu API nhận bộ chia theo heading. Mã nhận một bộ chia nhận biết cú pháp. Khi không chắc, chia đệ quy là baseline đơn lẻ mạnh nhất.
 
 ### Then measure
 
-Build a 50-query eval set, stratified by query type, and read recall at 5 for each candidate. Clamp every chunker with a minimum and a maximum size. Never let a chunk span two documents.
+Xây dựng một tập đánh giá 50 truy vấn, phân tầng theo loại truy vấn, và đọc recall ở 5 cho từng ứng viên. Chặn mọi bộ chia chunk bằng một kích thước tối thiểu và tối đa. Không bao giờ để một chunk trải qua hai tài liệu.
 
 ## Follow-ups
 
-- **Level 2:** Why does the chunk size depend on the kind of question? Expected: the chunk has to contain the answer with its context, and still be small enough that the top k is about the answer and not about the surrounding noise.
-- **Level 2:** The corpus is markdown API documentation. What do you try first? Expected: the structural header splitter, because the format carries explicit structure; drop or merge header-only chunks.
-- **Level 3:** Which two guards does every chunker need, whatever the strategy? Expected: a minimum and a maximum size, because chunks of 5 tokens or 5000 tokens both break retrieval.
-- **Level 3:** You switch the embedding model later. What do you run again? Expected: the chunking eval, because the winner depends on the corpus and the model, and semantic splitting moves its boundaries when the model changes.
+- **Level 2:** Tại sao kích thước chunk phụ thuộc vào loại câu hỏi? Expected: chunk phải chứa câu trả lời với ngữ cảnh của nó, và vẫn đủ nhỏ để top k nói về câu trả lời chứ không phải nhiễu xung quanh.
+- **Level 2:** Kho ngữ liệu là tài liệu API markdown. Bạn thử gì trước? Expected: bộ chia heading theo cấu trúc, vì định dạng mang cấu trúc tường minh; bỏ hoặc gộp các chunk chỉ có heading.
+- **Level 3:** Mọi bộ chia chunk cần hai biện pháp bảo vệ nào, bất kể chiến lược? Expected: một kích thước tối thiểu và tối đa, vì các chunk 5 token hoặc 5000 token đều phá hỏng truy xuất.
+- **Level 3:** Bạn chuyển mô hình embedding sau đó. Bạn chạy lại gì? Expected: đánh giá chunking, vì bên thắng phụ thuộc vào kho ngữ liệu và mô hình, và chia theo ngữ nghĩa di chuyển các ranh giới khi mô hình thay đổi.
 
 ## Wrong answers
 
-- "Semantic splitting is best because it follows meaning." It lost to recursive splitting at 512 tokens in the measured study, and it makes tiny fragments unless you set a floor.
-- "Overlap is a safety margin, keep it." The studies found that overlap often adds nothing, and it adds index cost in proportion to its size; justify any overlap with an ablation.
-- "Bigger chunks give the model more context." Quality drops around 2,500 tokens of context, and a chunk that covers many topics dilutes its own embedding.
+- "Chia theo ngữ nghĩa tốt nhất vì nó đi theo ý nghĩa." Nó thua chia đệ quy ở 512 token trong nghiên cứu đã đo, và nó tạo ra các mảnh nhỏ trừ khi bạn đặt một mức sàn.
+- "Chồng lấn là một biên an toàn, hãy giữ nó." Các nghiên cứu thấy rằng chồng lấn thường không thêm gì, và nó thêm chi phí chỉ mục tỷ lệ với kích thước; biện minh cho mọi chồng lấn bằng một ablation.
+- "Các chunk lớn hơn cho mô hình nhiều ngữ cảnh hơn." Chất lượng giảm quanh 2,500 token ngữ cảnh, và một chunk bao phủ nhiều chủ đề pha loãng embedding của chính nó.
 
 ## Taught in
 
-The lesson [chunking strategies](../../../phases/05-nlp-foundations-to-advanced/23-chunking-strategies-rag/) gives the size table and the measurements, the lesson [RAG](../../../phases/11-llm-engineering/06-rag/) explains the too-small and too-large failures, and the lesson [chunking comparison](../../../phases/19-capstone-projects/64-chunking-strategies-advanced/) picks a default from three properties.
+Bài học [chiến lược chunking](../../../phases/05-nlp-foundations-to-advanced/23-chunking-strategies-rag/) cung cấp bảng kích thước và các phép đo, bài học [RAG](../../../phases/11-llm-engineering/06-rag/) giải thích các lỗi quá nhỏ và quá lớn, và bài học [so sánh chunking](../../../phases/19-capstone-projects/64-chunking-strategies-advanced/) chọn một mặc định từ ba đặc tính.

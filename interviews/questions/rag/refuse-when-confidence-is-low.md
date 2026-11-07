@@ -16,47 +16,47 @@ related: [rag/design-rag-over-company-docs, rag/faithfulness-vs-relevance]
 updated: 2026-11-03
 ---
 
-Your document assistant answers every question, including the ones the corpus does not cover, and the invented answers are the ones users remember. Design the path that lets the system say it does not know, and say how you measure that the path works.
+Trợ lý tài liệu của bạn trả lời mọi câu hỏi, bao gồm những câu mà kho ngữ liệu không bao phủ, và các câu trả lời bịa ra là những câu người dùng nhớ. Thiết kế đường cho phép hệ thống nói nó không biết, và nói bạn đo đường đó hoạt động bằng cách nào.
 
 ## Short answer
 
-Log the reranker's rank-1 score for every query and refuse when it falls below a corpus-specific threshold, instead of handing weak chunks to the generator. Tell the generator to answer only from the snippets, to cite every claim and to say it does not know when the snippets do not answer. Measure refusal calibration: on questions whose answer is not in the store, count how often the system refuses, and track the false confidence rate.
+Ghi nhật ký điểm rank-1 của reranker cho mọi truy vấn và từ chối khi nó rơi dưới một ngưỡng riêng theo kho ngữ liệu, thay vì đưa các chunk yếu cho bộ sinh. Bảo bộ sinh chỉ trả lời từ các đoạn trích, trích dẫn mọi khẳng định và nói nó không biết khi các đoạn trích không trả lời được. Đo hiệu chuẩn từ chối: trên các câu hỏi có câu trả lời không nằm trong kho, đếm mức thường xuyên hệ thống từ chối, và theo dõi tỷ lệ tự tin sai.
 
 ## Full answer
 
 ### Gate 1: before generation
 
-The reranker lesson logs the rank-1 cross-encoder score. A query whose top score sits below a corpus-specific threshold is an out-of-domain hit, and the end-to-end lesson refuses on it: the generator returns the refusal text with no citation. The production capstone calls this an unsure mode and measures the drop in false confidence. The question answering lesson starts simpler, with a threshold on the top retrieval similarity, and tunes it on a held-out set.
+Bài học reranker ghi nhật ký điểm cross-encoder rank-1. Một truy vấn có điểm cao nhất nằm dưới một ngưỡng riêng theo kho ngữ liệu là một kết quả trúng ngoài lĩnh vực, và bài học đầu cuối từ chối trên nó: bộ sinh trả về văn bản từ chối không có trích dẫn. Capstone production gọi điều này là chế độ không chắc và đo mức giảm tự tin sai. Bài học hỏi đáp bắt đầu đơn giản hơn, với một ngưỡng trên độ tương đồng truy xuất cao nhất, và tinh chỉnh nó trên một tập giữ lại.
 
 ### Gate 2: inside generation
 
-The prompt tells the model to use only the snippets, to cite every claim with its anchor, and to say it does not know when the snippets do not answer. The question answering lesson measured that the explicit grounding and refusal instruction cuts hallucination by 40 to 60 percent against a naive prompt.
+Prompt bảo mô hình chỉ dùng các đoạn trích, trích dẫn mọi khẳng định với điểm neo của nó, và nói nó không biết khi các đoạn trích không trả lời được. Bài học hỏi đáp đo rằng chỉ dẫn tường minh về căn cứ và từ chối cắt ảo giác từ 40 đến 60 phần trăm so với một prompt ngây thơ.
 
 ### Gate 3: after generation
 
-Parse the answer and check each claim against the passage that its anchor cites. A claim without an anchor, or with an anchor whose passage does not state the claim, is dropped or sent back for a re-ask. An answer that slipped past the score gate then cannot ship a claim that its cited passage does not support.
+Parse câu trả lời và kiểm tra từng khẳng định theo đoạn mà điểm neo của nó trích dẫn. Một khẳng định không có điểm neo, hoặc có một điểm neo mà đoạn của nó không nêu khẳng định, bị bỏ hoặc được gửi lại để hỏi lại. Một câu trả lời lọt qua cổng điểm khi đó không thể đưa ra một khẳng định mà đoạn được trích dẫn không hỗ trợ.
 
 ### How to measure it
 
-- **Refusal calibration.** On a set of questions with no answer in the store, the share that the system refuses.
-- **False confidence rate.** The share of those questions that got an answer anyway.
-- **Wrong refusal rate.** On in-corpus questions, the share refused. A threshold that is too high fails here.
+- **Hiệu chuẩn từ chối.** Trên một tập câu hỏi không có câu trả lời trong kho, tỷ lệ mà hệ thống từ chối.
+- **Tỷ lệ tự tin sai.** Tỷ lệ các câu hỏi đó vẫn nhận được một câu trả lời.
+- **Tỷ lệ từ chối sai.** Trên các câu hỏi trong kho ngữ liệu, tỷ lệ bị từ chối. Một ngưỡng quá cao thất bại ở đây.
 
-Move the threshold on the held-out set, never on production anecdotes, and re-tune it when the embedder, the reranker or the corpus changes.
+Di chuyển ngưỡng trên tập giữ lại, không bao giờ trên các giai thoại production, và tinh chỉnh lại khi bộ nhúng, reranker hoặc kho ngữ liệu thay đổi.
 
 ## Follow-ups
 
-- **Level 3:** Where does the threshold come from? Expected: the distribution of rank-1 scores on a held-out set with known in-corpus and out-of-corpus questions; it is specific to the corpus.
-- **Level 3:** What does the generator prompt need beyond "use only the context"? Expected: cite each claim with its anchor and say it does not know when the snippets do not answer; the explicit instruction cut hallucination by 40 to 60 percent in the question answering lesson.
-- **Level 4:** Too many refusals are also a failure. How do you balance it? Expected: track the false confidence rate on out-of-corpus questions next to the wrong refusal rate on in-corpus questions, and move the threshold on the held-out set.
-- **Level 4:** How does the citation post-filter work with the refusal gate? Expected: each claim is checked against the passage its anchor cites, and a claim with no anchor or with a passage that does not state it is dropped or re-asked, so a weak answer that passed the score gate cannot ship an unsupported claim.
+- **Level 3:** Ngưỡng đến từ đâu? Expected: phân phối các điểm rank-1 trên một tập giữ lại với các câu hỏi trong kho ngữ liệu và ngoài kho ngữ liệu đã biết; nó riêng theo kho ngữ liệu.
+- **Level 3:** Prompt bộ sinh cần gì ngoài "chỉ dùng ngữ cảnh"? Expected: trích dẫn mỗi khẳng định với điểm neo của nó và nói nó không biết khi các đoạn trích không trả lời được; chỉ dẫn tường minh cắt ảo giác từ 40 đến 60 phần trăm trong bài học hỏi đáp.
+- **Level 4:** Quá nhiều lần từ chối cũng là một lỗi. Bạn cân bằng bằng cách nào? Expected: theo dõi tỷ lệ tự tin sai trên các câu hỏi ngoài kho ngữ liệu cạnh tỷ lệ từ chối sai trên các câu hỏi trong kho ngữ liệu, và di chuyển ngưỡng trên tập giữ lại.
+- **Level 4:** Bộ lọc sau trích dẫn hoạt động với cổng từ chối như thế nào? Expected: mỗi khẳng định được kiểm tra theo đoạn mà điểm neo của nó trích dẫn, và một khẳng định không có điểm neo hoặc có một đoạn không nêu nó bị bỏ hoặc hỏi lại, nên một câu trả lời yếu vượt qua cổng điểm không thể đưa ra một khẳng định không được hỗ trợ.
 
 ## Wrong answers
 
-- "Tell the model to be careful." An instruction cannot see the retrieval scores; the first gate belongs before generation.
-- "Refuse when retrieval returns fewer than k chunks." A count is not confidence; weak chunks still fill k slots.
-- "Set the threshold once from the fixture." It is corpus specific and moves when the embedder, the reranker or the corpus changes.
+- "Bảo mô hình cẩn thận." Một chỉ dẫn không thể thấy các điểm truy xuất; cổng đầu tiên thuộc về trước khi sinh.
+- "Từ chối khi truy xuất trả về ít hơn k chunk." Một số lượng không phải độ tin cậy; các chunk yếu vẫn lấp k chỗ.
+- "Đặt ngưỡng một lần từ fixture." Nó riêng theo kho ngữ liệu và di chuyển khi bộ nhúng, reranker hoặc kho ngữ liệu thay đổi.
 
 ## Taught in
 
-The lesson [end-to-end RAG](../../../phases/19-capstone-projects/69-end-to-end-rag-system/) builds the refuse path and the cited generator, the lesson [question answering](../../../phases/05-nlp-foundations-to-advanced/13-question-answering/) defines refusal calibration, the capstone [production RAG](../../../phases/19-capstone-projects/08-production-rag-chatbot/) adds the unsure mode, and the lesson [cross-encoder](../../../phases/19-capstone-projects/66-reranker-cross-encoder/) logs the rank-1 score.
+Bài học [RAG đầu cuối](../../../phases/19-capstone-projects/69-end-to-end-rag-system/) xây dựng đường từ chối và bộ sinh có trích dẫn, bài học [hỏi đáp](../../../phases/05-nlp-foundations-to-advanced/13-question-answering/) định nghĩa hiệu chuẩn từ chối, capstone [RAG production](../../../phases/19-capstone-projects/08-production-rag-chatbot/) thêm chế độ không chắc, và bài học [cross-encoder](../../../phases/19-capstone-projects/66-reranker-cross-encoder/) ghi nhật ký điểm rank-1.

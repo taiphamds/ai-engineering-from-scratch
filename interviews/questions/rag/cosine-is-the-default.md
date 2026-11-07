@@ -16,23 +16,23 @@ related: []
 updated: 2026-11-03
 ---
 
-You write the search step of a retrieval pipeline. A teammate wants to rank chunks by the raw dot product between the query vector and each chunk vector. What do you use instead, and when is the dot product the right choice?
+Bạn viết bước tìm kiếm của một pipeline truy xuất. Một đồng đội muốn xếp hạng các chunk theo tích vô hướng thô giữa vector truy vấn và từng vector chunk. Bạn dùng gì thay vào đó, và khi nào tích vô hướng là lựa chọn đúng?
 
 ## Short answer
 
-Use cosine similarity, which is the dot product divided by the lengths of the two vectors. It measures only the angle, so a long chunk and a short chunk compete on direction and not on size. The raw dot product is right only when the vector length carries meaning that you want to reward.
+Dùng độ tương đồng cosine, là tích vô hướng chia cho độ dài của hai vector. Nó chỉ đo góc, nên một chunk dài và một chunk ngắn cạnh tranh theo hướng chứ không theo kích thước. Tích vô hướng thô chỉ đúng khi độ dài vector mang ý nghĩa mà bạn muốn thưởng.
 
 ## Full answer
 
 ### Three measures
 
-| Measure | What it does | Behavior |
+| Thước đo | Nó làm gì | Hành vi |
 |---|---|---|
-| Cosine | the cosine of the angle between two vectors, from -1 to 1 | ignores length, the default for retrieval |
-| Dot product | the sum of the products of each pair of values | longer vectors score higher |
-| L2 distance | the straight-line distance between the two points | smaller is closer, sensitive to length |
+| Cosine | cosine của góc giữa hai vector, từ -1 đến 1 | bỏ qua độ dài, mặc định cho truy xuất |
+| Tích vô hướng | tổng các tích của từng cặp giá trị | các vector dài hơn có điểm cao hơn |
+| Khoảng cách L2 | khoảng cách đường thẳng giữa hai điểm | nhỏ hơn là gần hơn, nhạy với độ dài |
 
-Cosine normalizes by length, so chunks of different sizes compare on direction alone. When someone says vector search, they almost always mean cosine.
+Cosine chuẩn hóa theo độ dài, nên các chunk có kích thước khác nhau chỉ so sánh theo hướng. Khi ai đó nói tìm kiếm vector, họ gần như luôn muốn nói cosine.
 
 ### The code
 
@@ -46,25 +46,25 @@ def cosine_similarity(a, b):
     return dot / (norm_a * norm_b)
 ```
 
-The guard returns zero when a vector has no length, so an empty chunk does not divide by zero.
+Biện pháp bảo vệ trả về không khi một vector không có độ dài, nên một chunk trống không chia cho không.
 
 ### When the two agree
 
-Many embedding models return unit-length vectors, or the caller asks for normalized output. The question-answering lesson encodes with normalization on and then ranks with a plain matrix product. With unit vectors the dot product equals the cosine, so the cheaper operation gives the same order.
+Nhiều mô hình embedding trả về các vector có độ dài đơn vị, hoặc bên gọi yêu cầu đầu ra đã chuẩn hóa. Bài học hỏi đáp mã hóa với chuẩn hóa được bật rồi xếp hạng bằng một phép nhân ma trận thuần. Với các vector đơn vị, tích vô hướng bằng cosine, nên phép toán rẻ hơn cho cùng thứ tự.
 
 ## Follow-ups
 
-- **Level 1:** What do the values 1, 0 and -1 mean for cosine? Expected: the same direction, orthogonal, and opposite directions.
-- **Level 2:** Your embedder returns unit vectors. Does the choice still matter? Expected: no, because with unit vectors the dot product and the cosine are equal, which is why the lesson normalizes and then uses a matrix product.
-- **Level 2:** Why does L2 distance treat a long and a short chunk differently? Expected: it measures the straight-line distance, so a longer vector sits farther away even when it points the same way.
-- **Level 3:** When would you keep the raw dot product on purpose? Expected: when the model was trained so that length carries a signal, such as more content in a longer document, and you want that signal in the rank.
+- **Level 1:** Các giá trị 1, 0 và -1 có ý nghĩa gì với cosine? Expected: cùng hướng, trực giao, và các hướng đối nhau.
+- **Level 2:** Bộ nhúng của bạn trả về các vector đơn vị. Lựa chọn còn quan trọng không? Expected: không, vì với các vector đơn vị tích vô hướng và cosine bằng nhau, đó là lý do bài học chuẩn hóa rồi dùng một phép nhân ma trận.
+- **Level 2:** Tại sao khoảng cách L2 xử lý một chunk dài và một chunk ngắn khác nhau? Expected: nó đo khoảng cách đường thẳng, nên một vector dài hơn nằm xa hơn ngay cả khi nó chỉ cùng hướng.
+- **Level 3:** Khi nào bạn cố ý giữ tích vô hướng thô? Expected: khi mô hình đã được huấn luyện để độ dài mang một tín hiệu, như nhiều nội dung hơn trong một tài liệu dài hơn, và bạn muốn tín hiệu đó trong thứ hạng.
 
 ## Wrong answers
 
-- "The dot product and the cosine give the same order." Only when every vector has the same length; otherwise longer vectors win on the dot product.
-- "A smaller cosine means a closer match." A larger cosine means a smaller angle; smaller is closer only for a distance such as L2.
-- "Use whatever the vector store defaults to." The measure must match how the vectors were produced and normalized, so check the embedder before the store.
+- "Tích vô hướng và cosine cho cùng thứ tự." Chỉ khi mọi vector có cùng độ dài; nếu không các vector dài hơn thắng theo tích vô hướng.
+- "Một cosine nhỏ hơn nghĩa là một kết quả khớp gần hơn." Một cosine lớn hơn nghĩa là một góc nhỏ hơn; nhỏ hơn chỉ gần hơn với một khoảng cách như L2.
+- "Dùng bất cứ thứ gì kho vector mặc định." Thước đo phải khớp cách các vector được tạo và chuẩn hóa, nên kiểm tra bộ nhúng trước kho.
 
 ## Taught in
 
-The lesson [RAG](../../../phases/11-llm-engineering/06-rag/) defines the three measures and the guard, and the lesson [question answering](../../../phases/05-nlp-foundations-to-advanced/13-question-answering/) ranks normalized vectors with a matrix product.
+Bài học [RAG](../../../phases/11-llm-engineering/06-rag/) định nghĩa ba thước đo và biện pháp bảo vệ, và bài học [hỏi đáp](../../../phases/05-nlp-foundations-to-advanced/13-question-answering/) xếp hạng các vector đã chuẩn hóa bằng một phép nhân ma trận.

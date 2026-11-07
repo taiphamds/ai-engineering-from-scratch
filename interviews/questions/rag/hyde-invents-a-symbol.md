@@ -16,42 +16,42 @@ related: [rag/pick-the-query-rewriter, rag/error-code-query-misses]
 updated: 2026-11-03
 ---
 
-You turned on the hypothetical-answer rewriter for a code search assistant. Questions about one subsystem got worse: the gold document, which sat at rank 2 before, now falls out of the top 10 on the lexical side. The hypothetical passages read well. What happened, and what do you change?
+Bạn đã bật bộ viết lại bằng câu trả lời giả định cho một trợ lý tìm kiếm mã. Các câu hỏi về một hệ thống con trở nên tệ hơn: tài liệu chuẩn, trước đó nằm ở hạng 2, giờ rơi khỏi top 10 ở phía từ vựng. Các đoạn giả định đọc trôi chảy. Điều gì đã xảy ra, và bạn thay đổi gì?
 
 ## Short answer
 
-The model wrote a function name that does not exist in the index. The real symbol that carried the lexical match is gone from the rewritten query, the rest of the passage is generic prose that scores across many documents, and the dense side returns a plausible neighbor for the invented token. Cap the hypothetical at two or three sentences, lower the BM25 weight in the fusion for rewritten queries, and route queries that already contain a literal symbol past the rewriter.
+Mô hình viết một tên hàm không tồn tại trong chỉ mục. Symbol thực mang kết quả khớp từ vựng đã biến mất khỏi truy vấn được viết lại, phần còn lại của đoạn là văn xuôi chung chung có điểm trên nhiều tài liệu, và phía dense trả về một láng giềng có vẻ hợp lý cho token bịa ra. Giới hạn đoạn giả định ở hai hoặc ba câu, hạ trọng số BM25 trong hợp nhất cho các truy vấn được viết lại, và định tuyến các truy vấn đã chứa một symbol nguyên văn bỏ qua bộ viết lại.
 
 ## Full answer
 
 ### Why the rewriter exists
 
-The user's words and the corpus words differ. The rewriter asks the model to write the passage that would answer the question, in the voice of the documentation, and embeds that passage instead of the query. The passage is wrong as a fact, because the model does not know your corpus, and that is fine for the dense side: the retriever cares about token distribution, not truth.
+Các từ của người dùng và các từ của kho ngữ liệu khác nhau. Bộ viết lại yêu cầu mô hình viết đoạn sẽ trả lời câu hỏi, bằng giọng của tài liệu, và nhúng đoạn đó thay cho truy vấn. Đoạn đó sai về mặt dữ kiện, vì mô hình không biết kho ngữ liệu của bạn, và điều đó ổn với phía dense: retriever quan tâm phân phối token, không phải sự thật.
 
 ### Why it broke here
 
-Code search is the worst case for the trick. The model invents identifiers with confidence. On the lexical side, the invented name replaces the real symbol, so the one rare term that would have scored high on the right document is absent, and the generic prose around it spreads the score over many documents. On the dense side, a token that is in no document still gets a plausible-looking vector, so the retriever returns neighbors that look right and are wrong. The fusion absorbs that only when the lexical side votes correctly, and here it no longer does.
+Tìm kiếm mã là trường hợp tệ nhất cho thủ thuật này. Mô hình tự tin bịa các định danh. Ở phía từ vựng, tên bịa ra thay thế symbol thực, nên thuật ngữ hiếm duy nhất lẽ ra có điểm cao trên tài liệu đúng bị vắng mặt, và văn xuôi chung chung quanh nó phân tán điểm trên nhiều tài liệu. Ở phía dense, một token không có trong tài liệu nào vẫn nhận một vector trông có vẻ hợp lý, nên retriever trả về các láng giềng trông đúng nhưng sai. Hợp nhất chỉ hấp thụ điều đó khi phía từ vựng bỏ phiếu đúng, và ở đây nó không còn làm vậy.
 
 ### The fixes, in order
 
-1. Cap the hypothetical to two or three sentences. Longer passages collect more noise tokens; shorter ones lose the lexical signal the trick needs.
-2. Weight the BM25 list lower in the fusion when the query was rewritten, as the lesson advises.
-3. Pick the strategy per query. The lesson's heuristic sends jargon-heavy paraphrases to the hypothetical answer; a query that already carries the exact symbol is a literal query, and the lexical retriever handles it at rank 1 with no help.
-4. Prove it. Slice the eval by query class and compare recall with and without the rewriter for each slice. Keep it on only where it lifts recall.
+1. Giới hạn đoạn giả định ở hai hoặc ba câu. Các đoạn dài hơn thu thêm các token nhiễu; các đoạn ngắn hơn mất tín hiệu từ vựng mà thủ thuật cần.
+2. Đặt trọng số danh sách BM25 thấp hơn trong hợp nhất khi truy vấn được viết lại, như bài học khuyên.
+3. Chọn chiến lược theo từng truy vấn. Heuristic của bài học gửi các câu diễn đạt lại nhiều thuật ngữ chuyên môn tới câu trả lời giả định; một truy vấn đã mang symbol chính xác là một truy vấn nguyên văn, và retriever từ vựng xử lý nó ở hạng 1 mà không cần giúp.
+4. Chứng minh. Phân lát đánh giá theo lớp truy vấn và so sánh recall khi có và không có bộ viết lại cho từng lát. Chỉ giữ nó bật ở nơi nó nâng recall.
 
 ## Follow-ups
 
-- **Level 3:** Why does a longer hypothetical make it worse? Expected: it collects more tokens that score on many documents; the lesson caps it at two or three sentences.
-- **Level 3:** Which queries should skip the rewriter? Expected: queries that already contain a literal symbol, because the lexical retriever ranks those first without help.
-- **Level 4:** How do you prove the fix rather than argue it? Expected: slice the eval by query class, compare recall per slice with and without the rewriter, and enable it only on the slices where it helps.
-- **Level 4:** Why does the dense side not rescue the query? Expected: the invented token still gets a plausible vector, so the dense retriever returns wrong neighbors that look right; the fusion fixes that only when the lexical side votes correctly.
+- **Level 3:** Tại sao một đoạn giả định dài hơn khiến điều đó tệ hơn? Expected: nó thu thêm các token có điểm trên nhiều tài liệu; bài học giới hạn nó ở hai hoặc ba câu.
+- **Level 3:** Những truy vấn nào nên bỏ qua bộ viết lại? Expected: các truy vấn đã chứa một symbol nguyên văn, vì retriever từ vựng xếp chúng đầu tiên mà không cần giúp.
+- **Level 4:** Bạn chứng minh cách sửa thay vì tranh luận bằng cách nào? Expected: phân lát đánh giá theo lớp truy vấn, so sánh recall theo từng lát khi có và không có bộ viết lại, và chỉ bật nó trên các lát nó giúp ích.
+- **Level 4:** Tại sao phía dense không cứu truy vấn? Expected: token bịa ra vẫn nhận một vector có vẻ hợp lý, nên retriever dense trả về các láng giềng sai trông đúng; hợp nhất chỉ sửa điều đó khi phía từ vựng bỏ phiếu đúng.
 
 ## Wrong answers
 
-- "Tell the model not to invent names." It cannot know which names exist in your corpus; the lesson says the passage is wrong as a fact by design.
-- "Turn the rewriter off everywhere." It wins on queries whose phrasing does not match the corpus; route by query class instead.
-- "Raise the BM25 weight to get the lexical signal back." The lexical signal is the part the invented token broke; the lesson lowers the BM25 weight for the rewritten query.
+- "Bảo mô hình đừng bịa tên." Nó không thể biết những tên nào tồn tại trong kho ngữ liệu của bạn; bài học nói đoạn đó sai về mặt dữ kiện theo thiết kế.
+- "Tắt bộ viết lại ở mọi nơi." Nó thắng trên các truy vấn có cách diễn đạt không khớp kho ngữ liệu; thay vào đó hãy định tuyến theo lớp truy vấn.
+- "Nâng trọng số BM25 để lấy lại tín hiệu từ vựng." Tín hiệu từ vựng là phần token bịa ra đã phá; bài học hạ trọng số BM25 cho truy vấn được viết lại.
 
 ## Taught in
 
-The lesson [query rewriting](../../../phases/19-capstone-projects/67-query-rewriting-hyde/) names the invented identifier failure and its two fixes, and the lesson [hybrid retrieval](../../../phases/19-capstone-projects/65-hybrid-retrieval-bm25-dense/) explains what each retriever does with an out-of-vocabulary token.
+Bài học [viết lại truy vấn](../../../phases/19-capstone-projects/67-query-rewriting-hyde/) nêu lỗi định danh bịa ra và hai cách sửa, và bài học [truy xuất lai](../../../phases/19-capstone-projects/65-hybrid-retrieval-bm25-dense/) giải thích mỗi retriever làm gì với một token ngoài từ vựng.
