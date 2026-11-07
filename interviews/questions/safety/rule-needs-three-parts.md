@@ -16,17 +16,17 @@ related: [safety/output-router-severity]
 updated: 2026-11-03
 ---
 
-A support assistant must never end a refusal without offering a next step, and a coding assistant must close every code answer with a runnable block or a stated assumption. Neither is something a content classifier recognizes. Design the component that enforces constraints like these, and say what happens after a violation.
+Một trợ lý hỗ trợ không bao giờ được kết thúc một lời từ chối mà không đưa ra một bước tiếp theo, và một trợ lý lập trình phải kết thúc mọi câu trả lời mã bằng một block chạy được hoặc một giả định được nêu. Không điều nào là thứ một bộ phân loại nội dung nhận ra. Thiết kế thành phần thực thi các ràng buộc như vậy, và nói điều xảy ra sau một vi phạm.
 
 ## Short answer
 
-Put these constraints in a declarative rules file that lives in version control next to the code and has its own review. Each rule has a name, a severity, an explanation, a predicate that says when the rule is in scope and a predicate the response must satisfy, with atomic checks composed by all of, any of and not. After a violation a fixer applies a local declarative edit, the engine checks the revision again, and a structured diff of the two versions goes into the trace.
+Đặt các ràng buộc này trong một file quy tắc khai báo nằm trong kiểm soát phiên bản cạnh mã và có lần review riêng. Mỗi quy tắc có một tên, một mức nghiêm trọng, một giải thích, một vị từ nói khi nào quy tắc nằm trong phạm vi và một vị từ mà phản hồi phải thỏa mãn, với các kiểm tra nguyên tử được kết hợp bằng all of, any of và not. Sau một vi phạm, một bộ sửa áp dụng một chỉnh sửa khai báo cục bộ, bộ máy kiểm tra lại bản sửa, và một diff có cấu trúc của hai phiên bản đi vào trace.
 
 ## Full answer
 
 ### Why not a classifier
 
-These are contractual constraints: predicates over the response, the conversation and the policy. A non engineer should be able to read them. A classifier recognizes patterns; a rule states a contract.
+Đây là các ràng buộc hợp đồng: các vị từ trên phản hồi, hội thoại và chính sách. Một người không phải kỹ sư nên có thể đọc chúng. Một bộ phân loại nhận ra các mẫu; một quy tắc nêu một hợp đồng.
 
 ### The rule shape
 
@@ -44,29 +44,29 @@ These are contractual constraints: predicates over the response, the conversatio
     append_if_missing: "\n\nAssumption: example inputs are valid."
 ```
 
-Atomic predicates: contains regex, not contains regex, ends with regex, starts with regex, maximum words, minimum words. Compositions: all of, any of, not. The engine evaluates the scope predicate first; if the rule does not apply it records not applicable, so the report shows the rule was evaluated. Otherwise the must predicate gives pass or violation. Severities are low, medium and high, and the gate treats a high rule violation like a high classifier verdict: block.
+Các vị từ nguyên tử: chứa regex, không chứa regex, kết thúc bằng regex, bắt đầu bằng regex, số từ tối đa, số từ tối thiểu. Các tổ hợp: all of, any of, not. Bộ máy đánh giá vị từ phạm vi trước; nếu quy tắc không áp dụng, nó ghi không áp dụng, để báo cáo cho thấy quy tắc đã được đánh giá. Nếu không, vị từ must cho đạt hoặc vi phạm. Các mức nghiêm trọng là low, medium và high, và cổng xem một vi phạm quy tắc cao như một phán quyết bộ phân loại cao: chặn.
 
 ### The shipped constitution
 
-Six rules: a refusal must include a suggestion or a redirect; code responses must close cleanly; example data must not contain emails or phone shapes; lines that begin with a citation phrase must carry a parenthetical citation; two internal library names must never appear; responses must not exceed 800 words. The last two of the first five are high; the rest are low or medium.
+Sáu quy tắc: một lời từ chối phải bao gồm một gợi ý hoặc một hướng chuyển; các phản hồi mã phải đóng gọn; dữ liệu ví dụ không được chứa email hoặc các dạng điện thoại; các dòng bắt đầu bằng một cụm trích dẫn phải mang một trích dẫn trong ngoặc; hai tên thư viện nội bộ không bao giờ được xuất hiện; các phản hồi không được vượt 800 từ. Hai quy tắc cuối trong năm quy tắc đầu là cao; phần còn lại là thấp hoặc trung bình.
 
 ### After a violation
 
-The fixer is a list of declarative operations mapped by rule name: append if missing, prepend if missing, replace regex. It makes local edits only; a structural rewrite belongs in a separate layer. The engine runs again on the revision, and a diff of add, remove and edit records between draft and revision is logged so a reviewer can audit the fixer over time.
+Bộ sửa là một danh sách các thao tác khai báo được ánh xạ theo tên quy tắc: thêm cuối nếu thiếu, thêm đầu nếu thiếu, thay thế regex. Nó chỉ thực hiện các chỉnh sửa cục bộ; một lần viết lại cấu trúc thuộc một lớp riêng. Bộ máy chạy lại trên bản sửa, và một diff gồm các bản ghi thêm, xóa và chỉnh sửa giữa bản nháp và bản sửa được ghi nhật ký để một người review có thể kiểm toán bộ sửa theo thời gian.
 
 ## Follow-ups
 
-- **Level 2:** Why split the predicate into a scope part and a must part? Expected: so a rule can be out of scope and say so; a code rule on a response without code records not applicable instead of a pass, and the report shows the engine looked.
-- **Level 2:** Why does the file live in YAML and not in code? Expected: a non engineer can read and review it, it has its own review and history, and the engine stays generic.
-- **Level 3:** What can the fixer not do, and why is that a feature? Expected: structural rewrites; local declarative edits keep its behavior predictable and auditable through the diff.
-- **Level 3:** How does the gate treat a high severity rule violation? Expected: the same as a high classifier verdict, which is block.
+- **Level 2:** Tại sao tách vị từ thành một phần phạm vi và một phần must? Expected: để một quy tắc có thể ngoài phạm vi và nói như vậy; một quy tắc mã trên một phản hồi không có mã ghi không áp dụng thay vì đạt, và báo cáo cho thấy bộ máy đã xem.
+- **Level 2:** Tại sao file nằm trong YAML mà không trong mã? Expected: một người không phải kỹ sư có thể đọc và review nó, nó có review và lịch sử riêng, và bộ máy giữ tổng quát.
+- **Level 3:** Bộ sửa không thể làm gì, và tại sao đó là một tính năng? Expected: các lần viết lại cấu trúc; các chỉnh sửa khai báo cục bộ giữ hành vi của nó có thể dự đoán và kiểm toán qua diff.
+- **Level 3:** Cổng xử lý một vi phạm quy tắc mức nghiêm trọng cao như thế nào? Expected: giống một phán quyết bộ phân loại cao, đó là block.
 
 ## Wrong answers
 
-- "Train the classifier to detect missing next steps." The constraint is a predicate over the response; a rule with an explanation is readable and testable, and a classifier is neither.
-- "Let the model fix its own violation." The fixer is deterministic so the diff can be audited; a model rewrite belongs in a separate layer.
-- "A rule is a regex." A rule is a name, a predicate and an explanation; anything missing one of the three is a vibe.
+- "Huấn luyện bộ phân loại để phát hiện các bước tiếp theo bị thiếu." Ràng buộc là một vị từ trên phản hồi; một quy tắc có giải thích là đọc được và kiểm thử được, còn một bộ phân loại thì không.
+- "Để mô hình sửa vi phạm của chính nó." Bộ sửa là xác định để diff có thể được kiểm toán; một lần viết lại bằng mô hình thuộc một lớp riêng.
+- "Một quy tắc là một regex." Một quy tắc là một tên, một vị từ và một giải thích; bất cứ thứ gì thiếu một trong ba chỉ là cảm giác.
 
 ## Taught in
 
-The [constitutional rules engine capstone](../../../phases/19-capstone-projects/86-constitutional-rules-engine/) gives the rule grammar, the fixer and the diff.
+[Capstone bộ máy quy tắc hiến pháp](../../../phases/19-capstone-projects/86-constitutional-rules-engine/) cung cấp ngữ pháp quy tắc, bộ sửa và diff.

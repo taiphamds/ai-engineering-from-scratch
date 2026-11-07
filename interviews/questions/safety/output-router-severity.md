@@ -16,54 +16,54 @@ related: [safety/one-regex-is-not-a-detector]
 updated: 2026-11-03
 ---
 
-Every request to your assistant passes an input detector, and yet a response last week contained a customer's email address and part of the system prompt. Design the output side, say how three separate classifiers combine into one action, and explain what happens to latency.
+Mọi yêu cầu tới trợ lý của bạn vượt qua một bộ phát hiện đầu vào, nhưng một phản hồi tuần trước chứa địa chỉ email của một khách hàng và một phần system prompt. Thiết kế phía đầu ra, nói ba bộ phân loại riêng kết hợp thành một hành động bằng cách nào, và giải thích điều xảy ra với độ trễ.
 
 ## Short answer
 
-Put three classifiers on the model output behind one router: toxicity by rules, personal data by regexes for emails, phone numbers and card shaped strings, and instruction leakage by trigram overlap with the known system prompt. Each returns a severity, and the router takes the maximum and applies one action: block on high, redact on medium, warn on low, log on none. Run the classifiers in parallel with token streaming and hold the final chunk until the verdict arrives. Earlier chunks have already shipped, so where a block or a redaction must cover the whole response, hold the full response and accept the latency.
+Đặt ba bộ phân loại trên đầu ra mô hình phía sau một bộ định tuyến: độc hại bằng các quy tắc, dữ liệu cá nhân bằng các regex cho email, số điện thoại và các chuỗi có dạng thẻ, và rò rỉ chỉ dẫn bằng độ trùng trigram với system prompt đã biết. Mỗi bộ trả về một mức nghiêm trọng, và bộ định tuyến lấy mức tối đa và áp dụng một hành động: chặn ở cao, che dữ liệu ở trung bình, cảnh báo ở thấp, ghi nhật ký ở none. Chạy các bộ phân loại song song với streaming token và giữ chunk cuối cho đến khi phán quyết đến. Các chunk trước đã được đưa ra, nên ở nơi một lần chặn hoặc che dữ liệu phải bao phủ toàn bộ phản hồi, giữ toàn bộ phản hồi và chấp nhận độ trễ.
 
 ## Full answer
 
 ### Why the output side exists
 
-The input layer asks how the prompt got here. The output layer asks whether what is about to ship is acceptable, whatever the prompt was. A model can leak personal data, repeat a slur from its training distribution or echo its system prompt without any attack in the input. Skipping output classification hands every new attack family a one shot bypass.
+Lớp đầu vào hỏi prompt đã đến đây bằng cách nào. Lớp đầu ra hỏi liệu điều sắp đưa ra có chấp nhận được không, bất kể prompt là gì. Một mô hình có thể rò rỉ dữ liệu cá nhân, lặp một lời miệt thị từ phân phối huấn luyện hoặc lặp lại system prompt mà không có cuộc tấn công nào trong đầu vào. Bỏ phân loại đầu ra trao cho mọi họ tấn công mới một lần vượt qua ngay lần đầu.
 
 ### The verdict
 
-Each classifier is a callable that returns a name, a score in the unit range, a severity of none, low, medium or high, and a list of findings. The three classifiers:
+Mỗi bộ phân loại là một callable trả về một tên, một điểm trong khoảng đơn vị, một mức nghiêm trọng none, low, medium hoặc high, và một danh sách phát hiện. Ba bộ phân loại:
 
-- **Toxicity.** A curated keyword list with whitespace bounded matching and a small negation window, so a sentence that denies the slur does not fire.
-- **Personal data.** Regexes for the common shapes: email, phone, social security number, credit card, IP address.
-- **Instruction leakage.** The classifier holds the system prompt and measures trigram overlap with the output; high overlap is the signal.
+- **Độc hại.** Một danh sách từ khóa được tuyển chọn với khớp có ranh giới khoảng trắng và một cửa sổ phủ định nhỏ, để một câu phủ nhận lời miệt thị không kích hoạt.
+- **Dữ liệu cá nhân.** Các regex cho các dạng phổ biến: email, điện thoại, số an sinh xã hội, thẻ tín dụng, địa chỉ IP.
+- **Rò rỉ chỉ dẫn.** Bộ phân loại giữ system prompt và đo độ trùng trigram với đầu ra; độ trùng cao là tín hiệu.
 
 ### The router
 
-| Maximum severity | Action |
+| Mức nghiêm trọng tối đa | Hành động |
 |---|---|
-| high | block, return a policy refusal |
-| medium | redact with each classifier's redactor |
-| low | warn, log and append a soft notice |
-| none | log and ship as is |
+| cao | chặn, trả về một sự từ chối theo chính sách |
+| trung bình | che dữ liệu bằng bộ che dữ liệu của từng bộ phân loại |
+| thấp | cảnh báo, ghi nhật ký và thêm một thông báo nhẹ |
+| none | ghi nhật ký và đưa ra nguyên trạng |
 
-Block wins. Redact plus warn is redact. Each classifier owns its redactor, so an output with both a slur and an email flows through both: the email becomes a redacted email tag, the digits a redacted card tag, the slur a redacted language tag, and leakage removes the lines that look like the system prompt header. The router emits an action with the verb, the output, the severity, the verdicts and metadata for the trace.
+Block thắng. Redact cộng warn là redact. Mỗi bộ phân loại sở hữu bộ che dữ liệu, nên một đầu ra có cả lời miệt thị và email đi qua cả hai: email trở thành một tag email đã che, các chữ số thành một tag thẻ đã che, lời miệt thị thành một tag ngôn ngữ đã che, và rò rỉ loại các dòng trông như header system prompt. Bộ định tuyến phát ra một hành động với động từ, đầu ra, mức nghiêm trọng, các phán quyết và metadata cho trace.
 
 ### Latency
 
-The classifiers run in parallel with token streaming. The gate buffers the final chunk, applies the verdict and then flushes. The chunks before it have already reached the client, so an email or a system prompt span in an early chunk ships before a block or a redaction can act. When that exposure is not acceptable, hold the full response before the first flush and accept the added latency. With rule based classifiers the added time is close to zero; neural classifiers add their own time, and the plumbing stays the same.
+Các bộ phân loại chạy song song với streaming token. Cổng đệm chunk cuối, áp dụng phán quyết rồi đẩy ra. Các chunk trước nó đã tới client, nên một email hoặc một đoạn system prompt trong một chunk sớm được đưa ra trước khi một lần chặn hoặc che dữ liệu có thể hành động. Khi sự phơi lộ đó không chấp nhận được, giữ toàn bộ phản hồi trước lần đẩy đầu và chấp nhận độ trễ thêm. Với các bộ phân loại dựa trên quy tắc, thời gian thêm gần bằng không; các bộ phân loại neural thêm thời gian riêng, và hệ thống kết nối giữ nguyên.
 
 ## Follow-ups
 
-- **Level 2:** Why does block win when two classifiers disagree? Expected: the router takes the maximum severity, so the most dangerous finding sets the action.
-- **Level 2:** Why does each classifier own its redactor? Expected: an output with both a slur and an email must flow through both redactors, and independence makes the composition automatic.
-- **Level 3:** How does the leakage check work without a model? Expected: it holds the system prompt and measures trigram overlap with the output; high overlap is the leak signal and header like lines are removed.
-- **Level 3:** The product team says output checks add latency they cannot afford. Expected: the classifiers run in parallel with streaming and only the final chunk waits, but earlier chunks ship before the verdict; hold the full response where that exposure is not acceptable, because the alternative is a one shot bypass for every new attack family.
+- **Level 2:** Tại sao block thắng khi hai bộ phân loại không thống nhất? Expected: bộ định tuyến lấy mức nghiêm trọng tối đa, nên phát hiện nguy hiểm nhất đặt hành động.
+- **Level 2:** Tại sao mỗi bộ phân loại sở hữu bộ che dữ liệu? Expected: một đầu ra có cả lời miệt thị và email phải đi qua cả hai bộ che dữ liệu, và tính độc lập khiến việc kết hợp tự động.
+- **Level 3:** Kiểm tra rò rỉ hoạt động mà không có mô hình bằng cách nào? Expected: nó giữ system prompt và đo độ trùng trigram với đầu ra; độ trùng cao là tín hiệu rò rỉ và các dòng giống header bị loại.
+- **Level 3:** Nhóm sản phẩm nói các kiểm tra đầu ra thêm độ trễ mà họ không chịu được. Expected: các bộ phân loại chạy song song với streaming và chỉ chunk cuối chờ, nhưng các chunk trước được đưa ra trước phán quyết; giữ toàn bộ phản hồi ở nơi sự phơi lộ đó không chấp nhận được, vì lựa chọn còn lại là một lần vượt qua ngay lần đầu cho mọi họ tấn công mới.
 
 ## Wrong answers
 
-- "The input detector passed, so the output is fine." The input layer cannot know about outputs the model produces on its own, such as a training data slur or an echoed system prompt.
-- "One combined classifier is simpler." Three independent verdicts with their own redactors compose; one model hides which finding drove the action.
-- "Redact everything to be safe." Redaction is the medium action; a high finding must block, and a none finding must ship as is with a log, or the product degrades.
+- "Bộ phát hiện đầu vào đã cho qua, nên đầu ra ổn." Lớp đầu vào không thể biết về các đầu ra mà mô hình tự tạo, như một lời miệt thị từ dữ liệu huấn luyện hoặc một system prompt bị lặp lại.
+- "Một bộ phân loại kết hợp đơn giản hơn." Ba phán quyết độc lập với các bộ che dữ liệu riêng kết hợp được; một mô hình giấu phát hiện nào dẫn dắt hành động.
+- "Che mọi thứ cho an toàn." Che dữ liệu là hành động trung bình; một phát hiện cao phải chặn, và một phát hiện none phải được đưa ra nguyên trạng với một nhật ký, nếu không sản phẩm suy giảm.
 
 ## Taught in
 
-The [content classifier integration capstone](../../../phases/19-capstone-projects/85-content-classifier-integration/) builds the three classifiers, the router and the redactors.
+[Capstone tích hợp bộ phân loại nội dung](../../../phases/19-capstone-projects/85-content-classifier-integration/) xây dựng ba bộ phân loại, bộ định tuyến và các bộ che dữ liệu.

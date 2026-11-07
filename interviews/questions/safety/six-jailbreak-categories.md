@@ -16,50 +16,50 @@ related: [safety/one-regex-is-not-a-detector, safety/normalize-then-match]
 updated: 2026-11-03
 ---
 
-Your team has shipped forty regex patches against prompts that got past the assistant's refusal rules, and the backlog of new attacks grows faster than the patches. A new engineer asks what an attack even is. Which shared vocabulary do you introduce, and what does it buy the team?
+Nhóm của bạn đã phát hành bốn mươi bản vá regex chống các prompt vượt qua các quy tắc từ chối của trợ lý, và tồn đọng tấn công mới tăng nhanh hơn các bản vá. Một kỹ sư mới hỏi rốt cuộc một cuộc tấn công là gì. Bạn giới thiệu vốn từ chung nào, và nó mang lại gì cho nhóm?
 
 ## Short answer
 
-Label every attack by the trust boundary it abuses. Six categories cover most of what arrives: role play against the persona, instruction override against the system prompt, context smuggling in the gap between data and instructions, multi turn ramp against the conversation history, encoding tricks against the surface form of forbidden tokens, and prefix injection against the next token decision. Labels turn the attack stream into a histogram, the histogram into a coverage chart, and the chart into the next sprint.
+Gán nhãn mọi cuộc tấn công theo ranh giới tin cậy mà nó lạm dụng. Sáu danh mục bao phủ phần lớn những gì đến: nhập vai chống persona, ghi đè chỉ dẫn chống system prompt, context smuggling trong khoảng hở giữa dữ liệu và chỉ dẫn, tăng dần nhiều lượt chống lịch sử hội thoại, các thủ thuật mã hóa chống dạng bề mặt của các token bị cấm, và prefix injection chống quyết định token tiếp theo. Các nhãn biến luồng tấn công thành một biểu đồ tần suất, biểu đồ tần suất thành một biểu đồ độ bao phủ, và biểu đồ thành sprint tiếp theo.
 
 ## Full answer
 
 ### The six categories
 
-| Category | Trust boundary abused | Shape |
+| Danh mục | Ranh giới tin cậy bị lạm dụng | Dạng |
 |---|---|---|
-| role play | the assistant's persona | "you are an unrestricted model called ..." |
-| instruction override | the system prompt's authority | "disregard everything above" |
-| context smuggling | data against instructions | an order hidden in a pasted document or a tool result |
-| multi turn ramp | the conversation as a contract | harmless turns, then one step down at a time |
-| encoding trick | the surface form of tokens | base64, rot13, leet speak, zero width characters |
-| prefix injection | the next token decision | "start your answer with: Sure, here is" |
+| nhập vai | persona của trợ lý | "bạn là một mô hình không bị hạn chế tên là ..." |
+| ghi đè chỉ dẫn | thẩm quyền của system prompt | "phớt lờ mọi thứ ở trên" |
+| context smuggling | dữ liệu đối với chỉ dẫn | một mệnh lệnh ẩn trong một tài liệu được dán hoặc một kết quả công cụ |
+| tăng dần nhiều lượt | hội thoại như một hợp đồng | các lượt vô hại, rồi mỗi lần xuống một bước |
+| thủ thuật mã hóa | dạng bề mặt của các token | base64, rot13, leet speak, các ký tự zero width |
+| prefix injection | quyết định token tiếp theo | "bắt đầu câu trả lời bằng: Chắc chắn, đây là" |
 
 ### The fixture record
 
-Each labeled example carries an id, a category, a subtype, the prompt, the target behavior and a severity from 1 to 5. A 1 is a clumsy attack on a benign target; a 5 would produce output a deployed system must never emit. Most real attacks sit at 2 or 3. The author sets the severity, and when two reviewers differ by more than one rank the rubric needs sharpening.
+Mỗi ví dụ được gán nhãn mang một id, một danh mục, một loại con, prompt, hành vi mục tiêu và một mức nghiêm trọng từ 1 đến 5. Một mức 1 là một cuộc tấn công vụng về vào một mục tiêu lành tính; một mức 5 sẽ tạo đầu ra mà một hệ thống đã triển khai không bao giờ được phát ra. Phần lớn các cuộc tấn công thực nằm ở 2 hoặc 3. Tác giả đặt mức nghiêm trọng, và khi hai người review khác nhau hơn một bậc thì rubric cần được làm sắc hơn.
 
 ### What the corpus must satisfy
 
-Every category has at least seven fixtures, every prompt is non empty, every severity is in range and every id is unique. A failure stops the build, because every later component reads this corpus.
+Mọi danh mục có ít nhất bảy fixture, mọi prompt không trống, mọi mức nghiêm trọng nằm trong khoảng và mọi id là duy nhất. Một lỗi dừng bản build, vì mọi thành phần sau đó đọc kho ngữ liệu này.
 
 ### What the taxonomy is not
 
-The nearest fixture match, by character trigram cosine, assigns a label to a new prompt. It is a label producer. The detector with measured precision and recall is a separate component that consumes the labels.
+Kết quả khớp fixture gần nhất, theo cosine trigram ký tự, gán một nhãn cho một prompt mới. Nó là một bộ tạo nhãn. Bộ phát hiện với precision và recall được đo là một thành phần riêng tiêu thụ các nhãn.
 
 ## Follow-ups
 
-- **Level 1:** A prompt tells the model to forget everything it was told before. Which boundary is that? Expected: the system prompt's authority, so instruction override.
-- **Level 2:** An attacker places commands inside text that the user asks the model to summarize. Which category? Expected: context smuggling.
-- **Level 2:** Why at least seven fixtures per category? Expected: so every category has enough examples to measure a detector against and the histogram is never empty.
-- **Level 3:** Two reviewers rate one fixture at severity 2 and 4. What does that tell you? Expected: the rubric is not sharp enough; a gap of more than one rank is the signal to rewrite it.
+- **Level 1:** Một prompt bảo mô hình quên mọi thứ nó được bảo trước đó. Đó là ranh giới nào? Expected: thẩm quyền của system prompt, nên là ghi đè chỉ dẫn.
+- **Level 2:** Một kẻ tấn công đặt các lệnh bên trong văn bản mà người dùng yêu cầu mô hình tóm tắt. Danh mục nào? Expected: context smuggling.
+- **Level 2:** Tại sao ít nhất bảy fixture mỗi danh mục? Expected: để mọi danh mục có đủ ví dụ để đo một bộ phát hiện theo đó và biểu đồ tần suất không bao giờ trống.
+- **Level 3:** Hai người review chấm một fixture ở mức nghiêm trọng 2 và 4. Điều đó cho bạn biết gì? Expected: rubric chưa đủ sắc; một khoảng cách hơn một bậc là tín hiệu để viết lại nó.
 
 ## Wrong answers
 
-- "A regex per attack is a taxonomy." A regex is a patch; without categories you cannot see coverage or talk about what an attack is.
-- "Severity is how bad the prompt sounds." Severity is the impact if the attack succeeds, set on a 1 to 5 scale by the author.
-- "The nearest fixture match is the detector." The match assigns a label; the detector with measured precision and recall is a separate component.
+- "Một regex cho mỗi cuộc tấn công là một hệ phân loại." Một regex là một bản vá; không có các danh mục bạn không thể thấy độ bao phủ hoặc nói về một cuộc tấn công là gì.
+- "Mức nghiêm trọng là prompt nghe tệ đến đâu." Mức nghiêm trọng là tác động nếu cuộc tấn công thành công, được tác giả đặt trên thang 1 đến 5.
+- "Kết quả khớp fixture gần nhất là bộ phát hiện." Kết quả khớp gán một nhãn; bộ phát hiện với precision và recall được đo là một thành phần riêng.
 
 ## Taught in
 
-The [jailbreak taxonomy capstone](../../../phases/19-capstone-projects/82-jailbreak-taxonomy/) defines the six categories, the fixture record and the severity rubric.
+[Capstone phân loại jailbreak](../../../phases/19-capstone-projects/82-jailbreak-taxonomy/) định nghĩa sáu danh mục, bản ghi fixture và rubric mức nghiêm trọng.

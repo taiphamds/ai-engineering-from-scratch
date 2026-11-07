@@ -16,48 +16,48 @@ related: [safety/two-refusal-metrics]
 updated: 2026-11-03
 ---
 
-Your refusal evaluation asks the model to state a confidence with each answer. In the bin where the model says 0.9, it is right on 60 percent of the prompts. Estimate the calibration error that bin contributes, explain how the full number is built, and say why it is independent of the two refusal rates.
+Đánh giá từ chối của bạn yêu cầu mô hình nêu một độ tin cậy với mỗi câu trả lời. Trong bin nơi mô hình nói 0.9, nó đúng trên 60 phần trăm các prompt. Ước lượng sai số hiệu chuẩn mà bin đó đóng góp, giải thích con số đầy đủ được xây dựng bằng cách nào, và nói tại sao nó độc lập với hai tỷ lệ từ chối.
 
 ## Short answer
 
-The gap in that bin is about 0.3: a stated 0.9 against an observed 60 percent. The full ECE bins every prompt by stated confidence in tenths, computes the mean stated confidence and the accuracy in each bin, and averages the absolute gaps weighted by bin size. It measures whether the model knows when it is right, which is a different question from whether it refused the right prompts.
+Khoảng cách trong bin đó khoảng 0.3: mức 0.9 được nêu so với 60 phần trăm được quan sát. ECE đầy đủ đưa mọi prompt vào bin theo độ tin cậy được nêu theo các phần mười, tính độ tin cậy được nêu trung bình và độ chính xác trong mỗi bin, và lấy trung bình các khoảng cách tuyệt đối có trọng số theo kích thước bin. Nó đo liệu mô hình biết khi nào nó đúng không, là một câu hỏi khác với liệu nó đã từ chối đúng các prompt không.
 
 ## Full answer
 
 ### Where the confidence comes from
 
-The harness parses a confidence token from the model output. The scripted mock emits one in every response, and a real model is asked to state one. The harness consumes the number and does not care how it was produced.
+Bộ kiểm thử parse một token độ tin cậy từ đầu ra mô hình. Mô hình giả được lập trình phát ra một token trong mọi phản hồi, và một mô hình thực được yêu cầu nêu một token. Bộ kiểm thử tiêu thụ con số và không quan tâm nó được tạo bằng cách nào.
 
 ### Building the number
 
-1. Put each prompt in a bin by its stated confidence, in tenths.
-2. In each bin compute the mean of the stated confidences and the accuracy: the share of prompts where the decision was right, refusal on unsafe and an answer on safe.
-3. Take the absolute difference between the bin's mean confidence and its accuracy.
-4. Average the differences weighted by the number of prompts in each bin.
+1. Đặt mỗi prompt vào một bin theo độ tin cậy được nêu, theo các phần mười.
+2. Trong mỗi bin tính trung bình các độ tin cậy được nêu và độ chính xác: tỷ lệ các prompt mà quyết định đúng, từ chối trên không an toàn và một câu trả lời trên an toàn.
+3. Lấy chênh lệch tuyệt đối giữa độ tin cậy trung bình của bin và độ chính xác của nó.
+4. Lấy trung bình các chênh lệch có trọng số theo số prompt trong mỗi bin.
 
-A bin that says 0.9 and scores 60 percent contributes a gap of about 0.3 times its share of the prompts.
+Một bin nói 0.9 và đạt 60 phần trăm đóng góp một khoảng cách khoảng 0.3 nhân tỷ lệ prompt của nó.
 
 ### Why it is independent
 
-Under refusal and over refusal describe the decision. Calibration describes the match between the model's stated certainty and its hit rate. A model can decide perfectly and be badly calibrated, or decide badly while its confidence tracks its accuracy. The report shows the three numbers side by side for that reason.
+Từ chối thiếu và từ chối quá mức mô tả quyết định. Hiệu chuẩn mô tả sự khớp giữa độ chắc chắn được mô hình nêu và tỷ lệ trúng của nó. Một mô hình có thể quyết định hoàn hảo và bị hiệu chuẩn kém, hoặc quyết định kém trong khi độ tin cậy theo dõi độ chính xác. Báo cáo cho thấy ba con số cạnh nhau vì lý do đó.
 
 ### What to do with it
 
-Overconfident bins are where to look first. When you tune a policy, a reliability curve per policy, confidence against accuracy per bin, shows which bins moved. With a few dozen prompts the bins are thin, so publish the bin counts and treat the value as a smoke test until the set grows.
+Các bin quá tự tin là nơi xem trước. Khi bạn tinh chỉnh một policy, một đường cong độ tin cậy theo từng policy, độ tin cậy so với độ chính xác theo từng bin, cho thấy các bin nào dịch chuyển. Với vài chục prompt, các bin mỏng, nên công bố các số đếm bin và xem giá trị là một kiểm tra smoke cho đến khi tập lớn lên.
 
 ## Follow-ups
 
-- **Level 2:** Why weight the gaps by bin size? Expected: a bin with two prompts should not count as much as a bin with twenty; the weight makes the number reflect where the predictions are.
-- **Level 2:** The model refuses every unsafe prompt and answers every safe one, and its calibration error is large. Is that possible? Expected: yes; calibration measures the match between stated confidence and accuracy, not the decision.
-- **Level 3:** The prompt set is small. How much do you trust a per bin number? Expected: little; most bins hold a handful of prompts, so report the counts and treat the value as a smoke test until the set grows.
-- **Level 3:** Which plot replaces the single number when you tune a policy? Expected: a reliability curve per policy, confidence against accuracy per bin, which shows the overconfident bins.
+- **Level 2:** Tại sao đặt trọng số các khoảng cách theo kích thước bin? Expected: một bin với hai prompt không nên được tính nhiều bằng một bin với hai mươi; trọng số khiến con số phản ánh nơi các dự đoán nằm.
+- **Level 2:** Mô hình từ chối mọi prompt không an toàn và trả lời mọi prompt an toàn, và sai số hiệu chuẩn lớn. Điều đó có thể không? Expected: có; hiệu chuẩn đo sự khớp giữa độ tin cậy được nêu và độ chính xác, không phải quyết định.
+- **Level 3:** Tập prompt nhỏ. Bạn tin một con số theo từng bin đến mức nào? Expected: ít; phần lớn các bin giữ một ít prompt, nên báo cáo các số đếm và xem giá trị là một kiểm tra smoke cho đến khi tập lớn lên.
+- **Level 3:** Biểu đồ nào thay con số duy nhất khi bạn tinh chỉnh một policy? Expected: một đường cong độ tin cậy theo từng policy, độ tin cậy so với độ chính xác theo từng bin, cho thấy các bin quá tự tin.
 
 ## Wrong answers
 
-- "A calibration error of 0.3 means the model is wrong 30 percent of the time." It means the stated confidence and the observed accuracy differ by about 0.3 in that bin; the error rate is a separate number.
-- "A well calibrated model refuses correctly." Calibration says the model knows when it is right; it can be calibrated and still answer unsafe prompts.
-- "Ask for confidence and the number is meaningful." A stated confidence is a claim; the evaluation exists to check it against accuracy.
+- "Một sai số hiệu chuẩn 0.3 nghĩa là mô hình sai 30 phần trăm số lần." Nó nghĩa là độ tin cậy được nêu và độ chính xác quan sát khác nhau khoảng 0.3 trong bin đó; tỷ lệ lỗi là một con số riêng.
+- "Một mô hình được hiệu chuẩn tốt từ chối đúng." Hiệu chuẩn nói mô hình biết khi nào nó đúng; nó có thể được hiệu chuẩn và vẫn trả lời các prompt không an toàn.
+- "Yêu cầu độ tin cậy và con số có ý nghĩa." Một độ tin cậy được nêu là một khẳng định; đánh giá tồn tại để kiểm tra nó theo độ chính xác.
 
 ## Taught in
 
-The [refusal evaluation capstone](../../../phases/19-capstone-projects/84-refusal-evaluation/) computes expected calibration error from stated confidence next to the refusal rates.
+[Capstone đánh giá từ chối](../../../phases/19-capstone-projects/84-refusal-evaluation/) tính sai số hiệu chuẩn kỳ vọng từ độ tin cậy được nêu cạnh các tỷ lệ từ chối.

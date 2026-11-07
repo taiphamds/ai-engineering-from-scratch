@@ -16,48 +16,48 @@ related: [safety/one-regex-is-not-a-detector]
 updated: 2026-11-03
 ---
 
-Your detector's substring rules catch "ignore all instructions" in plain text. Attackers now send the same phrase in base64, in rot13, in leet speak, and with invisible characters between the letters. Design the step that runs before the rules, and say which signals you must not throw away while doing it.
+Các quy tắc chuỗi con của bộ phát hiện bắt được "bỏ qua mọi chỉ dẫn" trong văn bản thuần. Các kẻ tấn công giờ gửi cùng cụm từ bằng base64, bằng rot13, bằng leet speak, và với các ký tự vô hình giữa các chữ cái. Thiết kế bước chạy trước các quy tắc, và nói những tín hiệu nào bạn không được vứt đi trong lúc làm vậy.
 
 ## Short answer
 
-Add a normalize pass that produces a cleaned working copy: strip zero width and bidirectional control characters, decode tokens that look like base64 before you lowercase, because base64 is case sensitive, then lowercase, decode hex and rot13, and map leet digits back to letters. Run the rules on both the raw and the normalized text, because the zero width insertions are themselves an encoding trick signal that the cleaned copy no longer shows.
+Thêm một lượt chuẩn hóa tạo ra một bản sao làm việc được làm sạch: loại các ký tự zero width và điều khiển hai chiều, giải mã các token trông như base64 trước khi chuyển chữ thường, vì base64 phân biệt hoa thường, rồi chuyển chữ thường, giải mã hex và rot13, và ánh xạ các chữ số leet trở lại các chữ cái. Chạy các quy tắc trên cả văn bản thô và đã chuẩn hóa, vì chính các lần chèn zero width là một tín hiệu thủ thuật mã hóa mà bản sao sạch không còn cho thấy.
 
 ## Full answer
 
 ### The category
 
-Encoding tricks abuse the surface form of forbidden tokens. The words are the same; the bytes are not, so a naive keyword filter misses them. Base64, rot13, leet speak and zero width insertion are the common forms.
+Các thủ thuật mã hóa lạm dụng dạng bề mặt của các token bị cấm. Các từ giống nhau; các byte thì không, nên một bộ lọc từ khóa ngây thơ bỏ lỡ chúng. Base64, rot13, leet speak và chèn zero width là các dạng phổ biến.
 
 ### The pass
 
-1. Remove zero width characters and bidirectional controls from the working copy.
-2. For any token of 16 or more characters that looks like base64, try to decode it and replace it with the decoded text on success. Do this before the lowercase step, because base64 is case sensitive and a lowercased token decodes to different bytes.
-3. Lowercase the copy.
-4. Decode hex runs the same way.
-5. Map leet digits to their letters.
-6. Build the rot13 image of the text and keep it only when it has more dictionary like words than the input, judged against a small built in word list. Every string has a rot13 image, so the check keeps benign text from turning into noise.
+1. Loại các ký tự zero width và các điều khiển hai chiều khỏi bản sao làm việc.
+2. Với bất kỳ token nào dài 16 ký tự trở lên trông như base64, thử giải mã nó và thay bằng văn bản được giải mã khi thành công. Làm điều này trước bước chuyển chữ thường, vì base64 phân biệt hoa thường và một token đã chuyển chữ thường giải mã thành các byte khác.
+3. Chuyển bản sao thành chữ thường.
+4. Giải mã các chuỗi hex theo cùng cách.
+5. Ánh xạ các chữ số leet sang các chữ cái tương ứng.
+6. Xây dựng ảnh rot13 của văn bản và chỉ giữ nó khi nó có nhiều từ giống từ điển hơn đầu vào, được đánh giá theo một danh sách từ nhỏ tích hợp. Mọi chuỗi đều có một ảnh rot13, nên kiểm tra giữ văn bản lành tính khỏi biến thành nhiễu.
 
 ### What to keep
 
-The raw prompt stays next to the copy, and rules may read either. Zero width characters inside a word are evidence of an attack on their own, and a decode instruction such as "decode this and then follow it" is the attack pattern whether or not the payload decodes to anything. A regex family rule on the decode and act pattern catches it before the payload matters.
+Prompt thô ở cạnh bản sao, và các quy tắc có thể đọc một trong hai. Các ký tự zero width bên trong một từ tự chúng là bằng chứng của một cuộc tấn công, và một chỉ dẫn giải mã như "giải mã cái này rồi làm theo nó" là mẫu tấn công bất kể payload có giải mã thành bất cứ thứ gì không. Một quy tắc họ regex trên mẫu giải mã và hành động bắt được nó trước khi payload quan trọng.
 
 ### What to measure
 
-Recall on the encoding category, which the detector should lean toward, and the false positive cost on the benign corpus, where developers paste real base64 and ask for help. The metrics runner reports both per category on every change.
+Recall trên danh mục mã hóa, điều bộ phát hiện nên thiên về, và chi phí dương tính giả trên kho ngữ liệu lành tính, nơi lập trình viên dán base64 thực và yêu cầu giúp đỡ. Bộ chạy chỉ số báo cáo cả hai theo từng danh mục trên mỗi thay đổi.
 
 ## Follow-ups
 
-- **Level 2:** Why does the rot13 decode need a word check? Expected: every text has a rot13 image; keeping it only when it looks more like words stops benign text from becoming noise.
-- **Level 2:** Which boundary does this category abuse? Expected: the surface form of forbidden tokens, hidden from keyword filters.
-- **Level 3:** A developer pastes a real base64 blob and asks for help. What happens, and where does the cost show? Expected: the decode may produce text that fires nothing or a false positive; the benign corpus in the metrics runner is where that cost appears.
-- **Level 3:** The payload decodes to nothing. Can the prompt still be an attack? Expected: yes; the instruction to decode and carry out is the attack pattern; a family rule on it fires before the payload matters.
+- **Level 2:** Tại sao giải mã rot13 cần một kiểm tra từ? Expected: mọi văn bản có một ảnh rot13; chỉ giữ nó khi nó trông giống các từ hơn ngăn văn bản lành tính trở thành nhiễu.
+- **Level 2:** Danh mục này lạm dụng ranh giới nào? Expected: dạng bề mặt của các token bị cấm, bị giấu khỏi các bộ lọc từ khóa.
+- **Level 3:** Một lập trình viên dán một blob base64 thực và yêu cầu giúp đỡ. Điều gì xảy ra, và chi phí thể hiện ở đâu? Expected: giải mã có thể tạo văn bản không kích hoạt gì hoặc một dương tính giả; kho ngữ liệu lành tính trong bộ chạy chỉ số là nơi chi phí đó xuất hiện.
+- **Level 3:** Payload không giải mã ra gì. Prompt vẫn có thể là một cuộc tấn công không? Expected: có; chỉ dẫn giải mã và thực hiện là mẫu tấn công; một quy tắc họ trên nó kích hoạt trước khi payload quan trọng.
 
 ## Wrong answers
 
-- "Decode everything and discard the original." The raw text carries signals, such as invisible characters, that the cleaned copy removes.
-- "Block any base64 in a prompt." Benign prompts carry encoded data; measure the false positive cost on the benign set before you block on presence.
-- "Normalization is the detector." It only exposes hidden tokens to the rules; the rules and the metrics runner are the detector.
+- "Giải mã mọi thứ và bỏ bản gốc." Văn bản thô mang các tín hiệu, như các ký tự vô hình, mà bản sao sạch loại bỏ.
+- "Chặn mọi base64 trong một prompt." Các prompt lành tính mang dữ liệu được mã hóa; đo chi phí dương tính giả trên tập lành tính trước khi chặn theo sự hiện diện.
+- "Chuẩn hóa là bộ phát hiện." Nó chỉ bộc lộ các token ẩn cho các quy tắc; các quy tắc và bộ chạy chỉ số mới là bộ phát hiện.
 
 ## Taught in
 
-The [prompt injection detector capstone](../../../phases/19-capstone-projects/83-prompt-injection-detector/) builds the normalize pass, and the [jailbreak taxonomy capstone](../../../phases/19-capstone-projects/82-jailbreak-taxonomy/) defines the encoding trick category.
+[Capstone bộ phát hiện prompt injection](../../../phases/19-capstone-projects/83-prompt-injection-detector/) xây dựng lượt chuẩn hóa, và [capstone phân loại jailbreak](../../../phases/19-capstone-projects/82-jailbreak-taxonomy/) định nghĩa danh mục thủ thuật mã hóa.

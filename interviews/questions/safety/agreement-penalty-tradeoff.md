@@ -16,11 +16,11 @@ related: [safety/sycophancy-is-the-loss]
 updated: 2026-11-03
 ---
 
-You can subtract an agreement score from the reward during training to reduce sycophancy. The alignment lead wants the penalty weight as high as it will go. What does a high weight cost, how do you pick the weight, and how do you show that you got it right?
+Bạn có thể trừ một điểm đồng ý khỏi phần thưởng trong huấn luyện để giảm sự xu nịnh. Trưởng nhóm alignment muốn trọng số phạt cao hết mức có thể. Một trọng số cao đánh đổi gì, bạn chọn trọng số bằng cách nào, và bạn cho thấy mình đã chọn đúng bằng cách nào?
 
 ## Short answer
 
-The correction subtracts a classifier's agreement score, scaled by a weight, from the reward. In the lesson's sweeps sycophancy falls to near the base model level at a weight around 0.3 to 0.5, and beyond that the model turns contrarian on claims that are true. Pick the weight from a frontier of correct answer rate against sycophancy rate on matched test pairs, and watch calibration while you sweep.
+Phép hiệu chỉnh trừ điểm đồng ý của một bộ phân loại, được nhân với một trọng số, khỏi phần thưởng. Trong các lần quét của bài học, sự xu nịnh giảm xuống gần mức mô hình cơ sở ở trọng số khoảng 0.3 đến 0.5, và vượt quá đó mô hình trở nên hay phản bác các khẳng định đúng. Chọn trọng số từ một đường biên tỷ lệ câu trả lời đúng so với tỷ lệ xu nịnh trên các cặp kiểm thử tương ứng, và theo dõi hiệu chuẩn trong lúc quét.
 
 ## Full answer
 
@@ -30,33 +30,33 @@ The correction subtracts a classifier's agreement score, scaled by a weight, fro
 r'(x, y) = r(x, y) - alpha * agree(x, y)
 ```
 
-The agreement term comes from an auxiliary classifier that reads whether the completion agrees with the premises stated in the prompt, without regard to truth. The weight alpha sets how much agreement costs.
+Hạng đồng ý đến từ một bộ phân loại phụ đọc liệu completion có đồng ý với các tiền đề được nêu trong prompt không, không xét sự thật. Trọng số alpha đặt mức chi phí của sự đồng ý.
 
 ### Why there is a trade
 
-Agreeing with a user who is right and agreeing with a user who is wrong look the same on the surface. A penalty on agreement hits both. Every sycophancy mitigation pays in helpful agreement, because the two share surface features. This is a trade, not a fix.
+Đồng ý với một người dùng đúng và đồng ý với một người dùng sai trông giống nhau trên bề mặt. Một hình phạt cho sự đồng ý đánh vào cả hai. Mọi biện pháp giảm xu nịnh đều trả giá bằng sự đồng ý hữu ích, vì hai thứ có chung các đặc trưng bề mặt. Đây là một đánh đổi, không phải một cách sửa.
 
 ### Picking the weight
 
-Sweep alpha. For each value, measure the correct answer rate and the sycophancy rate on matched pairs: the same claim framed as the user's belief and as a third party's, in a version where the claim is true and a version where it is false. Plot the frontier and pick the point the product can live with. The lesson's toy world exposes both knobs, the KL weight and alpha, so the shape can be seen before a real run.
+Quét alpha. Với mỗi giá trị, đo tỷ lệ câu trả lời đúng và tỷ lệ xu nịnh trên các cặp tương ứng: cùng khẳng định được trình bày như niềm tin của người dùng và của một bên thứ ba, trong một phiên bản mà khẳng định đúng và một phiên bản mà nó sai. Vẽ đường biên và chọn điểm mà sản phẩm có thể chấp nhận. Thế giới đồ chơi của bài học cung cấp cả hai núm chỉnh, trọng số KL và alpha, để hình dạng có thể được thấy trước một lần chạy thực.
 
 ### Showing it worked
 
-Report the agreement differential between the two framings with a confidence interval, estimated from enough pairs for the significance level you chose. Report the correct answer rate on the true variants, which is where the cost shows. Report calibration, because sycophancy training collapses it and the fix should move it back toward the neutral baseline.
+Báo cáo chênh lệch đồng ý giữa hai cách trình bày với một khoảng tin cậy, được ước lượng từ đủ số cặp cho mức ý nghĩa bạn đã chọn. Báo cáo tỷ lệ câu trả lời đúng trên các biến thể đúng, đó là nơi chi phí thể hiện. Báo cáo hiệu chuẩn, vì huấn luyện xu nịnh làm nó sụp đổ và cách sửa nên chuyển nó về phía baseline trung tính.
 
 ## Follow-ups
 
-- **Level 2:** What does the agreement classifier measure? Expected: whether the completion agrees with the premises stated in the prompt, independent of truth.
-- **Level 2:** Why does the trade exist at all? Expected: agreeing with a correct user and agreeing with a wrong user look the same on the surface, so a penalty on agreement hits both.
-- **Level 3:** Design the test set for the sweep. Expected: matched pairs with the same claim framed as the user's belief and a third party's, in true and false variants, with enough pairs for a confidence interval on the differential.
-- **Level 3:** What else do you watch during the sweep? Expected: calibration; the training that caused the sycophancy collapsed it, and the fix should move it back toward the neutral baseline.
+- **Level 2:** Bộ phân loại đồng ý đo gì? Expected: liệu completion có đồng ý với các tiền đề được nêu trong prompt không, độc lập với sự thật.
+- **Level 2:** Tại sao đánh đổi tồn tại? Expected: đồng ý với một người dùng đúng và đồng ý với một người dùng sai trông giống nhau trên bề mặt, nên một hình phạt cho sự đồng ý đánh vào cả hai.
+- **Level 3:** Thiết kế tập kiểm thử cho lần quét. Expected: các cặp tương ứng với cùng khẳng định được trình bày như niềm tin của người dùng và của một bên thứ ba, trong các biến thể đúng và sai, với đủ cặp cho một khoảng tin cậy trên chênh lệch.
+- **Level 3:** Bạn còn theo dõi gì trong lần quét? Expected: hiệu chuẩn; huấn luyện gây ra sự xu nịnh đã làm nó sụp đổ, và cách sửa nên chuyển nó về phía baseline trung tính.
 
 ## Wrong answers
 
-- "Set the weight as high as it goes." The model becomes contrarian on true claims; helpful agreement is lost with the sycophancy.
-- "The penalty removes sycophancy." It lowers the rate to near the base level at the right weight; the base model was not at zero either.
-- "Agreement is always bad." Agreeing with a correct user is the helpful kind; the goal is disagreement when the user is wrong.
+- "Đặt trọng số cao hết mức có thể." Mô hình trở nên hay phản bác các khẳng định đúng; sự đồng ý hữu ích bị mất cùng sự xu nịnh.
+- "Hình phạt loại bỏ sự xu nịnh." Nó hạ tỷ lệ xuống gần mức cơ sở ở trọng số đúng; mô hình cơ sở cũng không ở mức không.
+- "Đồng ý luôn xấu." Đồng ý với một người dùng đúng là loại hữu ích; mục tiêu là bất đồng khi người dùng sai.
 
 ## Taught in
 
-The [sycophancy lesson](../../../phases/18-ethics-safety-alignment/04-sycophancy-rlhf-amplification/) proposes the agreement penalty and names its trade off.
+[Bài học về sự xu nịnh](../../../phases/18-ethics-safety-alignment/04-sycophancy-rlhf-amplification/) đề xuất hình phạt đồng ý và nêu đánh đổi của nó.

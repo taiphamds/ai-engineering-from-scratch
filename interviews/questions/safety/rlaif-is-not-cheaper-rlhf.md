@@ -16,46 +16,46 @@ related: [safety/sycophancy-is-the-loss]
 updated: 2026-11-03
 ---
 
-Your team wants to replace human preference labelers with a model that reads a list of written principles and ranks completions, mainly to save money. Is this cheaper preference training and nothing more? What changes in the failure modes, and what stays?
+Nhóm của bạn muốn thay người gán nhãn sở thích bằng một mô hình đọc một danh sách các nguyên tắc được viết ra và xếp hạng các completion, chủ yếu để tiết kiệm tiền. Đây có phải chỉ là huấn luyện sở thích rẻ hơn không? Điều gì thay đổi trong các chế độ lỗi, và điều gì giữ nguyên?
 
 ## Short answer
 
-No. Moving the preference signal from people to a model changes which failures the pipeline has, not whether it has them. Labeler psychology gives way to principle interpretation that is uniform across the dataset and legible, sycophancy toward the user can drop because the labeler model has no user to please but must still be measured, and Goodhart's law remains because the proxy is now the model's reading of the principle set. The rest of the pipeline, a reward model and policy optimization, is unchanged.
+Không. Chuyển tín hiệu sở thích từ con người sang một mô hình thay đổi những lỗi nào pipeline có, không thay đổi liệu nó có lỗi không. Tâm lý người gán nhãn nhường chỗ cho cách diễn giải nguyên tắc đồng nhất trên toàn bộ tập dữ liệu và có thể đọc được, sự xu nịnh hướng tới người dùng có thể giảm vì mô hình gán nhãn không có người dùng để làm hài lòng nhưng vẫn phải được đo, và định luật Goodhart vẫn còn vì proxy giờ là cách mô hình đọc tập nguyên tắc. Phần còn lại của pipeline, một mô hình phần thưởng và tối ưu hóa policy, không đổi.
 
 ## Full answer
 
 ### The two phases
 
-Phase one is supervised: the model drafts a response to a red team prompt, a model reads one sampled principle and critiques the draft, a revision answers the critique, and the revision becomes the training target. Phase two is reinforcement learning from AI feedback: a feedback model ranks pairs of completions against sampled principles, a reward model is trained on those rankings, and the policy is optimized against it. The original principle set had 16 entries and was kept small so that critiques stayed focused.
+Pha một là có giám sát: mô hình soạn một phản hồi cho một prompt red team, một mô hình đọc một nguyên tắc được lấy mẫu và phê bình bản nháp, một bản sửa trả lời phê bình, và bản sửa trở thành mục tiêu huấn luyện. Pha hai là học tăng cường từ phản hồi AI: một mô hình phản hồi xếp hạng các cặp completion theo các nguyên tắc được lấy mẫu, một mô hình phần thưởng được huấn luyện trên các thứ hạng đó, và policy được tối ưu theo nó. Tập nguyên tắc gốc có 16 mục và được giữ nhỏ để các phê bình tập trung.
 
 ### What changes
 
-- Bias moves from labeler psychology to principle interpretation. The labeler model can read "be honest" more or less strictly than any person, and its strictness is the same across the whole dataset.
-- The signal becomes legible. You can read the principle, the critique and the revision. A human label is a bare preference.
-- Sycophancy toward the user can drop, because the labeler has no user to please. The lesson also warns that the sycophancy argument still applies once the labeler moves inside the loop, so measure it instead of assuming it is gone.
-- Goodhart's law stays. The proxy is now the model's interpretation of the principles, still an imperfect measurement of what you want.
+- Thiên lệch chuyển từ tâm lý người gán nhãn sang cách diễn giải nguyên tắc. Mô hình gán nhãn có thể đọc "hãy trung thực" nghiêm ngặt hơn hoặc ít hơn bất kỳ người nào, và mức nghiêm ngặt của nó giống nhau trên toàn bộ tập dữ liệu.
+- Tín hiệu trở nên có thể đọc được. Bạn có thể đọc nguyên tắc, phê bình và bản sửa. Một nhãn con người là một sở thích trần.
+- Sự xu nịnh hướng tới người dùng có thể giảm, vì bên gán nhãn không có người dùng để làm hài lòng. Bài học cũng cảnh báo rằng lập luận xu nịnh vẫn áp dụng một khi bên gán nhãn chuyển vào bên trong vòng lặp, nên đo nó thay vì giả định nó đã biến mất.
+- Định luật Goodhart giữ nguyên. Proxy giờ là cách mô hình diễn giải các nguyên tắc, vẫn là một phép đo không hoàn hảo của điều bạn muốn.
 
 ### What stays
 
-A reward model, policy optimization and the claim, which has held across labs, that the result is more harmless and about as helpful as training on human preferences with comparable data.
+Một mô hình phần thưởng, tối ưu hóa policy và khẳng định, đã giữ vững qua các phòng thí nghiệm, rằng kết quả vô hại hơn và hữu ích tương đương huấn luyện trên các sở thích con người với dữ liệu tương đương.
 
 ### Two related ideas
 
-A constitution needs a priority order, because principles conflict. The 2026 rewrite the lesson describes ranks four tiers: avoid catastrophic outcomes, follow platform guidelines, be broadly ethical, be helpful and candid, resolved top down. Separately, lightweight classifiers that read the constitution can gate outputs at serving time; the first version cost 23.7 percent extra compute and the second about 1 percent. Training shapes behavior; classifiers enforce invariants.
+Một hiến pháp cần một thứ tự ưu tiên, vì các nguyên tắc xung đột. Bản viết lại năm 2026 mà bài học mô tả xếp bốn tầng: tránh các kết quả thảm họa, làm theo hướng dẫn nền tảng, có đạo đức rộng rãi, hữu ích và thẳng thắn, được giải quyết từ trên xuống. Riêng biệt, các bộ phân loại nhẹ đọc hiến pháp có thể chặn đầu ra ở thời điểm phục vụ; phiên bản đầu tốn thêm 23.7 phần trăm tính toán và phiên bản thứ hai khoảng 1 phần trăm. Huấn luyện định hình hành vi; các bộ phân loại thực thi các bất biến.
 
 ## Follow-ups
 
-- **Level 2:** Why can sycophancy drop under a model labeler, and why do you still measure it? Expected: the labeler has no user to please, so agreement with the user's premise is rewarded less; but the labeler is now inside the loop and can reward answers that match its own taste, so the drop must be measured.
-- **Level 2:** What is legible here that is opaque in human labeling? Expected: the principle, the critique and the revision can all be read; a human label is a bare preference.
-- **Level 3:** Name a sycophancy like failure that can still occur. Expected: the feedback model can over reward completions that match its own reading of a principle, such as preachy or hedged answers, which is Goodhart on the principle set.
-- **Level 3:** Why does a constitution need a priority order? Expected: principles conflict; a tiered order resolves conflicts top down instead of leaving them to the labeler model's taste.
+- **Level 2:** Tại sao sự xu nịnh có thể giảm dưới một mô hình gán nhãn, và tại sao bạn vẫn đo nó? Expected: bên gán nhãn không có người dùng để làm hài lòng, nên sự đồng ý với tiền đề của người dùng được thưởng ít hơn; nhưng bên gán nhãn giờ nằm trong vòng lặp và có thể thưởng các câu trả lời khớp gu riêng, nên mức giảm phải được đo.
+- **Level 2:** Điều gì có thể đọc được ở đây mà mờ đục trong gán nhãn con người? Expected: nguyên tắc, phê bình và bản sửa đều có thể đọc; một nhãn con người là một sở thích trần.
+- **Level 3:** Nêu một lỗi giống xu nịnh vẫn có thể xảy ra. Expected: mô hình phản hồi có thể thưởng quá mức các completion khớp cách đọc riêng về một nguyên tắc, như các câu trả lời lên lớp hoặc dè dặt, đó là Goodhart trên tập nguyên tắc.
+- **Level 3:** Tại sao một hiến pháp cần một thứ tự ưu tiên? Expected: các nguyên tắc xung đột; một thứ tự theo tầng giải quyết các xung đột từ trên xuống thay vì để chúng cho gu của mô hình gán nhãn.
 
 ## Wrong answers
 
-- "It is the same pipeline with a cheaper labeler." The failure modes change: uniform interpretation bias, sycophancy that can drop but must be measured, the same Goodhart.
-- "Written principles remove the proxy problem." The proxy is now the model's interpretation of the principles, still an imperfect measurement.
-- "A longer list of principles is safer." The original set was kept small so critiques stayed focused; the order matters more than the count.
+- "Đó là cùng pipeline với một bên gán nhãn rẻ hơn." Các chế độ lỗi thay đổi: thiên lệch diễn giải đồng nhất, sự xu nịnh có thể giảm nhưng phải được đo, cùng Goodhart.
+- "Các nguyên tắc viết ra loại bỏ vấn đề proxy." Proxy giờ là cách mô hình diễn giải các nguyên tắc, vẫn là một phép đo không hoàn hảo.
+- "Một danh sách nguyên tắc dài hơn an toàn hơn." Tập gốc được giữ nhỏ để các phê bình tập trung; thứ tự quan trọng hơn số lượng.
 
 ## Taught in
 
-The [constitutional AI and RLAIF lesson](../../../phases/18-ethics-safety-alignment/05-constitutional-ai-rlaif/) gives the two phases, the changed failure modes and the four tier priority order.
+[Bài học về constitutional AI và RLAIF](../../../phases/18-ethics-safety-alignment/05-constitutional-ai-rlaif/) cung cấp hai pha, các chế độ lỗi đã thay đổi và thứ tự ưu tiên bốn tầng.

@@ -16,50 +16,50 @@ related: [safety/one-regex-is-not-a-detector, safety/output-router-severity, saf
 updated: 2026-11-03
 ---
 
-Take home. We give you the fixture corpus of labeled attack prompts, a benign prompt list and a mock assistant that answers questions over retrieved documents. Build the safety gate around it: an input detector whose coverage is measured for each attack category, an output side with at least two classifiers behind a router, and a trace per request. The retrieved documents can carry instructions. What do you deliver, how do you measure it, and what do you say you did not do?
+Bài làm ở nhà. Chúng tôi cho bạn kho fixture các prompt tấn công được gán nhãn, một danh sách prompt lành tính và một trợ lý giả trả lời các câu hỏi trên các tài liệu truy xuất. Xây dựng cổng an toàn quanh nó: một bộ phát hiện đầu vào có độ bao phủ được đo cho từng danh mục tấn công, một phía đầu ra với ít nhất hai bộ phân loại phía sau một bộ định tuyến, và một trace theo từng yêu cầu. Các tài liệu truy xuất có thể mang chỉ dẫn. Bạn bàn giao gì, đo nó bằng cách nào, và nói bạn đã không làm gì?
 
 ## Short answer
 
-Deliver a detector as rules in data with a normalize pass, a metrics runner that writes per category precision and recall against the fixture corpus and the benign list, an output router with a personal data classifier and an instruction leakage classifier and their redactors, and a gate that runs before, during and after generation with a deterministic aggregation table and writes the verdict of every checkpoint for each request. Add a category and a rule family for instructions hidden in retrieved documents, because the corpus has none. State that the detector is wrong on purpose on benign looking role play, that a real model and a real sandbox are out of scope, and that the thresholds were not tuned on held out data.
+Bàn giao một bộ phát hiện dưới dạng các quy tắc trong dữ liệu với một lượt chuẩn hóa, một bộ chạy chỉ số ghi precision và recall theo từng danh mục theo kho fixture và danh sách lành tính, một bộ định tuyến đầu ra với một bộ phân loại dữ liệu cá nhân và một bộ phân loại rò rỉ chỉ dẫn cùng các bộ che dữ liệu của chúng, và một cổng chạy trước, trong và sau sinh với một bảng tổng hợp xác định và ghi phán quyết của mọi checkpoint cho mỗi yêu cầu. Thêm một danh mục và một họ quy tắc cho các chỉ dẫn ẩn trong các tài liệu truy xuất, vì kho ngữ liệu không có. Nêu rằng bộ phát hiện sai có chủ đích trên nhập vai trông lành tính, rằng một mô hình thực và một sandbox thực nằm ngoài phạm vi, và rằng các ngưỡng chưa được tinh chỉnh trên dữ liệu giữ lại.
 
 ## Full answer
 
 ### The detector
 
-Rules live in a data file, each with a name, a category, a score and either a substring or a regex. A normalize pass strips zero width characters, lowercases a copy, decodes base64, rot13 and hex and maps leet digits, while the raw text stays available. The aggregator returns the highest scoring category and its confidence, or benign at zero. The metrics runner reads the taxonomy artifact, scores every fixture and every benign prompt, and writes precision, recall and raw counts per category to a report file.
+Các quy tắc nằm trong một file dữ liệu, mỗi quy tắc có một tên, một danh mục, một điểm và hoặc một chuỗi con hoặc một regex. Một lượt chuẩn hóa loại các ký tự zero width, chuyển một bản sao thành chữ thường, giải mã base64, rot13 và hex và ánh xạ các chữ số leet, trong khi văn bản thô vẫn khả dụng. Bộ tổng hợp trả về danh mục có điểm cao nhất và độ tin cậy của nó, hoặc lành tính ở không. Bộ chạy chỉ số đọc artifact phân loại, chấm mọi fixture và mọi prompt lành tính, và ghi precision, recall và các số đếm thô theo từng danh mục vào một file báo cáo.
 
 ### The retrieval problem
 
-An instruction inside a retrieved document is context smuggling: it abuses the gap between data and instructions, and the user turn looks benign. The fixture corpus has six categories and none for an attack that arrives through retrieval, so add the seventh category the taxonomy sets as an exercise, author about ten fixtures for it, and add a rule family for instructions hidden in tool results and documents. Measure the recall gain on that category and the false positive cost on the benign list.
+Một chỉ dẫn bên trong một tài liệu truy xuất là context smuggling: nó lạm dụng khoảng hở giữa dữ liệu và chỉ dẫn, và lượt người dùng trông lành tính. Kho fixture có sáu danh mục và không có danh mục cho một cuộc tấn công đến qua truy xuất, nên thêm danh mục thứ bảy mà phân loại đặt ra như một bài tập, viết khoảng mười fixture cho nó, và thêm một họ quy tắc cho các chỉ dẫn ẩn trong các kết quả công cụ và tài liệu. Đo mức tăng recall trên danh mục đó và chi phí dương tính giả trên danh sách lành tính.
 
 ### The output side
 
-A personal data classifier with regexes for emails, phone numbers and card shaped strings, and an instruction leakage classifier that compares the output with the known system prompt by trigram overlap. Each returns a severity and owns a redactor. The router takes the maximum severity and maps high to block, medium to redact, low to warn and none to log.
+Một bộ phân loại dữ liệu cá nhân với các regex cho email, số điện thoại và các chuỗi có dạng thẻ, và một bộ phân loại rò rỉ chỉ dẫn so sánh đầu ra với system prompt đã biết bằng độ trùng trigram. Mỗi bộ trả về một mức nghiêm trọng và sở hữu một bộ che dữ liệu. Bộ định tuyến lấy mức nghiêm trọng tối đa và ánh xạ cao thành block, trung bình thành redact, thấp thành warn và none thành log.
 
 ### The gate and the trace
 
-Before generation the detector runs: block at or above 0.85 confidence on a non benign category, otherwise attach the signal. During generation a filter over the stream watches a two chunk window for continuation phrases and stops the stream on a match. After generation the router and the rules run on the full text. The aggregator takes the maximum rank. Every request writes a trace with the id, the prompt, the detector verdict, the stream verdict, the post generation verdicts, the final action, the final output and the latency. Run the whole corpus and the benign list through it and print the summary counts per category.
+Trước sinh, bộ phát hiện chạy: chặn ở hoặc trên độ tin cậy 0.85 trên một danh mục không lành tính, nếu không thì gắn tín hiệu. Trong sinh, một bộ lọc trên stream theo dõi một cửa sổ hai chunk để tìm các cụm từ tiếp nối và dừng stream khi khớp. Sau sinh, bộ định tuyến và các quy tắc chạy trên toàn văn bản. Bộ tổng hợp lấy hạng tối đa. Mọi yêu cầu ghi một trace với id, prompt, phán quyết bộ phát hiện, phán quyết stream, các phán quyết sau sinh, hành động cuối, đầu ra cuối và độ trễ. Chạy toàn bộ kho ngữ liệu và danh sách lành tính qua nó và in các số đếm tóm tắt theo từng danh mục.
 
 ### What to measure
 
-Per category precision and recall for the detector, the false positive count on benign prompts, the gate's action counts per category, and a threshold sweep from 0 to 1 with a precision and recall curve per category.
+Precision và recall theo từng danh mục cho bộ phát hiện, số dương tính giả trên các prompt lành tính, các số đếm hành động của cổng theo từng danh mục, và một lần quét ngưỡng từ 0 đến 1 với một đường cong precision và recall theo từng danh mục.
 
 ### What to leave out and say so
 
-A real model in place of the mock. A real sandbox for anything the model might execute. Tuned thresholds, because the corpus is the training set for the rules and tuning on it would report a number that does not hold. Neural classifiers; the plumbing is the same when they arrive. Over refusal on real users, which needs a benign suite from production traffic.
+Một mô hình thực thay cho mô hình giả. Một sandbox thực cho bất cứ thứ gì mô hình có thể thực thi. Các ngưỡng đã tinh chỉnh, vì kho ngữ liệu là tập huấn luyện cho các quy tắc và tinh chỉnh trên nó sẽ báo cáo một con số không giữ vững. Các bộ phân loại neural; hệ thống kết nối giống nhau khi chúng đến. Từ chối quá mức trên người dùng thực, cần một bộ lành tính từ lưu lượng production.
 
 ## Follow-ups
 
-- **Level 3:** Why do retrieved documents need their own category and rules? Expected: the attack sits in data the user never wrote, so the user turn looks benign; without fixtures for it, recall on that attack is unmeasured.
-- **Level 4:** How do you show the new rule family did not cost benign recall? Expected: the false positive count on the benign list before and after, next to the recall gain in the new category.
-- **Level 4:** What would you do first with a real model behind the mock? Expected: rerun the whole corpus through the gate and read the trace summary per category, then tune the aggregation thresholds on a held out split and report precision and recall per category.
+- **Level 3:** Tại sao các tài liệu truy xuất cần danh mục và các quy tắc riêng? Expected: cuộc tấn công nằm trong dữ liệu mà người dùng chưa bao giờ viết, nên lượt người dùng trông lành tính; không có các fixture cho nó, recall trên cuộc tấn công đó chưa được đo.
+- **Level 4:** Bạn cho thấy họ quy tắc mới không đánh đổi recall lành tính bằng cách nào? Expected: số dương tính giả trên danh sách lành tính trước và sau, cạnh mức tăng recall trong danh mục mới.
+- **Level 4:** Bạn sẽ làm gì trước với một mô hình thực phía sau mô hình giả? Expected: chạy lại toàn bộ kho ngữ liệu qua cổng và đọc tóm tắt trace theo từng danh mục, rồi tinh chỉnh các ngưỡng tổng hợp trên một phần tách giữ lại và báo cáo precision và recall theo từng danh mục.
 
 ## Wrong answers
 
-- "A good detector makes the output side unnecessary." A retrieved document can carry the attack past any input rule, and the model can leak personal data on its own; the output side is where that is caught.
-- "Hide the cases the detector gets wrong." The report exposes the intentional misses so the gate's other layers can be designed around them.
-- "Tune the thresholds on the fixture corpus." The corpus is the training set for the rules; tuning on it reports a number that will not hold.
+- "Một bộ phát hiện tốt khiến phía đầu ra không cần thiết." Một tài liệu truy xuất có thể mang cuộc tấn công qua bất kỳ quy tắc đầu vào nào, và mô hình có thể tự rò rỉ dữ liệu cá nhân; phía đầu ra là nơi điều đó được bắt.
+- "Giấu các trường hợp bộ phát hiện làm sai." Báo cáo bộc lộ các lần bỏ lỡ có chủ đích để các lớp khác của cổng có thể được thiết kế quanh chúng.
+- "Tinh chỉnh các ngưỡng trên kho fixture." Kho ngữ liệu là tập huấn luyện cho các quy tắc; tinh chỉnh trên nó báo cáo một con số sẽ không giữ vững.
 
 ## Taught in
 
-The [prompt injection detector capstone](../../../phases/19-capstone-projects/83-prompt-injection-detector/) builds the detector and its metrics runner, the [jailbreak taxonomy capstone](../../../phases/19-capstone-projects/82-jailbreak-taxonomy/) sets the seventh category as an exercise, the [content classifier integration capstone](../../../phases/19-capstone-projects/85-content-classifier-integration/) builds the output router, and the [end to end safety gate capstone](../../../phases/19-capstone-projects/87-end-to-end-safety-gate/) composes them with a trace.
+[Capstone bộ phát hiện prompt injection](../../../phases/19-capstone-projects/83-prompt-injection-detector/) xây dựng bộ phát hiện và bộ chạy chỉ số, [capstone phân loại jailbreak](../../../phases/19-capstone-projects/82-jailbreak-taxonomy/) đặt danh mục thứ bảy như một bài tập, [capstone tích hợp bộ phân loại nội dung](../../../phases/19-capstone-projects/85-content-classifier-integration/) xây dựng bộ định tuyến đầu ra, và [capstone cổng an toàn đầu cuối](../../../phases/19-capstone-projects/87-end-to-end-safety-gate/) kết hợp chúng với một trace.

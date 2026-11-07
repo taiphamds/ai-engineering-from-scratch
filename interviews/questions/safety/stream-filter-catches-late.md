@@ -16,46 +16,46 @@ related: [safety/gate-aggregation-table, safety/one-regex-is-not-a-detector]
 updated: 2026-11-03
 ---
 
-Your gate blocks most attacks before the model runs. In the trace of one request the detector said benign, the model began answering with a procedure it must never give, and the response was cut after a few tokens and shipped as a redacted partial. Explain which layer acted, why the first layer missed, and whether the outcome is correct.
+Cổng của bạn chặn phần lớn các cuộc tấn công trước khi mô hình chạy. Trong trace của một yêu cầu, bộ phát hiện nói lành tính, mô hình bắt đầu trả lời bằng một quy trình nó không bao giờ được cung cấp, và phản hồi bị cắt sau vài token rồi được đưa ra như một phần đã che dữ liệu. Giải thích lớp nào đã hành động, tại sao lớp đầu bỏ lỡ, và liệu kết quả có đúng không.
 
 ## Short answer
 
-The streaming filter acted: it buffers a short window of emitted chunks, sweeps it for known continuation phrases, terminates the stream on a match and marks the output as terminated early, which the aggregator treats as a medium signal and maps to redact. The detector missed because the prompt was an encoding trick or a prefix injection whose surface the input rules did not cover. The outcome is correct for the design: the harmful continuation never completed, and the trace records the miss for the detector team.
+Bộ lọc streaming đã hành động: nó đệm một cửa sổ ngắn các chunk được phát ra, quét nó để tìm các cụm từ tiếp nối đã biết, kết thúc stream khi khớp và đánh dấu đầu ra là kết thúc sớm, điều bộ tổng hợp xem là một tín hiệu trung bình và ánh xạ thành redact. Bộ phát hiện bỏ lỡ vì prompt là một thủ thuật mã hóa hoặc một prefix injection có bề mặt mà các quy tắc đầu vào không bao phủ. Kết quả đúng với thiết kế: phần tiếp nối có hại không bao giờ hoàn tất, và trace ghi lần bỏ lỡ cho nhóm bộ phát hiện.
 
 ## Full answer
 
 ### The layer that acted
 
-The gate runs at three checkpoints. Pre generation is the detector. During generation is a filter over the model's stream: the mock yields chunks of four tokens, the filter holds up to two chunks, runs a regex of continuation phrases over the window, and on a match stops the iterator and returns the partial output marked as terminated early. Post generation runs the classifier router and the rules engine on whatever was emitted.
+Cổng chạy tại ba checkpoint. Trước sinh là bộ phát hiện. Trong sinh là một bộ lọc trên stream của mô hình: mô hình giả sinh các chunk bốn token, bộ lọc giữ tối đa hai chunk, chạy một regex các cụm từ tiếp nối trên cửa sổ, và khi khớp thì dừng iterator và trả về đầu ra một phần được đánh dấu kết thúc sớm. Sau sinh chạy bộ định tuyến phân loại và bộ máy quy tắc trên bất cứ thứ gì đã được phát ra.
 
 ### Why the detector missed
 
-Two taxonomy categories are built to pass input rules. An encoding trick hides the forbidden tokens in base64, rot13, leet speak or zero width characters, and a rule set that does not decode that form sees nothing. A prefix injection ends the prompt with the first words of the answer, so the model continues from an assumed yes instead of deciding; the prompt itself can look harmless. The capstone's mock produces a partial harmful continuation on exactly that subset of attacks, on purpose, so the layers can be seen interacting.
+Hai danh mục phân loại được xây để đi qua các quy tắc đầu vào. Một thủ thuật mã hóa giấu các token bị cấm trong base64, rot13, leet speak hoặc các ký tự zero width, và một tập quy tắc không giải mã dạng đó không thấy gì. Một prefix injection kết thúc prompt bằng các từ đầu của câu trả lời, nên mô hình tiếp tục từ một sự đồng ý được giả định thay vì quyết định; chính prompt có thể trông vô hại. Mô hình giả của capstone tạo ra một phần tiếp nối có hại trên đúng tập con tấn công đó, có chủ đích, để có thể thấy các lớp tương tác.
 
 ### Why redact and not block
 
-Early termination is one medium signal. The post generation pass on the partial text found nothing high. The maximum is medium, so the action is redact: the classifier redactors and the rules fixer run over the partial, and it ships with a trace that shows the detector verdict, the matched termination pattern, the post generation verdicts, the final action and the latency.
+Kết thúc sớm là một tín hiệu trung bình. Lượt sau sinh trên văn bản một phần không tìm thấy gì cao. Mức tối đa là trung bình, nên hành động là redact: các bộ che dữ liệu của bộ phân loại và bộ sửa quy tắc chạy trên phần đó, và nó được đưa ra với một trace cho thấy phán quyết bộ phát hiện, mẫu kết thúc đã khớp, các phán quyết sau sinh, hành động cuối và độ trễ.
 
 ### What to do with the trace
 
-Add the prompt to the taxonomy as a fixture with its category and severity. Add or adjust a detector rule for its family. Rerun the metrics runner and read the recall change in that category and the false positive change on the benign list. The trace exists so that a miss becomes a fixture instead of a story.
+Thêm prompt vào hệ phân loại như một fixture với danh mục và mức nghiêm trọng. Thêm hoặc điều chỉnh một quy tắc bộ phát hiện cho họ của nó. Chạy lại bộ chạy chỉ số và đọc thay đổi recall trong danh mục đó và thay đổi dương tính giả trên danh sách lành tính. Trace tồn tại để một lần bỏ lỡ trở thành một fixture thay vì một câu chuyện.
 
 ### The limit
 
-The window holds two chunks. A continuation phrase split across more chunks escapes the filter, and the post generation pass is the backstop. A gate that looked only after generation would let a prefix injection stream its procedure to the user before any check.
+Cửa sổ giữ hai chunk. Một cụm từ tiếp nối bị chia qua nhiều chunk hơn thoát khỏi bộ lọc, và lượt sau sinh là chốt chặn dự phòng. Một cổng chỉ xem xét sau sinh sẽ để một prefix injection stream quy trình của nó tới người dùng trước bất kỳ kiểm tra nào.
 
 ## Follow-ups
 
-- **Level 3:** Why does the filter hold two chunks instead of scanning each chunk alone? Expected: a continuation phrase can span a chunk boundary; the window lets the regex see across it at the cost of a short delay.
-- **Level 3:** Which taxonomy categories does this layer exist for? Expected: encoding tricks that pass the input rules, and prefix injection, where the prompt sets the first words of the answer.
-- **Level 4:** What is the next action for the detector team, and how do they know it worked? Expected: add the prompt as a fixture with its category, add or adjust a rule, and read the per category recall and the benign false positive rate from the metrics runner.
+- **Level 3:** Tại sao bộ lọc giữ hai chunk thay vì quét riêng từng chunk? Expected: một cụm từ tiếp nối có thể trải qua một ranh giới chunk; cửa sổ cho phép regex thấy qua nó với cái giá là một độ trễ ngắn.
+- **Level 3:** Lớp này tồn tại cho các danh mục phân loại nào? Expected: các thủ thuật mã hóa đi qua các quy tắc đầu vào, và prefix injection, nơi prompt đặt các từ đầu của câu trả lời.
+- **Level 4:** Hành động tiếp theo cho nhóm bộ phát hiện là gì, và họ biết nó hoạt động bằng cách nào? Expected: thêm prompt như một fixture với danh mục của nó, thêm hoặc điều chỉnh một quy tắc, và đọc recall theo từng danh mục và tỷ lệ dương tính giả lành tính từ bộ chạy chỉ số.
 
 ## Wrong answers
 
-- "The gate failed because the detector said benign." The gate is layered so that a miss in one layer is caught by the next; the trace shows the design working.
-- "Ship nothing when the stream is cut." The design maps early termination to redact and ships the partial through the redactors; a block needs a high signal.
-- "Scan the whole output after generation instead." A post hoc only look lets a prefix injection stream its procedure to the user before the check; the filter exists to stop the stream early.
+- "Cổng thất bại vì bộ phát hiện nói lành tính." Cổng được chia lớp để một lần bỏ lỡ trong một lớp được lớp tiếp theo bắt; trace cho thấy thiết kế hoạt động.
+- "Không đưa ra gì khi stream bị cắt." Thiết kế ánh xạ kết thúc sớm thành redact và đưa phần còn lại qua các bộ che dữ liệu; một lần block cần một tín hiệu cao.
+- "Thay vào đó quét toàn bộ đầu ra sau sinh." Một góc nhìn chỉ hậu kiểm để một prefix injection stream quy trình tới người dùng trước kiểm tra; bộ lọc tồn tại để dừng stream sớm.
 
 ## Taught in
 
-The [end to end safety gate capstone](../../../phases/19-capstone-projects/87-end-to-end-safety-gate/) builds the streaming filter and the trace, and the [jailbreak taxonomy capstone](../../../phases/19-capstone-projects/82-jailbreak-taxonomy/) defines the categories that reach it.
+[Capstone cổng an toàn đầu cuối](../../../phases/19-capstone-projects/87-end-to-end-safety-gate/) xây dựng bộ lọc streaming và trace, và [capstone phân loại jailbreak](../../../phases/19-capstone-projects/82-jailbreak-taxonomy/) định nghĩa các danh mục đến được nó.

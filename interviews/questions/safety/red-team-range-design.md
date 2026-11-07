@@ -16,55 +16,55 @@ related: [safety/safety-eval-missing-pieces, safety/six-jailbreak-categories]
 updated: 2026-11-03
 ---
 
-You own safety for a customer facing assistant built on an open weight model behind a retrieval pipeline. Design the red team range that runs without you: the attack families, the schedule, what counts as a finding, how you keep the assistant helpful while you harden it, and how you prove that a training time intervention helped.
+Bạn phụ trách an toàn cho một trợ lý hướng tới khách hàng được xây trên một mô hình trọng số mở phía sau một pipeline truy xuất. Thiết kế trường thử red team chạy mà không cần bạn: các họ tấn công, lịch, điều gì được tính là một phát hiện, cách bạn giữ trợ lý hữu ích trong lúc gia cố nó, và cách bạn chứng minh một can thiệp ở thời điểm huấn luyện đã giúp ích.
 
 ## Short answer
 
-Schedule at least six attack families on separate queues: automated jailbreak search, tree search attacks, gradient suffix attacks, encoding attacks, multi turn persona attacks and code switching across languages, each reporting a success rate. Every success becomes a finding with a taxonomy id, a severity score and a disclosure timeline. Track over refusal on a benign probe suite next to the block rate so the trade off sits on one chart, and prove a self critique intervention with a before and after harmlessness delta on a held out set.
+Lên lịch ít nhất sáu họ tấn công trên các hàng đợi riêng: tìm kiếm jailbreak tự động, các cuộc tấn công tìm kiếm cây, các cuộc tấn công hậu tố gradient, các cuộc tấn công mã hóa, các cuộc tấn công persona nhiều lượt và chuyển đổi mã ngôn ngữ giữa các ngôn ngữ, mỗi họ báo cáo một tỷ lệ thành công. Mọi thành công trở thành một phát hiện với một id phân loại, một điểm nghiêm trọng và một thời hạn công bố. Theo dõi từ chối quá mức trên một bộ dò lành tính cạnh tỷ lệ chặn để đánh đổi nằm trên một biểu đồ, và chứng minh một can thiệp tự phê bình bằng một chênh lệch vô hại trước và sau trên một tập giữ lại.
 
 ## Full answer
 
 ### The target and its layers
 
-The assistant sits inside a layered pipeline: input sanitizing that strips zero width characters and decodes common encodings, policy rails, a classifier gate, the model, an output filter with personal data scrubbing, and a human review tier for flagged outputs. The range attacks the whole stack, not the bare model, because the stack is what users reach.
+Trợ lý nằm trong một pipeline nhiều lớp: làm sạch đầu vào loại các ký tự zero width và giải mã các dạng mã hóa phổ biến, các rào chính sách, một cổng bộ phân loại, mô hình, một bộ lọc đầu ra với làm sạch dữ liệu cá nhân, và một tầng con người xem xét các đầu ra bị đánh dấu. Trường thử tấn công toàn bộ ngăn xếp, không phải mô hình trần, vì ngăn xếp là thứ người dùng tiếp cận.
 
 ### The attack families
 
-| Family | What it does |
+| Họ | Nó làm gì |
 |---|---|
-| automated jailbreak search | an attacker model rewrites prompts until one lands |
-| tree search attacks | the same search with branching and pruning |
-| gradient suffix attacks | adversarial suffixes optimized against an open weight model |
-| encoding attacks | base64, rot13 and character tricks against the sanitizer |
-| multi turn persona | warm up turns, then a persona and a ramp |
-| code switching | mixing languages to slip past an English classifier |
+| tìm kiếm jailbreak tự động | một mô hình tấn công viết lại các prompt cho đến khi một prompt thành công |
+| các cuộc tấn công tìm kiếm cây | cùng tìm kiếm với phân nhánh và cắt tỉa |
+| các cuộc tấn công hậu tố gradient | các hậu tố đối kháng được tối ưu theo một mô hình trọng số mở |
+| các cuộc tấn công mã hóa | base64, rot13 và các thủ thuật ký tự chống bộ làm sạch |
+| persona nhiều lượt | các lượt làm nóng, rồi một persona và một quá trình tăng dần |
+| chuyển đổi mã ngôn ngữ | trộn các ngôn ngữ để lọt qua một bộ phân loại tiếng Anh |
 
-Report a success rate per family. The capstone's example run shows 7 successes in 50 attempts, a 14 percent rate, with one roleplay bypass scored at a medium 4.8. A retrieval pipeline adds a seventh family the capstone sets as an exercise: indirect injection through retrieved documents, with its own extra defense.
+Báo cáo một tỷ lệ thành công theo từng họ. Lần chạy ví dụ của capstone cho thấy 7 thành công trong 50 lần thử, tỷ lệ 14 phần trăm, với một lần vượt qua bằng nhập vai được chấm mức trung bình 4.8. Một pipeline truy xuất thêm một họ thứ bảy mà capstone đặt ra như một bài tập: injection gián tiếp qua các tài liệu truy xuất, với biện pháp phòng vệ thêm riêng.
 
 ### The finding record
 
-A structured record with the taxonomy id, the attack family, a severity on the standard vulnerability scale from attack vector, complexity and impact, the disclosure timeline and a mitigation plan. Findings write to a queue. A screenshot is not a finding.
+Một bản ghi có cấu trúc với id phân loại, họ tấn công, một mức nghiêm trọng trên thang lỗ hổng tiêu chuẩn từ vector tấn công, độ phức tạp và tác động, thời hạn công bố và một kế hoạch giảm thiểu. Các phát hiện được ghi vào một hàng đợi. Một ảnh chụp màn hình không phải một phát hiện.
 
 ### Staying helpful
 
-Run a benign probe suite on the same schedule and track the over refusal rate. Alert on regression. Grade the harness on the trade off, block rate against benign pass rate, so that a gain on one side that costs the other is visible. Consider a refuse with help mode and measure its effect on the benign suite.
+Chạy một bộ dò lành tính theo cùng lịch và theo dõi tỷ lệ từ chối quá mức. Cảnh báo khi suy giảm. Chấm bộ kiểm thử theo đánh đổi, tỷ lệ chặn so với tỷ lệ lành tính được cho qua, để một lợi ích ở một phía đánh đổi phía kia được hiển thị. Cân nhắc một chế độ từ chối kèm giúp đỡ và đo tác động của nó trên bộ lành tính.
 
 ### Proving the intervention
 
-Curate about a thousand harmful attempt prompts. The model drafts, a critic scores the draft against a written constitution, failing drafts are rewritten, and the model is fine tuned on the improved pairs. Measure harmlessness before and after on a held out eval, next to the benign pass rate before and after. The capstone weights this delta at 20 of 100 points, with coverage of six or more families in two or more languages at 25, the trade off at 20, documentation at 20 and automation at 15.
+Tuyển chọn khoảng một nghìn prompt nỗ lực có hại. Mô hình soạn nháp, một bộ phê bình chấm bản nháp theo một hiến pháp viết ra, các bản nháp không đạt được viết lại, và mô hình được fine-tune trên các cặp đã cải thiện. Đo tính vô hại trước và sau trên một đánh giá giữ lại, cạnh tỷ lệ lành tính được cho qua trước và sau. Capstone đặt trọng số chênh lệch này ở 20 trên 100 điểm, với độ bao phủ sáu họ trở lên trong hai ngôn ngữ trở lên ở 25, đánh đổi ở 20, tài liệu ở 20 và tự động hóa ở 15.
 
 ## Follow-ups
 
-- **Level 3:** Why does each attack family run on its own queue? Expected: the drivers differ in cost and runtime, so a slow gradient attack must not block the cheap encoding sweep, and per family rates need per family runs.
-- **Level 4:** Which family does the retrieval pipeline add that the six do not cover? Expected: indirect injection through retrieved documents, measured as a seventh family with its own extra defense.
-- **Level 4:** How do you show the self critique training helped rather than raised refusals? Expected: the harmlessness delta on a held out eval next to the benign pass rate before and after; a gain that comes with a benign drop is over refusal, not safety.
+- **Level 3:** Tại sao mỗi họ tấn công chạy trên hàng đợi riêng? Expected: các bộ điều khiển khác nhau về chi phí và thời gian chạy, nên một cuộc tấn công gradient chậm không được chặn lượt quét mã hóa rẻ, và các tỷ lệ theo từng họ cần các lần chạy theo từng họ.
+- **Level 4:** Pipeline truy xuất thêm họ nào mà sáu họ không bao phủ? Expected: injection gián tiếp qua các tài liệu truy xuất, được đo như một họ thứ bảy với biện pháp phòng vệ thêm riêng.
+- **Level 4:** Bạn cho thấy huấn luyện tự phê bình đã giúp thay vì nâng các lần từ chối bằng cách nào? Expected: chênh lệch vô hại trên một đánh giá giữ lại cạnh tỷ lệ lành tính được cho qua trước và sau; một lợi ích đi kèm sụt giảm lành tính là từ chối quá mức, không phải an toàn.
 
 ## Wrong answers
 
-- "Run the red team once before launch." Attacks evolve; the range runs on a schedule and the findings feed the next sprint.
-- "Block rate is the metric." Block rate against benign pass rate is the metric; a model that blocks everything has a perfect block rate.
-- "A finding is a screenshot of the bad output." A finding carries a taxonomy id, a severity score, a timeline and a mitigation, or nobody can act on it.
+- "Chạy red team một lần trước ra mắt." Các cuộc tấn công tiến hóa; trường thử chạy theo lịch và các phát hiện đi vào sprint tiếp theo.
+- "Tỷ lệ chặn là chỉ số." Tỷ lệ chặn so với tỷ lệ lành tính được cho qua là chỉ số; một mô hình chặn mọi thứ có tỷ lệ chặn hoàn hảo.
+- "Một phát hiện là một ảnh chụp màn hình đầu ra xấu." Một phát hiện mang một id phân loại, một điểm nghiêm trọng, một thời hạn và một biện pháp giảm thiểu, nếu không không ai có thể hành động theo nó.
 
 ## Taught in
 
-The [constitutional safety harness capstone](../../../phases/19-capstone-projects/15-constitutional-safety-harness/) sets the layers, the attack families, the scoring and the self critique delta, the [jailbreak taxonomy capstone](../../../phases/19-capstone-projects/82-jailbreak-taxonomy/) supplies the ids that findings reference, and the [refusal evaluation capstone](../../../phases/19-capstone-projects/84-refusal-evaluation/) defines the over refusal rate.
+[Capstone bộ kiểm thử an toàn hiến pháp](../../../phases/19-capstone-projects/15-constitutional-safety-harness/) đặt ra các lớp, các họ tấn công, cách chấm và chênh lệch tự phê bình, [capstone phân loại jailbreak](../../../phases/19-capstone-projects/82-jailbreak-taxonomy/) cung cấp các id mà phát hiện tham chiếu, và [capstone đánh giá từ chối](../../../phases/19-capstone-projects/84-refusal-evaluation/) định nghĩa tỷ lệ từ chối quá mức.

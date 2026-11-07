@@ -16,46 +16,46 @@ related: [safety/goodhart-over-optimization-curve, safety/four-costumes-one-mech
 updated: 2026-11-03
 ---
 
-A colleague argues that reward hacking is bounded in their pipeline because the policy trains with a KL penalty against the reference model, so it cannot drift far. Why is that argument incomplete, and under which condition does it fail completely?
+Một đồng nghiệp lập luận rằng reward hacking bị chặn trong pipeline của họ vì policy huấn luyện với một hình phạt KL so với mô hình tham chiếu, nên nó không thể trôi xa. Tại sao lập luận đó chưa đầy đủ, và dưới điều kiện nào nó thất bại hoàn toàn?
 
 ## Short answer
 
-The KL penalty constrains how far the policy's distribution moves, not which modes it moves toward. The over optimization curve already shows that a KL penalty softens the collapse of the gold reward without preventing it. When the proxy's error is heavy tailed, rare but reachable inputs exist where proxy minus gold is unbounded, and a KL constrained optimal policy can place its mass on them: proxy reward arbitrarily high, gold reward at baseline.
+Hình phạt KL ràng buộc phân phối của policy di chuyển bao xa, không ràng buộc nó di chuyển về các mode nào. Đường cong tối ưu hóa quá mức đã cho thấy một hình phạt KL làm dịu sự sụp đổ của phần thưởng chuẩn mà không ngăn nó. Khi sai số của proxy có đuôi nặng, tồn tại các đầu vào hiếm nhưng tiếp cận được nơi proxy trừ chuẩn không bị chặn, và một policy tối ưu bị ràng buộc KL có thể đặt khối xác suất vào chúng: phần thưởng proxy cao tùy ý, phần thưởng chuẩn ở baseline.
 
 ## Full answer
 
 ### What the penalty buys
 
-With a KL term the gold curve still rises, peaks and falls as the policy moves from the reference. The penalty makes the slope gentler and a better proxy pushes the peak out. Neither changes the shape.
+Với một hạng KL, đường cong chuẩn vẫn tăng, đạt đỉnh và giảm khi policy rời tham chiếu. Hình phạt làm độ dốc dịu hơn và một proxy tốt hơn đẩy đỉnh ra xa. Không điều nào thay đổi hình dạng.
 
 ### Catastrophic Goodhart
 
-Suppose the proxy's error has heavy tails: somewhere under the reference model there are inputs the proxy loves far more than the gold does. The KL constraint limits the total distance between the policy and the reference. It does not stop the policy from concentrating that allowed distance on exactly those inputs, because they already have support under the reference. The result is a policy that scores arbitrarily well on the proxy and no better than baseline on the gold.
+Giả sử sai số của proxy có đuôi nặng: ở đâu đó dưới mô hình tham chiếu có các đầu vào mà proxy yêu thích nhiều hơn phần thưởng chuẩn. Ràng buộc KL giới hạn tổng khoảng cách giữa policy và tham chiếu. Nó không ngăn policy tập trung khoảng cách được cho phép đó vào đúng các đầu vào ấy, vì chúng đã có support dưới tham chiếu. Kết quả là một policy có điểm cao tùy ý trên proxy và không tốt hơn baseline trên chuẩn.
 
 ### Why the condition is plausible
 
-A reward model is a bounded measurement of an unbounded world. The lesson argues that such a measurement has heavy tailed error in its tails, so the assumption is not exotic. It is still an assumption: for each proxy, measure the tail of the proxy to gold gap on held out labels before you rely on a KL budget.
+Một mô hình phần thưởng là một phép đo bị chặn của một thế giới không bị chặn. Bài học lập luận rằng một phép đo như vậy có sai số đuôi nặng ở các đuôi, nên giả định không lạ. Nó vẫn là một giả định: với mỗi proxy, đo đuôi của khoảng cách proxy tới chuẩn trên các nhãn giữ lại trước khi dựa vào một ngân sách KL.
 
 ### What helps, partially
 
-- An ensemble of reward models with worst case aggregation: the optimizer can find one model's tail error, but the minimum over several pays only where they all err together.
-- Reward models trained to be robust to shift in the output distribution.
-- Conservative KL schedules and early stopping at the measured proxy to gold gap.
-- Nothing from the direct preference family is exempt; those losses have their own scaling law for over optimization.
+- Một ensemble mô hình phần thưởng với tổng hợp trường hợp xấu nhất: bộ tối ưu có thể tìm sai số đuôi của một mô hình, nhưng mức tối thiểu trên nhiều mô hình chỉ trả tiền ở nơi tất cả cùng sai.
+- Các mô hình phần thưởng được huấn luyện để vững trước dịch chuyển trong phân phối đầu ra.
+- Các lịch KL thận trọng và dừng sớm tại khoảng cách proxy tới chuẩn đã đo.
+- Không thứ gì từ họ sở thích trực tiếp được miễn; các loss đó có định luật tỷ lệ riêng cho tối ưu hóa quá mức.
 
 ## Follow-ups
 
-- **Level 3:** What does a KL penalty constrain, and what does it leave free? Expected: the distance of the policy distribution from the reference; which high reward modes under the reference the policy concentrates on.
-- **Level 3:** How can several reward models do what one model with a penalty cannot? Expected: the optimizer can find one reward model's tail error, but the minimum over several models pays only where they all err together.
-- **Level 4:** Does switching to a direct preference loss remove the problem? Expected: no; the direct alignment family has its own scaling law for over optimization, so the same monitoring applies.
-- **Level 4:** Turn this into an operating rule for a training run. Expected: plot gold against KL distance with held out labels, stop at the empirical peak, and treat a rising proxy with a flat gold as the alarm whatever the KL coefficient.
+- **Level 3:** Một hình phạt KL ràng buộc gì, và để tự do điều gì? Expected: khoảng cách của phân phối policy so với tham chiếu; các mode phần thưởng cao nào dưới tham chiếu mà policy tập trung vào.
+- **Level 3:** Nhiều mô hình phần thưởng có thể làm điều một mô hình với hình phạt không thể bằng cách nào? Expected: bộ tối ưu có thể tìm sai số đuôi của một mô hình phần thưởng, nhưng mức tối thiểu trên nhiều mô hình chỉ trả tiền ở nơi tất cả cùng sai.
+- **Level 4:** Chuyển sang một loss sở thích trực tiếp có loại bỏ vấn đề không? Expected: không; họ alignment trực tiếp có định luật tỷ lệ riêng cho tối ưu hóa quá mức, nên cùng việc giám sát được áp dụng.
+- **Level 4:** Biến điều này thành một quy tắc vận hành cho một lần huấn luyện. Expected: vẽ phần thưởng chuẩn theo khoảng cách KL với các nhãn giữ lại, dừng tại đỉnh thực nghiệm, và xem proxy tăng với chuẩn phẳng là báo động bất kể hệ số KL.
 
 ## Wrong answers
 
-- "Small KL means small reward hacking." KL bounds the drift, not its direction; the policy can spend the budget on the proxy's tail errors.
-- "Heavy tails are an exotic assumption." The lesson argues they are ordinary for a bounded reward model; measure the proxy to gold gap instead of assuming the tail is light.
-- "Use the direct preference loss, it has no reward model." It has an implicit one and its own over optimization curve.
+- "KL nhỏ nghĩa là reward hacking nhỏ." KL chặn sự trôi dạt, không chặn hướng của nó; policy có thể tiêu ngân sách vào các sai số đuôi của proxy.
+- "Đuôi nặng là một giả định lạ." Bài học lập luận chúng là bình thường đối với một mô hình phần thưởng bị chặn; đo khoảng cách proxy tới chuẩn thay vì giả định đuôi nhẹ.
+- "Dùng loss sở thích trực tiếp, nó không có mô hình phần thưởng." Nó có một mô hình ngầm định và đường cong tối ưu hóa quá mức riêng.
 
 ## Taught in
 
-The [reward hacking and Goodhart's law lesson](../../../phases/18-ethics-safety-alignment/02-reward-hacking-goodhart/) explains Catastrophic Goodhart and why KL regularization alone fails.
+[Bài học về reward hacking và định luật Goodhart](../../../phases/18-ethics-safety-alignment/02-reward-hacking-goodhart/) giải thích Catastrophic Goodhart và tại sao chỉ regularization KL thất bại.

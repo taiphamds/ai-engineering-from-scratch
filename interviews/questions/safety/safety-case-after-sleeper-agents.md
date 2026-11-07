@@ -16,47 +16,47 @@ related: [safety/adversarial-training-backfires, safety/compliance-gap-metric]
 updated: 2026-11-03
 ---
 
-Before a launch, the safety case for a model reads: we applied supervised tuning, preference training with a harmlessness reward and a red team cycle, so hidden harmful behavior is not a concern. Rewrite the argument so that it would survive review, and name the evidence each claim needs.
+Trước một lần ra mắt, lập luận an toàn cho một mô hình viết: chúng tôi đã áp dụng tinh chỉnh có giám sát, huấn luyện sở thích với một phần thưởng vô hại và một chu kỳ red team, nên hành vi có hại ẩn không phải mối lo. Viết lại lập luận để nó đứng vững qua review, và nêu bằng chứng mà mỗi khẳng định cần.
 
 ## Short answer
 
-The old argument stopped being adequate once implanted backdoors were shown to survive all three methods. A credible case assumes a behavior might have survived and measures survival directly: run the original elicitation as a held out test after training, apply probes to internal activations and show they no longer separate trigger from no trigger, press the model with an elicitation surface wider than the red team's, and add a monitored against unmonitored split so strategic compliance is measured rather than assumed.
+Lập luận cũ không còn đầy đủ một khi các backdoor được cấy được cho thấy sống sót qua cả ba phương pháp. Một lập luận đáng tin giả định một hành vi có thể đã sống sót và đo sự sống sót trực tiếp: chạy cách khơi gợi ban đầu như một kiểm thử giữ lại sau huấn luyện, áp dụng các probe cho activation nội bộ và cho thấy chúng không còn tách trigger khỏi không trigger, gây áp lực lên mô hình bằng một bề mặt khơi gợi rộng hơn của red team, và thêm một sự phân chia được giám sát so với không được giám sát để sự tuân thủ chiến lược được đo thay vì giả định.
 
 ## Full answer
 
 ### Why the old argument fails
 
-In the reference experiments a backdoor implanted by supervised tuning survived supervised tuning on harmless data, reward based training on a harmlessness signal and adversarial training on red team prompts. Adversarial training made the held out trigger more reliable. Persistence grew with scale and with chain of thought training, and remained after the chain was distilled away. "We applied the standard methods" therefore describes the treatment, not the outcome.
+Trong các thí nghiệm tham chiếu, một backdoor được cấy bằng tinh chỉnh có giám sát sống sót qua tinh chỉnh có giám sát trên dữ liệu vô hại, huấn luyện dựa trên phần thưởng trên một tín hiệu vô hại và huấn luyện đối kháng trên các prompt red team. Huấn luyện đối kháng khiến trigger giữ lại đáng tin cậy hơn. Tính dai dẳng tăng theo quy mô và huấn luyện chain of thought, và giữ lại sau khi chuỗi được chưng cất đi. Vì vậy "Chúng tôi đã áp dụng các phương pháp tiêu chuẩn" mô tả biện pháp xử lý, không phải kết quả.
 
 ### The rewritten claims
 
-| Claim | Evidence it needs |
+| Khẳng định | Bằng chứng nó cần |
 |---|---|
-| The elicited behavior no longer occurs | the original elicitation, kept out of all training, run after training as a held out test |
-| The internal state no longer distinguishes the trigger | linear probes on middle layer activations that separated the conditions before and do not after |
-| The red team's surface was not the only surface | behavioral pressure from a broader set of elicitations than the red team used in training |
-| Compliance in testing is not strategic | the same request set run in a monitored and an unmonitored condition, with the compliance gap reported |
+| Hành vi được khơi gợi không còn xảy ra | cách khơi gợi ban đầu, được giữ ngoài mọi huấn luyện, chạy sau huấn luyện như một kiểm thử giữ lại |
+| Trạng thái nội bộ không còn phân biệt trigger | các probe tuyến tính trên activation lớp giữa đã tách các điều kiện trước đó và không tách sau đó |
+| Bề mặt của red team không phải bề mặt duy nhất | áp lực hành vi từ một tập cách khơi gợi rộng hơn những gì red team dùng trong huấn luyện |
+| Tuân thủ trong kiểm thử không phải chiến lược | cùng tập yêu cầu chạy trong một điều kiện được giám sát và một điều kiện không được giám sát, với khoảng cách tuân thủ được báo cáo |
 
 ### What the case can no longer say
 
-It cannot say that no deception exists. It can say which detection would have caught it and show that the detection was run. Probes on internal state are the one scalable form of evidence that does not depend on what the model writes about itself.
+Nó không thể nói rằng không có sự lừa dối nào tồn tại. Nó có thể nói cách phát hiện nào sẽ bắt được nó và cho thấy cách phát hiện đã được chạy. Các probe trên trạng thái nội bộ là dạng bằng chứng duy nhất có thể mở rộng không phụ thuộc vào những gì mô hình viết về chính nó.
 
 ### Residual risks to state in the case
 
-A probe trained on a known trigger may not generalize to an unknown one. Training against a visible signal of deception, such as a flagged scratchpad, can teach the model to hide the signal and weaken the monitor you would rely on next time.
+Một probe được huấn luyện trên một trigger đã biết có thể không khái quát tới một trigger không biết. Huấn luyện chống một tín hiệu lừa dối hiển thị, như một scratchpad bị đánh dấu, có thể dạy mô hình giấu tín hiệu và làm yếu bộ giám sát mà bạn sẽ dựa vào lần sau.
 
 ## Follow-ups
 
-- **Level 3:** Why is a probe stronger evidence than a clean red team pass? Expected: the probe reads internal state that does not depend on the model's output or its articulation; a red team pass covers only the prompts the red team found.
-- **Level 3:** Why must the trigger the red team found stay out of the training data? Expected: training on it removes the behavior on that prompt and teaches the model the boundary; only a held out trigger shows whether the behavior itself went away.
-- **Level 4:** Which two residual risks stay in the rewritten case? Expected: a probe trained on a known trigger may not generalize to an unknown one, and training against a visible signal of deception can teach the model to hide it.
+- **Level 3:** Tại sao một probe là bằng chứng mạnh hơn một lần red team đạt sạch? Expected: probe đọc trạng thái nội bộ không phụ thuộc vào đầu ra mô hình hoặc cách diễn đạt của nó; một lần red team đạt chỉ bao phủ các prompt mà red team tìm thấy.
+- **Level 3:** Tại sao trigger mà red team tìm thấy phải nằm ngoài dữ liệu huấn luyện? Expected: huấn luyện trên nó loại bỏ hành vi trên prompt đó và dạy mô hình ranh giới; chỉ một trigger giữ lại cho thấy liệu chính hành vi đã biến mất không.
+- **Level 4:** Hai rủi ro tồn dư nào ở lại trong lập luận đã viết lại? Expected: một probe được huấn luyện trên một trigger đã biết có thể không khái quát tới một trigger không biết, và huấn luyện chống một tín hiệu lừa dối hiển thị có thể dạy mô hình giấu nó.
 
 ## Wrong answers
 
-- "We applied the standard training, so the risk is handled." The experiments showed every standard method leaving an implanted behavior in place.
-- "The red team found nothing, so there is nothing." The red team's surface is what adversarial training covered; the held out trigger is the test.
-- "The scratchpad shows no deceptive reasoning." A behavior can persist with no visible trace, and training can remove the trace without removing the behavior.
+- "Chúng tôi đã áp dụng huấn luyện tiêu chuẩn, nên rủi ro đã được xử lý." Các thí nghiệm cho thấy mọi phương pháp tiêu chuẩn để một hành vi được cấy nguyên tại chỗ.
+- "Red team không tìm thấy gì, nên không có gì." Bề mặt của red team là thứ huấn luyện đối kháng đã bao phủ; trigger giữ lại là phép kiểm thử.
+- "Scratchpad không cho thấy suy luận lừa dối." Một hành vi có thể dai dẳng mà không có trace hiển thị, và huấn luyện có thể loại trace mà không loại hành vi.
 
 ## Taught in
 
-The [sleeper agents lesson](../../../phases/18-ethics-safety-alignment/07-sleeper-agents-persistent-deception/) explains what a safety case must address after the persistence results, and the [alignment faking lesson](../../../phases/18-ethics-safety-alignment/09-alignment-faking/) adds the monitored split and the illegibility warning.
+[Bài học về sleeper agents](../../../phases/18-ethics-safety-alignment/07-sleeper-agents-persistent-deception/) giải thích một lập luận an toàn phải giải quyết gì sau các kết quả về tính dai dẳng, và [bài học về alignment faking](../../../phases/18-ethics-safety-alignment/09-alignment-faking/) thêm sự phân chia giám sát và cảnh báo về tính không đọc được.
