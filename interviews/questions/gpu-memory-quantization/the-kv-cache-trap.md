@@ -16,59 +16,59 @@ related: []
 updated: 2026-11-03
 ---
 
-A teammate says: we quantized the 70B model to 4-bit, so it is 35 GB now and it fits on one 80 GB card with room to spare. What is missing from that sentence?
+Một đồng đội nói: chúng ta lượng tử hóa mô hình 70B thành 4-bit, vì vậy giờ nó là 35 GB và vừa trên một card 80 GB còn dư chỗ. Câu đó thiếu gì?
 
 ## Short answer
 
-The KV cache. Weight quantization shrinks the weights, and the cache for the running requests is a separate budget that stays in BF16 or FP8 and grows with every token in flight; at 128 concurrent requests with a 2k context the lesson puts it near 20 GB for a 70B model, plus about 5 GB of activations, so the total is about 60 GB on the 80 GB card. That 20 GB is the lesson's rough figure, so check it against the config: Llama-3.1-70B keeps 320 KiB per token in BF16, and 128 full 2k-token requests then need about four times the lesson's figure, which does not fit beside the weights on one 80 GB card. Count the weights, the cache at your peak concurrency and context, and the activations together, and read the pool size in the startup log after the start.
+KV cache. Lượng tử hóa trọng số thu nhỏ trọng số, và cache cho các request đang chạy là một ngân sách riêng giữ ở BF16 hoặc FP8 và tăng theo mọi token đang xử lý; tại 128 request đồng thời với ngữ cảnh 2k bài học đặt nó gần 20 GB cho một mô hình 70B, cộng khoảng 5 GB activation, vì vậy tổng khoảng 60 GB trên card 80 GB. Mức 20 GB đó là con số thô của bài học, vì vậy kiểm tra với cấu hình: Llama-3.1-70B giữ 320 KiB mỗi token ở BF16, và 128 request đầy đủ 2k token rồi cần khoảng gấp bốn con số bài học, không vừa cạnh trọng số trên một card 80 GB. Đếm trọng số, cache tại mức đồng thời và ngữ cảnh đỉnh, và activation cùng nhau, và đọc kích thước pool trong log khởi động sau khi khởi động.
 
 ## Full answer
 
 ### The budget has three parts
 
-The lesson's own count for a 70B model with 4-bit weights:
+Phép đếm riêng của bài học cho một mô hình 70B với trọng số 4-bit:
 
-| Part | Size |
+| Phần | Kích thước |
 |---|---|
-| Weights, 4-bit from 140 GB in FP16 | about 35 GB |
-| KV cache at 128 concurrent requests with a 2k context | about 20 GB |
-| Activations | about 5 GB |
-| Total | about 60 GB |
+| Trọng số, 4-bit từ 140 GB ở FP16 | khoảng 35 GB |
+| KV cache tại 128 request đồng thời với ngữ cảnh 2k | khoảng 20 GB |
+| Activation | khoảng 5 GB |
+| Tổng | khoảng 60 GB |
 
-The sentence "it is 35 GB now" forgets the cache and the activations. Budget the card as a whole, and count the cache from the config of your model: Llama-3.1-70B keeps 320 KiB per token in BF16, so at full 2k contexts its cache alone is about four times the 20 GB in the table.
+Câu "giờ nó là 35 GB" quên cache và activation. Lập ngân sách cả card, và đếm cache từ cấu hình mô hình: Llama-3.1-70B giữ 320 KiB mỗi token ở BF16, vì vậy tại ngữ cảnh 2k đầy đủ chỉ cache đã khoảng gấp bốn mức 20 GB trong bảng.
 
 ### Where the cache goes
 
-Every token in a running request keeps its keys and values in GPU memory until the request ends. The bytes per token come from four numbers in the model config: layers times KV heads times head size times 2 for the key and the value, times the bytes per value. Qwen3-8B keeps 144 KiB per token in BF16 and Qwen3-30B-A3B keeps 96 KiB, because the KV heads decide the number and the parameter count does not. The engine gives the cache what is left after the weights and the startup profile, and the users that fit are the pool divided by the context that one user holds, prompt plus output. On the GB10 the weights of the 30B model took 56.93 GiB, 31.32 GiB was left for the cache, and at 96 KiB per token that is about 342,000 tokens.
+Mọi token trong một request đang chạy giữ key và value trong bộ nhớ GPU cho đến khi request kết thúc. Byte mỗi token đến từ bốn số trong cấu hình mô hình: số lớp nhân KV head nhân kích thước head nhân 2 cho key và value, nhân byte mỗi giá trị. Qwen3-8B giữ 144 KiB mỗi token ở BF16 và Qwen3-30B-A3B giữ 96 KiB, vì KV head quyết định con số và số tham số không quyết định. Engine cho cache phần còn lại sau trọng số và profile khởi động, và số người dùng vừa là pool chia ngữ cảnh một người giữ, prompt cộng đầu ra. Trên GB10 trọng số mô hình 30B chiếm 56.93 GiB, 31.32 GiB còn cho cache, và tại 96 KiB mỗi token đó là khoảng 342,000 token.
 
 ### KV quantization is its own decision
 
-An FP8 cache halves the bytes per token, which doubles the users at the same length. It is a separate choice from the weight format, with its own scales and its own effect on the attention values, so it needs its own accuracy check. Quantizing the weights does not shrink the cache.
+Một cache FP8 giảm một nửa byte mỗi token, tăng gấp đôi người dùng ở cùng độ dài. Nó là một lựa chọn riêng với định dạng trọng số, có scale riêng và tác động riêng lên giá trị attention, vì vậy cần phép kiểm tra độ chính xác riêng. Lượng tử hóa trọng số không thu nhỏ cache.
 
 ### How to fit more, in order of cost
 
-1. Lower the maximum model length to the longest real request. This does not grow the pool, but it stops one request from claiming all of it.
-2. Use an FP8 KV cache.
-3. Use FP8 or 4-bit weights, which free memory for the cache.
-4. Use a GPU with more memory, or split the model.
+1. Hạ độ dài mô hình tối đa đến request thật dài nhất. Điều này không tăng pool, nhưng ngăn một request đòi tất cả.
+2. Dùng một KV cache FP8.
+3. Dùng trọng số FP8 hoặc 4-bit, giải phóng bộ nhớ cho cache.
+4. Dùng một GPU có thêm bộ nhớ, hoặc chia mô hình.
 
 ### Read the log
 
-Read two lines after every start: the weight load line and the available KV cache memory line. The pool line then gives the tokens and the maximum concurrency at the full length, which assumes that every user fills the maximum; real users hold less, so more fit.
+Đọc hai dòng sau mỗi khởi động: dòng nạp trọng số và dòng bộ nhớ KV cache khả dụng. Dòng pool rồi cho token và mức đồng thời tối đa tại độ dài đầy đủ, giả định mọi người dùng lấp tối đa; người dùng thật giữ ít hơn, vì vậy nhiều hơn vừa.
 
 ## Follow-ups
 
-- **Level 1:** Which three things take memory on a serving GPU? Expected: the weights, the KV cache for the tokens in flight, and the activations with the startup working memory; the engine gives the cache what is left after the other two.
-- **Level 2:** What does the KV cache grow with? Expected: the number of running requests and the context that each one holds, prompt plus output, so it grows with concurrency and with length, not with the weights.
-- **Level 3:** Quantizing the weights to 4-bit and quantizing the cache to FP8 are different decisions. Why? Expected: the weights are a fixed cost and their quantization changes the matrix math; the cache is per token and its quantization changes the attention values directly, so it needs its own accuracy check and its own scales.
-- **Level 4:** Where in the startup log do you confirm that the budget held? Expected: in the weight load line, the available KV cache memory line and the pool size line with its maximum concurrency; divide the pool by prompt plus output per user rather than by the maximum length.
+- **Level 1:** Ba thứ nào chiếm bộ nhớ trên một GPU phục vụ? Expected: trọng số, KV cache cho các token đang xử lý, và activation cùng bộ nhớ làm việc khởi động; engine cho cache phần còn lại sau hai thứ khác.
+- **Level 2:** KV cache tăng theo gì? Expected: số request đang chạy và ngữ cảnh mỗi request giữ, prompt cộng đầu ra, vì vậy nó tăng theo mức đồng thời và độ dài, không theo trọng số.
+- **Level 3:** Lượng tử hóa trọng số thành 4-bit và cache thành FP8 là các quyết định khác nhau. Tại sao? Expected: trọng số là chi phí cố định và lượng tử hóa chúng thay đổi tính toán ma trận; cache theo token và lượng tử hóa nó thay đổi trực tiếp giá trị attention, vì vậy cần phép kiểm tra độ chính xác và scale riêng.
+- **Level 4:** Ở đâu trong log khởi động bạn xác nhận ngân sách giữ đúng? Expected: trong dòng nạp trọng số, dòng bộ nhớ KV cache khả dụng và dòng kích thước pool với mức đồng thời tối đa; chia pool cho prompt cộng đầu ra mỗi người dùng thay vì độ dài tối đa.
 
 ## Wrong answers
 
-- "The model is 35 GB, so the rest is free for users." The KV cache and the activations take their share first; at 128 concurrent requests with a 2k context the lesson puts the cache near 20 GB and the total near 60 GB.
-- "Quantizing the weights also shrinks the cache." The cache stays in its own dtype; it halves only if you quantize the cache, which is a separate choice with its own accuracy effect.
-- "The cache is small because the model is small." The bytes per token depend on the layers and the KV heads; a 30B expert model keeps 96 KiB per token and an 8B dense model 144 KiB.
+- "Mô hình là 35 GB, vì vậy phần còn lại trống cho người dùng." KV cache và activation lấy phần trước; tại 128 request đồng thời với ngữ cảnh 2k bài học đặt cache gần 20 GB và tổng gần 60 GB.
+- "Lượng tử hóa trọng số cũng thu nhỏ cache." Cache giữ dtype riêng; nó chỉ giảm một nửa nếu bạn lượng tử hóa cache, một lựa chọn riêng có tác động độ chính xác riêng.
+- "Cache nhỏ vì mô hình nhỏ." Byte mỗi token phụ thuộc số lớp và KV head; một mô hình expert 30B giữ 96 KiB mỗi token và một mô hình dense 8B 144 KiB.
 
 ## Taught in
 
-[The production quantization lesson](../../../phases/17-infrastructure-and-production/09-production-quantization/docs/en.md) names the trap, and [Count the memory before you pick a GPU](../../../manuals/vllm-101/sections/2-1-count-the-memory-before-you-pick-a-gpu.md) counts the cache.
+[Bài học lượng tử hóa production](../../../phases/17-infrastructure-and-production/09-production-quantization/docs/en.md) nêu bẫy, và [Đếm bộ nhớ trước khi chọn GPU](../../../manuals/vllm-101/sections/2-1-count-the-memory-before-you-pick-a-gpu.md) đếm cache.

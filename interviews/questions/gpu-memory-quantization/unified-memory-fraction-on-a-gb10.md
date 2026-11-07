@@ -16,64 +16,64 @@ related: []
 updated: 2026-11-03
 ---
 
-You run a 30B model with mixture-of-experts layers in BF16 on a GB10, a machine where CPU and GPU draw on one 128 GB memory and the operating system and other programs live in the same pool. How do you pick the memory fraction, what does the fraction not guarantee on this machine, and why does the pool size differ between two starts with the same command?
+Bạn chạy một mô hình 30B có các lớp mixture-of-experts ở BF16 trên một GB10, một máy nơi CPU và GPU dùng một bộ nhớ 128 GB và hệ điều hành cùng các chương trình khác nằm trong cùng pool. Bạn chọn tỷ lệ bộ nhớ như thế nào, tỷ lệ không bảo đảm gì trên máy này, và tại sao kích thước pool khác giữa hai lần khởi động cùng lệnh?
 
 ## Short answer
 
-Add the weights, the KV cache you want and a few GiB for the startup profile and the graphs, divide by the total, and leave room for the kernel's page cache and the other programs, which use the same memory. With a fraction of 0.75 the manual's vLLM run took 91.3 of 121.69 GiB: 56.93 GiB of weights, 31.32 GiB of cache, about 342,000 tokens at 96 KiB each, and about 3 GiB for the rest, which left about 30 GiB for everything else. The fraction is a plan and not a hard limit on unified memory, and the pool moves between starts because the engine sizes it from a snapshot of free memory that the kernel's file cache changes.
+Cộng trọng số, KV cache bạn muốn và vài GiB cho profile khởi động và graph, chia cho tổng, và để chỗ cho page cache của kernel và các chương trình khác, dùng cùng bộ nhớ. Với tỷ lệ 0.75 lần chạy vLLM của tài liệu lấy 91.3 trên 121.69 GiB: 56.93 GiB trọng số, 31.32 GiB cache, khoảng 342,000 token mỗi token 96 KiB, và khoảng 3 GiB cho phần còn lại, để khoảng 30 GiB cho mọi thứ khác. Tỷ lệ là một kế hoạch chứ không phải giới hạn cứng trên bộ nhớ hợp nhất, và pool dịch chuyển giữa các lần khởi động vì engine định nó từ một snapshot bộ nhớ trống mà file cache của kernel thay đổi.
 
 ## Full answer
 
 ### What GPU memory means here
 
-The GB10 has no separate GPU memory. The CPU and the GPU use one pool of LPDDR5x memory, sold as 128 GB; the startup log reported 121.69 GiB in total. On an integrated GPU vLLM reads free memory from the operating system, because the driver reports too little, and it releases its cached GPU memory when the whole system is more than 80 percent full. So the fraction is a share of the whole machine, not of a separate card.
+GB10 không có bộ nhớ GPU riêng. CPU và GPU dùng một pool bộ nhớ LPDDR5x, được bán là 128 GB; log khởi động báo cáo tổng 121.69 GiB. Trên một GPU tích hợp vLLM đọc bộ nhớ trống từ hệ điều hành, vì driver báo quá ít, và giải phóng bộ nhớ GPU đã cache khi toàn hệ thống đầy hơn 80 phần trăm. Vì vậy tỷ lệ là phần của toàn máy, không phải một card riêng.
 
 ### The budget at 0.75
 
-| Part | Size |
+| Phần | Kích thước |
 |---|---|
-| The share for vLLM, 0.75 of 121.69 GiB | 91.3 GiB |
-| The weights | 56.93 GiB |
-| Free for the KV cache | 31.32 GiB |
-| The rest, for the profile and the graphs | about 3 GiB |
+| Phần cho vLLM, 0.75 của 121.69 GiB | 91.3 GiB |
+| Trọng số | 56.93 GiB |
+| Trống cho KV cache | 31.32 GiB |
+| Phần còn lại, cho profile và graph | khoảng 3 GiB |
 
-At 96 KiB per token the cache holds about 342,000 tokens, enough for more than 500 users with 640 tokens each. About 30 GiB stayed for the system and every other program. The manual ran one fraction only and says so.
+Ở 96 KiB mỗi token cache giữ khoảng 342,000 token, đủ cho hơn 500 người dùng mỗi người 640 token. Khoảng 30 GiB còn cho hệ thống và mọi chương trình khác. Tài liệu chỉ chạy một tỷ lệ và nói vậy.
 
 ### The fraction is not a hard limit
 
-Two reports show the engine taking more than its share during the startup profile on this machine. One ran a fraction of 0.70, used about 112 GiB against a share of about 83 GiB, and the machine stopped responding. Another hit a negative estimate of the graph memory with a speculative method, so the cache grew too large and the start ran out of memory. The manual's own run matched the share of 0.75, with no speculation. To give the cache a fixed size instead, set it in bytes with `--kv-cache-memory-bytes`, and check that the weights, the cache and a few GiB for the profile leave room for the operating system.
+Hai báo cáo cho thấy engine lấy hơn phần của nó trong profile khởi động trên máy này. Một báo cáo chạy tỷ lệ 0.70, dùng khoảng 112 GiB so với phần khoảng 83 GiB, và máy ngừng phản hồi. Báo cáo khác gặp một ước lượng bộ nhớ graph âm với một phương pháp speculative, vì vậy cache tăng quá lớn và khởi động hết bộ nhớ. Lần chạy riêng của tài liệu khớp phần 0.75, không speculation. Để cho cache một kích thước cố định thay vào đó, đặt bằng byte với `--kv-cache-memory-bytes`, và kiểm tra trọng số, cache và vài GiB cho profile để lại chỗ cho hệ điều hành.
 
-SGLang's manual adds a field report of 25 to 40 GB of short-lived allocations outside the memory accounting, from the kernel autotuner and the graph capture, which froze a host until the server ran in a container with a memory cap and a fraction of 0.50. On a shared GB10, run the server in a container with a memory limit and log free memory once a second during startup.
+Tài liệu SGLang thêm một báo cáo thực địa về 25 đến 40 GB cấp phát ngắn hạn ngoài phần tính bộ nhớ, từ kernel autotuner và capture graph, làm đóng băng một host cho đến khi server chạy trong một container có giới hạn bộ nhớ và tỷ lệ 0.50. Trên một GB10 dùng chung, chạy server trong một container có giới hạn bộ nhớ và ghi log bộ nhớ trống mỗi giây khi khởi động.
 
 ### Why the pool moves between starts
 
-SGLang sizes the pool from a snapshot of free memory after the weights load, and it measures the weights as the drop in available memory. Six BF16 starts of one command with the same weights on the GB10 read the weights at 54.78 to 57.92 GB and gave pools from 227,243 to 258,017 tokens, 14 percent apart. The kernel's file cache changed during each load. On unified memory a pool size from one start is an estimate for the next, so read the pool line at every start.
+SGLang định pool từ một snapshot bộ nhớ trống sau khi trọng số nạp, và đo trọng số bằng mức giảm bộ nhớ khả dụng. Sáu lần khởi động BF16 của một lệnh với cùng trọng số trên GB10 đọc trọng số ở 54.78 đến 57.92 GB và cho pool từ 227,243 đến 258,017 token, cách nhau 14 phần trăm. File cache của kernel thay đổi trong mỗi lần nạp. Trên bộ nhớ hợp nhất một kích thước pool từ một lần khởi động là một ước tính cho lần tiếp theo, vì vậy đọc dòng pool ở mọi lần khởi động.
 
 ### Other programs see the pool
 
-The pool is tens of GB and the engine allocates it in a few seconds, so every other program sees that memory go. A memory guard daemon on the manual's GB10 paused the scheduler three times during startup because it grew 36.7 GiB in 5 seconds with 34.2 GiB left. Tell the other users of the machine before you start, and do not alert on the driver's out-of-memory lines alone; alert when a server does not become healthy.
+Pool là hàng chục GB và engine cấp phát nó trong vài giây, vì vậy mọi chương trình khác thấy bộ nhớ đó đi mất. Một daemon bảo vệ bộ nhớ trên GB10 của tài liệu tạm dừng scheduler ba lần khi khởi động vì nó tăng 36.7 GiB trong 5 giây với 34.2 GiB còn lại. Báo những người dùng khác của máy trước khi khởi động, và không chỉ cảnh báo trên các dòng hết bộ nhớ của driver; cảnh báo khi một server không trở nên khỏe.
 
 ### When a bigger pool pays
 
-Raising the SGLang fraction from 0.7 to 0.82 on the GB10 grew the BF16 pool from 234,600 to 383,065 tokens, 63 percent, and changed closed-loop throughput by less than 2 percent at 64 users, 238.72 against 235.38 tokens per second, because token usage peaked at 11 percent. Under a fixed arrival rate above what the machine serves, the smaller pool was 96 percent full with 101 requests waiting, the larger pool held all 480 requests, and the machine completed 5.19 against 3.88 requests per second, 34 percent more. Size the pool from token usage at peak load, bursts included, and not from free memory.
+Tăng tỷ lệ SGLang từ 0.7 lên 0.82 trên GB10 tăng pool BF16 từ 234,600 lên 383,065 token, 63 phần trăm, và thay đổi throughput vòng kín dưới 2 phần trăm ở 64 người dùng, 238.72 so với 235.38 token mỗi giây, vì mức sử dụng token đạt đỉnh 11 phần trăm. Dưới tốc độ đến cố định cao hơn khả năng phục vụ của máy, pool nhỏ đầy 96 phần trăm với 101 request chờ, pool lớn giữ cả 480 request, và máy hoàn tất 5.19 so với 3.88 request mỗi giây, nhiều hơn 34 phần trăm. Định pool từ mức sử dụng token tại tải đỉnh, gồm các đợt bùng phát, không từ bộ nhớ trống.
 
 ### Expect a slow first start
 
-Loading 56.93 GiB took 330 s on this machine, because each tensor is copied from a memory-mapped file one at a time, about 1.7 ms per tensor from the file view against 0.2 ms from host memory. Keep the weights on the local drive, and keep the server running.
+Nạp 56.93 GiB mất 330 s trên máy này, vì mỗi tensor được sao chép từ một file ánh xạ bộ nhớ từng tensor một, khoảng 1.7 ms mỗi tensor từ file view so với 0.2 ms từ bộ nhớ host. Giữ trọng số trên ổ cục bộ, và giữ server chạy.
 
 ## Follow-ups
 
-- **Level 3:** `free -g` shows almost no available memory while the server idles. What do you do? Expected: lower the fraction by 0.05 and start again; the system and its page cache share the pool, and if the cache line is larger than the share allows, set the cache size in bytes instead.
-- **Level 3:** The same command gave pools of 227,243 and 258,017 tokens on two days. Is something broken? Expected: no; the engine sizes the pool from a snapshot of free memory after the weights load, and the kernel's file cache changed during each load, so the measured weights moved by about 3 GB and the pool with them; read the pool line at every start.
-- **Level 4:** Going from 0.7 to 0.82 did nothing at 64 users and gave a third more throughput in an overload. Reconcile the two. Expected: in the closed loop the pool was never full, token usage peaked at 11 percent, so a larger pool had nothing to do; under a fixed arrival rate above what the machine serves, the small pool was 96 percent full with 101 requests waiting and the larger pool held all 480, so size the pool from token usage at peak load with its bursts.
+- **Level 3:** `free -g` hiển thị gần như không có bộ nhớ khả dụng khi server nhàn rỗi. Bạn làm gì? Expected: hạ tỷ lệ 0.05 và khởi động lại; hệ thống và page cache dùng chung pool, và nếu dòng cache lớn hơn phần cho phép, đặt kích thước cache bằng byte thay vào đó.
+- **Level 3:** Cùng lệnh cho pool 227,243 và 258,017 token vào hai ngày. Có gì hỏng không? Expected: không; engine định pool từ một snapshot bộ nhớ trống sau khi trọng số nạp, và file cache của kernel thay đổi trong mỗi lần nạp, vì vậy trọng số đo được dịch chuyển khoảng 3 GB và pool cùng chúng; đọc dòng pool mọi lần khởi động.
+- **Level 4:** Đi từ 0.7 lên 0.82 không làm gì ở 64 người dùng và cho thêm một phần ba throughput trong quá tải. Đối chiếu hai điều. Expected: trong vòng kín pool chưa bao giờ đầy, mức sử dụng token đạt đỉnh 11 phần trăm, vì vậy pool lớn hơn không có việc làm; dưới tốc độ đến cố định cao hơn khả năng phục vụ của máy, pool nhỏ đầy 96 phần trăm với 101 request chờ và pool lớn giữ cả 480, vì vậy định pool từ mức sử dụng token tại tải đỉnh với các đợt bùng phát.
 
 ## Wrong answers
 
-- "The fraction caps what the server can take." On unified memory it sets the share that the engine plans for; one report used about 112 GiB at a fraction of 0.70 during the startup profile against a share of about 83 GiB, and the machine stopped responding.
-- "Set the fraction as high as it goes to get the biggest pool." The system and its page cache use the same memory, and memory you do not need is memory another program cannot use; on the GB10 a 63 percent larger pool changed closed-loop throughput by less than 2 percent.
-- "Yesterday's pool size is the pool size." Six starts with the same command gave pools 14 percent apart, because the snapshot of free memory changed; read the line each time.
-- "A slow first start means something is wrong." Loading 56.93 GiB from a file-backed mapping took 330 s on this machine, about 1.7 ms per tensor against 0.2 ms from host memory; keep the weights on local storage and keep the server running.
+- "Tỷ lệ giới hạn thứ server có thể lấy." Trên bộ nhớ hợp nhất nó đặt phần engine lên kế hoạch; một báo cáo dùng khoảng 112 GiB ở tỷ lệ 0.70 trong profile khởi động so với phần khoảng 83 GiB, và máy ngừng phản hồi.
+- "Đặt tỷ lệ cao hết mức để lấy pool lớn nhất." Hệ thống và page cache dùng cùng bộ nhớ, và bộ nhớ bạn không cần là bộ nhớ chương trình khác không thể dùng; trên GB10 một pool lớn hơn 63 phần trăm thay đổi throughput vòng kín dưới 2 phần trăm.
+- "Kích thước pool hôm qua là kích thước pool." Sáu lần khởi động cùng lệnh cho các pool cách nhau 14 phần trăm, vì snapshot bộ nhớ trống thay đổi; đọc dòng mỗi lần.
+- "Một lần khởi động đầu chậm nghĩa là có gì sai." Nạp 56.93 GiB từ một mapping có file hậu thuẫn mất 330 s trên máy này, khoảng 1.7 ms mỗi tensor so với 0.2 ms từ bộ nhớ host; giữ trọng số trên bộ lưu trữ cục bộ và giữ server chạy.
 
 ## Taught in
 
-[Size memory on a DGX Spark](../../../manuals/vllm-101/sections/2-3-size-memory-on-a-dgx-spark.md) and [--mem-fraction-static and startup sizing](../../../manuals/sglang-101/sections/3-2-mem-fraction-static-and-startup-sizing.md) measure the fraction on the same machine.
+[Định kích thước bộ nhớ trên một DGX Spark](../../../manuals/vllm-101/sections/2-3-size-memory-on-a-dgx-spark.md) và [--mem-fraction-static và định kích thước khởi động](../../../manuals/sglang-101/sections/3-2-mem-fraction-static-and-startup-sizing.md) đo tỷ lệ trên cùng máy.

@@ -16,64 +16,64 @@ related: []
 updated: 2026-11-03
 ---
 
-You enabled an FP8 KV cache on a checkpoint that ships calibrated scales, and accuracy on your eval dropped. The startup log contains a line about the scaling factor. What happened, how do you confirm it, and what are your options?
+Bạn bật một KV cache FP8 trên một checkpoint cung cấp các scale được hiệu chuẩn, và độ chính xác trên đánh giá của bạn giảm. Log khởi động chứa một dòng về hệ số tỷ lệ. Điều gì xảy ra, bạn xác nhận như thế nào, và các lựa chọn là gì?
 
 ## Short answer
 
-The server is running the cache with a scale of 1.0, because the loader did not use the scales in the checkpoint: vLLM prints `Using KV cache scaling factor 1.0` when that is the case. SGLang prints `Using FP8 KV cache but no scaling factors provided` whenever no `--quantization-param-path` is passed, so its warning alone does not show which scales the server uses. Confirm the vLLM case by searching the weight index of the checkpoint for tensors that end in `k_scale` or `v_scale`; if they exist and vLLM still prints the warning, the loader dropped them, which at 0.31.0 happens for one whole model family and for one draft loader in open issues. The options are another checkpoint or version whose scales load, a scale file passed through the quantization parameter path on SGLang, or a BF16 cache until they do, with an accuracy run on your own task after each change.
+Server chạy cache với scale 1.0, vì loader không dùng các scale trong checkpoint: vLLM in `Using KV cache scaling factor 1.0` khi vậy. SGLang in `Using FP8 KV cache but no scaling factors provided` bất cứ khi nào không truyền `--quantization-param-path`, vì vậy chỉ cảnh báo của nó không cho thấy các scale server dùng. Xác nhận trường hợp vLLM bằng cách tìm trong weight index của checkpoint các tensor kết thúc bằng `k_scale` hoặc `v_scale`; nếu chúng có và vLLM vẫn in cảnh báo, loader đã bỏ chúng, điều xảy ra tại 0.31.0 cho cả một họ mô hình và cho một draft loader trong các issue đang mở. Các lựa chọn là một checkpoint hoặc phiên bản khác nạp được scale, một file scale truyền qua đường dẫn tham số lượng tử hóa trên SGLang, hoặc cache BF16 cho đến khi nạp được, với một lần chạy độ chính xác trên nhiệm vụ riêng sau mỗi thay đổi.
 
 ## Full answer
 
 ### What a scale does
 
-FP8 needs a scale for each tensor to map the range of the keys and values into the format. Without one, every scale is 1.0. The vLLM team treats that as the worst case for accuracy. In their tests of uncalibrated caches most models stayed close to BF16, and one model family on a latent-attention backend did not work well without calibrated scales. A fix in SGLang for dropped scales on compressed-tensors checkpoints measured GSM8K at 0.960 with the scales dropped and 0.965 with them loaded, on a checkpoint whose scales were close to 1.0; a checkpoint with scales far from 1.0 loses more.
+FP8 cần một scale cho mỗi tensor để ánh xạ phạm vi key và value vào định dạng. Không có scale, mọi scale là 1.0. Nhóm vLLM coi đó là trường hợp tệ nhất cho độ chính xác. Trong các kiểm thử cache chưa hiệu chuẩn của họ phần lớn mô hình giữ gần BF16, và một họ mô hình trên một backend latent-attention không hoạt động tốt khi không có scale được hiệu chuẩn. Một cách sửa trong SGLang cho các scale bị bỏ trên checkpoint compressed-tensors đo GSM8K ở 0.960 khi scale bị bỏ và 0.965 khi được nạp, trên một checkpoint có scale gần 1.0; một checkpoint có scale xa 1.0 mất nhiều hơn.
 
 ### Confirm it in three steps
 
-1. Look for the scales in the checkpoint. Search the weight index for tensor names that end in `k_scale` or `v_scale`:
+1. Tìm scale trong checkpoint. Tìm weight index cho các tên tensor kết thúc bằng `k_scale` hoặc `v_scale`:
 
 ```bash
 grep -oE '"[^"]*(k|v)_scale"' model.safetensors.index.json | sort -u
 ```
 
-No output means that the checkpoint has no scales. A checkpoint with one weight file has no index; list its tensor names with the safetensors package instead.
+Không có đầu ra nghĩa là checkpoint không có scale. Một checkpoint với một file trọng số không có index; thay vào đó liệt kê các tên tensor bằng gói safetensors.
 
-2. Read the startup log. In vLLM the scaling factor warning with scales present in the checkpoint means that the loader dropped them. In SGLang the provided-scales warning prints whenever you pass no scale file, so it alone does not say which scales the server uses; a warning about a missing `k_scale` or `v_scale` parameter does say that the loader skipped them.
+2. Đọc log khởi động. Trong vLLM cảnh báo hệ số tỷ lệ với các scale hiện diện trong checkpoint nghĩa là loader bỏ chúng. Trong SGLang cảnh báo scale được cung cấp in bất cứ khi nào bạn không truyền file scale, vì vậy chỉ nó không nói server dùng scale nào; một cảnh báo về tham số `k_scale` hoặc `v_scale` bị thiếu có nói loader đã bỏ chúng.
 
-3. Run your own prompts with and without the FP8 cache and compare the answers before you go to production.
+3. Chạy các prompt riêng có và không có cache FP8 và so sánh các câu trả lời trước khi lên production.
 
 ### The loaders at the pinned versions
 
-At vLLM 0.31.0 one model family never loads its KV scales, and one speculative draft loader drops them too; both issues are open. SGLang dropped the KV scales of compressed-tensors checkpoints before a fix merged on 2026-08-20, and the log reported each `k_scale` parameter as not found; the fix is in v0.5.22. A later release of vLLM also fixed a case where a level 2 sleep cleared calibrated scales and the first request after a reload returned wrong values.
+Tại vLLM 0.31.0 một họ mô hình không bao giờ nạp KV scale, và một speculative draft loader cũng bỏ chúng; cả hai issue đang mở. SGLang bỏ KV scale của các checkpoint compressed-tensors trước một bản sửa được gộp ngày 2026-08-20, và log báo cáo mỗi tham số `k_scale` là không tìm thấy; bản sửa có trong v0.5.22. Một bản phát hành vLLM sau cũng sửa một trường hợp nơi sleep mức 2 xóa các scale được hiệu chuẩn và request đầu sau nạp lại trả các giá trị sai.
 
 ### Weight scales are not KV scales
 
-The FP8 checkpoint of Qwen3-30B-A3B lists weight scales and no KV scales in its index, so its cache ran with a scale of 1.0 on the manual's GB10. An FP8 checkpoint says nothing about its cache until you look.
+Checkpoint FP8 của Qwen3-30B-A3B liệt kê các weight scale và không có KV scale trong index, vì vậy cache của nó chạy với scale 1.0 trên GB10 của tài liệu. Một checkpoint FP8 không nói gì về cache của nó cho đến khi bạn nhìn.
 
 ### What the manual measured without scales
 
-Qwen3-8B has no KV scales, so the manual's FP8 KV runs used a scale of 1.0. On 500 GSM8K questions, 8-shot and greedy, vLLM scored 90.8 percent with the FP8 cache against 91.8 in BF16, and SGLang 91.6 against 91.6. Every interval overlapped. That is not a licence: 500 questions cannot rule out a loss of a few points, it is one model and one benchmark, and a model with another attention layout can lose more.
+Qwen3-8B không có KV scale, vì vậy các lần chạy KV FP8 của tài liệu dùng scale 1.0. Trên 500 câu hỏi GSM8K, 8-shot và greedy, vLLM đạt 90.8 phần trăm với cache FP8 so với 91.8 ở BF16, và SGLang 91.6 so với 91.6. Mọi khoảng đều chồng nhau. Đó không phải giấy phép: 500 câu hỏi không thể loại trừ mất vài điểm, đó là một mô hình và một benchmark, và một mô hình có bố trí attention khác có thể mất nhiều hơn.
 
 ### The options
 
-- Another checkpoint, or another engine version, whose scales load; read the log after the change.
-- On SGLang, a scale file through `--quantization-param-path`.
-- A BF16 cache until the scales load, and the capacity from FP8 weights instead.
-- In every case, the accuracy run on your own task, with the cached warning read as a defect to track.
+- Một checkpoint khác, hoặc phiên bản engine khác, nạp được scale; đọc log sau thay đổi.
+- Trên SGLang, một file scale qua `--quantization-param-path`.
+- Một cache BF16 cho đến khi scale nạp được, và năng lực từ trọng số FP8 thay vào đó.
+- Trong mọi trường hợp, lần chạy độ chính xác trên nhiệm vụ riêng, với cảnh báo cache được đọc như một khuyết điểm cần theo dõi.
 
 ## Follow-ups
 
-- **Level 3:** The checkpoint has one weight file and no index. How do you look for the scales? Expected: list the tensor names with the safetensors package instead of searching the index, and look for names that end in k_scale or v_scale.
-- **Level 3:** The warning prints, but your GSM8K run shows no loss. Are you done? Expected: no; 500 questions cannot rule out a loss of a few points, the loss depends on the model and its attention layout, and one family needed calibrated scales while most did not; run your own task and track the warning as a defect.
-- **Level 4:** Why do calibrated scales matter more for some attention layouts than for others? Expected: the scale maps the range of the keys and values into the FP8 range, and a layout whose values spread wider than the format clips or loses precision at a scale of 1.0; the vLLM team named one latent-attention family that did not work well uncalibrated while most models stayed close to BF16, so the layout and the calibration decide together.
+- **Level 3:** Checkpoint có một file trọng số và không có index. Bạn tìm scale như thế nào? Expected: liệt kê các tên tensor bằng gói safetensors thay vì tìm index, và tìm tên kết thúc bằng k_scale hoặc v_scale.
+- **Level 3:** Cảnh báo in, nhưng lần chạy GSM8K không cho thấy tổn thất. Bạn đã xong chưa? Expected: chưa; 500 câu hỏi không thể loại trừ mất vài điểm, tổn thất phụ thuộc mô hình và bố trí attention, và một họ cần các scale được hiệu chuẩn trong khi phần lớn không cần; chạy nhiệm vụ riêng và theo dõi cảnh báo như một khuyết điểm.
+- **Level 4:** Tại sao scale được hiệu chuẩn quan trọng hơn cho một số bố trí attention so với số khác? Expected: scale ánh xạ phạm vi key và value vào phạm vi FP8, và một bố trí có các giá trị trải rộng hơn định dạng bị cắt hoặc mất độ chính xác ở scale 1.0; nhóm vLLM nêu một họ latent-attention không hoạt động tốt khi chưa hiệu chuẩn trong khi phần lớn mô hình giữ gần BF16, vì vậy bố trí và hiệu chuẩn quyết định cùng nhau.
 
 ## Wrong answers
 
-- "The checkpoint is FP8, so the KV scales are loaded." Weight scales and KV scales are different tensors, and a checkpoint with KV scales can still have them dropped by the loader; the warning tells you what the server uses.
-- "The warning is informational." On vLLM it means that every KV scale is 1.0, which the vLLM team treats as the worst case for accuracy; with scales in the checkpoint it means that the loader dropped them.
-- "A scale of 1.0 worked for Qwen3-8B, so it works." It gave overlapping intervals on 500 GSM8K questions for one model, which cannot rule out a loss of a few points, and another family lost accuracy at 1.0.
-- "Pass --quantization fp8 to load the scales." The weight method and the cache scales are separate; on SGLang the scales come from the checkpoint or from the quantization parameter path file, and a weight flag that does not match the checkpoint raises at startup.
+- "Checkpoint là FP8, vì vậy KV scale được nạp." Weight scale và KV scale là các tensor khác nhau, và một checkpoint có KV scale vẫn có thể bị loader bỏ chúng; cảnh báo cho bạn biết server dùng gì.
+- "Cảnh báo chỉ để thông tin." Trên vLLM nó nghĩa là mọi scale KV là 1.0, điều nhóm vLLM coi là trường hợp tệ nhất cho độ chính xác; với scale trong checkpoint nó nghĩa là loader bỏ chúng.
+- "Scale 1.0 hoạt động cho Qwen3-8B, vì vậy nó hoạt động." Nó cho các khoảng chồng nhau trên 500 câu hỏi GSM8K cho một mô hình, không thể loại trừ mất vài điểm, và một họ khác mất độ chính xác ở 1.0.
+- "Truyền --quantization fp8 để nạp scale." Phương pháp trọng số và scale cache riêng biệt; trên SGLang scale đến từ checkpoint hoặc file đường dẫn tham số lượng tử hóa, và một cờ trọng số không khớp checkpoint phát sinh lỗi lúc khởi động.
 
 ## Taught in
 
-[Fit more users with an FP8 KV cache](../../../manuals/vllm-101/sections/2-4-fit-more-users-with-an-fp8-kv-cache.md) and [the SGLang quantization section](../../../manuals/sglang-101/sections/4-3-quantization.md) show the scale warnings and how to check that scales load.
+[Cho thêm người dùng vừa với một KV cache FP8](../../../manuals/vllm-101/sections/2-4-fit-more-users-with-an-fp8-kv-cache.md) và [phần lượng tử hóa SGLang](../../../manuals/sglang-101/sections/4-3-quantization.md) cho thấy các cảnh báo scale và cách kiểm tra scale nạp.

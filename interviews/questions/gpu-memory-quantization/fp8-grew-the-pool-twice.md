@@ -16,50 +16,50 @@ related: []
 updated: 2026-11-03
 ---
 
-On a GB10 a BF16 server of Qwen/Qwen3-30B-A3B-Instruct-2507 loads 57.75 GB of weights and sizes a KV pool of 227,243 tokens. You move to the FP8 checkpoint and add `--kv-cache-dtype fp8_e4m3` at the same memory fraction. Estimate the new pool, and explain why it is not simply twice the old one.
+Trên một GB10 một server BF16 của Qwen/Qwen3-30B-A3B-Instruct-2507 nạp 57.75 GB trọng số và định một KV pool 227,243 token. Bạn chuyển sang checkpoint FP8 và thêm `--kv-cache-dtype fp8_e4m3` ở cùng tỷ lệ bộ nhớ. Ước tính pool mới, và giải thích tại sao nó không đơn giản gấp đôi pool cũ.
 
 ## Short answer
 
-Two effects multiply. The FP8 weights fell to 29.75 GB and freed 28.00 GB, which the fraction handed to the pool, so the pool grew from 20.80 GB to 49.58 GB in the units of the log; and each token took half the bytes, 49,152 instead of 98,304 for 48 layers with 4 KV heads of size 128. The pool went from 227,243 to 1,083,008 tokens, 4.77 times as many, and the load time fell from 323.61 s to 152.29 s.
+Hai hiệu ứng nhân nhau. Các trọng số FP8 giảm xuống 29.75 GB và giải phóng 28.00 GB, mà tỷ lệ giao cho pool, vì vậy pool tăng từ 20.80 GB lên 49.58 GB theo đơn vị của log; và mỗi token chiếm một nửa byte, 49,152 thay vì 98,304 cho 48 lớp với 4 KV head kích thước 128. Pool đi từ 227,243 lên 1,083,008 token, nhiều gấp 4.77 lần, và thời gian nạp giảm từ 323.61 s xuống 152.29 s.
 
 ## Full answer
 
 ### The two startup logs
 
-The BF16 server loaded the weights in 323.61 s with a memory usage of 57.75 GB and allocated a cache of 227,243 tokens, 20.80 GB in the units of the log. The FP8 server logged `Detected fp8 checkpoint`, then `Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0`, loaded in 152.29 s with 29.75 GB, and allocated 1,083,008 tokens, 24.79 GB for the keys and 24.79 GB for the values. Both used `--mem-fraction-static 0.7`, and neither got a `--quantization` flag, because SGLang reads the method from the checkpoint.
+Server BF16 nạp các trọng số trong 323.61 s với mức sử dụng bộ nhớ 57.75 GB và cấp phát một cache 227,243 token, 20.80 GB theo đơn vị của log. Server FP8 ghi log `Detected fp8 checkpoint`, rồi `Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0`, nạp trong 152.29 s với 29.75 GB, và cấp phát 1,083,008 token, 24.79 GB cho key và 24.79 GB cho value. Cả hai dùng `--mem-fraction-static 0.7`, và không bên nào nhận cờ `--quantization`, vì SGLang đọc phương pháp từ checkpoint.
 
 ### The arithmetic
 
-The fraction fixes the share for the weights and the pool together. Smaller weights leave more of that share to the pool: the weights freed 28.00 GB and the pool grew by 28.78 GB. At the same time each token needs half the bytes with an FP8 cache. The two factors multiply, which is how 227,243 tokens became 1,083,008. The GB10 has 121.7 GiB of memory, so the BF16 pool was never short in the closed-loop sweep; on the L4, where the weights took most of the card, the same pair grew the pool from 24,094 to 142,369 tokens, 5.91 times.
+Tỷ lệ cố định phần dành cho trọng số và pool cùng nhau. Trọng số nhỏ hơn để lại nhiều hơn phần đó cho pool: các trọng số giải phóng 28.00 GB và pool tăng 28.78 GB. Cùng lúc mỗi token cần một nửa byte với cache FP8. Hai hệ số nhân nhau, là cách 227,243 token thành 1,083,008. GB10 có 121.7 GiB bộ nhớ, vì vậy pool BF16 chưa bao giờ thiếu trong phép quét vòng kín; trên L4, nơi các trọng số chiếm phần lớn card, cùng cặp tăng pool từ 24,094 lên 142,369 token, 5.91 lần.
 
 ### Speed moved too
 
-| Concurrency | BF16 output tok/s | FP8 output tok/s | BF16 median TPOT | FP8 median TPOT |
+| Mức đồng thời | BF16 token đầu ra/s | FP8 token đầu ra/s | BF16 TPOT trung vị | FP8 TPOT trung vị |
 |---|---|---|---|---|
 | 1 | 29.14 | 51.50 | 32.52 ms | 18.41 ms |
 | 8 | 74.11 | 137.00 | 102.21 ms | 54.96 ms |
 | 32 | 150.66 | 283.19 | 201.91 ms | 104.12 ms |
 | 64 | 235.38 | 440.86 | 254.06 ms | 131.78 ms |
 
-FP8 gave 1.73 to 1.88 times the throughput at every concurrency. Decode on this machine reads the weights from a memory with modest bandwidth, so half the weight bytes gave almost twice the speed. That is a different result from a field report of an FP8 cache alone, which was a few percent slower per token and won on capacity.
+FP8 cho throughput gấp 1.73 đến 1.88 lần ở mọi mức đồng thời. Decode trên máy này đọc trọng số từ một bộ nhớ có băng thông vừa phải, vì vậy một nửa byte trọng số cho tốc độ gần gấp đôi. Đó là một kết quả khác một báo cáo thực địa chỉ về cache FP8, chậm hơn vài phần trăm mỗi token và thắng về dung lượng.
 
 ### The scales
 
-The second log line is the warning. No scale file was given, so every KV scale is 1.0. The weight index of this FP8 checkpoint lists weight scales and no KV scales, so weight scales do not imply cache scales. Both servers wrote the same 12 tokens for one greedy prompt, which is not an accuracy check. The GSM8K check on 500 questions, run on the L4 with the 8B model, gave overlapping intervals for every FP8 configuration, and that is the shape of check to run on your own model.
+Dòng log thứ hai là cảnh báo. Không file scale nào được đưa vào, vì vậy mọi scale KV là 1.0. Weight index của checkpoint FP8 này liệt kê các weight scale và không có KV scale, vì vậy weight scale không ngụ ý cache scale. Cả hai server viết cùng 12 token cho một prompt greedy, không phải một phép kiểm tra độ chính xác. Phép kiểm tra GSM8K trên 500 câu hỏi, chạy trên L4 với mô hình 8B, cho các khoảng chồng nhau cho mọi cấu hình FP8, và đó là dạng phép kiểm tra cần chạy trên mô hình riêng của bạn.
 
 ## Follow-ups
 
-- **Level 3:** Why did the pool grow 4.77 times and not 2 times? Expected: halving the bytes per token doubles the tokens in the same memory, and the smaller weights also gave the pool 28.78 GB more memory; the two factors multiply.
-- **Level 3:** Why was the ratio 5.91 on the L4 and 4.77 on the GB10 for the same change? Expected: on the 24 GB card the weights took most of the memory, so halving them more than doubled the pool bytes; on the GB10 the weights were a smaller share, so the freed memory mattered less.
-- **Level 4:** Both servers returned an identical 12-token answer to the first request at temperature 0. Is that an accuracy check? Expected: no, one prompt proves nothing; run a benchmark such as the 500-question GSM8K set and compare the intervals, and read the scale warning, because this checkpoint has weight scales and no KV scales, so the cache ran with a scale of 1.0.
+- **Level 3:** Tại sao pool tăng 4.77 lần chứ không phải 2 lần? Expected: giảm một nửa byte mỗi token tăng gấp đôi token trong cùng bộ nhớ, và các trọng số nhỏ hơn cũng cho pool thêm 28.78 GB bộ nhớ; hai hệ số nhân nhau.
+- **Level 3:** Tại sao tỷ số là 5.91 trên L4 và 4.77 trên GB10 cho cùng thay đổi? Expected: trên card 24 GB trọng số chiếm phần lớn bộ nhớ, vì vậy giảm một nửa chúng tăng hơn gấp đôi byte pool; trên GB10 trọng số là một phần nhỏ hơn, vì vậy bộ nhớ được giải phóng ít quan trọng hơn.
+- **Level 4:** Cả hai server trả về một câu trả lời 12 token giống hệt cho request đầu tại temperature 0. Đó có phải một phép kiểm tra độ chính xác? Expected: không, một prompt không chứng minh gì; chạy một benchmark chẳng hạn tập 500 câu hỏi GSM8K và so sánh các khoảng, và đọc cảnh báo scale, vì checkpoint này có weight scale và không có KV scale, vì vậy cache chạy với scale 1.0.
 
 ## Wrong answers
 
-- "FP8 halves the bytes, so the pool doubles." The weights also shrank from 57.75 to 29.75 GB and that memory went to the pool, so the pool grew 4.77 times on the GB10 and 5.91 times on the L4.
-- "The FP8 checkpoint has scales, so the KV cache is calibrated." Its weight index lists weight scales and no KV scales; the server logged that it used a scale of 1.0 for the cache.
-- "Pass --quantization fp8 so that the server knows." SGLang detected the checkpoint by itself, and a flag that does not match the checkpoint raises at startup; pass no flag for a published checkpoint.
-- "The speedup comes from the bigger pool." The BF16 pool on the GB10 was never short; the speed came from half the weight bytes per decode step on a memory with modest bandwidth, 1.73 to 1.88 times at every concurrency.
+- "FP8 giảm một nửa byte, vì vậy pool gấp đôi." Các trọng số cũng co từ 57.75 xuống 29.75 GB và bộ nhớ đó đi vào pool, vì vậy pool tăng 4.77 lần trên GB10 và 5.91 lần trên L4.
+- "Checkpoint FP8 có scale, vì vậy KV cache đã được hiệu chuẩn." Weight index của nó liệt kê các weight scale và không có KV scale; server ghi log rằng nó dùng scale 1.0 cho cache.
+- "Truyền --quantization fp8 để server biết." SGLang tự phát hiện checkpoint, và một cờ không khớp checkpoint phát sinh lỗi lúc khởi động; không truyền cờ cho một checkpoint được công bố.
+- "Tăng tốc đến từ pool lớn hơn." Pool BF16 trên GB10 chưa bao giờ thiếu; tốc độ đến từ một nửa byte trọng số mỗi bước decode trên một bộ nhớ có băng thông vừa phải, 1.73 đến 1.88 lần ở mọi mức đồng thời.
 
 ## Taught in
 
-[The SGLang quantization section](../../../manuals/sglang-101/sections/4-3-quantization.md) has both startup logs and the sweep.
+[Phần lượng tử hóa SGLang](../../../manuals/sglang-101/sections/4-3-quantization.md) có cả hai log khởi động và phép quét.

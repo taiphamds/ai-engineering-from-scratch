@@ -16,53 +16,53 @@ related: []
 updated: 2026-11-03
 ---
 
-An SGLang server on a shared workstation ran for four minutes, and then a benchmark with 32 requests in flight crashed it with an out-of-memory error. The scheduler log just before the crash shows `token usage: 0.05`. Explain how the pool was 95 percent empty and the server still ran out of memory, and what you set.
+Một server SGLang trên một workstation dùng chung chạy trong bốn phút, rồi một benchmark với 32 request đang thực hiện làm nó sập vì lỗi hết bộ nhớ. Log scheduler ngay trước lần sập hiển thị `token usage: 0.05`. Giải thích tại sao pool trống 95 phần trăm và server vẫn hết bộ nhớ, và bạn đặt gì.
 
 ## Short answer
 
-The KV pool is sized once at startup from a snapshot of free memory, and the automatic fraction gave 87.2 percent of what was free to the weights and the pool. Thirty-two requests held 16,095 tokens, 5 percent of a 312,581-token pool, so the pool had reserved 33 GB and used under 2 GB, and the activations of the next forward pass needed memory outside the pool that the operating system no longer had. On a machine that runs anything else, pass `--mem-fraction-static` yourself; with 0.4 the same benchmark finished all 128 requests at concurrency 32.
+KV pool được định kích thước một lần lúc khởi động từ một snapshot bộ nhớ trống, và tỷ lệ tự động cho 87.2 phần trăm phần đang trống vào trọng số và pool. Ba mươi hai request giữ 16,095 token, 5 phần trăm một pool 312,581 token, vì vậy pool đã dành riêng 33 GB và dùng dưới 2 GB, và các activation của lượt truyền tiến tiếp theo cần bộ nhớ ngoài pool mà hệ điều hành không còn. Trên một máy chạy bất cứ thứ gì khác, tự truyền `--mem-fraction-static`; với 0.4 cùng benchmark hoàn tất tất cả 128 request ở mức đồng thời 32.
 
 ## Full answer
 
 ### Two startups, two pool sizes
 
-The manual started the server twice with the same command and no fraction. The first start saw 27.81 GB of system memory available, took a KV budget of 24.25 GB and sized a pool of 227,022 tokens. The second start saw 38.29 GB available, took 33.39 GB and sized 312,581 tokens. Nothing changed in SGLang between the runs; other programs used less memory at the second start. Both budgets were 87.2 percent of the free memory, because the automatic fraction resolved to 0.872.
+Tài liệu khởi động server hai lần với cùng lệnh và không có tỷ lệ. Lần đầu thấy 27.81 GB bộ nhớ hệ thống khả dụng, lấy ngân sách KV 24.25 GB và định một pool 227,022 token. Lần thứ hai thấy 38.29 GB khả dụng, lấy 33.39 GB và định 312,581 token. Không gì thay đổi trong SGLang giữa các lần chạy; các chương trình khác dùng ít bộ nhớ hơn ở lần khởi động thứ hai. Cả hai ngân sách là 87.2 phần trăm bộ nhớ trống, vì tỷ lệ tự động được giải thành 0.872.
 
 ### The crash
 
-The last decode line before the crash showed 32 running requests with 16,095 tokens at a token usage of 0.05. The pool had reserved 33 GB and used under 2 GB of it. The next forward pass needed memory for its activations outside the pool, the operating system had none left, one command buffer failed, the scheduler died, and the server killed its whole process tree. An empty pool and an out-of-memory crash were the same event.
+Dòng decode cuối trước lần sập hiển thị 32 request đang chạy với 16,095 token ở mức sử dụng token 0.05. Pool đã dành riêng 33 GB và dùng dưới 2 GB trong đó. Lượt truyền tiến tiếp theo cần bộ nhớ cho các activation ngoài pool, hệ điều hành không còn, một command buffer thất bại, scheduler chết, và server giết toàn bộ cây tiến trình. Một pool rỗng và một lần sập hết bộ nhớ là cùng sự kiện.
 
 ### How SGLang decides the split
 
-The fraction is the share of memory for the weights plus the KV pool. Everything else, activations, graphs and other programs, lives outside it. On a GPU the automatic value comes from a reserve: 512 MB plus 1.5 MB for each token of the prefill chunk, more for tensor and pipeline parallelism and for graphs, and at least 10 GiB on a GPU with more than 60 GB. The fraction is the memory minus the reserve, divided by the memory. When the device capacity cannot be read, it becomes 0.95. After the weights load, SGLang measures free memory again, and the KV budget is that free memory minus the share outside the fraction of what was free before loading. On the laptop backend the rule is simpler: the smaller of the fraction of the device working set and the fraction of system memory available right now, and that second term is the snapshot that moved.
+Tỷ lệ là phần bộ nhớ cho trọng số cộng KV pool. Mọi thứ khác, activation, graph và các chương trình khác, nằm ngoài nó. Trên một GPU giá trị tự động đến từ một phần dự trữ: 512 MB cộng 1.5 MB cho mỗi token của prefill chunk, thêm cho tensor và pipeline parallelism và graph, và ít nhất 10 GiB trên một GPU có hơn 60 GB. Tỷ lệ là bộ nhớ trừ dự trữ, chia bộ nhớ. Khi không đọc được dung lượng thiết bị, nó thành 0.95. Sau khi trọng số nạp, SGLang đo bộ nhớ trống lại, và ngân sách KV là bộ nhớ trống đó trừ phần ngoài tỷ lệ của phần trống trước khi nạp. Trên backend laptop quy tắc đơn giản hơn: giá trị nhỏ hơn giữa tỷ lệ của device working set và tỷ lệ của bộ nhớ hệ thống khả dụng ngay lúc này, và số hạng thứ hai là snapshot đã dịch chuyển.
 
 ### Where the default fails
 
-- A shared machine: the snapshot at startup does not hold for the life of the server.
-- Unknown capacity: the fraction becomes 0.95 and leaves 5 percent for activations, which one report hit as an out-of-memory error on the first prefill.
-- Memory the estimate does not know about: draft model copies that stay in memory while the target pool is sized, and a 64K-token prompt that ran out of memory in attention although the log reported room for 274,934 tokens.
+- Một máy dùng chung: snapshot lúc khởi động không giữ đúng suốt đời server.
+- Dung lượng chưa biết: tỷ lệ thành 0.95 và để 5 phần trăm cho activation, mà một báo cáo gặp dưới dạng lỗi hết bộ nhớ ngay lần prefill đầu.
+- Bộ nhớ mà ước lượng không biết: các bản sao draft model giữ trong bộ nhớ khi pool mục tiêu được định, và một prompt 64K token hết bộ nhớ trong attention dù log báo có chỗ cho 274,934 token.
 
 ### The fix, and the other direction
 
-With `--mem-fraction-static 0.4` the budget became 19.39 GB, 0.4 of the 48.49 GB snapshot, and the pool held 181,574 tokens, far more than 32 requests of 640 tokens need. A smaller pool cost nothing in this workload, because the workload never filled it. On a dedicated GPU trust the automatic value first. Raise it in steps of 0.02 only when the scheduler log shows a full pool and retractions. Find the upper limit in staging with your longest prompts, run production one or two steps below it, and lower it when long prompts fail with out-of-memory errors in attention.
+Với `--mem-fraction-static 0.4` ngân sách thành 19.39 GB, 0.4 của snapshot 48.49 GB, và pool giữ 181,574 token, nhiều hơn xa so với nhu cầu 32 request 640 token. Một pool nhỏ hơn không tốn gì trong workload này, vì workload chưa bao giờ lấp đầy nó. Trên một GPU chuyên dụng tin giá trị tự động trước. Chỉ tăng theo bước 0.02 khi log scheduler cho thấy pool đầy và các lần rút lại. Tìm giới hạn trên trong staging với các prompt dài nhất, chạy production thấp hơn một hoặc hai bước, và hạ khi các prompt dài thất bại với lỗi hết bộ nhớ trong attention.
 
 ### What to measure
 
-Read the `max_total_num_tokens` line at startup, which is the result of the whole calculation. Watch `token usage` in the decode lines; near 1.0 the pool is full. Read the free memory of the machine during the heaviest prefill from the operating system. On the laptop backend the cache memory metric read 0.0 because that backend allocates its pool outside the metric's accounting; the pool log line, about 19,860 MB, is the number to use.
+Đọc dòng `max_total_num_tokens` lúc khởi động, là kết quả toàn bộ phép tính. Theo dõi `token usage` trong các dòng decode; gần 1.0 pool đầy. Đọc bộ nhớ trống của máy trong prefill nặng nhất từ hệ điều hành. Trên backend laptop metric bộ nhớ cache đọc là 0.0 vì backend cấp phát pool ngoài phần tính của metric; dòng log pool, khoảng 19,860 MB, là con số cần dùng.
 
 ## Follow-ups
 
-- **Level 3:** Why did the second start get a bigger pool than the first when nothing in SGLang changed? Expected: other programs used less memory at the second start, so the snapshot of free memory grew from 27.81 to 38.29 GB and the pool grew with it, from 24.25 to 33.39 GB at the same automatic fraction.
-- **Level 3:** What memory does the fraction cover, and what lives outside it? Expected: the weights plus the KV pool; activations, graphs, autotuning scratch and every other program live outside it, which is why a pool at 87 percent of free memory left nothing for the next forward pass.
-- **Level 4:** On a dedicated GPU, when do you raise the fraction and by how much? Expected: only when the scheduler log shows a full pool and retractions, in steps of 0.02; find the upper limit in staging with your longest prompts, run production one or two steps below it, and lower it when long prompts fail with out-of-memory errors in attention.
+- **Level 3:** Tại sao lần khởi động thứ hai có pool lớn hơn lần đầu khi không gì trong SGLang thay đổi? Expected: các chương trình khác dùng ít bộ nhớ hơn ở lần thứ hai, vì vậy snapshot bộ nhớ trống tăng từ 27.81 lên 38.29 GB và pool tăng cùng nó, từ 24.25 lên 33.39 GB ở cùng tỷ lệ tự động.
+- **Level 3:** Tỷ lệ bao phủ bộ nhớ nào, và thứ gì nằm ngoài? Expected: trọng số cộng KV pool; activation, graph, vùng tạm autotuning và mọi chương trình khác nằm ngoài, là lý do một pool ở 87 phần trăm bộ nhớ trống không để gì cho lượt truyền tiến tiếp theo.
+- **Level 4:** Trên một GPU chuyên dụng, khi nào bạn tăng tỷ lệ và tăng bao nhiêu? Expected: chỉ khi log scheduler cho thấy pool đầy và các lần rút lại, theo bước 0.02; tìm giới hạn trên trong staging với các prompt dài nhất, chạy production thấp hơn một hoặc hai bước, và hạ khi các prompt dài thất bại với lỗi hết bộ nhớ trong attention.
 
 ## Wrong answers
 
-- "A token usage of 0.05 means the server was nowhere near full." It means the pool was nearly empty; the pool had taken the memory and the activations outside it ran out, so an empty pool and an out-of-memory crash were the same event.
-- "Raise the fraction so that the pool is bigger and the crash goes away." The crash came from memory outside the pool; a bigger fraction takes more from the activations and the other programs, and 0.4 is what fixed it.
-- "The automatic fraction is tuned, so leave it." It assumes the machine belongs to the engine; on a shared machine the snapshot at startup does not hold for the life of the server, and when the capacity cannot be read it becomes 0.95 and fails on the first prefill.
-- "The pool line tells you the memory the server uses." The pool is the largest part and not the whole; one report measured 25 to 40 GB of short-lived allocations outside the accounting from the autotuner and the graph capture.
+- "Mức sử dụng token 0.05 nghĩa là server còn lâu mới đầy." Nó nghĩa là pool gần rỗng; pool đã lấy bộ nhớ và các activation ngoài nó hết chỗ, vì vậy một pool rỗng và một lần sập hết bộ nhớ là cùng sự kiện.
+- "Tăng tỷ lệ để pool lớn hơn và lần sập biến mất." Lần sập đến từ bộ nhớ ngoài pool; một tỷ lệ lớn hơn lấy thêm từ activation và các chương trình khác, và 0.4 là thứ sửa nó.
+- "Tỷ lệ tự động đã được điều chỉnh, vì vậy để nguyên." Nó giả định máy thuộc engine; trên một máy dùng chung snapshot lúc khởi động không giữ đúng suốt đời server, và khi không đọc được dung lượng nó thành 0.95 và thất bại ở prefill đầu.
+- "Dòng pool cho bạn biết bộ nhớ server dùng." Pool là phần lớn nhất chứ không phải toàn bộ; một báo cáo đo 25 đến 40 GB cấp phát ngắn hạn ngoài phần tính từ autotuner và capture graph.
 
 ## Taught in
 
-[--mem-fraction-static and startup sizing](../../../manuals/sglang-101/sections/3-2-mem-fraction-static-and-startup-sizing.md) has the crash log, the formula and the GB10 starts.
+[--mem-fraction-static và định kích thước khởi động](../../../manuals/sglang-101/sections/3-2-mem-fraction-static-and-startup-sizing.md) có log sập, công thức và các lần khởi động GB10.

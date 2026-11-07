@@ -16,47 +16,47 @@ related: []
 updated: 2026-11-03
 ---
 
-Your teammate starts Qwen/Qwen3-8B in BF16 on an L4 with no flags, and the start fails with an error about the KV cache and --max-model-len. The same command works on a larger card. Explain the failure with numbers, and say what you set.
+Đồng đội của bạn khởi động Qwen/Qwen3-8B ở BF16 trên một L4 không có cờ, và khởi động thất bại với một lỗi về KV cache và --max-model-len. Cùng lệnh hoạt động trên một card lớn hơn. Giải thích thất bại bằng số, và nói bạn đặt gì.
 
 ## Short answer
 
-The model config gives a context of 40,960 tokens, and vLLM takes that as the maximum length when you set none. At 144 KiB per token one request at that length needs 5.6 GiB of KV cache, and on a 24 GB card the 16.4 GB of weights can leave less than that, so the start check fails before the pool line prints. Set `--max-model-len` to the longest prompt plus answer that your users send; the pool stays the same size, and the limit only stops one request from claiming all of it.
+Cấu hình mô hình cho một ngữ cảnh 40,960 token, và vLLM lấy đó làm độ dài tối đa khi bạn không đặt gì. Ở 144 KiB mỗi token một request ở độ dài đó cần 5.6 GiB KV cache, và trên một card 24 GB các trọng số 16.4 GB có thể để lại ít hơn mức đó, vì vậy phép kiểm tra khởi động thất bại trước khi dòng pool in. Đặt `--max-model-len` bằng prompt cộng câu trả lời dài nhất mà người dùng gửi; pool giữ cùng kích thước, và giới hạn chỉ ngăn một request đòi tất cả.
 
 ## Full answer
 
 ### The arithmetic
 
-The weights of Qwen3-8B in BF16 take 16.4 GB. SGLang measured the load on the same card at 15.28 GB and had 6.59 GB left, from which it sized a pool of 24,094 tokens, 1.65 GB for the keys and 1.65 GB for the values, at a memory fraction of 0.85. A pool of that size holds about 3.31 GiB. One request at the default length of 40,960 tokens needs 40,960 times 144 KiB, which is 5.6 GiB, more than the whole pool. vLLM checks that at least one request at the maximum length fits, so the start stops.
+Các trọng số Qwen3-8B ở BF16 chiếm 16.4 GB. SGLang đo việc nạp trên cùng card ở 15.28 GB và còn 6.59 GB, từ đó định một pool 24,094 token, 1.65 GB cho key và 1.65 GB cho value, ở tỷ lệ bộ nhớ 0.85. Một pool kích thước đó giữ khoảng 3.31 GiB. Một request ở độ dài mặc định 40,960 token cần 40,960 nhân 144 KiB, là 5.6 GiB, hơn toàn bộ pool. vLLM kiểm tra rằng ít nhất một request ở độ dài tối đa vừa, vì vậy khởi động dừng.
 
 ### Set the length on purpose
 
-Set `--max-model-len` to the longest prompt plus answer that your users send. The pool size stays the same. A shorter limit only stops one request from claiming the whole pool, and it lets the start check pass. The pool line then prints the maximum concurrency at that length: on the L4 it read `GPU KV cache size: 24,096 tokens, Maximum concurrency for 8,192 tokens per request: 2.94x`. Real requests hold less than the limit, so more of them fit: about 37 users with 512 prompt tokens and 128 output tokens each.
+Đặt `--max-model-len` bằng prompt cộng câu trả lời dài nhất mà người dùng gửi. Kích thước pool giữ nguyên. Một giới hạn ngắn hơn chỉ ngăn một request đòi toàn bộ pool, và cho phép phép kiểm tra khởi động đạt. Dòng pool rồi in mức đồng thời tối đa tại độ dài đó: trên L4 nó là `GPU KV cache size: 24,096 tokens, Maximum concurrency for 8,192 tokens per request: 2.94x`. Các request thật giữ ít hơn giới hạn, vì vậy nhiều hơn vừa: khoảng 37 người dùng với mỗi người 512 token prompt và 128 token đầu ra.
 
 ### Check the length after an upgrade
 
-Some models extend their context with a scaling method. In release 0.30.0 vLLM changed how it reads that method, and for some models the length that vLLM derived from the config became shorter; the release notes give one model that went from 131,072 to 32,768 tokens. After an upgrade, read the derived length in the startup log, and set the length yourself if it changed.
+Một số mô hình mở rộng ngữ cảnh bằng một phương pháp điều chỉnh tỷ lệ. Trong bản phát hành 0.30.0 vLLM thay đổi cách đọc phương pháp đó, và với một số mô hình độ dài vLLM suy ra từ cấu hình trở nên ngắn hơn; ghi chú phát hành đưa ra một mô hình đi từ 131,072 xuống 32,768 token. Sau một nâng cấp, đọc độ dài suy ra trong log khởi động, và tự đặt độ dài nếu nó thay đổi.
 
 ### Other ways to make room
 
-The FP8 checkpoint of the same model loaded 8.81 GB of weights on the L4 and left 13.06 GB. With an FP8 cache too, the pool was 142,369 tokens against 24,094. A memory fraction set too low has the opposite effect: at 0.74 the BF16 pool was 6,559 tokens, and four shared prompts of 2,048 tokens no longer fit together.
+Checkpoint FP8 của cùng mô hình nạp 8.81 GB trọng số trên L4 và để lại 13.06 GB. Với cả cache FP8, pool là 142,369 token so với 24,094. Một tỷ lệ bộ nhớ đặt quá thấp có hiệu ứng ngược: ở 0.74 pool BF16 là 6,559 token, và bốn prompt dùng chung 2,048 token không còn vừa cùng nhau.
 
 ### Check the setup
 
-The pool line prints only when the start succeeds. If the start stops with the error about the cache and the maximum length, lower `--max-model-len` until the pool line prints, read its concurrency, and compare it with the users you plan to serve at full length.
+Dòng pool chỉ in khi khởi động thành công. Nếu khởi động dừng với lỗi về cache và độ dài tối đa, hạ `--max-model-len` đến khi dòng pool in, đọc mức đồng thời, và so sánh với những người dùng bạn dự định phục vụ ở độ dài đầy đủ.
 
 ## Follow-ups
 
-- **Level 2:** Does lowering the maximum model length give you more users? Expected: no; the pool stays the same size, and the limit only stops one request from taking all of it and lets the start check pass; more users need a bigger pool, from an FP8 cache, FP8 weights or a bigger card.
-- **Level 3:** The same model started last month and fails after an upgrade with the same flags. What do you check? Expected: the derived context length in the startup log; a release changed how the scaling method is read and shortened one model's length from 131,072 to 32,768, and a change the other way can make the check fail, so set the length yourself.
-- **Level 4:** Estimate the pool when the FP8 checkpoint replaces BF16 on the same card and the cache is FP8 too. Expected: the weights fall to 8.81 GB and leave 13.06 GB, and each token takes half the bytes, so the pool rose from 24,094 to 142,369 tokens in the manual's run.
+- **Level 2:** Hạ độ dài mô hình tối đa có cho bạn thêm người dùng không? Expected: không; pool giữ cùng kích thước, và giới hạn chỉ ngăn một request lấy tất cả và cho phép phép kiểm tra khởi động đạt; thêm người dùng cần một pool lớn hơn, từ cache FP8, trọng số FP8 hoặc một card lớn hơn.
+- **Level 3:** Cùng mô hình đã khởi động tháng trước và thất bại sau một nâng cấp với cùng cờ. Bạn kiểm tra gì? Expected: độ dài ngữ cảnh suy ra trong log khởi động; một bản phát hành thay đổi cách đọc phương pháp điều chỉnh tỷ lệ và rút ngắn độ dài một mô hình từ 131,072 xuống 32,768, và một thay đổi chiều ngược có thể làm phép kiểm tra thất bại, vì vậy tự đặt độ dài.
+- **Level 4:** Ước tính pool khi checkpoint FP8 thay BF16 trên cùng card và cache cũng FP8. Expected: trọng số giảm xuống 8.81 GB và để lại 13.06 GB, và mỗi token chiếm một nửa byte, vì vậy pool tăng từ 24,094 lên 142,369 token trong lần chạy của tài liệu.
 
 ## Wrong answers
 
-- "The card is too small for an 8B model." The weights fit with about 6.59 GB to spare; the check fails because one request at the default length of 40,960 tokens needs 5.6 GiB of cache, so set the length to what your users send.
-- "Raise the memory fraction to make it start." The gap between 5.6 GiB and the room left is larger than a fraction step can close on this card; the length is the lever, and a fraction set too high leaves nothing for the activations.
-- "Lower the maximum length to fit more users." It fits the start, not more users; the pool size does not change with the limit.
-- "The KV pool is sized from the weights." It is sized from what is left after the weights and the startup profile, so read the available KV memory line, not the parameter count.
+- "Card quá nhỏ cho một mô hình 8B." Các trọng số vừa với khoảng 6.59 GB còn dư; phép kiểm tra thất bại vì một request ở độ dài mặc định 40,960 token cần 5.6 GiB cache, vì vậy đặt độ dài theo thứ người dùng gửi.
+- "Tăng tỷ lệ bộ nhớ để nó khởi động." Khoảng cách giữa 5.6 GiB và chỗ còn lại lớn hơn mức một bước tỷ lệ có thể lấp trên card này; độ dài là đòn bẩy, và một tỷ lệ đặt quá cao không để lại gì cho activation.
+- "Hạ độ dài tối đa để vừa thêm người dùng." Nó làm khởi động vừa, không phải thêm người dùng; kích thước pool không đổi theo giới hạn.
+- "KV pool được định kích thước từ các trọng số." Nó được định từ phần còn lại sau trọng số và profile khởi động, vì vậy đọc dòng bộ nhớ KV khả dụng, không phải số tham số.
 
 ## Taught in
 
-[Serve long contexts and hybrid models](../../../manuals/vllm-101/sections/2-6-serve-long-contexts-and-hybrid-models.md) explains the length check, [Count the memory before you pick a GPU](../../../manuals/vllm-101/sections/2-1-count-the-memory-before-you-pick-a-gpu.md) sizes the pool, and [the SGLang quantization section](../../../manuals/sglang-101/sections/4-3-quantization.md) shows the startup lines of the same card.
+[Phục vụ ngữ cảnh dài và mô hình lai](../../../manuals/vllm-101/sections/2-6-serve-long-contexts-and-hybrid-models.md) giải thích phép kiểm tra độ dài, [Đếm bộ nhớ trước khi chọn GPU](../../../manuals/vllm-101/sections/2-1-count-the-memory-before-you-pick-a-gpu.md) định kích thước pool, và [phần lượng tử hóa SGLang](../../../manuals/sglang-101/sections/4-3-quantization.md) cho thấy các dòng khởi động trên cùng card.

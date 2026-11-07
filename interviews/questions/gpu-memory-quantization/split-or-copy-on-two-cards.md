@@ -16,59 +16,59 @@ related: []
 updated: 2026-11-03
 ---
 
-You have two L4 cards in one host, joined by PCIe only, and an 8B model that fits on one card with a KV pool that is too small for your users. Do you split the model across both cards or run two copies? Think about memory first, then about communication.
+Bạn có hai card L4 trong một host, chỉ nối bằng PCIe, và một mô hình 8B vừa trên một card với một KV pool quá nhỏ cho người dùng. Bạn chia mô hình qua cả hai card hay chạy hai bản sao? Nghĩ về bộ nhớ trước, rồi về truyền thông.
 
 ## Short answer
 
-Tensor parallelism splits the weights and the KV cache across the two cards, so each card holds half the weights and gains several times the room for cache, and that is the layout that grows the pool per request; data parallelism holds a full copy of the weights on each card and doubles the users only if each copy's pool already fits them. Over PCIe, tensor parallelism pays a collective after every layer and can cost more than the split saves, so the documentation suggests pipeline parallelism on such a machine, which sends data only at the stage boundaries. Neither manual measured either layout on its two L4s, so I would measure tensor against pipeline against two copies on the real workload, and give any split whole GPUs, because a tensor group sizes every rank from the smallest card.
+Tensor parallelism chia trọng số và KV cache qua hai card, để mỗi card giữ một nửa trọng số và có thêm nhiều lần chỗ cho cache, và đó là bố trí tăng pool mỗi request; data parallelism giữ một bản sao trọng số đầy đủ trên mỗi card và chỉ tăng gấp đôi người dùng nếu pool của mỗi bản sao đã chứa được họ. Qua PCIe, tensor parallelism trả một phép collective sau mọi lớp và có thể tốn hơn phần chia tiết kiệm, vì vậy tài liệu đề xuất pipeline parallelism trên máy như vậy, chỉ gửi dữ liệu tại các ranh giới stage. Không tài liệu nào đo bố trí nào trên hai L4 của nó, vì vậy tôi sẽ đo tensor so với pipeline so với hai bản sao trên workload thật, và cho mọi phần chia các GPU trọn vẹn, vì một nhóm tensor định kích thước mọi rank từ card nhỏ nhất.
 
 ## Full answer
 
 ### What each layout does to memory
 
-| Layout | Weights per GPU | KV cache per GPU | What grows |
+| Bố trí | Trọng số mỗi GPU | KV cache mỗi GPU | Thứ tăng |
 |---|---|---|---|
-| Tensor | a slice of every layer | a slice of every layer's cache | the pool per request, several times when the weights fill most of one GPU |
-| Pipeline | the layers of its stage | the cache of those layers | the pool per request, and it accepts an uneven GPU count |
-| Data | a full copy | its own full pool | the number of users, only if one copy's pool already fits them |
+| Tensor | một phần của mọi lớp | một phần cache của mọi lớp | pool mỗi request, nhiều lần khi trọng số lấp phần lớn một GPU |
+| Pipeline | các lớp của stage của nó | cache của các lớp đó | pool mỗi request, và nó chấp nhận số GPU không đều |
+| Data | một bản sao đầy đủ | pool đầy đủ riêng | số người dùng, chỉ nếu pool một bản sao đã chứa được họ |
 
-One exception: a model with multi-head latent attention stores the full latent on every tensor-parallel rank, so the tensor split does not grow its cache. For a grouped-query model such as Qwen3-8B it does.
+Một ngoại lệ: một mô hình có multi-head latent attention lưu latent đầy đủ trên mọi rank tensor-parallel, vì vậy phần chia tensor không tăng cache. Với một mô hình grouped-query như Qwen3-8B thì có.
 
 ### The decision tree
 
-| Question | If yes | If no |
+| Câu hỏi | Nếu có | Nếu không |
 |---|---|---|
-| Does the model fit on one GPU, with room for the KV cache you need? | Data parallelism, one copy per GPU. | Split the model. |
-| Does the split model fit inside one machine? | Keep the split inside the machine. | Pipeline parallelism across machines. |
-| Do the GPUs have NVLink, and does the GPU count divide the model evenly? | Tensor parallelism. | Pipeline parallelism inside the machine. |
+| Mô hình có vừa trên một GPU, với chỗ cho KV cache bạn cần không? | Data parallelism, một bản sao mỗi GPU. | Chia mô hình. |
+| Mô hình đã chia có vừa trong một máy không? | Giữ phần chia trong máy. | Pipeline parallelism xuyên các máy. |
+| Các GPU có NVLink, và số GPU có chia mô hình đều không? | Tensor parallelism. | Pipeline parallelism trong máy. |
 
-Your case answers the first question with no, because the room for the cache is the problem. The third question answers with no too, because PCIe is not a fast link. The tree lands on pipeline parallelism inside the machine, and the manual asks you to measure it against tensor parallelism before you pick, because it ran neither on its pair.
+Trường hợp của bạn trả lời câu đầu là không, vì chỗ cho cache là vấn đề. Câu thứ ba cũng trả lời không, vì PCIe không phải một kết nối nhanh. Cây đi tới pipeline parallelism trong máy, và tài liệu yêu cầu đo nó so với tensor parallelism trước khi chọn, vì nó chưa chạy cách nào trên cặp của mình.
 
 ### What the link costs
 
-Tensor parallelism sends data after every layer, so it needs a fast link. On GPUs joined only by PCIe, such as two L4s in one host, that traffic can cost more than the split saves. Pipeline parallelism sends data once per stage boundary. Data parallelism sends nothing between copies.
+Tensor parallelism gửi dữ liệu sau mọi lớp, vì vậy cần một kết nối nhanh. Trên các GPU chỉ nối bằng PCIe, như hai L4 trong một host, lưu lượng đó có thể tốn hơn phần chia tiết kiệm. Pipeline parallelism gửi dữ liệu một lần mỗi ranh giới stage. Data parallelism không gửi gì giữa các bản sao.
 
 ### The balance check
 
-Before SGLang loads weights for a tensor group, each rank measures its free memory and the group keeps the smallest value. If that value is under 90 percent of the local free memory, the server stops, and no flag turns the check off. On the manual's pair the second card ran two pods of another team and had 18.28 GB free against the 19.53 GB that the check required, so the tensor split refused to start. Each rank holds the same share of weights and the same pool, so the smallest card sets the size for all. The data-parallel pair had no such check, started with pools of 24,094 and 2,925 tokens, and served less than one card at every load. Give any split whole GPUs.
+Trước khi SGLang nạp trọng số cho một nhóm tensor, mỗi rank đo bộ nhớ trống và nhóm giữ giá trị nhỏ nhất. Nếu giá trị đó dưới 90 phần trăm bộ nhớ trống cục bộ, server dừng, và không cờ nào tắt phép kiểm tra. Trên cặp của tài liệu card thứ hai chạy hai pod của nhóm khác và còn trống 18.28 GB so với 19.53 GB phép kiểm tra yêu cầu, vì vậy phần chia tensor từ chối khởi động. Mỗi rank giữ cùng phần trọng số và cùng pool, vì vậy card nhỏ nhất đặt kích thước cho tất cả. Cặp data-parallel không có phép kiểm tra như vậy, khởi động với các pool 24,094 và 2,925 token, và phục vụ ít hơn một card ở mọi tải. Cho mọi phần chia các GPU trọn vẹn.
 
 ### The processes
 
-With data parallelism vLLM starts one engine core per copy and a coordinator; with tensor parallelism one worker per GPU under one engine core. In SGLang the world size is the tensor size times the pipeline size, and data-parallel copies get a controller that sends requests round robin by default.
+Với data parallelism vLLM khởi động một engine core mỗi bản sao và một coordinator; với tensor parallelism một worker mỗi GPU dưới một engine core. Trong SGLang world size là kích thước tensor nhân kích thước pipeline, và các bản sao data-parallel có một controller gửi request mặc định round robin.
 
 ## Follow-ups
 
-- **Level 3:** The model fits on one card. Why might the decision tree still say split? Expected: the first question asks whether it fits with room for the KV cache you need; with a pool that cannot hold your users the answer is no, so the tree moves to a split, and tensor or pipeline parallelism is what grows the pool per request.
-- **Level 3:** Why does the tensor split need whole GPUs on a shared machine? Expected: every rank holds the same share of weights and the same pool, so the smallest card sets the size for all; SGLang measures free memory on each rank and stops when one has less than 90 percent of the local free memory, 18.28 against 19.53 GB in the manual's case.
-- **Level 4:** Over PCIe, how would you decide between tensor and pipeline parallelism without a measurement from the manuals? Expected: run both on the real workload and read throughput with the P99 ITL and the first token at matched clocks; tensor pays a collective after every layer on the slow link and pipeline pays once per stage boundary, so the pipeline layout can win on a PCIe pair, and the documentation suggests it there.
+- **Level 3:** Mô hình vừa trên một card. Tại sao cây quyết định vẫn có thể nói chia? Expected: câu đầu hỏi liệu nó vừa với chỗ cho KV cache cần thiết không; với một pool không giữ được người dùng câu trả lời là không, vì vậy cây chuyển sang chia, và tensor hoặc pipeline parallelism là thứ tăng pool mỗi request.
+- **Level 3:** Tại sao phần chia tensor cần các GPU trọn vẹn trên một máy dùng chung? Expected: mọi rank giữ cùng phần trọng số và cùng pool, vì vậy card nhỏ nhất đặt kích thước cho tất cả; SGLang đo bộ nhớ trống trên mỗi rank và dừng khi một rank có dưới 90 phần trăm bộ nhớ trống cục bộ, 18.28 so với 19.53 GB trong trường hợp tài liệu.
+- **Level 4:** Qua PCIe, bạn quyết định giữa tensor và pipeline parallelism như thế nào khi không có phép đo từ tài liệu? Expected: chạy cả hai trên workload thật và đọc throughput với P99 ITL và token đầu tiên ở các xung nhịp khớp; tensor trả một collective sau mọi lớp trên kết nối chậm và pipeline trả một lần mỗi ranh giới stage, vì vậy bố trí pipeline có thể thắng trên một cặp PCIe, và tài liệu đề xuất nó ở đó.
 
 ## Wrong answers
 
-- "Two copies double everything." Each copy holds the full weights, so the pool per copy is the same small pool; two copies double the users only if that pool already fits them, and a pair with unequal pools served less than one card.
-- "Tensor parallelism is the way to pool memory across cards." It pools the weights and the cache, but it sends data after every layer; over PCIe that traffic can cost more than the split saves, so the documentation suggests pipeline parallelism on such a machine.
-- "The split starts as long as the model fits across the two cards." The tensor group refuses when one rank has less than 90 percent of the local free memory, because the smallest card sets the pool for all ranks; give the split whole GPUs.
-- "Pipeline parallelism wastes a card because the stages wait for each other." It sends data only at stage boundaries and accepts an uneven GPU count, which is why the documentation suggests it for GPUs without a fast link; measure it before you rule it out.
+- "Hai bản sao tăng gấp đôi mọi thứ." Mỗi bản sao giữ trọng số đầy đủ, vì vậy pool mỗi bản sao là cùng pool nhỏ; hai bản sao chỉ gấp đôi người dùng nếu pool đó đã chứa được họ, và một cặp có pool không bằng nhau phục vụ ít hơn một card.
+- "Tensor parallelism là cách gộp bộ nhớ qua các card." Nó gộp trọng số và cache, nhưng gửi dữ liệu sau mọi lớp; qua PCIe lưu lượng đó có thể tốn hơn phần chia tiết kiệm, vì vậy tài liệu đề xuất pipeline parallelism trên máy như vậy.
+- "Phần chia khởi động miễn là mô hình vừa qua hai card." Nhóm tensor từ chối khi một rank có dưới 90 phần trăm bộ nhớ trống cục bộ, vì card nhỏ nhất đặt pool cho mọi rank; cho phần chia các GPU trọn vẹn.
+- "Pipeline parallelism lãng phí một card vì các stage chờ nhau." Nó chỉ gửi dữ liệu tại các ranh giới stage và chấp nhận số GPU không đều, là lý do tài liệu đề xuất nó cho các GPU không có kết nối nhanh; đo trước khi loại trừ.
 
 ## Taught in
 
-[Choose tensor, pipeline, or data parallelism](../../../manuals/vllm-101/sections/6-1-choose-tensor-pipeline-or-data-parallelism.md) and [the SGLang parallelism section](../../../manuals/sglang-101/sections/6-1-tp-size-dp-size-and-attn-dp-size.md) give the layouts, the link rule and the balance check.
+[Chọn tensor, pipeline hoặc data parallelism](../../../manuals/vllm-101/sections/6-1-choose-tensor-pipeline-or-data-parallelism.md) và [phần parallelism SGLang](../../../manuals/sglang-101/sections/6-1-tp-size-dp-size-and-attn-dp-size.md) đưa ra các bố trí, quy tắc kết nối và phép kiểm tra cân bằng.
