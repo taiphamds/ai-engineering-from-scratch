@@ -16,51 +16,51 @@ related: [production-mlops/two-models-disagree, production-mlops/prediction-with
 updated: 2026-11-03
 ---
 
-A vendor demo shows an operations agent that repairs incidents on its own. Your director asks which actions you would let such an agent take on the model service without a person in the loop. Draw the line and defend it.
+Một demo nhà cung cấp cho thấy một agent vận hành tự sửa các sự cố. Giám đốc của bạn hỏi bạn sẽ cho một agent như vậy thực hiện các hành động nào trên dịch vụ mô hình không có con người trong vòng lặp. Vạch ranh giới và bảo vệ nó.
 
 ## Short answer
 
-Allow a narrow set that was approved in advance: restart a pod, revert one named deployment, scale a pool inside approved bounds, and flip an approved feature flag. Keep everything that changes the shape of the system behind a person: topology, resource limits, new code, access rights and databases. The agent proposes, a person approves the judgment calls, and the safe set grows only as the agent builds a record.
+Cho phép một tập hẹp được phê duyệt trước: khởi động lại một pod, hoàn nguyên một deployment được nêu tên, scale một pool trong các giới hạn được phê duyệt, và bật tắt một feature flag được phê duyệt. Giữ mọi thứ thay đổi hình dạng hệ thống sau một người: cấu trúc liên kết, giới hạn tài nguyên, mã mới, quyền truy cập và cơ sở dữ liệu. Agent đề xuất, một người phê duyệt các quyết định cần phán xét, và tập an toàn chỉ tăng khi agent xây một hồ sơ.
 
 ## Full answer
 
 ### The two sets
 
-| Safe, automated | Not safe, human only |
+| An toàn, tự động | Không an toàn, chỉ con người |
 |---|---|
-| restart a pod | change the service topology |
-| revert one specific deployment | modify resource limits |
-| scale a pool within pre-approved bounds | deploy new code |
-| enable a pre-approved feature flag | change access rights |
-| | alter a database |
+| khởi động lại một pod | thay đổi cấu trúc liên kết dịch vụ |
+| hoàn nguyên một deployment cụ thể | sửa đổi các giới hạn tài nguyên |
+| scale một pool trong các giới hạn được phê duyệt trước | triển khai mã mới |
+| bật một feature flag được phê duyệt trước | thay đổi quyền truy cập |
+| | thay đổi một cơ sở dữ liệu |
 
 ### What makes an action safe
 
-It is reversible, its blast radius is bounded in advance, and it matches a step in a runbook that a person wrote. The lesson's example incident is a KV cache spike that pushed a serving engine out of memory. A pod restart clears it, and a restart is on the safe list. Raising the memory limit might also clear it, and that change alters how every pod runs from then on, so it stays with a person.
+Nó đảo ngược được, phạm vi ảnh hưởng bị chặn trước, và nó khớp một bước trong một runbook do người viết. Sự cố ví dụ của bài học là một đợt tăng KV cache đẩy một engine phục vụ hết bộ nhớ. Khởi động lại pod xóa nó, và khởi động lại nằm trên danh sách an toàn. Tăng giới hạn bộ nhớ cũng có thể xóa nó, và thay đổi đó thay cách mọi pod chạy từ đó về sau, nên nó ở với một người.
 
 ### How an action earns automation
 
-1. Write the runbook in structured form: symptom, hypothesis, verify, act.
-2. Give the action a success criterion and a verify step that runs after it.
-3. Record every proposal and every human decision.
-4. Promote the action from proposed to automatic after a run of incidents where the proposal matched what the person chose.
+1. Viết runbook ở dạng có cấu trúc: triệu chứng, giả thuyết, xác minh, hành động.
+2. Cho hành động một tiêu chí thành công và một bước xác minh chạy sau nó.
+3. Ghi mọi đề xuất và mọi quyết định con người.
+4. Nâng hành động từ đề xuất lên tự động sau một chuỗi sự cố nơi đề xuất khớp điều con người chọn.
 
 ### The approval gate stays
 
-The architecture is a supervisor over log, metric and runbook agents, a hypothesis with evidence, a human approval, and then an action from the narrow set. Even when two independent models agree on the cause, the approval stays for anything outside the safe set. The lesson is direct about vendors who sell a system that needs no supervision: they are overselling.
+Kiến trúc là một supervisor trên các agent log, chỉ số và runbook, một giả thuyết có bằng chứng, một phê duyệt con người, và sau đó một hành động từ tập hẹp. Ngay cả khi hai mô hình độc lập đồng ý nguyên nhân, phê duyệt ở lại cho bất cứ thứ gì ngoài tập an toàn. Bài học nói thẳng về các nhà cung cấp bán một hệ thống không cần giám sát: họ đang quảng cáo quá mức.
 
 ## Follow-ups
 
-- **Level 3:** Why is a scale-up inside bounds safe while a resource limit change is not? Expected: the bounds were approved in advance and the action reverses cleanly. A limit change alters how every pod runs and can trigger the next incident.
-- **Level 3:** What has to be true before the agent may run an action unsupervised? Expected: a structured runbook, a verify step with a success criterion, an audit record, and a record of proposals that matched the human decision.
-- **Level 4:** The agent restarted the busiest pod during a load spike because a probe failed. Was that inside the rules? Expected: the action was allowed and the trigger was wrong. A restart under load drops the running requests, so the rule needs a condition on load and on the probe type, not only on the action.
+- **Level 3:** Tại sao một scale-up trong giới hạn an toàn trong khi một thay đổi giới hạn tài nguyên không an toàn? Expected: các giới hạn được phê duyệt trước và hành động đảo ngược sạch. Một thay đổi giới hạn thay cách mọi pod chạy và có thể kích hoạt sự cố tiếp theo.
+- **Level 3:** Điều gì phải đúng trước khi agent được chạy một hành động không giám sát? Expected: một runbook có cấu trúc, một bước xác minh với một tiêu chí thành công, một bản ghi kiểm toán, và một hồ sơ các đề xuất khớp quyết định con người.
+- **Level 4:** Agent khởi động lại pod bận nhất trong một đợt tải tăng vì một probe thất bại. Điều đó có nằm trong quy tắc? Expected: hành động được phép và trigger sai. Một khởi động lại dưới tải bỏ các yêu cầu đang chạy, nên quy tắc cần một điều kiện về tải và loại probe, không chỉ về hành động.
 
 ## Wrong answers
 
-- "If the agent is accurate enough, let it do everything." Accuracy on past incidents does not bound the damage of one wrong broad action.
-- "No automation until the agent is perfect." A restart and a revert are safe today, and they remove the first part of most investigations.
-- "An approval step makes the agent useless at night." The agent still does the investigation. The person approves one proposed action instead of starting from the dashboards.
+- "Nếu agent đủ chính xác, để nó làm mọi thứ." Độ chính xác trên các sự cố trước không chặn thiệt hại của một hành động rộng sai.
+- "Không tự động hóa đến khi agent hoàn hảo." Một khởi động lại và một hoàn nguyên an toàn hôm nay, và chúng loại bỏ phần đầu của phần lớn cuộc điều tra.
+- "Một bước phê duyệt khiến agent vô dụng ban đêm." Agent vẫn làm điều tra. Con người phê duyệt một hành động được đề xuất thay vì bắt đầu từ dashboard.
 
 ## Taught in
 
-The [SRE for AI lesson](../../../phases/17-infrastructure-and-production/23-sre-for-ai/) draws the line between narrow and broad remediation and keeps the human approval gate.
+[Bài học SRE cho AI](../../../phases/17-infrastructure-and-production/23-sre-for-ai/) vạch ranh giới giữa khắc phục hẹp và rộng và giữ cổng phê duyệt con người.

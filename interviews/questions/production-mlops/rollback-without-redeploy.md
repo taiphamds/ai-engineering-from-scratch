@@ -16,50 +16,50 @@ related: [production-mlops/canary-gates-above-noise, production-mlops/shadow-mod
 updated: 2026-11-03
 ---
 
-Last quarter a bad model launch took three hours to undo, because the only way back was a new deployment. You own the release path now. Design it so that the next time, the way back takes seconds. Name the pieces and say what each one holds.
+Quý trước, một lần ra mắt mô hình xấu mất ba giờ để hoàn tác, vì đường duy nhất trở lại là một deployment mới. Giờ bạn sở hữu đường phát hành. Thiết kế nó để lần tới đường trở lại mất vài giây. Nêu các phần và nói mỗi phần giữ gì.
 
 ## Short answer
 
-Separate the policy from the model. Keep the traffic split in a feature flag that a configuration change flips, and keep the model in a registry under a pinned digest that never upgrades on its own. A rollback is then two actions: revert the flag, and point the pin at the previous digest, which also restores the prompt and template version pinned with that model. Nothing is rebuilt and nothing is redeployed.
+Tách policy khỏi mô hình. Giữ phần chia lưu lượng trong một feature flag mà một thay đổi cấu hình bật tắt, và giữ mô hình trong một registry dưới một digest được ghim không bao giờ tự nâng cấp. Một rollback khi đó là hai hành động: hoàn nguyên cờ, và trỏ pin về digest trước, cũng khôi phục phiên bản prompt và mẫu được ghim với mô hình đó. Không gì được dựng lại và không gì được triển khai lại.
 
 ## Full answer
 
 ### Two things change in a launch
 
-1. **The policy.** Which share of traffic goes to which model. It lives in a feature-flag system, and a flip takes seconds.
-2. **The model.** The artifact itself. It lives in a registry with a content digest. A pinned digest does not move when a new build appears.
+1. **Policy.** Tỷ phần lưu lượng nào đến mô hình nào. Nó nằm trong một hệ thống feature-flag, và một lần bật tắt mất vài giây.
+2. **Mô hình.** Chính artifact. Nó nằm trong một registry có content digest. Một digest được ghim không di chuyển khi một build mới xuất hiện.
 
-A deployment couples the two: to change the policy you ship a new build. The lesson's rule is blunt: if your stack needs a redeploy to roll back, fix that before you roll anything out.
+Một deployment ghép hai thứ: để thay policy bạn phát hành một build mới. Quy tắc của bài học thẳng thừng: nếu stack cần triển khai lại để rollback, sửa điều đó trước khi rollout bất cứ thứ gì.
 
 ### The rollback
 
-Revert the flag, set the pinned digest to the previous one, and restore the gate thresholds that went with it. The lesson puts the whole sequence at seconds, against hours for a redeploy. In its opening story, the redeploy took three hours and the flag flip would have taken 30 seconds.
+Hoàn nguyên cờ, đặt digest được ghim về digest trước, và khôi phục các ngưỡng cổng đi cùng nó. Bài học đặt toàn bộ chuỗi ở vài giây, so với hàng giờ cho một triển khai lại. Trong câu chuyện mở đầu, triển khai lại mất ba giờ và bật tắt cờ sẽ mất 30 giây.
 
 ### The same flag runs the canary
 
-The canary share lives in the same flag: 1, 10, 25, 50, 75 and then 100 percent. A gate breach sets the share back to zero. That makes the halt and the rollback the same mechanism, so the path you rehearse on every rollout is the path you use in an incident.
+Tỷ phần canary nằm trong cùng cờ: 1, 10, 25, 50, 75 rồi 100 phần trăm. Một vi phạm cổng đặt tỷ phần trở lại không. Điều đó khiến dừng và rollback là cùng cơ chế, nên đường bạn diễn tập trên mọi rollout là đường bạn dùng trong một sự cố.
 
 ### The tooling shape
 
-A progressive delivery controller on the cluster shifts weights at the service mesh or the ingress. A model-serving platform can carry the canary split itself. A feature-flag service holds the policy. Pick one of each, and keep the old model deployed until the new one has held at 100 percent through the gates.
+Một bộ điều khiển triển khai tiến dần trên cụm chuyển các trọng số tại service mesh hoặc ingress. Một nền tảng phục vụ mô hình có thể tự mang phần chia canary. Một dịch vụ feature-flag giữ policy. Chọn một của mỗi loại, và giữ mô hình cũ được triển khai đến khi mô hình mới giữ ở 100 phần trăm qua các cổng.
 
 ### Rehearse it
 
-The lesson's exercise asks for a rollback under 60 seconds end to end. Time it in staging on every release, and treat a slower result as a release blocker.
+Bài tập của bài học yêu cầu một rollback dưới 60 giây từ đầu đến cuối. Đo thời gian trong staging trên mọi bản phát hành, và xem một kết quả chậm hơn là một điều chặn phát hành.
 
 ## Follow-ups
 
-- **Level 2:** Why pin the model by digest and not by tag? Expected: a tag can move to a new build. A digest is immutable, so the rollback target is exactly the model that ran before.
-- **Level 2:** What else must revert together with the model? Expected: the gate thresholds, and any prompt or template version that shipped with the model.
-- **Level 3:** How do you know the path works before you need it? Expected: rehearse it in staging on every release and time it end to end, against a target such as the lesson's 60 seconds.
-- **Level 3:** The new model needs a new engine image. Does the flag still work? Expected: yes, when both images run side by side and the flag chooses between them. The old deployment stays alive until the new one has held at 100 percent.
+- **Level 2:** Tại sao ghim mô hình bằng digest và không bằng tag? Expected: một tag có thể chuyển sang một build mới. Một digest bất biến, nên mục tiêu rollback chính xác là mô hình đã chạy trước.
+- **Level 2:** Điều gì khác phải hoàn nguyên cùng mô hình? Expected: các ngưỡng cổng, và bất kỳ phiên bản prompt hoặc mẫu đã phát hành cùng mô hình.
+- **Level 3:** Bạn biết đường hoạt động trước khi cần nó như thế nào? Expected: diễn tập trong staging trên mọi bản phát hành và đo thời gian từ đầu đến cuối, theo một mục tiêu như 60 giây của bài học.
+- **Level 3:** Mô hình mới cần một engine image mới. Cờ vẫn hoạt động không? Expected: có, khi cả hai image chạy cạnh nhau và cờ chọn giữa chúng. Deployment cũ giữ sống đến khi bản mới giữ ở 100 phần trăm.
 
 ## Wrong answers
 
-- "Roll back by redeploying the previous image." A redeploy takes hours, and the lesson's point is to separate the rollback from the deployment.
-- "Delete the old model a day after the launch." The old model must stay available until the canary has held at full traffic through every gate.
-- "A fast rollback makes the gates unnecessary." The gates decide when to roll back. The fast path only limits the damage once they fire.
+- "Rollback bằng cách triển khai lại image trước." Một triển khai lại mất hàng giờ, và ý của bài học là tách rollback khỏi deployment.
+- "Xóa mô hình cũ một ngày sau ra mắt." Mô hình cũ phải giữ sẵn đến khi canary giữ ở toàn bộ lưu lượng qua mọi cổng.
+- "Một rollback nhanh khiến các cổng không cần thiết." Các cổng quyết định khi nào rollback. Đường nhanh chỉ hạn chế thiệt hại một khi chúng kích hoạt.
 
 ## Taught in
 
-The [progressive delivery lesson](../../../phases/17-infrastructure-and-production/20-shadow-canary-progressive/) separates policy flags from model pins and makes the rollback a configuration change.
+[Bài học triển khai tiến dần](../../../phases/17-infrastructure-and-production/20-shadow-canary-progressive/) tách các cờ policy khỏi các pin mô hình và khiến rollback là một thay đổi cấu hình.

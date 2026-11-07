@@ -16,42 +16,42 @@ related: [production-mlops/narrow-auto-remediation, production-mlops/two-models-
 updated: 2026-11-03
 ---
 
-A model trained on your logs, GPU temperatures and error patterns predicts most outages ten to fifteen minutes before they happen. The team wants to ship it as a dashboard panel. Design what the system does with a prediction, and defend the design.
+Một mô hình được huấn luyện trên log, nhiệt độ GPU và các mẫu lỗi của bạn dự đoán phần lớn gián đoạn sớm mười đến mười lăm phút. Nhóm muốn triển khai nó như một bảng trên dashboard. Thiết kế hệ thống làm gì với một dự đoán, và bảo vệ thiết kế.
 
 ## Short answer
 
-A prediction with no action is a dashboard, and nobody watches a dashboard at three in the morning. Write a policy per prediction class: page the on-call, drain the suspect node or pool before it fails, or scale within approved bounds, and record every prediction with its outcome. Start with the page, measure the precision on live incidents, and promote a class to an automatic drain only when its false alarm rate is acceptable and a person has approved that drain as a pre-approved action in the runbook.
+Một dự đoán không có hành động là một dashboard, và không ai xem dashboard lúc ba giờ sáng. Viết một policy mỗi lớp dự đoán: gọi người trực, rút node hoặc pool bị nghi khỏi phục vụ trước khi thất bại, hoặc scale trong các giới hạn được phê duyệt, và ghi mọi dự đoán với kết quả. Bắt đầu với gọi trực, đo precision trên các sự cố thật, và chỉ nâng một lớp lên rút tự động khi tỷ lệ báo động giả chấp nhận được và một người đã phê duyệt thao tác rút đó như một hành động được phê duyệt trước trong runbook.
 
 ## Full answer
 
 ### The result and its limit
 
-The lesson cites a research result: a model trained on past log lines, GPU temperature readings and API error patterns predicted 89 percent of outages 10 to 15 minutes early on its test set. The lesson's reality check follows at once. Predictions without actuation are dashboards. The operational question is what you do when the prediction fires.
+Bài học trích dẫn một kết quả nghiên cứu: một mô hình được huấn luyện trên các dòng log trước, các số đọc nhiệt độ GPU và các mẫu lỗi API dự đoán 89 phần trăm gián đoạn sớm 10 đến 15 phút trên tập kiểm thử. Kiểm tra thực tế của bài học theo ngay. Các dự đoán không có tác động là dashboard. Câu hỏi vận hành là bạn làm gì khi dự đoán kích hoạt.
 
 ### The design
 
-1. **Classify the prediction.** Which failure is coming: a memory exhaustion, a thermal slowdown, a provider error burst. Attach the confidence.
-2. **Map each class to an action.** The lesson's safe set is narrow: restart a pod, revert a deploy, scale within pre-approved bounds. A drain is not on that list, so it needs approval before it runs on its own. Drain the pod from the load balancer and restart it before it falls over. Scale the pool within approved bounds. Page a person with the prediction and the evidence.
-3. **Fit the action into the lead time.** A drain plus a replacement must complete inside the ten to fifteen minutes, so the replacement has to be warm already. A cold start of a large model takes minutes and can eat the whole window.
-4. **Record outcomes.** Every prediction, its class, the action taken and whether the outage happened. Precision and recall per class come from this log, not from the paper.
-5. **Guard the blast radius.** Never run two automatic drains in the same pool at once, and never drain under a load spike without a warm spare.
+1. **Phân loại dự đoán.** Lỗi nào đang đến: cạn bộ nhớ, giảm tốc do nhiệt, một đợt lỗi nhà cung cấp. Gắn độ tự tin.
+2. **Ánh xạ mỗi lớp đến một hành động.** Tập an toàn của bài học hẹp: khởi động lại một pod, hoàn nguyên một deploy, scale trong giới hạn được phê duyệt trước. Một thao tác rút không nằm trong danh sách đó, nên nó cần phê duyệt trước khi tự chạy. Rút pod khỏi load balancer và khởi động lại trước khi sụp. Scale pool trong các giới hạn được phê duyệt. Gọi một người với dự đoán và bằng chứng.
+3. **Đặt hành động vừa thời gian báo trước.** Rút cộng thay thế phải hoàn tất trong mười đến mười lăm phút, nên bản thay thế phải đã được làm nóng. Một cold start mô hình lớn mất vài phút và có thể ăn hết cửa sổ.
+4. **Ghi kết quả.** Mọi dự đoán, lớp của nó, hành động thực hiện và liệu gián đoạn xảy ra. Precision và recall mỗi lớp đến từ log này, không phải bài báo.
+5. **Bảo vệ phạm vi ảnh hưởng.** Không bao giờ chạy hai thao tác rút tự động trong cùng pool cùng lúc, và không bao giờ rút dưới một đợt tải tăng mà không có một dự phòng đã làm nóng.
 
 ### Why page first
 
-A page costs sleep. A false drain costs capacity for the drain time. A false scale-up costs money. Until the precision per class is measured in production, the cheapest wrong action is the page. Promote a class to automatic action when its record justifies it, the same ladder the lesson uses for remediation.
+Một lần gọi trực tốn giấc ngủ. Một lần rút sai tốn dung lượng trong thời gian rút. Một scale-up sai tốn tiền. Đến khi precision mỗi lớp được đo trong production, hành động sai rẻ nhất là gọi trực. Nâng một lớp lên hành động tự động khi hồ sơ của nó biện minh, cùng thang mà bài học dùng cho khắc phục.
 
 ## Follow-ups
 
-- **Level 3:** What does a false alarm cost under each policy? Expected: a page costs sleep, a drain costs capacity for the drain time, and a scale-up costs money. Pick the policy per class from that cost against the cost of the outage.
-- **Level 4:** The lead time is ten minutes and a replacement replica takes longer to warm. What changes? Expected: keep a warm spare or act earlier on a weaker signal. A drain with no warm replacement moves the outage instead of preventing it.
-- **Level 4:** How do you know the predictor still works after the service changes? Expected: track precision and recall per class on live incidents, and retrain when the input distribution shifts.
+- **Level 3:** Một báo động giả tốn gì dưới mỗi policy? Expected: một lần gọi trực tốn giấc ngủ, một thao tác rút tốn dung lượng trong thời gian rút, và một scale-up tốn tiền. Chọn policy mỗi lớp từ chi phí đó đối chiếu chi phí gián đoạn.
+- **Level 4:** Thời gian báo trước là mười phút và một replica thay thế mất lâu hơn để làm nóng. Điều gì thay đổi? Expected: giữ một dự phòng đã làm nóng hoặc hành động sớm hơn trên một tín hiệu yếu hơn. Một thao tác rút không có thay thế đã làm nóng di chuyển gián đoạn thay vì ngăn nó.
+- **Level 4:** Bạn biết bộ dự đoán vẫn hoạt động sau khi dịch vụ thay đổi như thế nào? Expected: theo dõi precision và recall mỗi lớp trên các sự cố thật, và huấn luyện lại khi phân phối đầu vào dịch chuyển.
 
 ## Wrong answers
 
-- "Ship the panel and let on-call decide." At night nobody watches a panel. The lesson's point is that a prediction without an action is a dashboard.
-- "Automate the drain for every prediction from day one." A false alarm then costs capacity, and nothing has measured the false alarm rate on your traffic.
-- "The research number means we will prevent most outages." The number was on a test set. Your precision in production is unknown until you measure it.
+- "Triển khai bảng và để người trực quyết định." Ban đêm không ai xem một bảng. Ý của bài học là một dự đoán không có hành động là một dashboard.
+- "Tự động rút cho mọi dự đoán từ ngày đầu." Một báo động giả khi đó tốn dung lượng, và không gì đã đo tỷ lệ báo động giả trên lưu lượng của bạn.
+- "Con số nghiên cứu có nghĩa chúng ta sẽ ngăn phần lớn gián đoạn." Con số nằm trên một tập kiểm thử. Precision trong production của bạn chưa biết đến khi đo.
 
 ## Taught in
 
-The [SRE for AI lesson](../../../phases/17-infrastructure-and-production/23-sre-for-ai/) reports the early-detection result and asks what the system does when it predicts.
+[Bài học SRE cho AI](../../../phases/17-infrastructure-and-production/23-sre-for-ai/) báo cáo kết quả phát hiện sớm và hỏi hệ thống làm gì khi dự đoán.

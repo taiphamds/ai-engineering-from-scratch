@@ -16,49 +16,49 @@ related: [production-mlops/span-kind-client-or-internal, production-mlops/read-t
 updated: 2026-11-03
 ---
 
-Your agent uses three tool servers over the MCP protocol. Two of them speak streamable HTTP, and one runs as a local subprocess over stdio. Design how a single trace id reaches all three, and say what each server has to do when it arrives.
+Agent của bạn dùng ba máy chủ công cụ qua giao thức MCP. Hai máy chủ dùng streamable HTTP, và một chạy như một tiến trình con cục bộ qua stdio. Thiết kế cách một trace id duy nhất đến cả ba, và nói mỗi máy chủ phải làm gì khi nó đến.
 
 ## Short answer
 
-For the HTTP servers, inject the W3C `traceparent` header into every request, as any traced HTTP client does. The stdio transport has no headers, so put the same value into the `_meta` field of each JSON-RPC request until the protocol adds a standard field for it. Each server reads the value, opens its own span as a child of that context, writes the trace id into its logs, and passes the context on if it calls anything else.
+Với các máy chủ HTTP, chèn header W3C `traceparent` vào mọi yêu cầu, như bất kỳ client HTTP được trace nào làm. Transport stdio không có header, nên đặt cùng giá trị vào trường `_meta` của mỗi yêu cầu JSON-RPC đến khi giao thức thêm một trường tiêu chuẩn cho nó. Mỗi máy chủ đọc giá trị, mở span riêng như một con của ngữ cảnh đó, ghi trace id vào log, và truyền ngữ cảnh tiếp nếu gọi bất cứ thứ gì khác.
 
 ## Full answer
 
 ### Why this is worth the work
 
-The lesson opens with a report from production: the agent sometimes answers in 3 seconds and sometimes in 30. The logs show the model calls and nothing else. The cause was one tool server that hung during its cold start, and nothing short of an end-to-end trace could show it.
+Bài học mở bằng một báo cáo từ production: agent đôi khi trả lời trong 3 giây và đôi khi trong 30. Các log cho thấy các lời gọi mô hình và không gì khác. Nguyên nhân là một máy chủ công cụ treo trong cold start, và không gì ít hơn một trace từ đầu đến cuối có thể cho thấy nó.
 
 ### The HTTP servers
 
-Streamable HTTP carries standard headers. The client injects `traceparent`, and the server starts a span under that parent. On the client side the call is a CLIENT span under the `execute_tool` span. On the server side the work is a child of the same trace. The gap between the two is the transport time.
+Streamable HTTP mang các header tiêu chuẩn. Client chèn `traceparent`, và máy chủ bắt đầu một span dưới cha đó. Ở phía client, lời gọi là một span CLIENT dưới span `execute_tool`. Ở phía máy chủ, công việc là một con của cùng trace. Khoảng cách giữa hai bên là thời gian transport.
 
 ### The stdio server
 
-Stdio carries no HTTP headers. The protocol roadmap discusses a `_meta.traceparent` field on JSON-RPC calls. Until it ships, include the `traceparent` value in `_meta` on every request yourself, and have the server read it from there. The server logs the trace id so that a log line and a span can be joined later.
+Stdio không mang header HTTP. Lộ trình giao thức thảo luận một trường `_meta.traceparent` trên các lời gọi JSON-RPC. Đến khi nó được phát hành, tự bao gồm giá trị `traceparent` trong `_meta` trên mọi yêu cầu, và để máy chủ đọc nó từ đó. Máy chủ ghi log trace id để một dòng log và một span có thể được nối sau.
 
 ### What every server does with the context
 
-1. Parse the context from the header or from `_meta`.
-2. Start a span as a child of that context, not a new trace.
-3. Write the trace id into every log line of the request.
-4. Propagate the context to anything it calls in turn.
+1. Phân tích ngữ cảnh từ header hoặc từ `_meta`.
+2. Bắt đầu một span như một con của ngữ cảnh đó, không phải một trace mới.
+3. Ghi trace id vào mọi dòng log của yêu cầu.
+4. Truyền ngữ cảnh đến bất cứ thứ gì nó gọi tiếp.
 
 ### What you can see afterwards
 
-One waterfall: the agent step, the tool call, the server's work. A hang appears as one long server span under a long client span. Beside the spans, emit the tool execution duration histogram per tool, which answers the dashboard questions without a trace.
+Một waterfall: bước agent, lời gọi công cụ, công việc của máy chủ. Một lần treo xuất hiện như một span máy chủ dài dưới một span client dài. Cạnh các span, phát histogram thời lượng thực thi công cụ theo công cụ, trả lời các câu hỏi dashboard mà không có trace.
 
 ## Follow-ups
 
-- **Level 3:** A server ignores the `_meta` field. What do you see in the trace? Expected: the server's work shows up as a separate trace or not at all, and the client span shows the duration but not where the time went.
-- **Level 3:** Which span records the hang, the client span or the server span? Expected: both. The client span shows the wait from the agent's side, the server span shows what the server did, and the gap between them is the transport.
-- **Level 4:** Another team operates one tool server. What do you ask them to commit to? Expected: accept the context from headers or `_meta`, continue the trace instead of starting one, log the trace id, and export spans to a backend that both teams can read.
+- **Level 3:** Một máy chủ bỏ qua trường `_meta`. Bạn thấy gì trong trace? Expected: công việc máy chủ xuất hiện như một trace riêng hoặc hoàn toàn không, và span client cho thấy thời lượng nhưng không cho thấy thời gian đi đâu.
+- **Level 3:** Span nào ghi lần treo, span client hay span máy chủ? Expected: cả hai. Span client cho thấy thời gian chờ từ phía agent, span máy chủ cho thấy máy chủ làm gì, và khoảng cách giữa chúng là transport.
+- **Level 4:** Một nhóm khác vận hành một máy chủ công cụ. Bạn yêu cầu họ cam kết gì? Expected: nhận ngữ cảnh từ header hoặc `_meta`, tiếp tục trace thay vì bắt đầu một trace, ghi log trace id, và xuất span đến một backend cả hai nhóm có thể đọc.
 
 ## Wrong answers
 
-- "Log a request id and join the logs later." A request id has no parent-child structure and no timing. A trace has both.
-- "The stdio server is local, so it does not need tracing." The hang in the lesson was in a local server's cold start. Local does not mean fast.
-- "Put the trace id into the prompt so the model carries it." The model is not a transport, and a changing value in the prompt also breaks the prefix cache.
+- "Ghi log một request id và nối các log sau." Một request id không có cấu trúc cha-con và không thời gian. Một trace có cả hai.
+- "Máy chủ stdio cục bộ, nên không cần tracing." Lần treo trong bài học ở cold start của một máy chủ cục bộ. Cục bộ không có nghĩa nhanh.
+- "Đặt trace id vào prompt để mô hình mang nó." Mô hình không phải một transport, và một giá trị thay đổi trong prompt cũng phá prefix cache.
 
 ## Taught in
 
-The [OpenTelemetry GenAI lesson](../../../phases/13-tools-and-protocols/20-opentelemetry-genai/) covers propagation across the MCP transports and the tool duration metric.
+[Bài học OpenTelemetry GenAI](../../../phases/13-tools-and-protocols/20-opentelemetry-genai/) trình bày truyền qua các transport MCP và chỉ số thời lượng công cụ.

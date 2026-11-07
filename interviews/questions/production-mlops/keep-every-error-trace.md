@@ -16,54 +16,54 @@ related: [production-mlops/renamed-token-attribute, production-mlops/drift-score
 updated: 2026-11-03
 ---
 
-Your service makes more than a million model calls a day. Keeping every trace now costs more than the model calls themselves. Design a retention policy that keeps the traces you will need during an incident and drops the rest.
+Dịch vụ của bạn thực hiện hơn một triệu lời gọi mô hình mỗi ngày. Giữ mọi trace giờ tốn hơn chính các lời gọi mô hình. Thiết kế một policy lưu giữ giữ các trace bạn sẽ cần trong một sự cố và bỏ phần còn lại.
 
 ## Short answer
 
-Sample by rule, not by a flat rate. Keep every errored trace and every high-cost trace, keep a small share of the successes, and keep the aggregates always. Make the decision at the collector with a tail sampler after the trace completes, so that the rule can see the status and the cost. The capstone keeps all errored traces and 10 percent of the successes.
+Lấy mẫu theo quy tắc, không phải theo một tỷ lệ phẳng. Giữ mọi trace có lỗi và mọi trace chi phí cao, giữ một tỷ phần nhỏ các thành công, và luôn giữ các tổng hợp. Đưa ra quyết định tại collector với một tail sampler sau khi trace hoàn tất, để quy tắc có thể thấy trạng thái và chi phí. Capstone giữ tất cả trace có lỗi và 10 phần trăm các thành công.
 
 ## Full answer
 
 ### Why a flat rate fails
 
-A flat 5 percent keeps 5 percent of the errors too. The trace you need in an incident is the one you dropped, and the aggregate error count tells you only that it existed.
+Một mức phẳng 5 phần trăm cũng giữ 5 phần trăm lỗi. Trace bạn cần trong một sự cố là trace bạn bỏ, và số lỗi tổng hợp chỉ cho bạn biết nó tồn tại.
 
 ### The rules
 
-| Class | Keep |
+| Lớp | Giữ |
 |---|---|
-| errored traces | all of them |
-| high-cost traces, long outputs or expensive models | all of them |
-| successes | 5 to 10 percent |
-| aggregates | always, from every request |
+| các trace có lỗi | tất cả chúng |
+| các trace chi phí cao, đầu ra dài hoặc mô hình đắt | tất cả chúng |
+| các thành công | 5 đến 10 phần trăm |
+| các tổng hợp | luôn luôn, từ mọi yêu cầu |
 
-The observability lesson states the rule as 100 percent of errors, 100 percent of high cost and 5 percent of successes. Aggregates do not need traces: counters and histograms count every request even when the trace is dropped.
+Bài học quan sát nêu quy tắc là 100 phần trăm lỗi, 100 phần trăm chi phí cao và 5 phần trăm thành công. Các tổng hợp không cần trace: các bộ đếm và histogram đếm mọi yêu cầu ngay cả khi trace bị bỏ.
 
 ### Decide at the tail
 
-Head sampling decides when the trace starts, before anything knows whether it will fail. Tail sampling at the collector decides after the trace completes, so it can read the status, the cost and the eval score. The price is buffer memory at the collector, because whole traces wait until the decision.
+Head sampling quyết định khi trace bắt đầu, trước khi bất cứ thứ gì biết liệu nó thất bại. Tail sampling tại collector quyết định sau khi trace hoàn tất, nên nó có thể đọc trạng thái, chi phí và điểm đánh giá. Cái giá là bộ nhớ buffer tại collector, vì các trace nguyên vẹn chờ đến quyết định.
 
 ### Stratify, and know the bias
 
-The capstone's exercise keeps every trace with a toxicity score above 0.5 plus a 10 percent stratified sample of the rest, and asks you to measure the bias that the sampling adds. Any analysis over sampled traces overweights the classes you kept in full. Weight by the inverse of the sampling rate, or run the per-trace evals on the stratified share only.
+Bài tập của capstone giữ mọi trace có điểm độc hại trên 0.5 cộng một mẫu phân tầng 10 phần trăm của phần còn lại, và yêu cầu bạn đo bias mà lấy mẫu thêm. Bất kỳ phân tích nào trên các trace lấy mẫu đều đặt trọng số quá mức các lớp bạn giữ đầy đủ. Đặt trọng số theo nghịch đảo tỷ lệ lấy mẫu, hoặc chỉ chạy các đánh giá theo trace trên tỷ phần phân tầng.
 
 ### Tier the storage
 
-Spans go to a columnar store for queries, and raw events go to object storage for the long tail. The archive is cheap, and long-term analysis runs there.
+Các span đến một kho dạng cột để truy vấn, và các sự kiện thô đến object storage cho phần đuôi dài. Kho lưu trữ rẻ, và phân tích dài hạn chạy ở đó.
 
 ## Follow-ups
 
-- **Level 2:** Why does head sampling lose the errors? Expected: it decides before the span ends, so it cannot see the status.
-- **Level 2:** What survives from a dropped trace? Expected: the metrics. Counters and histograms count every request, whether or not its trace is kept.
-- **Level 3:** Your eval jobs run over the sampled traces. What bias do they inherit? Expected: a sample that keeps all errors overweights failures, so weight by the inverse sampling rate or evaluate the stratified share only.
-- **Level 3:** The collector runs out of memory during a burst. Why, and what do you change? Expected: tail sampling buffers whole traces until they complete. Cap the buffer, shorten the decision wait, and shed with a head rule under pressure.
+- **Level 2:** Tại sao head sampling mất các lỗi? Expected: nó quyết định trước khi span kết thúc, nên không thể thấy trạng thái.
+- **Level 2:** Điều gì sống sót từ một trace bị bỏ? Expected: các chỉ số. Các bộ đếm và histogram đếm mọi yêu cầu, dù trace của nó có được giữ hay không.
+- **Level 3:** Các công việc đánh giá của bạn chạy trên các trace lấy mẫu. Chúng kế thừa bias nào? Expected: một mẫu giữ tất cả lỗi đặt trọng số quá mức các thất bại, nên đặt trọng số theo nghịch đảo tỷ lệ lấy mẫu hoặc chỉ đánh giá tỷ phần phân tầng.
+- **Level 3:** Collector hết bộ nhớ trong một đợt bùng phát. Tại sao, và bạn thay đổi gì? Expected: tail sampling buffer các trace nguyên vẹn đến khi chúng hoàn tất. Giới hạn buffer, rút ngắn thời gian chờ quyết định, và loại bỏ bằng một quy tắc head dưới áp lực.
 
 ## Wrong answers
 
-- "Sample 5 percent of everything." Most of the errors you need in an incident are gone, and the aggregate tells you only that they happened.
-- "Keep everything for a week, then delete it." A week of full traces at this volume is the cost you are trying to remove.
-- "Traces are enough, drop the metrics." A percentile over an hour needs every request, which only a histogram gives.
+- "Lấy mẫu 5 phần trăm mọi thứ." Phần lớn các lỗi bạn cần trong một sự cố mất, và tổng hợp chỉ cho bạn biết chúng xảy ra.
+- "Giữ mọi thứ một tuần, rồi xóa." Một tuần trace đầy đủ ở khối lượng này là chi phí bạn đang cố loại bỏ.
+- "Trace đủ, bỏ các chỉ số." Một phân vị trên một giờ cần mọi yêu cầu, điều chỉ một histogram cho.
 
 ## Taught in
 
-The [observability stack lesson](../../../phases/17-infrastructure-and-production/13-llm-observability/) gives the sampling rules, and the [dashboard capstone](../../../phases/19-capstone-projects/11-llm-observability-dashboard/) configures the tail sampler and measures its bias.
+[Bài học stack quan sát](../../../phases/17-infrastructure-and-production/13-llm-observability/) đưa ra các quy tắc lấy mẫu, và [capstone dashboard](../../../phases/19-capstone-projects/11-llm-observability-dashboard/) cấu hình tail sampler và đo bias của nó.

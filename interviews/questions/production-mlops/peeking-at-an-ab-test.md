@@ -16,46 +16,46 @@ related: [production-mlops/evals-or-ab-test, production-mlops/split-ratio-mismat
 updated: 2026-11-03
 ---
 
-A product manager reads the experiment dashboard every morning and wants to end the test on the first day the variant looks significant. Twenty other experiments run this quarter under the same plan. What is wrong with it, and what do you offer instead?
+Một quản lý sản phẩm đọc dashboard thí nghiệm mỗi sáng và muốn kết thúc kiểm thử vào ngày đầu biến thể có vẻ có ý nghĩa. Hai mươi thí nghiệm khác chạy quý này theo cùng kế hoạch. Điều gì sai với nó, và thay vào đó bạn đưa ra gì?
 
 ## Short answer
 
-A fixed-sample test assumes one look at a sample size chosen in advance. Looking every day and stopping at the first significant result gives noise many chances to cross the line, so the false positive rate climbs. Offer a sequential test, which stays valid under repeated looks and still allows an early stop on a clear winner. Across many experiments, correct for multiple comparisons, and reduce variance with pre-experiment data so each test needs fewer samples.
+Một kiểm thử mẫu cố định giả định một lần xem ở một kích thước mẫu chọn trước. Xem mỗi ngày và dừng ở kết quả có ý nghĩa đầu cho nhiễu nhiều cơ hội vượt mốc, nên tỷ lệ dương tính giả tăng. Đưa ra một kiểm thử tuần tự, giữ hợp lệ dưới các lần xem lặp và vẫn cho phép dừng sớm khi có bên thắng rõ. Qua nhiều thí nghiệm, hiệu chỉnh cho nhiều so sánh, và giảm variance bằng dữ liệu trước thí nghiệm để mỗi kiểm thử cần ít mẫu hơn.
 
 ## Full answer
 
 ### The peeking problem
 
-Classical A/B analysis assumes the sample size is fixed before the test. Each extra look is another test, and a stop at the first significant look selects the noise. The manager's plan is not wrong because it looks often. It is wrong because it decides on a procedure that was not built for repeated decisions.
+Phân tích A/B cổ điển giả định kích thước mẫu cố định trước kiểm thử. Mỗi lần xem thêm là một kiểm thử nữa, và dừng ở lần xem có ý nghĩa đầu chọn nhiễu. Kế hoạch của quản lý không sai vì xem thường xuyên. Nó sai vì quyết định dựa trên một thủ tục không được xây cho các quyết định lặp.
 
 ### Sequential testing
 
-Always-valid sequential procedures, such as the mixture sequential probability ratio test and confidence sequences, control the false positive rate under repeated looks. You can check daily and stop early on a clear winner, and the error rate stays what you set. The lesson's simulator shows the fixed and the sequential boundaries side by side.
+Các thủ tục tuần tự luôn hợp lệ, như mixture sequential probability ratio test và confidence sequence, kiểm soát tỷ lệ dương tính giả dưới các lần xem lặp. Bạn có thể kiểm tra hằng ngày và dừng sớm ở một bên thắng rõ, và tỷ lệ lỗi giữ như bạn đặt. Bộ mô phỏng của bài học cho thấy các ranh giới cố định và tuần tự cạnh nhau.
 
 ### Twenty experiments
 
-At 95 percent confidence, 20 experiments produce about one false positive by chance. Two corrections exist. Bonferroni divides the error rate by the number of tests, which is strict. Benjamini-Hochberg controls the false discovery rate and is less conservative. Choose by the cost of one false launch against the cost of missing a real win.
+Ở độ tin cậy 95 phần trăm, 20 thí nghiệm tạo khoảng một dương tính giả do ngẫu nhiên. Có hai hiệu chỉnh. Bonferroni chia tỷ lệ lỗi cho số kiểm thử, nghiêm ngặt. Benjamini-Hochberg kiểm soát tỷ lệ phát hiện sai và ít bảo thủ hơn. Chọn theo chi phí một lần ra mắt sai đối chiếu chi phí bỏ lỡ một chiến thắng thật.
 
 ### Variance reduction
 
-CUPED regresses out the variance that pre-experiment data explains. The lesson gives a typical reduction of 30 to 70 percent, which raises the effective sample size at no cost in traffic. That is the honest way to shorten a test.
+CUPED hồi quy loại variance mà dữ liệu trước thí nghiệm giải thích. Bài học đưa ra một mức giảm điển hình 30 đến 70 phần trăm, tăng kích thước mẫu hiệu dụng mà không tốn lưu lượng. Đó là cách trung thực để rút ngắn một kiểm thử.
 
 ### Two more checks
 
-A sample ratio mismatch check catches a broken assignment before you read any result. Non-determinism in model output lowers the effective sample size, so the lesson multiplies the required sample by about 1.3 to 1.5.
+Một kiểm tra không khớp tỷ lệ mẫu bắt một phân nhóm hỏng trước khi bạn đọc bất kỳ kết quả nào. Tính không xác định trong đầu ra mô hình giảm kích thước mẫu hiệu dụng, nên bài học nhân mẫu cần thiết với khoảng 1.3 đến 1.5.
 
 ## Follow-ups
 
-- **Level 3:** Bonferroni or Benjamini-Hochberg for the quarter? Expected: Bonferroni when any false launch is costly, Benjamini-Hochberg when you accept a controlled share of false discoveries in exchange for power.
-- **Level 3:** What does CUPED need, and what does it give? Expected: it needs a pre-period metric for each unit, and it gives a tighter estimate from the same traffic.
-- **Level 4:** A new model needs a larger sample than the quarter allows. What do you change? Expected: pick a primary metric with lower variance, apply CUPED, or extend the test. Do not shorten it by stopping early under a fixed-sample procedure.
+- **Level 3:** Bonferroni hay Benjamini-Hochberg cho quý? Expected: Bonferroni khi bất kỳ lần ra mắt sai nào đắt, Benjamini-Hochberg khi bạn chấp nhận một tỷ phần phát hiện sai có kiểm soát để đổi lấy lực kiểm định.
+- **Level 3:** CUPED cần gì, và cho gì? Expected: nó cần một chỉ số trước giai đoạn cho mỗi đơn vị, và cho một ước lượng chặt hơn từ cùng lưu lượng.
+- **Level 4:** Một mô hình mới cần một mẫu lớn hơn quý cho phép. Bạn thay đổi gì? Expected: chọn một chỉ số chính có variance thấp hơn, áp dụng CUPED, hoặc kéo dài kiểm thử. Không rút ngắn bằng cách dừng sớm dưới một thủ tục mẫu cố định.
 
 ## Wrong answers
 
-- "Stopping early is fine when the p-value is small." Under a fixed-sample test, a small p-value on the first day is partly selected noise. Only a sequential procedure keeps that stop valid.
-- "Run all the tests at 95 percent and ship the winners." About one winner is a false positive by chance. Correct for multiple comparisons.
-- "A longer test is always more reliable." Longer helps only if the assignment is sound. Check the sample ratio first.
+- "Dừng sớm ổn khi p-value nhỏ." Dưới một kiểm thử mẫu cố định, một p-value nhỏ vào ngày đầu một phần là nhiễu được chọn. Chỉ một thủ tục tuần tự giữ lần dừng đó hợp lệ.
+- "Chạy tất cả kiểm thử ở 95 phần trăm và triển khai các bên thắng." Khoảng một bên thắng là một dương tính giả do ngẫu nhiên. Hiệu chỉnh cho nhiều so sánh.
+- "Một kiểm thử dài hơn luôn đáng tin cậy hơn." Dài hơn chỉ giúp nếu phân nhóm vững. Kiểm tra tỷ lệ mẫu trước.
 
 ## Taught in
 
-The [A/B testing lesson](../../../phases/17-infrastructure-and-production/21-ab-testing-llm-features/) covers sequential tests, CUPED, SRM checks and multiple-comparison corrections.
+[Bài học A/B testing](../../../phases/17-infrastructure-and-production/21-ab-testing-llm-features/) trình bày các kiểm thử tuần tự, CUPED, kiểm tra SRM và các hiệu chỉnh nhiều so sánh.

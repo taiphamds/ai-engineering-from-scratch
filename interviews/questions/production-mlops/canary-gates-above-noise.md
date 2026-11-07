@@ -16,52 +16,52 @@ related: [production-mlops/shadow-mode-is-a-smoke-test, production-mlops/canary-
 updated: 2026-11-03
 ---
 
-You run a canary for a new model. The team wants a rule that stops the rollout when the canary and the baseline differ on any metric. Design the gates so that they catch a real regression and let a healthy rollout through.
+Bạn chạy một canary cho một mô hình mới. Nhóm muốn một quy tắc dừng rollout khi canary và baseline khác nhau trên bất kỳ chỉ số nào. Thiết kế các cổng để chúng bắt một suy giảm thật và cho một rollout khỏe mạnh qua.
 
 ## Short answer
 
-Write each gate as a multiplier above the baseline, never as equality. Gate on five metrics: latency percentiles, cost per request, error and refusal rate, output length distribution and user feedback rate. Put every threshold above the run-to-run variance, which the lesson measured at up to 15 percent on identical inputs, and hold each step long enough to collect the samples the gate needs.
+Viết mỗi cổng như một hệ số trên baseline, không bao giờ như bằng nhau. Đặt cổng trên năm chỉ số: các phân vị độ trễ, chi phí mỗi yêu cầu, tỷ lệ lỗi và từ chối, phân phối độ dài đầu ra và tỷ lệ phản hồi người dùng. Đặt mọi ngưỡng trên variance giữa các lần chạy, mà bài học đo đến 15 phần trăm trên các đầu vào giống hệt, và giữ mỗi bước đủ lâu để thu thập các mẫu cổng cần.
 
 ## Full answer
 
 ### Why equality fails
 
-Identical inputs produce different outputs. Floating-point reductions on the GPU run in a different order for each batch shape, the batch size changes between runs, and sampling above temperature zero adds its own randomness. The lesson reports up to 15 percent accuracy variation between runs on the same eval set. "Stable" therefore means inside the expected variance, not identical to the baseline.
+Các đầu vào giống hệt tạo các đầu ra khác nhau. Các phép rút gọn dấu phẩy động trên GPU chạy theo một thứ tự khác cho mỗi shape batch, kích thước batch thay đổi giữa các lần chạy, và lấy mẫu trên temperature không thêm sự ngẫu nhiên riêng. Bài học báo cáo đến 15 phần trăm biến thiên độ chính xác giữa các lần chạy trên cùng tập đánh giá. "Ổn định" do đó có nghĩa trong variance kỳ vọng, không phải giống hệt baseline.
 
 ### The five gates
 
-| Metric | Breach |
+| Chỉ số | Vi phạm |
 |---|---|
-| Latency P50, P95, P99 | canary P99 above 1.5x the baseline |
-| Cost per request | more than 20 percent above the baseline |
-| Error and refusal rate | 2x the baseline |
-| Output length, mean and P99 | a shift in the distribution |
-| User feedback, thumbs-down and tickets | 1.5x the baseline |
+| Độ trễ P50, P95, P99 | P99 canary trên 1.5x baseline |
+| Chi phí mỗi yêu cầu | hơn 20 phần trăm trên baseline |
+| Tỷ lệ lỗi và từ chối | 2x baseline |
+| Độ dài đầu ra, trung bình và P99 | một dịch chuyển trong phân phối |
+| Phản hồi người dùng, không thích và ticket | 1.5x baseline |
 
 ### Measure the noise floor first
 
-Before the canary, run two arms of the same baseline model and record the spread of each metric between them. That spread is the floor. A gate below it halts every rollout, including a good one. The lesson's exercise asks for the multipliers when the eval noise is plus or minus 7 percent, and the answer is a gate above that band.
+Trước canary, chạy hai nhánh của cùng mô hình baseline và ghi độ trải mỗi chỉ số giữa chúng. Độ trải đó là sàn. Một cổng dưới nó dừng mọi rollout, gồm một rollout tốt. Bài tập của bài học yêu cầu các hệ số khi nhiễu đánh giá là cộng hoặc trừ 7 phần trăm, và đáp án là một cổng trên dải đó.
 
 ### Hold each step long enough
 
-The progression runs 1, 10, 25, 50, 75 and 100 percent. Gates check every 5 to 15 minutes. At 1 percent of a load of 1,000 per minute, the canary sees 10 requests per minute, which is 50 to 150 data points per window. That is enough to read latency and errors, but one or two samples decide the P99, so the P99 gate must hold for more than one window. It is too few for user feedback. Each step must pause until the gate has its samples.
+Tiến trình chạy 1, 10, 25, 50, 75 và 100 phần trăm. Các cổng kiểm tra mỗi 5 đến 15 phút. Ở 1 phần trăm của tải 1,000 mỗi phút, canary thấy 10 yêu cầu mỗi phút, là 50 đến 150 điểm dữ liệu mỗi cửa sổ. Đó là đủ để đọc độ trễ và lỗi, nhưng một hoặc hai mẫu quyết định P99, nên cổng P99 phải giữ hơn một cửa sổ. Nó quá ít cho phản hồi người dùng. Mỗi bước phải tạm dừng đến khi cổng có các mẫu của nó.
 
 ### Keep the exit cheap
 
-A halt is only useful when the rollback is fast. Keep the traffic share in a policy flag and the model in a registry with a pinned digest, so that a breach reverts in seconds.
+Một lần dừng chỉ hữu ích khi rollback nhanh. Giữ tỷ phần lưu lượng trong một cờ policy và mô hình trong một registry có digest được ghim, để một vi phạm hoàn nguyên trong vài giây.
 
 ## Follow-ups
 
-- **Level 3:** How do you learn the size of the noise before the canary starts? Expected: run two canary arms of the same baseline and record the spread of each metric between them.
-- **Level 3:** User feedback at the first step is too thin to gate on. What do you do? Expected: gate the early steps on latency, cost, errors and length, and apply the feedback gate from the step that has enough samples.
-- **Level 4:** A gate fires at one step, and the metric is normal again on the next check. Continue or halt? Expected: halt and look. A gate that flaps sits inside the noise or sees an intermittent regression, and both need a decision before more users see the model.
+- **Level 3:** Bạn biết độ lớn nhiễu trước khi canary bắt đầu như thế nào? Expected: chạy hai nhánh canary của cùng baseline và ghi độ trải mỗi chỉ số giữa chúng.
+- **Level 3:** Phản hồi người dùng ở bước đầu quá mỏng để đặt cổng. Bạn làm gì? Expected: đặt cổng các bước đầu trên độ trễ, chi phí, lỗi và độ dài, và áp dụng cổng phản hồi từ bước có đủ mẫu.
+- **Level 4:** Một cổng kích hoạt ở một bước, và chỉ số bình thường lại ở lần kiểm tra sau. Tiếp tục hay dừng? Expected: dừng và xem. Một cổng dao động nằm trong nhiễu hoặc thấy một suy giảm gián đoạn, và cả hai cần một quyết định trước khi thêm người dùng thấy mô hình.
 
 ## Wrong answers
 
-- "Stop on any difference from the baseline." Two runs of the same model differ, so that rule stops every rollout.
-- "Gate on the mean latency." A mean hides the tail. Gate on the percentiles.
-- "Allow zero cost increase." A better model can cost more. The lesson sets the breach at 20 percent, and the product decides whether the gain pays for it.
+- "Dừng ở bất kỳ khác biệt nào so với baseline." Hai lần chạy cùng mô hình khác nhau, nên quy tắc đó dừng mọi rollout.
+- "Đặt cổng trên độ trễ trung bình." Một trung bình giấu phần đuôi. Đặt cổng trên các phân vị.
+- "Cho phép tăng chi phí bằng không." Một mô hình tốt hơn có thể tốn hơn. Bài học đặt vi phạm ở 20 phần trăm, và sản phẩm quyết định liệu mức tăng có trả được nó.
 
 ## Taught in
 
-The [progressive delivery lesson](../../../phases/17-infrastructure-and-production/20-shadow-canary-progressive/) lists the five gates, the non-determinism ceiling and the step cadence.
+[Bài học triển khai tiến dần](../../../phases/17-infrastructure-and-production/20-shadow-canary-progressive/) liệt kê năm cổng, trần không xác định và nhịp bước.

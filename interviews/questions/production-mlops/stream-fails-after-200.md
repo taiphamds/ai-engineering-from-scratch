@@ -16,55 +16,55 @@ related: [production-mlops/checks-in-order-of-cost]
 updated: 2026-11-03
 ---
 
-Your demo streams tokens to the page over server-sent events. Users report that the page sometimes shows half an answer and then stops, with no message. The server log shows a model exception on exactly those requests. Why does the user see nothing, and how do you fix the protocol?
+Demo của bạn stream các token đến trang qua server-sent events. Người dùng báo cáo trang đôi khi hiển thị nửa câu trả lời rồi dừng, không có thông báo. Log máy chủ cho thấy một ngoại lệ mô hình trên chính các yêu cầu đó. Tại sao người dùng không thấy gì, và bạn sửa giao thức như thế nào?
 
 ## Short answer
 
-The server sends the status line with status 200 before the first token. When the model fails after that, the status cannot change, so the client sees a stream that ends early and nothing else. Send an `error` event inside the stream, and make the page show that event as an error. Also stop the generator when the client disconnects, so that a closed tab stops the model.
+Máy chủ gửi dòng trạng thái với trạng thái 200 trước token đầu tiên. Khi mô hình thất bại sau đó, trạng thái không thể thay đổi, nên client thấy một stream kết thúc sớm và không gì khác. Gửi một sự kiện `error` bên trong stream, và khiến trang hiển thị sự kiện đó như một lỗi. Cũng dừng bộ sinh khi client ngắt kết nối, để một tab đóng dừng mô hình.
 
 ## Full answer
 
 ### The protocol problem
 
-A streamed response has one status line, and it goes out first. Every token after it is a body chunk. An exception in the generator after the first token cannot turn a 200 into a 500. The connection closes, and the page has no way to tell a short answer from a failure.
+Một phản hồi stream có một dòng trạng thái, và nó đi ra trước. Mọi token sau nó là một chunk body. Một ngoại lệ trong bộ sinh sau token đầu không thể biến một 200 thành một 500. Kết nối đóng, và trang không có cách phân biệt một câu trả lời ngắn với một thất bại.
 
 ### The fix in the lesson
 
-The stream generator catches the exception and yields one more event:
+Bộ sinh stream bắt ngoại lệ và yield thêm một sự kiện:
 
 ```text
 event: error
 data: {"code":"model_error","message":"...","hint":"...","request_id":"..."}
 ```
 
-Then it returns. The page reads each frame and handles three event names: `token` appends text, `done` ends the request and shows the totals, and `error` shows the message and the hint. The error carries a request id, so a user report maps to one log record without storing any input.
+Sau đó nó return. Trang đọc mỗi frame và xử lý ba tên sự kiện: `token` nối văn bản, `done` kết thúc yêu cầu và cho thấy các tổng, và `error` hiển thị thông báo và gợi ý. Lỗi mang một request id, để một báo cáo người dùng ánh xạ đến một bản ghi log mà không lưu bất kỳ đầu vào nào.
 
 ### Two details that make it hold
 
-- The page buffers the incoming bytes and cuts frames at the blank line, because a network chunk can end in the middle of an event. A parser that treats each chunk as one event breaks on long answers.
-- `json.dumps` escapes a newline inside a string, so each event has one data line. A raw newline inside the data would end the event early.
+- Trang buffer các byte đến và cắt frame tại dòng trống, vì một chunk mạng có thể kết thúc giữa một sự kiện. Một parser coi mỗi chunk là một sự kiện hỏng trên các câu trả lời dài.
+- `json.dumps` escape một ký tự xuống dòng bên trong một chuỗi, nên mỗi sự kiện có một dòng data. Một ký tự xuống dòng thô bên trong data sẽ kết thúc sự kiện sớm.
 
 ### Stop the model when the user leaves
 
-When the user closes the tab, the next write fails with a broken pipe. The handler catches it and closes the generator, so the model stops and the request costs nothing more. The lesson also sets a socket timeout on the handler class, so a client that stops sending does not hold a server thread.
+Khi người dùng đóng tab, lần ghi tiếp theo thất bại với một broken pipe. Handler bắt nó và đóng bộ sinh, để mô hình dừng và yêu cầu không tốn thêm gì. Bài học cũng đặt một socket timeout trên lớp handler, để một client ngừng gửi không giữ một thread máy chủ.
 
 ### Log the failure
 
-The request handler records one log line for every request in its `finally` block, with the route, the status, the error code, the latency and the input length. A stream that failed with an error event appears there with its code, so the failures are countable.
+Handler yêu cầu ghi một dòng log cho mọi yêu cầu trong block `finally`, với route, trạng thái, mã lỗi, độ trễ và độ dài đầu vào. Một stream thất bại với một sự kiện lỗi xuất hiện ở đó với mã của nó, nên các thất bại đếm được.
 
 ## Follow-ups
 
-- **Level 2:** Why can the server not send a 500 when the model fails halfway? Expected: the status line went out before the first token, and a response has one status.
-- **Level 2:** A user closes the tab halfway through. What should the server do? Expected: the write fails with a broken pipe, the handler closes the generator, and the model stops.
-- **Level 3:** Why does the page buffer the bytes instead of parsing each chunk as an event? Expected: a chunk can end in the middle of an event, so the reader keeps the partial text until the blank line arrives.
-- **Level 3:** What goes into the error event besides the message? Expected: a stable code that tests can compare, a hint with one action, and the request id that joins the report to a log record.
+- **Level 2:** Tại sao máy chủ không thể gửi một 500 khi mô hình thất bại giữa chừng? Expected: dòng trạng thái đi ra trước token đầu tiên, và một phản hồi có một trạng thái.
+- **Level 2:** Một người dùng đóng tab giữa chừng. Máy chủ nên làm gì? Expected: lần ghi thất bại với một broken pipe, handler đóng bộ sinh, và mô hình dừng.
+- **Level 3:** Tại sao trang buffer các byte thay vì phân tích mỗi chunk như một sự kiện? Expected: một chunk có thể kết thúc giữa một sự kiện, nên bên đọc giữ văn bản một phần đến khi dòng trống đến.
+- **Level 3:** Điều gì đi vào sự kiện lỗi ngoài thông báo? Expected: một mã ổn định các kiểm thử có thể so sánh, một gợi ý có một hành động, và request id nối báo cáo với một bản ghi log.
 
 ## Wrong answers
 
-- "Buffer the whole answer and return JSON instead." That removes streaming, and the user waits for the last token on every request.
-- "Send the error text as another token." The page cannot tell an error from model output, and the done event never arrives.
-- "Retry the request on the server when the model fails." The user already has half an answer. A retry duplicates output and doubles the cost.
+- "Buffer toàn bộ câu trả lời và trả JSON thay vào đó." Điều đó loại bỏ streaming, và người dùng chờ token cuối trên mọi yêu cầu.
+- "Gửi văn bản lỗi như một token khác." Trang không thể phân biệt một lỗi với đầu ra mô hình, và sự kiện done không bao giờ đến.
+- "Thử lại yêu cầu trên máy chủ khi mô hình thất bại." Người dùng đã có nửa câu trả lời. Một lần thử lại lặp đầu ra và tăng gấp đôi chi phí.
 
 ## Taught in
 
-The [model demo interfaces lesson](../../../phases/17-infrastructure-and-production/29-model-demo-interfaces/) writes the event stream by hand and sends the error event after the status line.
+[Bài học giao diện demo mô hình](../../../phases/17-infrastructure-and-production/29-model-demo-interfaces/) viết stream sự kiện bằng tay và gửi sự kiện lỗi sau dòng trạng thái.

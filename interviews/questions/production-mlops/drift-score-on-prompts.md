@@ -16,49 +16,49 @@ related: [production-mlops/five-minute-detection, production-mlops/evals-or-ab-t
 updated: 2026-11-03
 ---
 
-Your eval scores have been flat all year. A product owner tells you that what users ask has changed a lot since spring. How do you detect that change from telemetry, and what do you do with the result?
+Các điểm đánh giá của bạn phẳng cả năm. Một chủ sản phẩm nói những gì người dùng hỏi đã thay đổi nhiều từ mùa xuân. Bạn phát hiện thay đổi đó từ telemetry như thế nào, và bạn làm gì với kết quả?
 
 ## Short answer
 
-Embed the prompts, pool them per week, and compare the week with a trailing baseline using a population stability index or a KL divergence. A rising score means the input distribution moved, even when the scores on your fixed eval set did not. Alert above a threshold, then sample and label prompts from the new distribution, refresh the eval set, and recheck routing and prompts against it.
+Embed các prompt, gom chúng theo tuần, và so sánh tuần với một baseline quá khứ bằng population stability index hoặc một KL divergence. Một điểm tăng có nghĩa phân phối đầu vào đã dịch chuyển, ngay cả khi điểm trên tập đánh giá cố định không thay đổi. Cảnh báo trên một ngưỡng, rồi lấy mẫu và gắn nhãn các prompt từ phân phối mới, làm mới tập đánh giá, và kiểm tra lại định tuyến cùng prompt theo nó.
 
 ## Full answer
 
 ### Why the evals cannot see it
 
-An eval runs the model on a fixed, labeled set. It measures the model on last spring's questions. When the questions change, the eval set does not, so the score stays flat while the product quietly serves a different population.
+Một đánh giá chạy mô hình trên một tập cố định có nhãn. Nó đo mô hình trên các câu hỏi mùa xuân trước. Khi các câu hỏi thay đổi, tập đánh giá không đổi, nên điểm giữ phẳng trong khi sản phẩm âm thầm phục vụ một quần thể khác.
 
 ### The detector
 
-The capstone runs a weekly job. It pools the prompt embeddings of the week and computes the PSI against the trailing 4-week baseline. The key terms table gives the usual reading: a PSI above 0.2 signals a meaningful shift. The sample output shows a quiet week at 0.08, below that threshold. The same job can use a KL divergence on the same embeddings. Track the eval score trend next to it, so that both views sit on one page.
+Capstone chạy một công việc hằng tuần. Nó gom các embedding prompt của tuần và tính PSI đối chiếu baseline 4 tuần trước. Bảng thuật ngữ chính đưa ra cách đọc thông thường: PSI trên 0.2 báo hiệu một dịch chuyển có ý nghĩa. Đầu ra mẫu cho thấy một tuần yên ở 0.08, dưới ngưỡng đó. Cùng công việc có thể dùng một KL divergence trên cùng embedding. Theo dõi xu hướng điểm đánh giá cạnh nó, để cả hai góc nhìn nằm trên một trang.
 
 ### Per application, not only global
 
-A global score averages the drift away. The capstone's exercise computes the PSI per application id, which shows which surface moved. A support bot and a code assistant rarely drift together.
+Một điểm toàn cục lấy trung bình làm trôi biến mất. Bài tập của capstone tính PSI theo application id, cho thấy bề mặt nào dịch chuyển. Một bot hỗ trợ và một trợ lý lập trình hiếm khi trôi cùng nhau.
 
 ### What to do with a real shift
 
-1. Sample prompts from the new distribution, label them, and refresh the eval set.
-2. Rerun the evals on the refreshed set. A flat score on the old set says nothing about the new one.
-3. Recheck anything trained or tuned on the old distribution: a routing classifier, the prompt templates, the cache thresholds.
+1. Lấy mẫu các prompt từ phân phối mới, gắn nhãn chúng, và làm mới tập đánh giá.
+2. Chạy lại các đánh giá trên tập làm mới. Một điểm phẳng trên tập cũ không nói gì về tập mới.
+3. Kiểm tra lại bất cứ thứ gì được huấn luyện hoặc tinh chỉnh trên phân phối cũ: một bộ phân loại định tuyến, các mẫu prompt, các ngưỡng cache.
 
 ### Where it lives
 
-In the observability plane: spans land in the span store, the weekly job reads them, writes a metric, and the alert chain picks it up.
+Trong mặt phẳng quan sát: các span đến kho span, công việc hằng tuần đọc chúng, ghi một chỉ số, và chuỗi cảnh báo lấy nó.
 
 ## Follow-ups
 
-- **Level 2:** What is the difference between a PSI on prompts and a falling eval score? Expected: the PSI measures the inputs, the eval measures the model on fixed inputs, and the first can move while the second stays flat.
-- **Level 2:** Why run the detector per application id? Expected: a global score averages the drift away, and the per-application view shows which surface moved.
-- **Level 3:** What goes wrong with a one-week baseline? Expected: weekly seasonality looks like drift, and the baseline moves along with the inputs it should measure.
-- **Level 3:** The PSI crossed the threshold after a marketing campaign. Is that a problem? Expected: it is a real shift in the inputs. The question is whether quality held on them, so sample, label and evaluate.
+- **Level 2:** Khác biệt giữa một PSI trên prompt và một điểm đánh giá giảm là gì? Expected: PSI đo đầu vào, đánh giá đo mô hình trên đầu vào cố định, và cái đầu có thể thay đổi trong khi cái sau giữ phẳng.
+- **Level 2:** Tại sao chạy bộ phát hiện theo application id? Expected: một điểm toàn cục lấy trung bình làm trôi biến mất, và góc nhìn theo ứng dụng cho thấy bề mặt nào dịch chuyển.
+- **Level 3:** Điều gì sai với một baseline một tuần? Expected: tính mùa vụ hằng tuần trông như drift, và baseline di chuyển cùng các đầu vào nó nên đo.
+- **Level 3:** PSI vượt ngưỡng sau một chiến dịch marketing. Đó có phải vấn đề? Expected: đó là một dịch chuyển thật trong đầu vào. Câu hỏi là liệu chất lượng giữ trên chúng, nên lấy mẫu, gắn nhãn và đánh giá.
 
 ## Wrong answers
 
-- "Flat eval scores mean no drift." The eval set is fixed, so it cannot see the inputs change.
-- "Compare the raw prompt strings." Wording varies on every request. Embeddings capture the topic distribution.
-- "Alert on any score above zero." Small values are noise. The capstone's threshold is 0.2.
+- "Các điểm đánh giá phẳng có nghĩa không drift." Tập đánh giá cố định, nên nó không thể thấy đầu vào thay đổi.
+- "So sánh các chuỗi prompt thô." Cách diễn đạt thay đổi trên mọi yêu cầu. Embedding nắm phân phối chủ đề.
+- "Cảnh báo trên bất kỳ điểm nào trên không." Các giá trị nhỏ là nhiễu. Ngưỡng của capstone là 0.2.
 
 ## Taught in
 
-The [observability dashboard capstone](../../../phases/19-capstone-projects/11-llm-observability-dashboard/) runs the weekly PSI job on prompt embeddings and sets the alert chain.
+[Capstone dashboard quan sát](../../../phases/19-capstone-projects/11-llm-observability-dashboard/) chạy công việc PSI hằng tuần trên các embedding prompt và đặt chuỗi cảnh báo.

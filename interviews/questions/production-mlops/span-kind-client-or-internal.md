@@ -16,11 +16,11 @@ related: [production-mlops/read-this-span, production-mlops/trace-context-over-s
 updated: 2026-11-03
 ---
 
-You add tracing to an agent. In one run it calls a model API twice, runs two tools inside its own process and sends one request to a tool server on another machine. Which of these operations get a CLIENT span, which get an INTERNAL span, and why does anyone care?
+Bạn thêm tracing vào một agent. Trong một lần chạy, nó gọi một API mô hình hai lần, chạy hai công cụ bên trong tiến trình riêng và gửi một yêu cầu đến một máy chủ công cụ trên máy khác. Các phép toán nào trong số này nhận một span CLIENT, các phép toán nào nhận một span INTERNAL, và tại sao có ai quan tâm?
 
 ## Short answer
 
-A call that leaves the process gets a CLIENT span: the two model API calls and the request to the remote tool server. The agent loop step and a tool that runs in your own process get INTERNAL spans. The kind tells a backend the direction of each call, so it can show which operations left the process and which did not.
+Một lời gọi rời tiến trình nhận một span CLIENT: hai lời gọi API mô hình và yêu cầu đến máy chủ công cụ từ xa. Bước vòng lặp agent và một công cụ chạy trong tiến trình riêng của bạn nhận các span INTERNAL. Kind cho một backend biết hướng mỗi lời gọi, để nó có thể cho thấy các phép toán nào rời tiến trình và các phép toán nào không.
 
 ## Full answer
 
@@ -35,37 +35,37 @@ invoke_agent            INTERNAL
  └── chat               CLIENT
 ```
 
-Every span shares one trace id. Each child carries the id of its parent. That is what makes the run one tree instead of six loose records.
+Mọi span chia sẻ một trace id. Mỗi con mang id của cha. Đó là điều khiến lần chạy là một cây thay vì sáu bản ghi rời.
 
 ### The rule
 
-CLIENT marks a call across a process boundary: a model provider, a tool server, a hosted agent service. INTERNAL marks the agent's own loop steps and any tool that runs in the same process. The conventions apply the same rule to the agent span itself: an agent that runs as a remote service is CLIENT from the caller, and an in-process agent framework is INTERNAL.
+CLIENT đánh dấu một lời gọi qua ranh giới tiến trình: một nhà cung cấp mô hình, một máy chủ công cụ, một dịch vụ agent được host. INTERNAL đánh dấu các bước vòng lặp riêng của agent và bất kỳ công cụ nào chạy trong cùng tiến trình. Các quy ước áp dụng cùng quy tắc cho chính span agent: một agent chạy như một dịch vụ từ xa là CLIENT từ bên gọi, và một framework agent trong tiến trình là INTERNAL.
 
 ### The attributes that go with each kind
 
-| Span | Attributes |
+| Span | Thuộc tính |
 |---|---|
-| model call | `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.response.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `gen_ai.response.id` |
-| tool call | `gen_ai.tool.name`, `gen_ai.tool.call.id` |
-| agent run | `gen_ai.agent.name`, `gen_ai.agent.id` |
+| lời gọi mô hình | `gen_ai.operation.name`, `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.response.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `gen_ai.response.id` |
+| lời gọi công cụ | `gen_ai.tool.name`, `gen_ai.tool.call.id` |
+| lần chạy agent | `gen_ai.agent.name`, `gen_ai.agent.id` |
 
 ### Why it matters
 
-Backends draw a waterfall from the kinds and the parent links. A CLIENT span with no response id cannot be matched to the provider log. A tool span with no parent is an orphan, and you can no longer see which agent step caused the call.
+Các backend vẽ một waterfall từ các kind và liên kết cha. Một span CLIENT không có response id không thể được khớp với log nhà cung cấp. Một span công cụ không có cha là mồ côi, và bạn không còn thấy bước agent nào gây lời gọi.
 
 ## Follow-ups
 
-- **Level 1:** What joins the spans into one tree? Expected: one shared trace id, and a parent span id on every child.
-- **Level 2:** The agent calls a hosted agent service instead of a local one. What kind is that span? Expected: CLIENT, because the agent runs in another process.
-- **Level 2:** Which attribute lets a dashboard split cost by provider? Expected: `gen_ai.provider.name`, and multi-provider dashboards break when it is missing.
-- **Level 3:** A sub-agent runs inside the same process. Does it start a new trace? Expected: no. It is a child span under the parent agent span, so the whole run stays in one trace.
+- **Level 1:** Điều gì nối các span thành một cây? Expected: một trace id dùng chung, và một parent span id trên mọi con.
+- **Level 2:** Agent gọi một dịch vụ agent được host thay vì một agent cục bộ. Span đó là kind nào? Expected: CLIENT, vì agent chạy trong một tiến trình khác.
+- **Level 2:** Thuộc tính nào cho phép một dashboard chia chi phí theo nhà cung cấp? Expected: `gen_ai.provider.name`, và các dashboard đa nhà cung cấp hỏng khi thiếu nó.
+- **Level 3:** Một agent phụ chạy trong cùng tiến trình. Nó có bắt đầu một trace mới? Expected: không. Nó là một span con dưới span agent cha, nên toàn bộ lần chạy ở trong một trace.
 
 ## Wrong answers
 
-- "Every tool call is a CLIENT span." A tool that runs in your process is INTERNAL. Only the call that leaves the process is CLIENT.
-- "The kind is decoration." Backends read the kind to show direction, and the conventions set it per span category.
-- "Start a new trace for each tool call, for isolation." Separate traces lose the parent link, so you cannot see which step caused the call.
+- "Mọi lời gọi công cụ là một span CLIENT." Một công cụ chạy trong tiến trình của bạn là INTERNAL. Chỉ lời gọi rời tiến trình là CLIENT.
+- "Kind là trang trí." Các backend đọc kind để cho thấy hướng, và các quy ước đặt nó theo nhóm span.
+- "Bắt đầu một trace mới cho mỗi lời gọi công cụ, để cô lập." Các trace riêng mất liên kết cha, nên bạn không thể thấy bước nào gây lời gọi.
 
 ## Taught in
 
-The [OpenTelemetry GenAI lesson](../../../phases/13-tools-and-protocols/20-opentelemetry-genai/) draws the span hierarchy, and the [conventions lesson](../../../phases/14-agent-engineering/23-otel-genai-conventions/) names the span categories and their kinds.
+[Bài học OpenTelemetry GenAI](../../../phases/13-tools-and-protocols/20-opentelemetry-genai/) vẽ phân cấp span, và [bài học quy ước](../../../phases/14-agent-engineering/23-otel-genai-conventions/) nêu các nhóm span và kind của chúng.

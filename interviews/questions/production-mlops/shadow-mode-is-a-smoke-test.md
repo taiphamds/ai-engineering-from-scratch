@@ -16,48 +16,48 @@ related: [production-mlops/canary-gates-above-noise, production-mlops/rollback-w
 updated: 2026-11-03
 ---
 
-A teammate wants to skip the canary. The new model ran in shadow for a week with no errors and a flat bill, so they call it proven. What does that week show, and what does it leave open?
+Một đồng đội muốn bỏ canary. Mô hình mới chạy shadow một tuần không lỗi và hóa đơn phẳng, nên họ gọi nó đã được chứng minh. Tuần đó cho thấy gì, và để ngỏ gì?
 
 ## Short answer
 
-Shadow mode copies the production requests to the candidate and logs its outputs, and no user sees them. It shows that the candidate does not crash, does not refuse more often, does not cost more and does not write longer answers. It cannot show that users prefer the answers, because no user read one. Shadow is a smoke test, and the canary is the first quality test.
+Chế độ shadow sao chép các yêu cầu production đến ứng viên và ghi log các đầu ra, và không người dùng nào thấy chúng. Nó cho thấy ứng viên không crash, không từ chối thường xuyên hơn, không tốn hơn và không viết câu trả lời dài hơn. Nó không thể cho thấy người dùng thích các câu trả lời, vì không người dùng nào đọc một câu. Shadow là một smoke test, và canary là kiểm thử chất lượng đầu tiên.
 
 ## Full answer
 
 ### What shadow records
 
-For each request, the candidate output is logged next to the production output:
+Với mỗi yêu cầu, đầu ra ứng viên được ghi log cạnh đầu ra production:
 
-- the output text, as a diff against production;
-- the token counts, which give the cost delta;
-- the latency;
-- refusals and hard errors.
+- văn bản đầu ra, như một diff đối chiếu production;
+- các số token, cho chênh lệch chi phí;
+- độ trễ;
+- các từ chối và lỗi cứng.
 
 ### What it catches
 
-Cost blow-ups, length regressions, a change in the refusal rate and hard errors. These are the failures that make a launch expensive or embarrassing, and shadow finds them with zero user impact.
+Chi phí bùng nổ, suy giảm độ dài, một thay đổi tỷ lệ từ chối và các lỗi cứng. Đây là các lỗi khiến một lần ra mắt đắt hoặc xấu hổ, và shadow tìm chúng với tác động người dùng bằng không.
 
 ### What it misses
 
-A quality change that a user would notice. The candidate output never reaches a person, so there is no thumbs-down, no ticket and no retention signal. A model that gives shorter, cheaper and wrong answers passes shadow.
+Một thay đổi chất lượng mà một người dùng sẽ nhận thấy. Đầu ra ứng viên không bao giờ đến một người, nên không có lượt không thích, không ticket và không tín hiệu giữ chân. Một mô hình cho các câu trả lời ngắn hơn, rẻ hơn và sai vượt qua shadow.
 
 ### What comes next
 
-A canary exposes a growing share of users to the candidate, with a gate at each step. The lesson gates on five metrics: latency percentiles, cost per request, error and refusal rate, the output length distribution, and the user feedback rate. The progression runs from 1 percent to 10, 25, 50, 75 and 100 percent. The first user feedback appears here, not in shadow.
+Một canary phơi lộ một tỷ phần người dùng tăng dần với ứng viên, có một cổng ở mỗi bước. Bài học đặt cổng trên năm chỉ số: các phân vị độ trễ, chi phí mỗi yêu cầu, tỷ lệ lỗi và từ chối, phân phối độ dài đầu ra, và tỷ lệ phản hồi người dùng. Tiến trình chạy từ 1 phần trăm đến 10, 25, 50, 75 và 100 phần trăm. Phản hồi người dùng đầu xuất hiện ở đây, không phải trong shadow.
 
 ## Follow-ups
 
-- **Level 1:** Which signal does shadow give that an offline eval does not? Expected: the behavior of the candidate on the real request mix, including cost and output length per request.
-- **Level 2:** Shadow shows the cost per request is 40 percent above production. What do you do? Expected: stop before any canary. A cost more than 20 percent above the baseline is a gate breach, and a model that breaks the unit economics is a rollback case.
-- **Level 2:** Why can shadow not measure user feedback? Expected: no user sees the candidate output, so there is nothing for a user to rate or report.
-- **Level 3:** Shadow doubles the load on your model service. How do you keep it affordable? Expected: send a fixed share of requests to the candidate instead of all of them, and log the same metrics for that share.
+- **Level 1:** Shadow cho tín hiệu nào mà một đánh giá offline không cho? Expected: hành vi ứng viên trên hỗn hợp yêu cầu thật, gồm chi phí và độ dài đầu ra mỗi yêu cầu.
+- **Level 2:** Shadow cho thấy chi phí mỗi yêu cầu 40 phần trăm trên production. Bạn làm gì? Expected: dừng trước bất kỳ canary nào. Chi phí hơn 20 phần trăm trên baseline là một vi phạm cổng, và một mô hình phá tính kinh tế đơn vị là một trường hợp rollback.
+- **Level 2:** Tại sao shadow không thể đo phản hồi người dùng? Expected: không người dùng nào thấy đầu ra ứng viên, nên không có gì cho một người dùng chấm hoặc báo cáo.
+- **Level 3:** Shadow tăng gấp đôi tải trên dịch vụ mô hình. Bạn giữ nó có thể chi trả như thế nào? Expected: gửi một tỷ phần yêu cầu cố định đến ứng viên thay vì tất cả, và ghi log cùng chỉ số cho tỷ phần đó.
 
 ## Wrong answers
 
-- "Shadow passed, so the quality is fine." Shadow has no user, so it measures cost, length, errors and refusals only.
-- "Shadow is a canary at zero percent." A canary returns the candidate output to real users and gates on their feedback. Shadow never returns an output to a user.
-- "A week in shadow replaces the offline eval." The eval judges correctness on a labeled set. Shadow records behavior on live traffic. They answer different questions.
+- "Shadow đạt, nên chất lượng ổn." Shadow không có người dùng, nên nó chỉ đo chi phí, độ dài, lỗi và từ chối.
+- "Shadow là một canary ở không phần trăm." Một canary trả đầu ra ứng viên cho người dùng thật và đặt cổng trên phản hồi của họ. Shadow không bao giờ trả một đầu ra cho một người dùng.
+- "Một tuần shadow thay đánh giá offline." Đánh giá chấm tính đúng đắn trên một tập có nhãn. Shadow ghi hành vi trên lưu lượng thật. Chúng trả lời các câu hỏi khác nhau.
 
 ## Taught in
 
-The [progressive delivery lesson](../../../phases/17-infrastructure-and-production/20-shadow-canary-progressive/) defines shadow mode, the five canary gates and the rollback path.
+[Bài học triển khai tiến dần](../../../phases/17-infrastructure-and-production/20-shadow-canary-progressive/) định nghĩa chế độ shadow, năm cổng canary và đường rollback.

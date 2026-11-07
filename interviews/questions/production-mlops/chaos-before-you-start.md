@@ -16,43 +16,43 @@ related: [production-mlops/budget-burn-pauses-chaos, production-mlops/rollback-w
 updated: 2026-11-03
 ---
 
-A new team wants to run its first chaos experiment against the model service next week. What do you check for before you agree, and what goes wrong when one piece is missing?
+Một nhóm mới muốn chạy thí nghiệm chaos đầu tiên với dịch vụ mô hình vào tuần tới. Bạn kiểm tra có gì trước khi đồng ý, và điều gì sai khi thiếu một phần?
 
 ## Short answer
 
-Five things have to be in place: service level indicators with objectives, observability with traces, metrics and logs, an automated rollback, structured runbooks and an on-call owner. Each one lets you measure the experiment, stop it or repair the damage. When one is missing, the experiment is not a test. It is an incident that you scheduled.
+Năm thứ phải có sẵn: các chỉ báo mức dịch vụ có mục tiêu, khả năng quan sát với trace, chỉ số và log, một rollback tự động, các runbook có cấu trúc và một người phụ trách trực. Mỗi thứ cho phép bạn đo thí nghiệm, dừng nó hoặc sửa thiệt hại. Khi thiếu một thứ, thí nghiệm không phải một kiểm thử. Nó là một sự cố bạn đã lên lịch.
 
 ## Full answer
 
 ### The five prerequisites
 
-1. **SLI and SLO.** Without a target you cannot say whether the experiment hurt anything.
-2. **Observability.** Traces, metrics and logs on a dashboard. You must see the effect while it happens.
-3. **Automated rollback.** The policy-flag rollback from the progressive delivery lesson. A rollback that needs a redeploy is too slow for an experiment.
-4. **Runbooks.** Structured sections: symptom, hypothesis, verify, act. The on-call reads them under pressure.
-5. **On-call.** Someone who responds when the experiment finds something.
+1. **SLI và SLO.** Không có mục tiêu bạn không thể nói liệu thí nghiệm gây hại gì.
+2. **Khả năng quan sát.** Trace, chỉ số và log trên một dashboard. Bạn phải thấy tác động trong khi nó xảy ra.
+3. **Rollback tự động.** Rollback cờ policy từ bài học triển khai tiến dần. Một rollback cần triển khai lại quá chậm cho một thí nghiệm.
+4. **Runbook.** Các phần có cấu trúc: triệu chứng, giả thuyết, xác minh, hành động. Người trực đọc chúng dưới áp lực.
+5. **Trực vận hành.** Một người phản ứng khi thí nghiệm tìm thấy gì đó.
 
 ### The first experiments
 
-Start with one pod kill of a decode replica under steady traffic, and watch the rerouting and the recovery. If that looks safe, graduate to network chaos. The first model-specific experiment is one provider returning rate-limit errors for a few minutes, to see the fallback engage. Most teams learn here that their fallback was never fully tested.
+Bắt đầu với một lần giết pod của một replica decode dưới lưu lượng đều, và quan sát định tuyến lại và phục hồi. Nếu điều đó trông an toàn, tiến đến chaos mạng. Thí nghiệm đầu tiên dành riêng mô hình là một nhà cung cấp trả về lỗi giới hạn tốc độ trong vài phút, để thấy fallback hoạt động. Phần lớn nhóm học ở đây rằng fallback chưa từng được kiểm thử đầy đủ.
 
 ### The cadence
 
-Weekly small experiments in staging or on a small share of production. Monthly game day on one scenario with a postmortem. Quarterly cross-team audit with a dependency map.
+Các thí nghiệm nhỏ hằng tuần trong staging hoặc trên một tỷ phần nhỏ production. Ngày diễn tập hằng tháng trên một kịch bản với phân tích sau sự cố. Kiểm toán xuyên nhóm hằng quý với một bản đồ phụ thuộc.
 
 ## Follow-ups
 
-- **Level 1:** Which experiment goes first, and why? Expected: kill one decode replica under steady traffic, because it tests rerouting and recovery with a small blast radius.
-- **Level 2:** Name one failure a generic network chaos tool cannot reproduce for a model service. Expected: a KV cache eviction storm under burst load, or a prompt that stalls the tokenizer.
-- **Level 2:** Why does the rollback matter more than the dashboard during an experiment? Expected: the dashboard shows the harm, and the rollback stops it. Without the rollback the harm continues until someone fixes it by hand.
-- **Level 3:** The team wants staging only. When is production the right place? Expected: when staging cannot reproduce the traffic shape, the cache state or the provider behavior, and only with the safety guards in place.
+- **Level 1:** Thí nghiệm nào đi trước, và tại sao? Expected: giết một replica decode dưới lưu lượng đều, vì nó kiểm thử định tuyến lại và phục hồi với một phạm vi ảnh hưởng nhỏ.
+- **Level 2:** Nêu một lỗi mà một công cụ chaos mạng tổng quát không thể tái tạo cho một dịch vụ mô hình. Expected: một bão loại bỏ KV cache dưới tải bùng phát, hoặc một prompt làm tokenizer khựng.
+- **Level 2:** Tại sao rollback quan trọng hơn dashboard trong một thí nghiệm? Expected: dashboard cho thấy tác hại, và rollback dừng nó. Không có rollback, tác hại tiếp tục đến khi ai đó sửa bằng tay.
+- **Level 3:** Nhóm chỉ muốn staging. Khi nào production là nơi đúng? Expected: khi staging không thể tái tạo hình dạng lưu lượng, trạng thái cache hoặc hành vi nhà cung cấp, và chỉ khi các biện pháp bảo vệ an toàn có sẵn.
 
 ## Wrong answers
 
-- "Skip the prerequisites and learn by doing." Without an SLO, a rollback and an on-call owner, the experiment is an outage that you caused on purpose.
-- "A dashboard is observability." Chaos needs traces, metrics and logs with trace-id correlation, so that you can tell experiment failures from natural ones.
-- "Run the biggest experiment first to find the biggest risk." Start with one replica kill, then grow the blast radius.
+- "Bỏ các điều kiện tiên quyết và học bằng làm." Không có SLO, rollback và người phụ trách trực, thí nghiệm là một gián đoạn bạn cố ý gây ra.
+- "Một dashboard là khả năng quan sát." Chaos cần trace, chỉ số và log với tương quan trace-id, để bạn có thể phân biệt lỗi thí nghiệm với lỗi tự nhiên.
+- "Chạy thí nghiệm lớn nhất trước để tìm rủi ro lớn nhất." Bắt đầu với một lần giết replica, rồi tăng phạm vi ảnh hưởng.
 
 ## Taught in
 
-The [chaos engineering lesson](../../../phases/17-infrastructure-and-production/24-chaos-engineering-llm/) lists the five prerequisites, the four planes and the first experiments.
+[Bài học chaos engineering](../../../phases/17-infrastructure-and-production/24-chaos-engineering-llm/) liệt kê năm điều kiện tiên quyết, bốn mặt phẳng và các thí nghiệm đầu.

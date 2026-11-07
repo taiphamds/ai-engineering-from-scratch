@@ -16,50 +16,50 @@ related: [production-mlops/canary-gates-above-noise]
 updated: 2026-11-03
 ---
 
-Your service handles 1,000 requests per minute. The canary opens at one percent, and the gate runs every five minutes. About how many data points does one gate check see, and which gates can you trust at this step?
+Dịch vụ của bạn xử lý 1,000 yêu cầu mỗi phút. Canary mở ở một phần trăm, và cổng chạy mỗi năm phút. Khoảng bao nhiêu điểm dữ liệu một lần kiểm tra cổng thấy, và bạn có thể tin các cổng nào ở bước này?
 
 ## Short answer
 
-One percent of the 1,000 per minute is 10 requests per minute to the canary, so a five-minute window holds about 50 points and a fifteen-minute window about 150. That is enough to read latency and error rates, and far too few to read user feedback. Gate the first step on latency, cost, errors and output length, and apply the feedback gate at a later step.
+Một phần trăm của 1,000 mỗi phút là 10 yêu cầu mỗi phút đến canary, nên một cửa sổ năm phút giữ khoảng 50 điểm và một cửa sổ mười lăm phút khoảng 150. Đó là đủ để đọc độ trễ và tỷ lệ lỗi, và quá ít để đọc phản hồi người dùng. Đặt cổng bước đầu trên độ trễ, chi phí, lỗi và độ dài đầu ra, và áp dụng cổng phản hồi ở một bước sau.
 
 ## Full answer
 
 ### The arithmetic
 
-The lesson's cadence is a gate check every 5 to 15 minutes, depending on volume. At 1 percent of a 1,000 per minute load, the canary receives 10 requests per minute, which gives 50 to 150 data points per window.
+Nhịp của bài học là một kiểm tra cổng mỗi 5 đến 15 phút, tùy khối lượng. Ở 1 phần trăm của một tải 1,000 mỗi phút, canary nhận 10 yêu cầu mỗi phút, cho 50 đến 150 điểm dữ liệu mỗi cửa sổ.
 
 ### What each gate needs from those points
 
-| Gate | At about 50 points |
+| Cổng | Ở khoảng 50 điểm |
 |---|---|
-| Latency P50 and P95 | readable, with a wide band |
-| Latency P99 | one or two samples decide it, so hold more than one window |
-| Cost per request | every request reports its tokens, so a large shift shows |
-| Error and refusal rate | a baseline of a few percent gives a handful of events, so it is noisy |
-| Output length distribution | rough, but a large shift shows |
-| User feedback | only some users rate an answer, so a window holds a few ratings at most |
+| Độ trễ P50 và P95 | đọc được, với một dải rộng |
+| Độ trễ P99 | một hoặc hai mẫu quyết định nó, nên giữ hơn một cửa sổ |
+| Chi phí mỗi yêu cầu | mọi yêu cầu báo cáo token, nên một dịch chuyển lớn hiện ra |
+| Tỷ lệ lỗi và từ chối | một baseline vài phần trăm cho một ít sự kiện, nên nhiễu |
+| Phân phối độ dài đầu ra | thô, nhưng một dịch chuyển lớn hiện ra |
+| Phản hồi người dùng | chỉ một số người dùng chấm một câu trả lời, nên một cửa sổ giữ tối đa vài đánh giá |
 
 ### The next step changes the picture
 
-At 10 percent the canary sees about ten times more points per window. The feedback gate becomes usable there. This is why the progression pauses at each step: the pause is not a formality, it is the time the gate needs to collect its samples.
+Ở 10 phần trăm, canary thấy số điểm nhiều hơn khoảng mười lần mỗi cửa sổ. Cổng phản hồi trở nên dùng được ở đó. Đây là lý do tiến trình tạm dừng ở mỗi bước: tạm dừng không phải hình thức, nó là thời gian cổng cần để thu thập các mẫu.
 
 ### Write the dwell rule down
 
-For each step, state the number of windows that must pass with every gate green before the share rises. A gate that needs two windows to confirm a breach doubles the exposure of a real regression, so write that trade-off next to the rule.
+Với mỗi bước, nêu số cửa sổ phải qua với mọi cổng xanh trước khi tỷ phần tăng. Một cổng cần hai cửa sổ để xác nhận một vi phạm tăng gấp đôi mức phơi lộ một suy giảm thật, nên viết sự đánh đổi đó cạnh quy tắc.
 
 ## Follow-ups
 
-- **Level 2:** At which step does the user feedback gate become usable? Expected: at 10 percent, where the canary sees about ten times more points per window.
-- **Level 2:** Why does a longer window not fix the first step? Expected: a longer window adds points slowly, and a regression runs for the whole window before the gate can fire.
-- **Level 3:** Traffic falls to a tenth at night. How does the plan change? Expected: the same share gives about one request per minute, so lengthen the dwell, start at a higher share, or run the ramp during the day.
-- **Level 3:** A breach must hold for two windows before the gate fires. What does that cost? Expected: a real regression keeps running through both windows until the halt, so the rule trades fewer false alarms for a longer exposure.
+- **Level 2:** Ở bước nào cổng phản hồi người dùng trở nên dùng được? Expected: ở 10 phần trăm, nơi canary thấy số điểm nhiều hơn khoảng mười lần mỗi cửa sổ.
+- **Level 2:** Tại sao một cửa sổ dài hơn không sửa bước đầu? Expected: một cửa sổ dài hơn thêm điểm chậm, và một suy giảm chạy trong toàn bộ cửa sổ trước khi cổng có thể kích hoạt.
+- **Level 3:** Lưu lượng giảm còn một phần mười ban đêm. Kế hoạch thay đổi như thế nào? Expected: cùng tỷ phần cho khoảng một yêu cầu mỗi phút, nên kéo dài thời gian giữ, bắt đầu ở tỷ phần cao hơn, hoặc chạy tăng dần ban ngày.
+- **Level 3:** Một vi phạm phải giữ hai cửa sổ trước khi cổng kích hoạt. Điều đó tốn gì? Expected: một suy giảm thật tiếp tục chạy qua cả hai cửa sổ đến khi dừng, nên quy tắc đánh đổi ít báo động giả hơn lấy phơi lộ lâu hơn.
 
 ## Wrong answers
 
-- "One percent is safe, so the gates work at one percent." The share is safe for users, and most gates are blind at that sample size.
-- "Check every minute for faster detection." A one-minute window at this step holds about ten points, which cannot give a percentile.
-- "Start at 25 percent for better statistics." A quarter of the users see the new model before any gate has fired once.
+- "Một phần trăm an toàn, nên các cổng hoạt động ở một phần trăm." Tỷ phần an toàn cho người dùng, và phần lớn cổng mù ở kích thước mẫu đó.
+- "Kiểm tra mỗi phút để phát hiện nhanh hơn." Một cửa sổ một phút ở bước này giữ khoảng mười điểm, không thể cho một phân vị.
+- "Bắt đầu ở 25 phần trăm để có thống kê tốt hơn." Một phần tư người dùng thấy mô hình mới trước khi bất kỳ cổng nào kích hoạt một lần.
 
 ## Taught in
 
-The [progressive delivery lesson](../../../phases/17-infrastructure-and-production/20-shadow-canary-progressive/) gives the metrics cadence and the sample counts per window.
+[Bài học triển khai tiến dần](../../../phases/17-infrastructure-and-production/20-shadow-canary-progressive/) đưa ra nhịp chỉ số và số mẫu mỗi cửa sổ.

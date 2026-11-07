@@ -16,46 +16,46 @@ related: [production-mlops/narrow-auto-remediation, production-mlops/prediction-
 updated: 2026-11-03
 ---
 
-An incident triage agent proposes a root cause for every alert. The on-call team stopped trusting it after several confident wrong answers. Which pattern from the SRE lesson raises the trust in its output, and what does the team do when the pattern says the agent is unsure?
+Một agent phân loại sự cố đề xuất một nguyên nhân gốc cho mọi cảnh báo. Nhóm trực ngừng tin nó sau nhiều câu trả lời sai tự tin. Mẫu nào từ bài học SRE tăng sự tin cậy đầu ra, và nhóm làm gì khi mẫu nói agent không chắc?
 
 ## Short answer
 
-Run two models independently on the same incident. When they agree on the root cause, confidence is high. When they disagree, the system escalates to a person with both hypotheses and their evidence visible, instead of picking one. The pattern filters invented root causes at a low cost, and the disagreement itself tells the responder that the incident is uncertain.
+Chạy hai mô hình độc lập trên cùng sự cố. Khi chúng đồng ý nguyên nhân gốc, độ tự tin cao. Khi chúng bất đồng, hệ thống chuyển lên một người với cả hai giả thuyết và bằng chứng nhìn thấy, thay vì chọn một. Mẫu lọc các nguyên nhân gốc bịa ở chi phí thấp, và chính sự bất đồng nói với người ứng phó rằng sự cố không chắc chắn.
 
 ## Full answer
 
 ### Adversarial evaluation
 
-The lesson names the pattern after a product that ships it: two models analyze the same incident on their own. Agreement is confidence. Disagreement is an escalation with both hypotheses shown. It is simple, and it is an effective filter against a confident wrong answer, because two independent analyses rarely invent the same cause.
+Bài học đặt tên mẫu theo một sản phẩm cung cấp nó: hai mô hình tự phân tích cùng sự cố. Đồng thuận là độ tự tin. Bất đồng là một lần chuyển lên với cả hai giả thuyết được cho thấy. Nó đơn giản, và là một bộ lọc hiệu quả chống một câu trả lời sai tự tin, vì hai phân tích độc lập hiếm khi bịa cùng nguyên nhân.
 
 ### Where it sits in the architecture
 
-A supervisor splits the incident into sub-queries. Specialized agents with tool access search the logs, run the metric queries and retrieve the runbooks. The supervisor assembles a hypothesis with evidence and shows it to a person, who approves or redirects. Only then does an action run, and only from a narrow approved set. The two-model check sits at the hypothesis step, before the person sees it.
+Một supervisor chia sự cố thành các truy vấn con. Các agent chuyên biệt có quyền công cụ tìm các log, chạy các truy vấn chỉ số và truy xuất các runbook. Supervisor lắp một giả thuyết có bằng chứng và cho một người xem, người phê duyệt hoặc chuyển hướng. Chỉ sau đó một hành động chạy, và chỉ từ một tập hẹp được phê duyệt. Kiểm tra hai mô hình nằm ở bước giả thuyết, trước khi con người thấy nó.
 
 ### What the person does on a disagreement
 
-Reads both hypotheses and the evidence that each one cites. Picks one, redirects the agents, or starts the manual investigation with two leads instead of none. The lesson's division of labor holds: the agent proposes hypotheses and queries, and the person makes the judgment call.
+Đọc cả hai giả thuyết và bằng chứng mỗi giả thuyết trích dẫn. Chọn một, chuyển hướng các agent, hoặc bắt đầu điều tra thủ công với hai manh mối thay vì không có. Phân công lao động của bài học giữ nguyên: agent đề xuất các giả thuyết và truy vấn, và con người đưa ra phán xét.
 
 ### What the agents remember
 
-Runbooks and postmortems live in a vector store, and both models retrieve from it on every incident. Operational memory survives team turnover, and a new engineer's first incident has the full history behind it.
+Các runbook và phân tích sau sự cố nằm trong một vector store, và cả hai mô hình truy xuất từ nó trên mọi sự cố. Bộ nhớ vận hành sống sót qua thay đổi nhân sự nhóm, và sự cố đầu của một kỹ sư mới có toàn bộ lịch sử phía sau.
 
 ### The limit of agreement
 
-Two models that share training data can agree and be wrong together. Agreement raises confidence, it is not proof. Require every hypothesis to cite the log lines and the metric queries behind it, so that the responder can check the evidence and not the eloquence.
+Hai mô hình chia sẻ dữ liệu huấn luyện có thể đồng ý và sai cùng nhau. Đồng thuận tăng độ tự tin, không phải bằng chứng. Yêu cầu mọi giả thuyết trích dẫn các dòng log và truy vấn chỉ số phía sau, để người ứng phó có thể kiểm tra bằng chứng và không phải sự hùng biện.
 
 ## Follow-ups
 
-- **Level 2:** Why is a split verdict useful to the responder? Expected: it marks the incident as uncertain and gives the responder two candidate causes with their evidence.
-- **Level 3:** Both models agree and both are wrong. How do you catch it? Expected: require each hypothesis to cite evidence that the responder can check, and keep the human approval before any action.
-- **Level 3:** What does the pattern cost? Expected: two model runs per incident plus the latency of the slower one, which is small next to the first twenty minutes of a manual investigation that the lesson says are automatable.
+- **Level 2:** Tại sao một phán quyết chia đôi hữu ích cho người ứng phó? Expected: nó đánh dấu sự cố là không chắc chắn và cho người ứng phó hai nguyên nhân ứng viên với bằng chứng.
+- **Level 3:** Cả hai mô hình đồng ý và cả hai sai. Bạn bắt nó như thế nào? Expected: yêu cầu mỗi giả thuyết trích dẫn bằng chứng người ứng phó có thể kiểm tra, và giữ phê duyệt con người trước bất kỳ hành động nào.
+- **Level 3:** Mẫu tốn gì? Expected: hai lần chạy mô hình mỗi sự cố cộng độ trễ của bên chậm hơn, nhỏ so với hai mươi phút đầu một điều tra thủ công mà bài học nói có thể tự động hóa.
 
 ## Wrong answers
 
-- "Ask one model twice at temperature zero." A repeat of the same model shares its blind spots. The pattern needs independent analyses.
-- "Let an agreed hypothesis trigger the fix on its own." Agreement raises confidence. The person still approves the action, and only narrow actions are automated at all.
-- "Disagreement proves the agent is useless." It means the incident is uncertain, which is exactly when a person should look.
+- "Hỏi một mô hình hai lần ở temperature không." Một lần lặp của cùng mô hình chia sẻ các điểm mù của nó. Mẫu cần các phân tích độc lập.
+- "Để một giả thuyết được đồng ý tự kích hoạt cách sửa." Đồng thuận tăng độ tự tin. Con người vẫn phê duyệt hành động, và chỉ các hành động hẹp mới được tự động hóa.
+- "Bất đồng chứng minh agent vô dụng." Nó có nghĩa sự cố không chắc chắn, chính là lúc một người nên xem.
 
 ## Taught in
 
-The [SRE for AI lesson](../../../phases/17-infrastructure-and-production/23-sre-for-ai/) describes the adversarial evaluation pattern and the supervisor architecture with human approval.
+[Bài học SRE cho AI](../../../phases/17-infrastructure-and-production/23-sre-for-ai/) mô tả mẫu đánh giá đối kháng và kiến trúc supervisor có phê duyệt con người.

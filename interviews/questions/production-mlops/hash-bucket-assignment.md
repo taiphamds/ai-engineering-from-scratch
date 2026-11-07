@@ -16,7 +16,7 @@ related: [production-mlops/split-ratio-mismatch, production-mlops/evals-or-ab-te
 updated: 2026-11-03
 ---
 
-This function from the production app picks the prompt version for a request. Explain what it does, why it hashes the user id together with the experiment name, and what the number 10 in the experiment config means for one user over a week.
+Hàm này từ ứng dụng production chọn phiên bản prompt cho một yêu cầu. Giải thích nó làm gì, tại sao nó hash user id cùng tên thí nghiệm, và số 10 trong cấu hình thí nghiệm có nghĩa gì cho một người dùng qua một tuần.
 
 ```python
 AB_EXPERIMENTS = {
@@ -48,45 +48,45 @@ def select_prompt(template_name, user_id, variables):
 
 ## Short answer
 
-The code hashes the user id plus the experiment name, takes the result modulo 100, and sends the users whose bucket falls below the traffic percentage to the variant. The hash is deterministic, so one user lands in the same arm on every request for the life of the experiment. The experiment name in the hash keeps the buckets of two experiments independent, so the users who saw the variant in one test are not the same users in the next. With a traffic percentage of 10, about a tenth of the users see the variant on every request all week, and the others never do.
+Mã hash user id cộng tên thí nghiệm, lấy kết quả modulo 100, và gửi các người dùng có bucket dưới phần trăm lưu lượng đến biến thể. Hash có tính xác định, nên một người dùng rơi vào cùng nhánh trên mọi yêu cầu trong suốt thí nghiệm. Tên thí nghiệm trong hash giữ các bucket của hai thí nghiệm độc lập, để những người dùng thấy biến thể trong một kiểm thử không phải cùng những người dùng trong kiểm thử tiếp theo. Với phần trăm lưu lượng 10, khoảng một phần mười người dùng thấy biến thể trên mọi yêu cầu cả tuần, và các người khác không bao giờ thấy.
 
 ## Full answer
 
 ### Line by line
 
-1. The default version is `v1`, so a template with no experiment always resolves.
-2. The loop finds the experiment for this template and stops at the first match. One experiment per template at a time.
-3. The bucket is a hash of `user_id:exp_name`, read as an integer and reduced modulo 100. That gives a value from 0 to 99.
-4. A bucket below `traffic_pct` gets the variant, and every other bucket gets the control.
-5. The template renders with the request variables.
+1. Phiên bản mặc định là `v1`, nên một mẫu không có thí nghiệm luôn được phân giải.
+2. Vòng lặp tìm thí nghiệm cho mẫu này và dừng ở lần khớp đầu. Một thí nghiệm mỗi mẫu tại một thời điểm.
+3. Bucket là một hash của `user_id:exp_name`, được đọc như một số nguyên và giảm modulo 100. Điều đó cho một giá trị từ 0 đến 99.
+4. Một bucket dưới `traffic_pct` nhận biến thể, và mọi bucket khác nhận đối chứng.
+5. Mẫu render với các biến yêu cầu.
 
 ### Why the hash is deterministic
 
-The lesson is explicit: hash the user id, do not draw at random. A random draw per request would flip one user between the two prompts, so the user would see two behaviors and the per-user metrics would mix both arms. A stable arm per user also makes the exposure count a count of users, which the experiment analysis needs.
+Bài học nói rõ: hash user id, không rút ngẫu nhiên. Một lần rút ngẫu nhiên mỗi yêu cầu sẽ chuyển một người dùng giữa hai prompt, nên người dùng thấy hai hành vi và các chỉ số theo người dùng trộn cả hai nhánh. Một nhánh ổn định mỗi người dùng cũng khiến số phơi lộ là số người dùng, điều phân tích thí nghiệm cần.
 
 ### Why the experiment name is in the key
 
-Without it, the bucket of a user is the same in every experiment, so the same tenth of the users would be the variant group every time. Experiments would be correlated, and the effects of one would carry into the next. The experiment name acts as a salt that gives each experiment its own split.
+Không có nó, bucket của một người dùng giống nhau trong mọi thí nghiệm, nên cùng một phần mười người dùng sẽ là nhóm biến thể mỗi lần. Các thí nghiệm sẽ có tương quan, và tác động của một thí nghiệm mang sang thí nghiệm tiếp theo. Tên thí nghiệm đóng vai một salt cho mỗi thí nghiệm phần chia riêng.
 
 ### What to watch
 
-- The modulo 100 gives steps of one percent. A smaller share needs a larger modulus.
-- The demo runs 1000 synthetic user ids through the selector and prints the control and variant shares. That is a cheap sample ratio check, and it belongs in a test.
-- The `break` means that a second experiment on the same template never runs. The config shape makes that visible, but nothing warns you.
+- Modulo 100 cho các bước một phần trăm. Một tỷ phần nhỏ hơn cần một modulus lớn hơn.
+- Demo chạy 1000 user id tổng hợp qua bộ chọn và in các tỷ phần đối chứng và biến thể. Đó là một kiểm tra tỷ lệ mẫu rẻ, và nó thuộc về một kiểm thử.
+- `break` có nghĩa một thí nghiệm thứ hai trên cùng mẫu không bao giờ chạy. Hình dạng cấu hình khiến điều đó nhìn thấy, nhưng không gì cảnh báo bạn.
 
 ## Follow-ups
 
-- **Level 2:** Why does a user stay in the same arm across requests? Expected: the hash of the same user id and experiment name gives the same bucket every time.
-- **Level 2:** Two experiments are configured for the same template. What happens? Expected: the loop takes the first match and breaks, so the second experiment never assigns anyone.
-- **Level 3:** Why not hash the user id alone? Expected: the same users would land in the variant of every experiment, so the experiments would be correlated and carry-over effects would mix the results.
-- **Level 3:** How does the demo check the split, and what would you add? Expected: it runs 1000 synthetic ids through the selector and prints both shares. Add the same check on real exposure logs as a sample ratio check.
+- **Level 2:** Tại sao một người dùng ở lại cùng nhánh qua các yêu cầu? Expected: hash của cùng user id và tên thí nghiệm cho cùng bucket mỗi lần.
+- **Level 2:** Hai thí nghiệm được cấu hình cho cùng mẫu. Điều gì xảy ra? Expected: vòng lặp lấy lần khớp đầu và break, nên thí nghiệm thứ hai không bao giờ phân ai.
+- **Level 3:** Tại sao không chỉ hash user id? Expected: cùng người dùng sẽ rơi vào biến thể của mọi thí nghiệm, nên các thí nghiệm có tương quan và các tác động mang sang trộn kết quả.
+- **Level 3:** Demo kiểm tra phần chia như thế nào, và bạn sẽ thêm gì? Expected: nó chạy 1000 id tổng hợp qua bộ chọn và in cả hai tỷ phần. Thêm cùng kiểm tra trên các log phơi lộ thực như một kiểm tra tỷ lệ mẫu.
 
 ## Wrong answers
 
-- "A random draw below the percentage would be simpler and the same." It assigns per request, so one user flips between arms and sees both prompts.
-- "The hash function is weak, so the assignment is broken." The hash is not a security control here. It only has to be deterministic and well spread.
-- "The percentage is the share of requests." It is the share of users, because the bucket is per user and stays fixed.
+- "Một lần rút ngẫu nhiên dưới phần trăm sẽ đơn giản hơn và giống nhau." Nó phân theo yêu cầu, nên một người dùng chuyển giữa các nhánh và thấy cả hai prompt.
+- "Hàm hash yếu, nên phân nhóm hỏng." Hash không phải một kiểm soát bảo mật ở đây. Nó chỉ phải có tính xác định và phân bố tốt.
+- "Phần trăm là tỷ phần yêu cầu." Nó là tỷ phần người dùng, vì bucket theo người dùng và giữ cố định.
 
 ## Taught in
 
-The [production app lesson](../../../phases/11-llm-engineering/13-production-app/) builds the prompt router with hash-based experiment assignment and checks the split in its demo.
+[Bài học ứng dụng production](../../../phases/11-llm-engineering/13-production-app/) xây bộ định tuyến prompt với phân thí nghiệm dựa trên hash và kiểm tra phần chia trong demo.

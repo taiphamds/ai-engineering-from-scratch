@@ -16,48 +16,48 @@ related: [production-mlops/canary-gates-above-noise, production-mlops/canary-sam
 updated: 2026-11-03
 ---
 
-Take-home. You receive a candidate model, a baseline model, and one week of production request logs with the latency, the token counts and the user feedback of each request. Deliver a rollout plan and a simulator that executes it: a shadow phase, a canary ramp with gates, and a rollback. Inject at least two regressions and show where the plan halts for each one. The logs hold user feedback only for the responses that users saw, so state how the simulator produces feedback for the candidate.
+Bài làm ở nhà. Bạn nhận một mô hình ứng viên, một mô hình baseline, và một tuần log yêu cầu production với độ trễ, số token và phản hồi người dùng của mỗi yêu cầu. Bàn giao một kế hoạch rollout và một bộ mô phỏng thực thi nó: một pha shadow, một ramp canary có cổng, và một rollback. Chèn ít nhất hai suy giảm và cho thấy kế hoạch dừng ở đâu cho mỗi suy giảm. Các log chỉ giữ phản hồi người dùng cho các phản hồi người dùng đã thấy, nên nêu cách bộ mô phỏng tạo phản hồi cho ứng viên.
 
 ## Short answer
 
-Build a simulator that replays the logs through both models, computes the five gate metrics per step, and advances the ramp only when every gate holds for the required number of windows. Set each threshold above the baseline's own run-to-run variance, which you measure by replaying the baseline against itself. Inject a cost regression and a quality regression, and show the step at which each one halts and the rollback that follows.
+Xây một bộ mô phỏng phát lại các log qua cả hai mô hình, tính năm chỉ số cổng mỗi bước, và chỉ tiến ramp khi mọi cổng giữ trong số cửa sổ yêu cầu. Đặt mỗi ngưỡng trên variance giữa các lần chạy của chính baseline, mà bạn đo bằng cách phát lại baseline đối chiếu chính nó. Chèn một suy giảm chi phí và một suy giảm chất lượng, và cho thấy bước mỗi suy giảm dừng và rollback theo sau.
 
 ## Full answer
 
 ### What a complete submission contains
 
-1. **The noise floor.** Replay the baseline against itself and report the spread of each metric. This is the floor under every gate.
-2. **The gates.** Latency percentiles, cost per request, error and refusal rate, output length distribution, and user feedback rate. Write each as a multiplier above the floor. The lesson's defaults are a P99 above 1.5x, a cost more than 20 percent above the baseline, errors at 2x, a shift in the length distribution, and feedback at 1.5x.
-3. **The shadow phase.** The candidate sees every request and returns nothing to a user. Report the cost delta, the length distribution, the refusals and the hard errors against the baseline.
-4. **The ramp.** Steps at 1, 10, 25, 50, 75 and 100 percent. Compute the dwell at each step from the samples per window, so that a gate never decides on a handful of points.
-5. **The rollback.** Model it as the lesson describes: a flag back to zero and a pin on the previous digest. The simulator shows the step and the time it takes.
-6. **Two regressions.** The lesson's exercise injects a 25 percent cost regression, and a strong submission shows it halting at the first step. The second regression lives only in the feedback metric, and the submission shows that it stays invisible at the first step and halts only where the sample is large enough.
-7. **A written decision.** The lesson's second exercise: a candidate with a 3 percent accuracy gain and a cost 18 percent above the baseline. Write both policy paths, ship and do not ship, and name who decides.
+1. **Sàn nhiễu.** Phát lại baseline đối chiếu chính nó và báo cáo độ trải mỗi chỉ số. Đây là sàn dưới mọi cổng.
+2. **Các cổng.** Các phân vị độ trễ, chi phí mỗi yêu cầu, tỷ lệ lỗi và từ chối, phân phối độ dài đầu ra, và tỷ lệ phản hồi người dùng. Viết mỗi cổng như một hệ số trên sàn. Các mặc định của bài học là P99 trên 1.5x, chi phí hơn 20 phần trăm trên baseline, lỗi ở 2x, một dịch chuyển trong phân phối độ dài, và phản hồi ở 1.5x.
+3. **Pha shadow.** Ứng viên thấy mọi yêu cầu và không trả gì cho một người dùng. Báo cáo chênh lệch chi phí, phân phối độ dài, các từ chối và lỗi cứng đối chiếu baseline.
+4. **Ramp.** Các bước ở 1, 10, 25, 50, 75 và 100 phần trăm. Tính thời gian giữ ở mỗi bước từ số mẫu mỗi cửa sổ, để một cổng không bao giờ quyết định trên một ít điểm.
+5. **Rollback.** Mô hình hóa như bài học mô tả: một cờ trở lại không và một pin trên digest trước. Bộ mô phỏng cho thấy bước và thời gian mất.
+6. **Hai suy giảm.** Bài tập của bài học chèn một suy giảm chi phí 25 phần trăm, và một bài nộp mạnh cho thấy nó dừng ở bước đầu. Suy giảm thứ hai chỉ nằm trong chỉ số phản hồi, và bài nộp cho thấy nó giữ vô hình ở bước đầu và chỉ dừng nơi mẫu đủ lớn.
+7. **Một quyết định bằng văn bản.** Bài tập thứ hai của bài học: một ứng viên có mức tăng độ chính xác 3 phần trăm và chi phí 18 phần trăm trên baseline. Viết cả hai đường policy, triển khai và không triển khai, và nêu ai quyết định.
 
 ### What the reviewer looks for
 
-- The floor is measured, not assumed.
-- The gates are multipliers, and the thresholds sit above the floor.
-- The dwell is computed from samples, not from the clock.
-- The regression that the first step cannot see is shown, not hidden.
-- The rollback is rehearsed inside the simulation.
+- Sàn được đo, không phải giả định.
+- Các cổng là các hệ số, và các ngưỡng nằm trên sàn.
+- Thời gian giữ được tính từ mẫu, không phải từ đồng hồ.
+- Suy giảm bước đầu không thể thấy được cho thấy, không bị giấu.
+- Rollback được diễn tập trong mô phỏng.
 
 ### What to keep for production
 
-The gate evaluation code and the noise-floor measurement become the checks of the real canary controller. The replay harness becomes the pre-release test for every future candidate.
+Mã đánh giá cổng và phép đo sàn nhiễu trở thành các kiểm tra của bộ điều khiển canary thật. Bộ khung phát lại trở thành kiểm thử trước phát hành cho mọi ứng viên tương lai.
 
 ## Follow-ups
 
-- **Level 3:** The feedback regression was caught late. Is the plan wrong? Expected: no. It shows the limit of the feedback gate, and the fix is a longer dwell at the step where feedback first has samples, or a proxy metric with more volume.
-- **Level 4:** The candidate has the same cost and tone as the baseline. What changes in the plan? Expected: skip the A/B step after the canary, which the lesson makes optional for an improved version of the same behavior.
-- **Level 4:** What from the simulator survives into production? Expected: the gate evaluation code and the noise-floor measurement, which become the canary controller's checks.
+- **Level 3:** Suy giảm phản hồi bị bắt muộn. Kế hoạch sai không? Expected: không. Nó cho thấy giới hạn cổng phản hồi, và cách sửa là thời gian giữ lâu hơn ở bước phản hồi lần đầu có mẫu, hoặc một chỉ số proxy có khối lượng lớn hơn.
+- **Level 4:** Ứng viên có cùng chi phí và giọng điệu với baseline. Điều gì thay đổi trong kế hoạch? Expected: bỏ bước A/B sau canary, điều bài học cho là tùy chọn cho một phiên bản cải thiện cùng hành vi.
+- **Level 4:** Điều gì từ bộ mô phỏng sống sót vào production? Expected: mã đánh giá cổng và phép đo sàn nhiễu, trở thành các kiểm tra của bộ điều khiển canary.
 
 ## Wrong answers
 
-- "Use the lesson's thresholds as they are." The lesson's numbers are defaults. The floor comes from your own baseline.
-- "Advance the ramp on a fixed schedule." A ramp that moves on the clock ignores whether a gate had enough samples.
-- "Model the rollback as a redeploy." The simulator should model the mechanism you will use, and a redeploy is the mechanism the lesson tells you to remove.
+- "Dùng các ngưỡng của bài học nguyên trạng." Các con số của bài học là mặc định. Sàn đến từ baseline riêng.
+- "Tiến ramp theo một lịch cố định." Một ramp di chuyển theo đồng hồ bỏ qua liệu một cổng đã có đủ mẫu.
+- "Mô hình hóa rollback như một triển khai lại." Bộ mô phỏng nên mô hình hóa cơ chế bạn sẽ dùng, và triển khai lại là cơ chế bài học bảo bạn loại bỏ.
 
 ## Taught in
 
-The [progressive delivery lesson](../../../phases/17-infrastructure-and-production/20-shadow-canary-progressive/) gives the gates, the ramp and the exercises that this take-home extends.
+[Bài học triển khai tiến dần](../../../phases/17-infrastructure-and-production/20-shadow-canary-progressive/) đưa ra các cổng, ramp và các bài tập bài làm ở nhà này mở rộng.

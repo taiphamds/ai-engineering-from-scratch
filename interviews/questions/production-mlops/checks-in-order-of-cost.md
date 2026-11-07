@@ -16,64 +16,64 @@ related: [production-mlops/stream-fails-after-200]
 updated: 2026-11-03
 ---
 
-You are about to share a public link to a model demo. Every request that reaches the model costs money. Design the sequence of checks a request passes before the model runs, and give the HTTP status for each refusal.
+Bạn sắp chia sẻ một liên kết công khai đến một demo mô hình. Mọi yêu cầu đến mô hình tốn tiền. Thiết kế chuỗi kiểm tra một yêu cầu vượt qua trước khi mô hình chạy, và đưa ra trạng thái HTTP cho mỗi từ chối.
 
 ## Short answer
 
-Run the cheap checks first and the paid step last. Refuse an oversized body from its `Content-Length` header before you read it, check the access token, take one token from the client's rate bucket, parse and validate the JSON, charge the daily usage cap, and only then call the model. Each refusal returns a JSON error with a stable code, a message and a hint, and the statuses in that order are 413, 401, 429, 422 and 503.
+Chạy các kiểm tra rẻ trước và bước trả phí cuối. Từ chối một body quá lớn từ header `Content-Length` trước khi đọc nó, kiểm tra token truy cập, lấy một token từ bucket tốc độ của client, phân tích và xác thực JSON, tính vào giới hạn sử dụng hằng ngày, và chỉ sau đó gọi mô hình. Mỗi từ chối trả về một lỗi JSON với một mã ổn định, một thông báo và một gợi ý, và các trạng thái theo thứ tự đó là 413, 401, 429, 422 và 503.
 
 ## Full answer
 
 ### Why the order matters
 
-A bad request stops at the first check that it fails, and that check should cost the server almost nothing. The model call is the only step that costs money, so it comes last. The browser can repeat some checks with `maxlength` and `required`, but those help honest users only. Any client can send a request without the page, so the server repeats every check.
+Một yêu cầu xấu dừng ở kiểm tra đầu nó thất bại, và kiểm tra đó nên tốn máy chủ gần như không gì. Lời gọi mô hình là bước duy nhất tốn tiền, nên nó đến cuối. Trình duyệt có thể lặp một số kiểm tra với `maxlength` và `required`, nhưng chúng chỉ giúp các người dùng trung thực. Bất kỳ client nào có thể gửi một yêu cầu không có trang, nên máy chủ lặp mọi kiểm tra.
 
 ### The sequence
 
-| Step | Refusal | Status |
+| Bước | Từ chối | Trạng thái |
 |---|---|---|
-| route exists | unknown endpoint | 404 |
-| `Content-Length` present and numeric | missing, or not a number | 411, 400 |
-| body size under the limit | over 4,096 bytes, refused before the read | 413 |
-| body arrives in time | client stops sending | 408 |
-| access token, when configured | missing or wrong | 401 |
-| token bucket per client | bucket empty, with `Retry-After` | 429 |
-| content type and JSON object | wrong type, or not an object | 415, 400 |
-| fields | missing, empty, too long, control characters | 422 |
-| daily usage cap | the day's budget is spent, with `Retry-After` | 503 |
-| model call | | 200 |
+| route tồn tại | endpoint không biết | 404 |
+| `Content-Length` có mặt và là số | thiếu, hoặc không phải số | 411, 400 |
+| kích thước body dưới giới hạn | trên 4,096 byte, bị từ chối trước khi đọc | 413 |
+| body đến đúng thời gian | client ngừng gửi | 408 |
+| token truy cập, khi được cấu hình | thiếu hoặc sai | 401 |
+| token bucket mỗi client | bucket trống, với `Retry-After` | 429 |
+| content type và đối tượng JSON | sai kiểu, hoặc không phải đối tượng | 415, 400 |
+| các trường | thiếu, trống, quá dài, ký tự điều khiển | 422 |
+| giới hạn sử dụng hằng ngày | ngân sách ngày đã hết, với `Retry-After` | 503 |
+| lời gọi mô hình | | 200 |
 
-The cap is charged after validation, so that only valid requests count against the day.
+Giới hạn được tính sau xác thực, để chỉ các yêu cầu hợp lệ tính vào ngày.
 
 ### The error shape
 
-Every refusal has the same JSON body: a `code` that client code and tests compare, a `message` that states the fact with its numbers, a `hint` with one action, and a `request_id` that joins a user report to one log record.
+Mọi từ chối có cùng body JSON: một `code` mà mã client và kiểm thử so sánh, một `message` nêu sự thật với các con số, một `hint` có một hành động, và một `request_id` nối một báo cáo người dùng với một bản ghi log.
 
 ### Two limits, not one
 
-The token bucket bounds each client: a capacity for the burst and a refill rate for the long run. It does not bound the total. A hundred clients that each stay under the limit can still spend the whole budget, so the usage cap counts all model calls in a day and refuses after a fixed number.
+Token bucket chặn mỗi client: một dung lượng cho đợt bùng phát và một tốc độ nạp lại cho dài hạn. Nó không chặn tổng. Một trăm client mỗi client giữ dưới giới hạn vẫn có thể dùng toàn bộ ngân sách, nên giới hạn sử dụng đếm tất cả lời gọi mô hình trong một ngày và từ chối sau một số cố định.
 
 ### Behind a proxy
 
-The bucket key is the client address. Behind a reverse proxy every request arrives from the proxy, so all clients share one bucket. Read the client address from the header that your own proxy sets, and trust that header from the proxy only.
+Khóa bucket là địa chỉ client. Sau một reverse proxy, mọi yêu cầu đến từ proxy, nên tất cả client chia sẻ một bucket. Đọc địa chỉ client từ header proxy riêng của bạn đặt, và chỉ tin header đó từ proxy.
 
 ### Log every request
 
-One record per request, in the `finally` block, including the refused ones: the route, the status, the error code, the latency and the input length. The client address becomes a keyed hash. The text is never stored, and the page says so.
+Một bản ghi mỗi yêu cầu, trong block `finally`, gồm các yêu cầu bị từ chối: route, trạng thái, mã lỗi, độ trễ và độ dài đầu vào. Địa chỉ client thành một hash có khóa. Văn bản không bao giờ được lưu, và trang nói rõ.
 
 ## Follow-ups
 
-- **Level 2:** Why does the usage cap come after the field checks? Expected: so that only valid requests count against the day's total.
-- **Level 2:** Why refuse on the header before reading the body? Expected: it stops a large upload before the server spends memory and time on it.
-- **Level 3:** Behind a reverse proxy one heavy user gets everyone rate limited. Why? Expected: every request arrives from the proxy address, so all clients share one bucket. Read the client address from the proxy's header, and trust it from the proxy only.
-- **Level 3:** What does the server do with a refused body before it answers 413? Expected: it reads and discards up to 64 KiB, because a close with unread data can trigger a TCP reset and the client loses the reply.
+- **Level 2:** Tại sao giới hạn sử dụng đến sau các kiểm tra trường? Expected: để chỉ các yêu cầu hợp lệ tính vào tổng ngày.
+- **Level 2:** Tại sao từ chối trên header trước khi đọc body? Expected: nó dừng một lần tải lên lớn trước khi máy chủ dùng bộ nhớ và thời gian cho nó.
+- **Level 3:** Sau một reverse proxy, một người dùng nặng khiến mọi người bị giới hạn tốc độ. Tại sao? Expected: mọi yêu cầu đến từ địa chỉ proxy, nên tất cả client chia sẻ một bucket. Đọc địa chỉ client từ header của proxy, và chỉ tin nó từ proxy.
+- **Level 3:** Máy chủ làm gì với một body bị từ chối trước khi trả lời 413? Expected: nó đọc và bỏ đến 64 KiB, vì đóng với dữ liệu chưa đọc có thể gây một TCP reset và client mất phản hồi.
 
 ## Wrong answers
 
-- "Validate the text first, then check the size." Reading the body before the size check spends the cost that the check exists to avoid.
-- "A rate limit is enough, skip the cap." A per-client limit bounds each client. A hundred clients under the limit still spend the whole budget.
-- "Return 500 with the stack trace, developers can read it." A stranger cannot act on a stack trace. An error needs a code, a fact and one next action.
+- "Xác thực văn bản trước, rồi kiểm tra kích thước." Đọc body trước kiểm tra kích thước dùng chi phí mà kiểm tra tồn tại để tránh.
+- "Một giới hạn tốc độ đủ, bỏ giới hạn sử dụng." Một giới hạn theo client chặn mỗi client. Một trăm client dưới giới hạn vẫn dùng toàn bộ ngân sách.
+- "Trả về 500 với stack trace, các nhà phát triển có thể đọc nó." Một người lạ không thể hành động dựa trên một stack trace. Một lỗi cần một mã, một sự thật và một hành động tiếp theo.
 
 ## Taught in
 
-The [model demo interfaces lesson](../../../phases/17-infrastructure-and-production/29-model-demo-interfaces/) orders the checks by cost and defines the error shape, the token bucket and the usage cap.
+[Bài học giao diện demo mô hình](../../../phases/17-infrastructure-and-production/29-model-demo-interfaces/) sắp các kiểm tra theo chi phí và định nghĩa hình dạng lỗi, token bucket và giới hạn sử dụng.

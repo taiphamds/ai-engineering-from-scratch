@@ -16,49 +16,49 @@ related: [production-mlops/peeking-at-an-ab-test, production-mlops/shadow-mode-i
 updated: 2026-11-03
 ---
 
-Your new prompt scores higher than the old one on your labeled set. A product manager asks why you still want a randomized online test before the full launch. Give the two-minute version.
+Prompt mới của bạn đạt điểm cao hơn prompt cũ trên tập có nhãn. Một quản lý sản phẩm hỏi tại sao bạn vẫn muốn một kiểm thử online ngẫu nhiên trước khi ra mắt đầy đủ. Đưa ra phiên bản hai phút.
 
 ## Short answer
 
-An eval tells you whether the model can do the task on a fixed, labeled distribution. A randomized test with live users tells you whether users notice and care. A prompt can win on the labeled set and move no product metric, or move it the wrong way. You need both: the eval blocks a regression before any user sees it, and the experiment confirms the product effect after.
+Một đánh giá cho bạn biết liệu mô hình có thể làm tác vụ trên một phân phối cố định có nhãn. Một kiểm thử ngẫu nhiên với người dùng thật cho bạn biết liệu người dùng nhận thấy và quan tâm. Một prompt có thể thắng trên tập có nhãn và không thay đổi chỉ số sản phẩm nào, hoặc thay đổi theo hướng sai. Bạn cần cả hai: đánh giá chặn một suy giảm trước khi bất kỳ người dùng nào thấy nó, và thí nghiệm xác nhận tác động sản phẩm sau đó.
 
 ## Full answer
 
 ### Two different questions
 
-An eval runs offline on a labeled set with a judge, which can be a rubric, a model or a person. It answers: is the output correct, helpful and safe on this distribution?
+Một đánh giá chạy offline trên một tập có nhãn với một giám khảo, có thể là một rubric, một mô hình hoặc một người. Nó trả lời: đầu ra có đúng, hữu ích và an toàn trên phân phối này không?
 
-An A/B test runs online with live users assigned at random. It answers: does the variant move the user-level metric that matters, such as retention or task completion?
+Một A/B test chạy online với những người dùng thật được phân ngẫu nhiên. Nó trả lời: biến thể có thay đổi chỉ số cấp người dùng quan trọng, như giữ chân hoặc hoàn thành tác vụ không?
 
 ### Why one is not enough
 
-Every senior engineer can name a feature that shipped because it felt better, with no experiment. Many of them regressed a product metric that nobody watched for months. The eval cannot see user preference. The experiment cannot catch a regression before exposure. Each one covers the blind spot of the other.
+Mọi kỹ sư cao cấp có thể nêu một tính năng đã triển khai vì cảm thấy tốt hơn, không có thí nghiệm. Nhiều tính năng làm suy giảm một chỉ số sản phẩm không ai theo dõi trong nhiều tháng. Đánh giá không thể thấy preference người dùng. Thí nghiệm không thể bắt một suy giảm trước phơi lộ. Mỗi loại bao phủ điểm mù của loại kia.
 
 ### What to test online
 
-The lesson names three testable axes:
+Bài học nêu ba trục kiểm thử được:
 
-1. Prompt wording and structure. Metrics: task success, retention, cost per request.
-2. Model choice. Metrics: task accuracy, cost per request and latency P99 together.
-3. Generation parameters such as temperature and top-p. Metric: task-specific.
+1. Cách diễn đạt và cấu trúc prompt. Chỉ số: thành công tác vụ, giữ chân, chi phí mỗi yêu cầu.
+2. Lựa chọn mô hình. Chỉ số: độ chính xác tác vụ, chi phí mỗi yêu cầu và độ trễ P99 cùng nhau.
+3. Các tham số sinh như temperature và top-p. Chỉ số: theo tác vụ.
 
 ### The order
 
-Eval first. Then shadow and a canary to prove the variant is stable. Then an A/B test at a 50 percent split when the variant is a distinct alternative. When it is only an improved version of the same behavior, the canary can go to 100 percent without the A/B step. Improved means that the eval showed the gain. The canary gates do not measure task completion, so the skip trusts the eval for it.
+Đánh giá trước. Rồi shadow và một canary để chứng minh biến thể ổn định. Rồi một A/B test ở phần chia 50 phần trăm khi biến thể là một lựa chọn khác biệt. Khi nó chỉ là một phiên bản cải thiện của cùng hành vi, canary có thể đến 100 phần trăm không có bước A/B. Cải thiện có nghĩa đánh giá cho thấy mức tăng. Các cổng canary không đo hoàn thành tác vụ, nên việc bỏ qua tin đánh giá cho điều đó.
 
 ## Follow-ups
 
-- **Level 1:** Name one metric an experiment produces that an eval cannot. Expected: a user-level metric such as retention, conversion or the thumbs-down rate.
-- **Level 2:** The canary passed, and the experiment shows a small drop in conversion. Ship? Expected: not by default. Write the escalation criterion before the test starts, and treat a negative primary metric as a stop.
-- **Level 2:** When do you skip the experiment after a canary? Expected: when the new version is an improvement of the same behavior, not an alternative with a different cost curve or tone.
-- **Level 3:** Why does model non-determinism change the sample size? Expected: identical inputs give different outputs, so the effective sample is smaller than the nominal one. The lesson multiplies the required sample by about 1.3 to 1.5.
+- **Level 1:** Nêu một chỉ số một thí nghiệm tạo mà một đánh giá không thể. Expected: một chỉ số cấp người dùng như giữ chân, chuyển đổi hoặc tỷ lệ không thích.
+- **Level 2:** Canary đạt, và thí nghiệm cho thấy một mức giảm nhỏ về chuyển đổi. Triển khai? Expected: không mặc định. Viết tiêu chí chuyển lên trước khi kiểm thử bắt đầu, và xem một chỉ số chính âm là một điểm dừng.
+- **Level 2:** Khi nào bạn bỏ thí nghiệm sau một canary? Expected: khi phiên bản mới là một cải thiện của cùng hành vi, không phải một lựa chọn có đường cong chi phí hoặc giọng điệu khác.
+- **Level 3:** Tại sao tính không xác định của mô hình thay đổi kích thước mẫu? Expected: các đầu vào giống hệt cho các đầu ra khác nhau, nên mẫu hiệu dụng nhỏ hơn mẫu danh nghĩa. Bài học nhân mẫu cần thiết với khoảng 1.3 đến 1.5.
 
 ## Wrong answers
 
-- "The eval set is larger, so it is more reliable." The eval set is fixed and labeled, and it measures correctness, not what users prefer.
-- "Run the experiment and skip the eval to save a week." Without the eval, a regression reaches users before anyone can see it.
-- "If the eval and the experiment disagree, the experiment is wrong." They measure different things. A correct answer that users dislike is a real result.
+- "Tập đánh giá lớn hơn, nên đáng tin cậy hơn." Tập đánh giá cố định và có nhãn, và nó đo tính đúng đắn, không phải những gì người dùng thích.
+- "Chạy thí nghiệm và bỏ đánh giá để tiết kiệm một tuần." Không có đánh giá, một suy giảm đến người dùng trước khi ai đó có thể thấy nó.
+- "Nếu đánh giá và thí nghiệm bất đồng, thí nghiệm sai." Chúng đo những thứ khác nhau. Một câu trả lời đúng mà người dùng không thích là một kết quả thật.
 
 ## Taught in
 
-The [A/B testing lesson](../../../phases/17-infrastructure-and-production/21-ab-testing-llm-features/) separates evals from experiments, and the [progressive delivery lesson](../../../phases/17-infrastructure-and-production/20-shadow-canary-progressive/) places the experiment after the canary.
+[Bài học A/B testing](../../../phases/17-infrastructure-and-production/21-ab-testing-llm-features/) tách đánh giá khỏi thí nghiệm, và [bài học triển khai tiến dần](../../../phases/17-infrastructure-and-production/20-shadow-canary-progressive/) đặt thí nghiệm sau canary.

@@ -16,51 +16,51 @@ related: [production-mlops/drift-score-on-prompts, production-mlops/keep-every-e
 updated: 2026-11-03
 ---
 
-A regression ships. One of your prompts starts to leak fake customer identifiers in about one answer in a hundred. Design the observability pipeline so that an alert reaches a person within five minutes of the first bad answer, and say what each stage adds to that clock.
+Một suy giảm được triển khai. Một trong các prompt bắt đầu rò rỉ các định danh khách hàng giả trong khoảng một trên một trăm câu trả lời. Thiết kế pipeline quan sát để một cảnh báo đến một người trong vòng năm phút từ câu trả lời xấu đầu tiên, và nói mỗi giai đoạn thêm gì vào đồng hồ đó.
 
 ## Short answer
 
-Instrument every model call with GenAI-convention spans and ship them over OTLP to a collector. Run a cheap pattern check on every output at the collector, run a judge over the sampled traces on a short schedule, write the scores back as eval spans, export the aggregates as metrics, and alert when the leak score crosses a threshold. The five minutes are the sum of the scrape interval, the judge batch window and the alert routing, so each stage has to be short, and the sampler must keep enough traffic to see a one-in-a-hundred event. The five-minute target covers only the leaks that the pattern flags or the sampler keeps.
+Instrument mọi lời gọi mô hình bằng các span theo quy ước GenAI và gửi chúng qua OTLP đến một collector. Chạy một kiểm tra mẫu hình rẻ trên mọi đầu ra tại collector, chạy một giám khảo trên các trace được lấy mẫu theo một lịch ngắn, ghi điểm trở lại như các span đánh giá, xuất các tổng hợp thành chỉ số, và cảnh báo khi điểm rò rỉ vượt một ngưỡng. Năm phút là tổng khoảng scrape, cửa sổ batch giám khảo và định tuyến cảnh báo, nên mỗi giai đoạn phải ngắn, và bộ lấy mẫu phải giữ đủ lưu lượng để thấy một sự kiện một-trên-một-trăm. Mục tiêu năm phút chỉ bao phủ các rò rỉ mà mẫu hình gắn cờ hoặc bộ lấy mẫu giữ.
 
 ## Full answer
 
 ### The stages and their share of the clock
 
-| Stage | What it adds | Time it costs |
+| Giai đoạn | Nó thêm gì | Thời gian tốn |
 |---|---|---|
-| instrumentation and OTLP export | the span with the output | seconds |
-| collector with tail sampling | the decision to keep the trace | seconds, plus the buffer wait |
-| pattern check on the output | an instant flag for identifier shapes | none worth counting |
-| judge over sampled traces | a score for leaks the pattern misses | the batch window |
-| eval spans and metrics export | the aggregate the alert reads | the scrape interval |
-| alert rule and routing | the page | the evaluation interval plus routing |
+| instrumentation và xuất OTLP | span có đầu ra | giây |
+| collector với tail sampling | quyết định giữ trace | giây, cộng chờ buffer |
+| kiểm tra mẫu hình trên đầu ra | một cờ tức thì cho hình dạng định danh | không gì đáng tính |
+| giám khảo trên trace được lấy mẫu | một điểm cho các rò rỉ mẫu hình bỏ lỡ | cửa sổ batch |
+| span đánh giá và xuất chỉ số | tổng hợp mà cảnh báo đọc | khoảng scrape |
+| quy tắc cảnh báo và định tuyến | cuộc gọi trực | khoảng đánh giá cộng định tuyến |
 
-The capstone's eval job reads the last fifteen minutes of sampled traces. For a five-minute target, the judge has to run every minute on the newest traces, or the batch window alone eats the budget.
+Công việc đánh giá của capstone đọc mười lăm phút cuối của các trace được lấy mẫu. Với một mục tiêu năm phút, giám khảo phải chạy mỗi phút trên các trace mới nhất, nếu không chỉ cửa sổ batch đã ăn hết ngân sách.
 
 ### Make the rare event visible
 
-At one leak in a hundred, a sampler that keeps a tenth of the successes sees one leak in a thousand answers. At high volume that is fine, and at low volume it is blind. Run a pattern check for identifier shapes on every output at the collector, as the production application capstone does in its output guardrail, and keep every trace that the check flags. The judge then scores the paraphrased leaks on the sampled share only. A paraphrased leak in an unsampled trace gets no score and fires no alert.
+Ở một rò rỉ trên một trăm, một bộ lấy mẫu giữ một phần mười các thành công thấy một rò rỉ trên một nghìn câu trả lời. Ở khối lượng cao điều đó ổn, và ở khối lượng thấp nó mù. Chạy một kiểm tra mẫu hình cho các hình dạng định danh trên mọi đầu ra tại collector, như capstone ứng dụng production làm trong output guardrail, và giữ mọi trace kiểm tra gắn cờ. Giám khảo sau đó chỉ chấm các rò rỉ diễn đạt lại trên tỷ phần được lấy mẫu. Một rò rỉ diễn đạt lại trong một trace không được lấy mẫu không có điểm và không kích hoạt cảnh báo.
 
 ### The alert chain
 
-Eval scores land as eval spans linked to the parent trace. A metrics exporter aggregates them, an alert rule fires when the leak score in a window crosses the threshold, and the alert manager routes warnings to chat and critical breaches to the pager.
+Các điểm đánh giá đến như span đánh giá được liên kết với trace cha. Một exporter chỉ số tổng hợp chúng, một quy tắc cảnh báo kích hoạt khi điểm rò rỉ trong một cửa sổ vượt ngưỡng, và alert manager định tuyến các cảnh báo đến chat và các vi phạm nghiêm trọng đến máy gọi trực.
 
 ### Prove it
 
-The capstone's regression probe injects a bug that leaks fake identifiers in one percent of answers and measures the time from deployment to the alert. Detection is the part of the recovery that the dashboard owns. The fix is the rollback, and that belongs to the release path.
+Phép thăm dò suy giảm của capstone chèn một bug làm rò rỉ định danh giả trong một phần trăm câu trả lời và đo thời gian từ triển khai đến cảnh báo. Phát hiện là phần phục hồi dashboard sở hữu. Cách sửa là rollback, và nó thuộc đường phát hành.
 
 ## Follow-ups
 
-- **Level 3:** Which stage usually dominates the five minutes? Expected: the judge batch window. A job that runs every fifteen minutes cannot meet a five-minute target.
-- **Level 3:** The sampler drops nine of every ten successes. What happens to detection when the leak rate is one percent? Expected: it sees one leak in a thousand answers, so at low traffic the detection takes longer. Keep every trace that a cheap pattern check flags.
-- **Level 4:** How do you prove the pipeline meets the target? Expected: inject the regression on purpose, as the capstone does, and measure the time from the deployment to the alert.
+- **Level 3:** Giai đoạn nào thường chi phối năm phút? Expected: cửa sổ batch giám khảo. Một công việc chạy mỗi mười lăm phút không thể đáp ứng một mục tiêu năm phút.
+- **Level 3:** Bộ lấy mẫu bỏ chín trong mỗi mười thành công. Điều gì xảy ra với phát hiện khi tỷ lệ rò rỉ là một phần trăm? Expected: nó thấy một rò rỉ trên một nghìn câu trả lời, nên ở lưu lượng thấp, phát hiện mất lâu hơn. Giữ mọi trace mà một kiểm tra mẫu hình rẻ gắn cờ.
+- **Level 4:** Bạn chứng minh pipeline đáp ứng mục tiêu như thế nào? Expected: cố ý chèn suy giảm, như capstone làm, và đo thời gian từ triển khai đến cảnh báo.
 
 ## Wrong answers
 
-- "Run the judge on every trace." At volume that costs more than the model calls. Sample, and filter with a cheap check first.
-- "A daily eval report is enough." A day of leaked identifiers is the incident. The target is minutes.
-- "The pattern check catches everything." Patterns miss paraphrases. The judge catches what the pattern misses, and the pattern keeps the judge affordable.
+- "Chạy giám khảo trên mọi trace." Ở khối lượng lớn, điều đó tốn hơn các lời gọi mô hình. Lấy mẫu, và lọc bằng một kiểm tra rẻ trước.
+- "Một báo cáo đánh giá hằng ngày là đủ." Một ngày định danh rò rỉ là sự cố. Mục tiêu là phút.
+- "Kiểm tra mẫu hình bắt mọi thứ." Các mẫu hình bỏ lỡ diễn đạt lại. Giám khảo bắt những gì mẫu hình bỏ lỡ, và mẫu hình giữ giám khảo có thể chi trả.
 
 ## Taught in
 
-The [observability dashboard capstone](../../../phases/19-capstone-projects/11-llm-observability-dashboard/) builds the ingest, eval and alert chain and measures detection time with an injected regression, and the [production app lesson](../../../phases/11-llm-engineering/13-production-app/) gives the pattern-based output guardrail.
+[Capstone dashboard quan sát](../../../phases/19-capstone-projects/11-llm-observability-dashboard/) xây chuỗi tiếp nhận, đánh giá và cảnh báo và đo thời gian phát hiện bằng một suy giảm được chèn, và [bài học ứng dụng production](../../../phases/11-llm-engineering/13-production-app/) đưa ra output guardrail dựa trên mẫu hình.

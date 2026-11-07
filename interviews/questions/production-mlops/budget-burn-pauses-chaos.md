@@ -16,53 +16,53 @@ related: [production-mlops/chaos-before-you-start, production-mlops/retries-that
 updated: 2026-11-03
 ---
 
-You run a chaos experiment in production. One model provider returns rate-limit errors for part of the fleet, so that you can watch the fallback. Alerts start to fire while it runs. Design the safety plane that keeps this from turning into an incident, and explain how on-call tells an experiment failure from a natural one.
+Bạn chạy một thí nghiệm chaos trong production. Một nhà cung cấp mô hình trả về các lỗi giới hạn tốc độ cho một phần cụm, để bạn có thể quan sát fallback. Các cảnh báo bắt đầu kích hoạt trong khi nó chạy. Thiết kế mặt phẳng an toàn giữ điều này khỏi thành một sự cố, và giải thích cách trực vận hành phân biệt một lỗi thí nghiệm với một lỗi tự nhiên.
 
 ## Short answer
 
-Three guards sit in the safety plane: a burn-rate alert that pauses the experiment when the daily error-budget burn passes twice the expected rate, suppression windows that silence the non-experiment alerts inside the blast radius, and a tag on the trace id of every error that the experiment causes. On-call reads the tag. An untagged error inside the window is natural and gets the normal response.
+Ba biện pháp bảo vệ nằm trong mặt phẳng an toàn: một cảnh báo tốc độ tiêu hao tạm dừng thí nghiệm khi mức tiêu hao ngân sách lỗi hằng ngày vượt hai lần tốc độ kỳ vọng, các cửa sổ chặn cảnh báo làm im các cảnh báo không thuộc thí nghiệm trong phạm vi ảnh hưởng, và một tag trên trace id của mọi lỗi thí nghiệm gây ra. Người trực đọc tag. Một lỗi không tag bên trong cửa sổ là tự nhiên và nhận phản ứng bình thường.
 
 ## Full answer
 
 ### The planes
 
-The lesson splits the system into a control plane that schedules the experiment, a target plane of services, pods and data stores, a safety plane with the kill switch, suppression windows, blast-radius limits and error-budget gates, and an observability plane that correlates every error with a trace id. The findings feed back into the SLO, the runbooks and the code.
+Bài học chia hệ thống thành một mặt phẳng điều khiển lên lịch thí nghiệm, một mặt phẳng mục tiêu gồm dịch vụ, pod và kho dữ liệu, một mặt phẳng an toàn với công tắc ngắt, các cửa sổ chặn cảnh báo, giới hạn phạm vi ảnh hưởng và các cổng ngân sách lỗi, và một mặt phẳng quan sát tương quan mọi lỗi với một trace id. Các phát hiện phản hồi vào SLO, runbook và mã.
 
 ### The three guards
 
-1. **Burn-rate pause.** The experiment is allowed to spend error budget, because that is what a controlled failure does. The gate fires when the daily burn exceeds 2x the expected rate, and it pauses the experiment on its own.
-2. **Suppression windows.** Alerts that the experiment is designed to trigger are silenced for the blast radius and the duration. Nothing outside the radius is silenced.
-3. **Trace-id correlation.** Every experiment-induced error carries a tag, so that on-call can separate it from natural failures without a conversation.
+1. **Tạm dừng theo tốc độ tiêu hao.** Thí nghiệm được phép dùng ngân sách lỗi, vì đó là điều một thất bại có kiểm soát làm. Cổng kích hoạt khi mức tiêu hao hằng ngày vượt 2x tốc độ kỳ vọng, và nó tự tạm dừng thí nghiệm.
+2. **Các cửa sổ chặn cảnh báo.** Các cảnh báo thí nghiệm được thiết kế để kích hoạt được làm im cho phạm vi ảnh hưởng và thời lượng. Không gì ngoài phạm vi bị làm im.
+3. **Tương quan trace-id.** Mọi lỗi do thí nghiệm gây ra mang một tag, để người trực có thể tách nó khỏi các lỗi tự nhiên mà không cần một cuộc trao đổi.
 
-The kill switch is a fourth, manual control. It stops the experiment at once and belongs to on-call, not to the scheduler.
+Công tắc ngắt là một điều khiển thủ công thứ tư. Nó dừng thí nghiệm ngay lập tức và thuộc về người trực, không phải bộ lập lịch.
 
 ### How on-call reads an alert during the window
 
-- A tagged error inside the blast radius is the experiment working. It is logged, not paged.
-- An untagged error inside the window is natural. It takes the normal response.
-- An error outside the blast radius is natural, because the experiment did not touch it.
-- If the burn continues after the pause, the cause is natural, or the experiment broke something that does not recover alone. Run the incident response and roll back the last change.
+- Một lỗi có tag trong phạm vi ảnh hưởng là thí nghiệm đang hoạt động. Nó được ghi log, không gọi trực.
+- Một lỗi không tag trong cửa sổ là tự nhiên. Nó nhận phản ứng bình thường.
+- Một lỗi ngoài phạm vi ảnh hưởng là tự nhiên, vì thí nghiệm không chạm nó.
+- Nếu tiêu hao tiếp tục sau tạm dừng, nguyên nhân là tự nhiên, hoặc thí nghiệm làm hỏng thứ không tự phục hồi. Chạy ứng phó sự cố và rollback thay đổi cuối.
 
 ### What this experiment should teach
 
-The lesson notes that most teams discover their fallback was never fully tested. Record the time from the first rate-limit error to the first successful fallback, and compare it with the SLA. Record whether the gateway's retries amplified the load before the fallback engaged.
+Bài học lưu ý phần lớn nhóm phát hiện fallback chưa bao giờ được kiểm thử đầy đủ. Ghi thời gian từ lỗi giới hạn tốc độ đầu đến fallback thành công đầu, và so sánh với SLA. Ghi liệu các lần thử lại của gateway có khuếch đại tải trước khi fallback hoạt động.
 
 ### Size the blast radius
 
-Choose a share of the fleet small enough that the fallback capacity on the other providers covers it, and write that share into the experiment definition. A larger share tests more and risks a real outage when the fallback is slower than you believed.
+Chọn một tỷ phần cụm đủ nhỏ để năng lực fallback trên các nhà cung cấp khác bao phủ nó, và viết tỷ phần đó vào định nghĩa thí nghiệm. Một tỷ phần lớn hơn kiểm thử nhiều hơn và có nguy cơ một gián đoạn thật khi fallback chậm hơn bạn tin.
 
 ## Follow-ups
 
-- **Level 3:** Why gate at twice the expected burn and not at any burn? Expected: an experiment is meant to spend some budget. The gate catches the case where it spends far more than planned.
-- **Level 4:** The burn keeps rising after the pause. What does that tell you? Expected: the cause is natural, or the experiment broke something that does not recover on its own. Run the incident response and roll back the last change.
-- **Level 4:** How do you pick the blast radius for a provider outage experiment? Expected: a share small enough that the fallback capacity covers it, written into the experiment definition and reviewed with on-call.
+- **Level 3:** Tại sao đặt cổng ở hai lần mức tiêu hao kỳ vọng và không phải bất kỳ tiêu hao nào? Expected: một thí nghiệm được định để dùng một ít ngân sách. Cổng bắt trường hợp nó dùng nhiều hơn kế hoạch rất nhiều.
+- **Level 4:** Tiêu hao tiếp tục tăng sau tạm dừng. Điều đó cho bạn biết gì? Expected: nguyên nhân tự nhiên, hoặc thí nghiệm làm hỏng thứ không tự phục hồi. Chạy ứng phó sự cố và rollback thay đổi cuối.
+- **Level 4:** Bạn chọn phạm vi ảnh hưởng cho một thí nghiệm gián đoạn nhà cung cấp như thế nào? Expected: một tỷ phần đủ nhỏ để năng lực fallback bao phủ nó, được viết trong định nghĩa thí nghiệm và xem xét với người trực.
 
 ## Wrong answers
 
-- "Silence all alerts during the experiment." A natural incident in the same window goes unseen. Silence only the blast radius, and keep tagged errors visible.
-- "Run it in staging, so no safety plane is needed." Staging cannot show the fallback under real traffic. The safety plane is what makes production acceptable.
-- "The burn-rate alert is the kill switch." The alert pauses the experiment. The kill switch stops it at once, and it should be a separate manual control.
+- "Làm im tất cả cảnh báo trong thí nghiệm." Một sự cố tự nhiên trong cùng cửa sổ không được thấy. Chỉ làm im phạm vi ảnh hưởng, và giữ các lỗi có tag nhìn thấy.
+- "Chạy nó trong staging, nên không cần mặt phẳng an toàn." Staging không thể cho thấy fallback dưới lưu lượng thật. Mặt phẳng an toàn là điều khiến production chấp nhận được.
+- "Cảnh báo tốc độ tiêu hao là công tắc ngắt." Cảnh báo tạm dừng thí nghiệm. Công tắc ngắt dừng ngay lập tức, và nên là một điều khiển thủ công riêng.
 
 ## Taught in
 
-The [chaos engineering lesson](../../../phases/17-infrastructure-and-production/24-chaos-engineering-llm/) defines the four planes, the burn-rate pause, suppression windows and trace-id correlation.
+[Bài học chaos engineering](../../../phases/17-infrastructure-and-production/24-chaos-engineering-llm/) định nghĩa bốn mặt phẳng, tạm dừng tốc độ tiêu hao, các cửa sổ chặn cảnh báo và tương quan trace-id.

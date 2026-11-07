@@ -16,46 +16,46 @@ related: [production-mlops/read-this-span, production-mlops/renamed-token-attrib
 updated: 2026-11-03
 ---
 
-Your trace backend can store the full prompt and completion on every model span. The support team wants it on, because they debug tickets from traces. The security team wants it off. What do you decide, and how do you still give support what they need?
+Backend trace của bạn có thể lưu toàn bộ prompt và completion trên mọi span mô hình. Nhóm hỗ trợ muốn bật, vì họ gỡ lỗi ticket từ trace. Nhóm bảo mật muốn tắt. Bạn quyết định gì, và bạn vẫn cấp cho hỗ trợ những gì họ cần như thế nào?
 
 ## Short answer
 
-Keep content capture off, which is the default the conventions recommend. Store prompts and completions in your own store, with access control and a retention period, and record a reference id on the span. Support follows the id from the trace to the content, and the trace backend never holds customer data.
+Giữ thu thập nội dung tắt, là mặc định các quy ước khuyến nghị. Lưu prompt và completion trong kho riêng, với kiểm soát truy cập và thời hạn lưu giữ, và ghi một reference id trên span. Hỗ trợ theo id từ trace đến nội dung, và backend trace không bao giờ giữ dữ liệu khách hàng.
 
 ## Full answer
 
 ### What the default is
 
-By default a span carries timing and metrics, not prompts or completions. Content capture is opt-in through the stability opt-in variable and separate content variables. When it is on, the content lands in `gen_ai.input.messages`, `gen_ai.output.messages` and `gen_ai.system_instructions`, or in the content events on the span.
+Mặc định một span mang thời gian và chỉ số, không phải prompt hoặc completion. Thu thập nội dung là opt-in qua biến stability opt-in và các biến nội dung riêng. Khi bật, nội dung đến `gen_ai.input.messages`, `gen_ai.output.messages` và `gen_ai.system_instructions`, hoặc trong các sự kiện nội dung trên span.
 
 ### What goes wrong when it is on
 
-Prompts carry personal data, secrets and customer documents. Operators read traces, and the trace backend sets its own retention. The conventions lesson lists "capturing full prompts in spans" as the first way the pattern fails. A trace backend is also an attractive target, because it holds everything in one place.
+Các prompt mang dữ liệu cá nhân, bí mật và tài liệu khách hàng. Người vận hành đọc trace, và backend trace đặt thời hạn lưu giữ riêng. Bài học quy ước liệt kê "thu thập toàn bộ prompt trong span" là cách đầu tiên mẫu thất bại. Một backend trace cũng là một mục tiêu hấp dẫn, vì nó giữ mọi thứ ở một nơi.
 
 ### The pattern that works
 
-Store the content outside the trace: in your log store or object store, under your own access control, audit log and retention. Put a reference id on the span. The lesson calls this the external-reference pattern, and it is also the defense against content poisoning, because the poisoned text never enters the telemetry store.
+Lưu nội dung ngoài trace: trong kho log hoặc object store, dưới kiểm soát truy cập, log kiểm toán và thời hạn lưu giữ riêng. Đặt một reference id trên span. Bài học gọi đây là mẫu tham chiếu bên ngoài, và nó cũng là phòng vệ chống đầu độc nội dung, vì văn bản bị đầu độc không bao giờ đi vào kho telemetry.
 
 ### What support gets
 
-The same debugging path with one extra step: trace, span, reference id, content store. The store can redact known patterns on write and log every read. Most tickets do not need the content at all, because the span already shows the model, the tokens, the latency, the tool calls and the status.
+Cùng đường gỡ lỗi với một bước bổ sung: trace, span, reference id, kho nội dung. Kho có thể che các mẫu hình đã biết khi ghi và ghi log mọi lần đọc. Phần lớn ticket không cần nội dung chút nào, vì span đã cho thấy mô hình, token, độ trễ, các lời gọi công cụ và trạng thái.
 
 ### What you give up
 
-A one-click view of the prompt inside the trace UI. That is the price, and it is small next to a trace backend full of customer data.
+Một góc nhìn một lần nhấp của prompt trong UI trace. Đó là cái giá, và nó nhỏ cạnh một backend trace đầy dữ liệu khách hàng.
 
 ## Follow-ups
 
-- **Level 2:** Which spans may carry raw content when capture is on? Expected: none in production. Keep one rule, references only, so nobody has to decide per span.
-- **Level 3:** A developer turns capture on in staging for a day. What is the risk? Expected: staging often replays production prompts, and the backend keeps them for its retention period. Use synthetic prompts or scrub before export.
-- **Level 3:** How do you keep the content store from becoming the same leak? Expected: access by role, an audit log of reads, a retention period, and redaction of known patterns before the write.
+- **Level 2:** Các span nào có thể mang nội dung thô khi thu thập được bật? Expected: không span nào trong production. Giữ một quy tắc, chỉ tham chiếu, để không ai phải quyết định theo span.
+- **Level 3:** Một nhà phát triển bật thu thập trong staging một ngày. Rủi ro là gì? Expected: staging thường phát lại các prompt production, và backend giữ chúng trong thời hạn lưu giữ. Dùng prompt tổng hợp hoặc làm sạch trước xuất.
+- **Level 3:** Bạn giữ kho nội dung khỏi thành cùng rò rỉ như thế nào? Expected: truy cập theo vai trò, một log kiểm toán các lần đọc, một thời hạn lưu giữ, và che các mẫu hình đã biết trước khi ghi.
 
 ## Wrong answers
 
-- "Turn it on, the trace backend is internal." Internal operators read traces, and the backend's retention is not your policy.
-- "Store a hash of the prompt on the span." A hash shows a repeat but gives support nothing to read. A reference id into a controlled store does both.
-- "Keep the content on the span and strip personal data with a regex." Patterns miss, and the span is still the wrong store with the wrong retention.
+- "Bật nó, backend trace nội bộ." Các người vận hành nội bộ đọc trace, và thời hạn lưu giữ của backend không phải policy của bạn.
+- "Lưu một hash của prompt trên span." Một hash cho thấy một lần lặp nhưng không cho hỗ trợ gì để đọc. Một reference id vào một kho có kiểm soát làm cả hai.
+- "Giữ nội dung trên span và loại dữ liệu cá nhân bằng một regex." Các mẫu hình bỏ lỡ, và span vẫn là sai kho với sai thời hạn lưu giữ.
 
 ## Taught in
 
-The [conventions lesson](../../../phases/14-agent-engineering/23-otel-genai-conventions/) sets the opt-in rule and the pattern of storing content outside the span, and the [OpenTelemetry GenAI lesson](../../../phases/13-tools-and-protocols/20-opentelemetry-genai/) names the content events.
+[Bài học quy ước](../../../phases/14-agent-engineering/23-otel-genai-conventions/) đặt quy tắc opt-in và mẫu lưu nội dung ngoài span, và [bài học OpenTelemetry GenAI](../../../phases/13-tools-and-protocols/20-opentelemetry-genai/) nêu các sự kiện nội dung.
