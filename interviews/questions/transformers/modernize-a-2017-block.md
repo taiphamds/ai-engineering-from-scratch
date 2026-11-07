@@ -16,53 +16,53 @@ related: [transformers/pre-norm-vs-post-norm, transformers/residual-stream-and-d
 updated: 2026-11-03
 ---
 
-You inherit a decoder block written in the 2017 style: layer normalization after the residual add, a ReLU feed-forward network at four times the width, sinusoidal absolute positions summed into the input, bias terms on every linear layer, and full multi-head attention. Review it against what production decoders ship today and justify each change you ask for.
+Bạn tiếp nhận một khối decoder được viết theo kiểu năm 2017: layer normalization sau phép cộng residual, mạng feed-forward ReLU có chiều rộng gấp bốn, vị trí tuyệt đối hình sin được cộng vào đầu vào, các số hạng bias trên mọi lớp tuyến tính, và full multi-head attention. Đánh giá nó so với những gì decoder production hiện nay phát hành và giải thích từng thay đổi bạn yêu cầu.
 
 ## Short answer
 
-Move the normalization in front of each sublayer and switch it to RMSNorm; replace the ReLU network with SwiGLU at about 2.6 times the width so that its three matrices match the old parameter count; replace the sinusoid with rotation of the queries and keys; drop the biases; and use grouped-query attention to shrink the decode-time cache. Every change is one function substitution and the tensor shapes do not move. The evidence: pre-norm trains deep without warmup tricks, SwiGLU gains about half a point of perplexity in the published model papers, rotation gives relative position and a knob for long context, and grouped-query cuts cache memory by the ratio of query heads to key-value heads.
+Chuyển chuẩn hóa ra trước mỗi lớp con và đổi sang RMSNorm; thay mạng ReLU bằng SwiGLU ở chiều rộng khoảng 2.6 lần để ba ma trận của nó khớp số tham số cũ; thay sinusoid bằng phép quay query và key; bỏ các bias; và dùng grouped-query attention để thu nhỏ cache lúc decode. Mỗi thay đổi là một phép thay hàm và hình dạng tensor không dịch chuyển. Bằng chứng: pre-norm huấn luyện sâu mà không cần thủ thuật warmup, SwiGLU cải thiện khoảng nửa điểm perplexity trong các bài báo mô hình đã công bố, phép quay cho vị trí tương đối và một nút điều chỉnh cho ngữ cảnh dài, còn grouped-query cắt bộ nhớ cache theo tỷ lệ query head trên key-value head.
 
 ## Full answer
 
 ### The review table
 
-| Component | As written | Ask for | Why |
+| Thành phần | Như đã viết | Yêu cầu | Tại sao |
 |---|---|---|---|
-| Normalization | LayerNorm after the add | RMSNorm before the sublayer | pre-norm trains deep stacks without warmup; RMSNorm drops the mean subtraction at equal stability |
-| FFN activation | ReLU | SwiGLU | about 0.5 point of perplexity in the published comparisons |
-| FFN expansion | 4 with two matrices | about 2.6 with three matrices | same parameter budget |
-| Position | sinusoid on the embedding | rotation of Q and K | relative position for free and a base to scale for long context |
-| Attention | full multi-head | grouped-query, or latent | fewer key-value heads in the cache, nearly full quality |
-| Bias terms | yes | no | slight perplexity gain and a smaller model |
+| Chuẩn hóa | LayerNorm sau phép cộng | RMSNorm trước lớp con | pre-norm huấn luyện chồng sâu mà không cần warmup; RMSNorm bỏ phép trừ trung bình với độ ổn định tương đương |
+| Hàm kích hoạt FFN | ReLU | SwiGLU | khoảng 0.5 điểm perplexity trong các so sánh đã công bố |
+| Hệ số mở rộng FFN | 4 với hai ma trận | khoảng 2.6 với ba ma trận | cùng ngân sách tham số |
+| Vị trí | sinusoid trên embedding | phép quay Q và K | vị trí tương đối không tốn thêm và cơ số để điều chỉnh cho ngữ cảnh dài |
+| Attention | full multi-head | grouped-query, hoặc latent | ít key-value head hơn trong cache, chất lượng gần như đầy đủ |
+| Các số hạng bias | có | không | cải thiện perplexity nhẹ và mô hình nhỏ hơn |
 
 ### What stays
 
-The skeleton: embedding, a stack of blocks that each add attention and an FFN to the residual stream, a final norm and a head. The shift-by-one cross-entropy. The causal mask. The capstone architecture in the lesson is exactly this skeleton with the modern pieces plugged in, and its head is tied to the token embedding.
+Bộ khung: embedding, một chồng khối mà mỗi khối cộng attention và FFN vào luồng residual, norm cuối cùng và head. Cross-entropy dịch một vị trí. Causal mask. Kiến trúc capstone trong bài học chính là bộ khung này với các thành phần hiện đại được cắm vào, và head của nó dùng chung trọng số với token embedding.
 
 ### How to land the changes safely
 
-1. Make each substitution behind a flag and confirm the output shape after every swap, the way the lesson's build step does.
-2. Train the old and the new block on a small copy task for a fixed number of steps and compare the loss; the lesson's exercise uses 100 steps of a toy task.
-3. Use the fused attention call from the framework so that a tiled kernel is dispatched when the inputs allow it.
-4. Keep a final norm before the head, which pre-norm requires and post-norm did not.
+1. Thực hiện mỗi phép thay sau một cờ và xác nhận hình dạng đầu ra sau mọi lần đổi, theo cách bước xây dựng của bài học làm.
+2. Huấn luyện khối cũ và mới trên tác vụ sao chép nhỏ trong số bước cố định rồi so sánh loss; bài tập của bài học dùng 100 bước của tác vụ đồ chơi.
+3. Dùng lời gọi attention hợp nhất từ framework để kernel chia ô được điều phối khi đầu vào cho phép.
+4. Giữ norm cuối cùng trước head, thứ pre-norm yêu cầu còn post-norm thì không.
 
 ### What needs a retrain
 
-All of these change the function the block computes, so a checkpoint trained with the old block cannot adopt them by editing code. Grouped-query is the exception the literature treats specially: a trained multi-head checkpoint can be converted and fine-tuned.
+Tất cả những điều này thay đổi hàm mà khối tính, nên checkpoint được huấn luyện với khối cũ không thể áp dụng chúng bằng cách sửa mã. Grouped-query là ngoại lệ được tài liệu nghiên cứu xử lý riêng: checkpoint multi-head đã huấn luyện có thể được chuyển đổi và fine-tune.
 
 ## Follow-ups
 
-- **Level 3:** Why is the SwiGLU expansion about 2.6 and not 4? Expected: three matrices instead of two, chosen so that the total parameters match the old network.
-- **Level 3:** Which of the six changes can be applied to an existing checkpoint without retraining? Expected: none cleanly; grouped-query can be converted with a fine-tune, the rest change the function and need training.
-- **Level 4:** What would you refuse to change in the review? Expected: the residual skeleton, the causal mask and the next-token loss; the modern block refined the pieces, not the frame.
-- **Level 4:** The team wants to keep the sinusoid because it has no parameters. Your answer? Expected: rotation also has no parameters, applies inside attention, encodes relative distance and extends to longer contexts by scaling its base.
+- **Level 3:** Tại sao hệ số mở rộng SwiGLU khoảng 2.6 chứ không phải 4? Expected: ba ma trận thay vì hai, được chọn để tổng tham số khớp mạng cũ.
+- **Level 3:** Thay đổi nào trong sáu thay đổi có thể áp dụng cho checkpoint hiện có mà không huấn luyện lại? Expected: không thay đổi nào áp dụng trọn vẹn; grouped-query có thể chuyển đổi với một lượt fine-tune, các thay đổi còn lại đổi hàm và cần huấn luyện.
+- **Level 4:** Bạn sẽ từ chối thay đổi gì trong đánh giá? Expected: bộ khung residual, causal mask và next-token loss; khối hiện đại tinh chỉnh các thành phần, không phải bộ khung.
+- **Level 4:** Nhóm muốn giữ sinusoid vì nó không có tham số. Câu trả lời của bạn? Expected: phép quay cũng không có tham số, áp dụng bên trong attention, mã hóa khoảng cách tương đối và mở rộng đến ngữ cảnh dài hơn bằng điều chỉnh cơ số.
 
 ## Wrong answers
 
-- "RMSNorm is a cheaper approximation that costs accuracy." The lesson records it as at least as stable with one fewer operation.
-- "SwiGLU doubles the feed-forward parameters." At about 2.6 times the width its three matrices match the old two-matrix count.
-- "Pre-norm removes the need for any final normalization." It adds the need: the residual stream is unnormalized, so the head needs a final norm.
+- "RMSNorm là phép xấp xỉ rẻ hơn đánh đổi độ chính xác." Bài học ghi nhận nó ít nhất cũng ổn định như vậy với ít hơn một phép toán.
+- "SwiGLU tăng gấp đôi tham số feed-forward." Ở chiều rộng khoảng 2.6 lần, ba ma trận của nó khớp số đếm hai ma trận cũ.
+- "Pre-norm loại bỏ nhu cầu chuẩn hóa cuối cùng." Nó làm phát sinh nhu cầu đó: luồng residual không được chuẩn hóa, nên head cần norm cuối cùng.
 
 ## Taught in
 
-The [full transformer lesson](../../../phases/07-transformers-deep-dive/05-full-transformer/) gives the 2017 against 2026 table, the [capstone](../../../phases/07-transformers-deep-dive/14-build-a-transformer-capstone/) assembles the modern block, and the [positional encoding lesson](../../../phases/07-transformers-deep-dive/04-positional-encoding/) covers the rotation.
+[Bài học về transformer đầy đủ](../../../phases/07-transformers-deep-dive/05-full-transformer/) đưa ra bảng năm 2017 so với 2026, [capstone](../../../phases/07-transformers-deep-dive/14-build-a-transformer-capstone/) lắp ráp khối hiện đại, và [bài học về mã hóa vị trí](../../../phases/07-transformers-deep-dive/04-positional-encoding/) đề cập phép quay.

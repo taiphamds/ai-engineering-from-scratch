@@ -16,50 +16,50 @@ related: [transformers/pre-norm-vs-post-norm]
 updated: 2026-11-03
 ---
 
-A transformer block has two skip paths, one around attention and one around the feed-forward network. What do they do for training, which of the two sublayers moves information between tokens, and why does a dropout layer placed on the skip path itself break something?
+Khối transformer có hai đường skip, một quanh attention và một quanh mạng feed-forward. Chúng làm gì cho huấn luyện, lớp con nào trong hai lớp di chuyển thông tin giữa các token, và tại sao lớp dropout đặt trên chính đường skip lại phá vỡ điều gì đó?
 
 ## Short answer
 
-The skip path makes the gradient additive across depth, so its norm stays in scale through a twelve-layer stack instead of shrinking at every layer, and it lets each block learn a small update to a running representation instead of a full replacement. Only attention mixes tokens; the MLP applies the same two layers to every position on its own. Dropout belongs after the attention softmax, on the attention output before the residual add, and after the second linear of the MLP; on the skip path it breaks the identity that carries the gradient, and early stacks that did this trained brittly.
+Đường skip làm gradient có tính cộng qua độ sâu, nên norm của nó giữ cùng thang đo qua chồng mười hai lớp thay vì co lại ở mỗi lớp, và nó cho phép mỗi khối học một cập nhật nhỏ cho biểu diễn đang tích lũy thay vì thay thế hoàn toàn. Chỉ attention trộn token; MLP áp dụng cùng hai lớp cho từng vị trí riêng. Dropout thuộc về sau softmax attention, trên đầu ra attention trước phép cộng residual, và sau lớp tuyến tính thứ hai của MLP; trên đường skip nó phá vỡ ánh xạ đồng nhất mang gradient, và các chồng ban đầu làm như vậy huấn luyện thiếu ổn định.
 
 ## Full answer
 
 ### The block as a function
 
-A decoder block takes a tensor of shape `(batch, sequence, embedding)` and returns the same shape. Inside, two sublayers do the work:
+Khối decoder nhận tensor có hình dạng `(batch, sequence, embedding)` và trả về cùng hình dạng. Bên trong, hai lớp con thực hiện công việc:
 
 ```text
 x = x + attention(norm(x))
 x = x + mlp(norm(x))
 ```
 
-Each line is an additive update to the stream that flows top to bottom through every block. The lesson calls that tensor the residual stream.
+Mỗi dòng là cập nhật cộng vào luồng chảy từ trên xuống dưới qua mọi khối. Bài học gọi tensor đó là luồng residual.
 
 ### Why the additive path matters
 
-Without the skip path, gradients vanish past about six layers. With it, the gradient of the loss with respect to an early layer has a direct term that does not pass through the sublayers, so depth adds terms instead of multiplying attenuations. The second effect is representational: a block does not have to reproduce its input; it adds what it learned.
+Không có đường skip, gradient biến mất sau khoảng sáu lớp. Có nó, gradient của loss theo một lớp đầu có số hạng trực tiếp không đi qua các lớp con, nên độ sâu thêm số hạng thay vì nhân các hệ số suy giảm. Tác động thứ hai là về biểu diễn: khối không phải tái tạo đầu vào của nó; nó thêm những gì nó đã học.
 
 ### Who talks to whom
 
-Attention is the only place tokens exchange information. The MLP is position-wise: the same weights apply to every token independently, with a hidden width of four times the embedding width and a GELU in the classic block. The modern block uses SwiGLU, three matrices at about 2.6 times the width so that the parameter count matches the old four-times MLP, and it drops the bias terms.
+Attention là nơi duy nhất các token trao đổi thông tin. MLP hoạt động theo từng vị trí: cùng trọng số áp dụng độc lập cho mọi token, với chiều rộng ẩn gấp bốn chiều rộng embedding và GELU trong khối cổ điển. Khối hiện đại dùng SwiGLU, ba ma trận ở chiều rộng khoảng 2.6 lần để số tham số khớp MLP cũ gấp bốn, và bỏ các số hạng bias.
 
 ### Dropout on the branches, never on the identity
 
-Attention dropout after the softmax, residual dropout on the attention output, and residual dropout after the second linear of the MLP. Dropout applied to the identity term randomly removes part of it, and the gradient path that made depth tractable is no longer reliable.
+Attention dropout sau softmax, residual dropout trên đầu ra attention, và residual dropout sau lớp tuyến tính thứ hai của MLP. Dropout áp dụng lên số hạng đồng nhất ngẫu nhiên loại bỏ một phần của nó, và đường gradient đã làm độ sâu khả thi không còn đáng tin cậy.
 
 ## Follow-ups
 
-- **Level 2:** Which sublayer would you remove if the model only needed per-token transformations? Expected: attention; the MLP never looks across positions.
-- **Level 3:** Why does the modern FFN use an expansion of about 2.6 instead of 4? Expected: SwiGLU has three weight matrices, so 2.6 times the width matches the parameter count of the two-matrix MLP at 4 times.
-- **Level 3:** Why do modern stacks drop the bias terms in the linear layers? Expected: the lesson reports a slight perplexity improvement and a smaller model.
-- **Level 4:** A reviewer wants to regularize a small model by dropping out the identity term. Your answer? Expected: no; keep dropout on the branch outputs, because the additive identity is what lets the gradient reach early layers.
+- **Level 2:** Bạn sẽ bỏ lớp con nào nếu mô hình chỉ cần các phép biến đổi theo từng token? Expected: attention; MLP không bao giờ nhìn qua các vị trí.
+- **Level 3:** Tại sao FFN hiện đại dùng hệ số mở rộng khoảng 2.6 thay vì 4? Expected: SwiGLU có ba ma trận trọng số, nên chiều rộng 2.6 lần khớp số tham số của MLP hai ma trận ở mức 4 lần.
+- **Level 3:** Tại sao các chồng hiện đại bỏ các số hạng bias trong các lớp tuyến tính? Expected: bài học báo cáo cải thiện perplexity nhẹ và mô hình nhỏ hơn.
+- **Level 4:** Người đánh giá muốn regularize mô hình nhỏ bằng dropout trên số hạng đồng nhất. Câu trả lời của bạn? Expected: không; giữ dropout trên đầu ra nhánh, vì tính đồng nhất cộng là thứ cho phép gradient đến các lớp đầu.
 
 ## Wrong answers
 
-- "The skip path exists to keep the output shape equal to the input shape." The shape would match anyway; the skip path is about gradient flow and additive updates.
-- "Dropout anywhere inside the block is equivalent." Dropout on the identity term damages the gradient path; dropout on the branch outputs does not.
-- "The feed-forward network mixes information between tokens." It applies the same MLP to each position alone; mixing happens only in attention.
+- "Đường skip tồn tại để giữ hình dạng đầu ra bằng hình dạng đầu vào." Hình dạng dù sao cũng khớp; đường skip liên quan đến luồng gradient và các cập nhật cộng.
+- "Dropout ở bất kỳ đâu trong khối đều tương đương." Dropout trên số hạng đồng nhất làm hỏng đường gradient; dropout trên đầu ra nhánh thì không.
+- "Mạng feed-forward trộn thông tin giữa các token." Nó áp dụng cùng MLP cho từng vị trí riêng; việc trộn chỉ xảy ra trong attention.
 
 ## Taught in
 
-The [full transformer lesson](../../../phases/07-transformers-deep-dive/05-full-transformer/) names the six pieces of the block, and the [block capstone](../../../phases/19-capstone-projects/34-transformer-block/) explains the residual stream and the dropout placement.
+[Bài học về transformer đầy đủ](../../../phases/07-transformers-deep-dive/05-full-transformer/) nêu tên sáu thành phần của khối, còn [capstone khối](../../../phases/19-capstone-projects/34-transformer-block/) giải thích luồng residual và vị trí đặt dropout.

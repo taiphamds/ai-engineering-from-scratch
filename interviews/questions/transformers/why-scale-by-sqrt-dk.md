@@ -16,52 +16,52 @@ related: []
 updated: 2026-11-03
 ---
 
-In the attention formula the raw scores go through a division before the softmax. A new engineer calls the division a convention and removes it to save one multiply. What happens to training, and how would you show the effect in ten minutes?
+Trong công thức attention, điểm số thô đi qua một phép chia trước softmax. Kỹ sư mới gọi phép chia là quy ước và bỏ nó để tiết kiệm một phép nhân. Điều gì xảy ra với huấn luyện, và bạn sẽ cho thấy tác động trong mười phút như thế nào?
 
 ## Short answer
 
-A dot product of two vectors grows with their length, so without the division the scores grow with the key dimension. Large scores push the softmax into a region where one key takes almost all of the weight and the gradient to every other key is close to zero, so learning stalls. The division by `sqrt(d_k)` keeps the variance of the scores about constant for any head size. Show it with random Q and K at `d_k = 64`: print the score range and the softmax weights with and without the division.
+Tích vô hướng của hai vector tăng theo độ dài của chúng, nên không có phép chia, điểm số tăng theo số chiều key. Điểm số lớn đẩy softmax vào vùng mà một key lấy gần hết trọng số và gradient đến mọi key khác gần không, nên việc học đình trệ. Phép chia cho `sqrt(d_k)` giữ phương sai điểm số gần như không đổi với mọi kích thước head. Cho thấy bằng Q và K ngẫu nhiên tại `d_k = 64`: in khoảng điểm số và trọng số softmax có và không có phép chia.
 
 ## Full answer
 
 ### The size of a score
 
-A score is the sum of `d_k` products. When the components of Q and K have unit variance, the sum has variance `d_k`, so a typical score is about `sqrt(d_k)` in size. At `d_k = 64` the raw scores sit in the range of tens. A softmax over scores in the tens puts almost all of its mass on the largest entry.
+Điểm số là tổng của `d_k` tích. Khi các thành phần Q và K có phương sai đơn vị, tổng có phương sai `d_k`, nên điểm số điển hình có độ lớn khoảng `sqrt(d_k)`. Ở `d_k = 64`, điểm số thô nằm trong khoảng hàng chục. Softmax trên các điểm số hàng chục đặt gần hết khối lượng lên phần tử lớn nhất.
 
 ### Why the model stops learning
 
-The gradient of the softmax with respect to a score is small when one weight is near one and the others are near zero. The attention layer then behaves like a fixed lookup. The loss plateaus, and nothing fails loudly. The lesson calls this regime one where "one entry has almost all the mass and the others are vanishingly small".
+Gradient của softmax theo một điểm số nhỏ khi một trọng số gần một và các trọng số khác gần không. Lớp attention khi đó hành xử như phép tra cứu cố định. Loss đi ngang, và không có gì báo lỗi rõ ràng. Bài học gọi đây là chế độ mà "một phần tử có gần hết khối lượng còn các phần tử khác nhỏ đến mức gần biến mất".
 
 ### The fix and its range
 
-Divide the scores by `sqrt(d_k)` before the softmax:
+Chia điểm số cho `sqrt(d_k)` trước softmax:
 
 ```text
 weights = softmax(Q @ K.T / sqrt(d_k))
 output  = weights @ V
 ```
 
-In multi-head attention the dimension under the root is the head width, `d_head = d_model / n_heads`, not the model width. Production models land `d_head` at 64 or 128. The scaling keeps the score variance constant at any width. The lesson's rule of thumb keeps heads at 32 or wider, because a narrower head sees too few dimensions, and below 256, because wider heads lose the benefit of many small specialists.
+Trong multi-head attention, số chiều dưới căn là chiều rộng head, `d_head = d_model / n_heads`, không phải chiều rộng mô hình. Mô hình production đặt `d_head` ở 64 hoặc 128. Scaling giữ phương sai điểm số không đổi ở mọi chiều rộng. Quy tắc kinh nghiệm của bài học giữ head ở 32 hoặc rộng hơn, vì head hẹp hơn thấy quá ít chiều, và dưới 256, vì head rộng hơn mất lợi ích của nhiều chuyên gia nhỏ.
 
 ### The ten-minute demonstration
 
-1. Draw Q and K from a standard normal with `d_k = 64`.
-2. Print `(Q @ K.T).max()` with and without the division.
-3. Print the largest softmax weight in one row for both cases. Without the division it sits near one.
+1. Lấy Q và K từ phân phối chuẩn tắc với `d_k = 64`.
+2. In `(Q @ K.T).max()` có và không có phép chia.
+3. In trọng số softmax lớn nhất trong một hàng cho cả hai trường hợp. Không có phép chia, nó nằm gần một.
 
 ## Follow-ups
 
-- **Level 1:** What is the shape of the score matrix for a sequence of n tokens? Expected: (n, n), one row per query and one column per key.
-- **Level 2:** Why does the missing division cause a silent failure instead of an exception? Expected: the softmax saturates, the gradients become tiny, and the loss plateaus with no error.
-- **Level 2:** Does the division change what the layer can represent? Expected: no, the projections can absorb a constant; it changes the scale of the scores at initialization, which is where training happens or stalls.
-- **Level 3:** With eight heads of width 64 in a model of width 512, which number goes under the root? Expected: 64, the head width, because each head computes its own softmax over its own scores.
+- **Level 1:** Hình dạng ma trận điểm số cho chuỗi n token là gì? Expected: (n, n), một hàng mỗi query và một cột mỗi key.
+- **Level 2:** Tại sao thiếu phép chia gây lỗi âm thầm thay vì ngoại lệ? Expected: softmax bão hòa, gradient trở nên rất nhỏ, và loss đi ngang mà không có lỗi.
+- **Level 2:** Phép chia có thay đổi những gì lớp biểu diễn được không? Expected: không, các phép chiếu có thể hấp thụ một hằng số; nó thay đổi thang đo điểm số khi khởi tạo, là nơi huấn luyện diễn ra hoặc đình trệ.
+- **Level 3:** Với tám head có chiều rộng 64 trong mô hình chiều rộng 512, số nào nằm dưới căn? Expected: 64, chiều rộng head, vì mỗi head tính softmax riêng trên điểm số riêng.
 
 ## Wrong answers
 
-- "The division keeps the attention weights summing to one." The softmax normalizes any scores to sum to one; the division controls their spread, not their sum.
-- "A larger learning rate recovers the lost gradient." When the softmax is saturated the gradient carries almost no information about the other keys, and a larger step does not create information.
-- "Scale the values instead of the scores." The values are summed after the weights are fixed, so their scale does not touch the softmax.
+- "Phép chia giữ các trọng số attention có tổng bằng một." Softmax chuẩn hóa mọi điểm số để có tổng bằng một; phép chia kiểm soát độ phân tán của chúng, không phải tổng.
+- "Learning rate lớn hơn khôi phục gradient đã mất." Khi softmax bão hòa, gradient hầu như không mang thông tin về các key khác, và bước lớn hơn không tạo thông tin.
+- "Điều chỉnh value thay vì điểm số." Các value được cộng sau khi trọng số đã cố định, nên thang đo của chúng không chạm đến softmax.
 
 ## Taught in
 
-The [self-attention lesson](../../../phases/07-transformers-deep-dive/02-self-attention-from-scratch/) explains the saturation, the [multi-head lesson](../../../phases/07-transformers-deep-dive/03-multi-head-attention/) gives the head widths, and the [capstone attention block](../../../phases/19-capstone-projects/33-multihead-self-attention/) applies the scaling inside the batched block.
+[Bài học về self-attention](../../../phases/07-transformers-deep-dive/02-self-attention-from-scratch/) giải thích sự bão hòa, [bài học về multi-head](../../../phases/07-transformers-deep-dive/03-multi-head-attention/) đưa ra các chiều rộng head, và [khối attention capstone](../../../phases/19-capstone-projects/33-multihead-self-attention/) áp dụng scaling bên trong khối theo batch.

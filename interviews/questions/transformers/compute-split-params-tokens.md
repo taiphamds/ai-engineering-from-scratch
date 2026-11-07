@@ -16,11 +16,11 @@ related: [transformers/block-parameter-count]
 updated: 2026-11-03
 ---
 
-You lead a pretraining run with a fixed compute budget. One plan trains a 175B-parameter model on 300B tokens. Another trains a much smaller model on far more tokens. Which do you pick, how do you defend it to leadership, and when would you deliberately train past the point that the scaling law calls optimal?
+Bạn dẫn dắt một lượt pretraining với ngân sách tính toán cố định. Một kế hoạch huấn luyện mô hình 175B tham số trên 300B token. Kế hoạch khác huấn luyện mô hình nhỏ hơn nhiều trên nhiều token hơn hẳn. Bạn chọn kế hoạch nào, bảo vệ nó trước lãnh đạo như thế nào, và khi nào bạn cố ý huấn luyện vượt quá điểm mà quy luật scaling gọi là tối ưu?
 
 ## Short answer
 
-Compute is about 6 times the parameter count times the training tokens, so the budget fixes the product and leaves the split open. The compute-optimal split is about 20 tokens per parameter; the first plan has about 1.7 tokens per parameter, which the lesson calls ten times undertrained, and a 70B model trained on 1.4T tokens beat that 175B model on every benchmark at 2.5 times less inference cost. If the model will serve a large volume, go past the optimum on purpose: train smaller and longer, because training is paid once and inference is paid forever.
+Lượng tính toán bằng khoảng 6 lần số tham số nhân số token huấn luyện, nên ngân sách cố định tích số và để ngỏ cách chia. Cách chia tối ưu về tính toán là khoảng 20 token mỗi tham số; kế hoạch đầu có khoảng 1.7 token mỗi tham số, mà bài học gọi là huấn luyện thiếu mười lần, và mô hình 70B được huấn luyện trên 1.4T token đánh bại mô hình 175B đó trên mọi benchmark với chi phí suy luận thấp hơn 2.5 lần. Nếu mô hình sẽ phục vụ khối lượng lớn, hãy chủ ý vượt điểm tối ưu: huấn luyện mô hình nhỏ hơn và lâu hơn, vì huấn luyện được trả tiền một lần còn suy luận được trả tiền mãi mãi.
 
 ## Full answer
 
@@ -31,7 +31,7 @@ L(N, D) = A / N^alpha + B / D^beta + E
 alpha about 0.34, beta about 0.28, E about 1.69, A about 406, B about 411
 ```
 
-N is the non-embedding parameter count, D the training tokens, E the irreducible loss of the data itself. Minimize L under `C = 6 N D` and the two optimal quantities grow with about the square root of the budget:
+N là số tham số không tính embedding, D là số token huấn luyện, E là loss không thể giảm của chính dữ liệu. Tối thiểu hóa L dưới ràng buộc `C = 6 N D` và hai đại lượng tối ưu tăng theo khoảng căn bậc hai của ngân sách:
 
 ```text
 N_opt about 0.22 * (C / 6)^0.5
@@ -39,45 +39,45 @@ D_opt about 4.5  * (C / 6)^0.5
 D_opt / N_opt about 20
 ```
 
-The fitted exponents drift slowly, about 0.45 for N and 0.55 for D with the constants above, so the ratio moves with the budget; the lesson's code finds the optimum by grid search.
+Các số mũ được khớp dịch chuyển chậm, khoảng 0.45 cho N và 0.55 cho D với các hằng số ở trên, nên tỷ lệ thay đổi theo ngân sách; mã của bài học tìm điểm tối ưu bằng grid search.
 
 ### What the two plans look like
 
-| Plan | N | D | Tokens per parameter |
+| Kế hoạch | N | D | Token mỗi tham số |
 |---|---|---|---|
-| Large and short | 175B | 300B | about 1.7 |
-| Compute-optimal | 70B | 1.4T | 20 |
-| Inference-optimized | 8B | 15T | 1,875 |
+| Lớn và ngắn | 175B | 300B | khoảng 1.7 |
+| Tối ưu về tính toán | 70B | 1.4T | 20 |
+| Tối ưu cho suy luận | 8B | 15T | 1,875 |
 
-The rows do not share one budget: the second and third rows use about twice the compute of the first, so they compare ratios, not alternatives at the same cost. The last row is a production model family that trained a small model ninety-four times past the compute-optimal ratio. For a service that answers a trillion tokens a month, inference dominates total cost, and a model that fits consumer hardware with a fraction of the latency wins even though its training loss per training FLOP was worse. The lesson's range for inference-dominated workloads is 100 to 500 tokens per parameter depending on serving volume.
+Các hàng không dùng chung một ngân sách: hàng thứ hai và thứ ba dùng lượng tính toán khoảng gấp đôi hàng thứ nhất, nên chúng so sánh tỷ lệ, không phải các phương án có cùng chi phí. Hàng cuối là một họ mô hình production đã huấn luyện một mô hình nhỏ vượt tỷ lệ tối ưu về tính toán chín mươi bốn lần. Với dịch vụ trả lời một nghìn tỷ token mỗi tháng, suy luận chi phối tổng chi phí, và mô hình vừa phần cứng tiêu dùng với độ trễ chỉ bằng một phần sẽ thắng dù training loss trên mỗi FLOP huấn luyện kém hơn. Khoảng mà bài học đưa ra cho workload do suy luận chi phối là 100 đến 500 token mỗi tham số tùy khối lượng phục vụ.
 
 ### How to defend it
 
-1. Show the budget as `6 N D` and the loss contours over N and D; the first plan sits far from the valley.
-2. Show the inference bill at the expected volume for each N; the small model's saving repeats every month.
-3. Show the loss gap you accept by over-training, read from the law at the chosen N and D.
+1. Trình bày ngân sách dưới dạng `6 N D` và các đường đồng mức loss theo N và D; kế hoạch đầu nằm xa thung lũng.
+2. Trình bày hóa đơn suy luận ở khối lượng dự kiến cho từng N; khoản tiết kiệm của mô hình nhỏ lặp lại hằng tháng.
+3. Trình bày khoảng cách loss bạn chấp nhận khi huấn luyện quá mức, đọc từ quy luật tại N và D đã chọn.
 
 ### What changes the constants but not the shape
 
-Data curation can shift the curves by more than 2 times effective compute. A mixture-of-experts model decouples total parameters from active FLOPs, so the law applies per active parameter. A better optimizer shifted the constant by about 2 times in one 2024 result. None of these change the power-law shape.
+Tuyển chọn dữ liệu có thể dịch chuyển các đường cong hơn 2 lần lượng tính toán hiệu dụng. Mô hình mixture-of-experts tách tổng tham số khỏi FLOP hoạt động, nên quy luật áp dụng trên mỗi tham số hoạt động. Một optimizer tốt hơn đã dịch chuyển hằng số khoảng 2 lần trong một kết quả năm 2024. Không điều nào trong số này thay đổi hình dạng quy luật lũy thừa.
 
 ### The fine-tuning corollary
 
-The lesson's rule of thumb: if your task data holds fewer than 20 tokens per parameter of the base model, expect saturation at some loss floor. Treat it as a warning to measure, not as a rule for the base size.
+Quy tắc kinh nghiệm của bài học: nếu dữ liệu tác vụ của bạn chứa ít hơn 20 token trên mỗi tham số của mô hình cơ sở, hãy dự kiến bão hòa ở một sàn loss nào đó. Xem nó như cảnh báo cần đo, không phải quy tắc cho kích thước cơ sở.
 
 ## Follow-ups
 
-- **Level 3:** What is the E term and why can no budget remove it? Expected: the irreducible loss, the entropy of the data itself; the law approaches it but never crosses it.
-- **Level 4:** How does a sparse expert architecture change the plan? Expected: FLOPs follow the active parameters, so the optimal D is set against active N while total N sets memory.
-- **Level 4:** The web runs out of high-quality tokens for your budget. What are the levers? Expected: the lesson puts filtered English at about 5 to 10 trillion tokens; the levers are synthetic data, multilingual and multimodal data, and better curation.
-- **Level 4:** How would you check the law on your own stack before betting the budget? Expected: fit it on five small models from 100K to 10M parameters on the same data and compare the exponents with the published ones.
+- **Level 3:** Số hạng E là gì và tại sao không ngân sách nào loại bỏ được nó? Expected: loss không thể giảm, entropy của chính dữ liệu; quy luật tiến gần nó nhưng không bao giờ vượt qua.
+- **Level 4:** Kiến trúc chuyên gia thưa thay đổi kế hoạch như thế nào? Expected: FLOP đi theo các tham số hoạt động, nên D tối ưu được xác định theo N hoạt động trong khi tổng N quyết định bộ nhớ.
+- **Level 4:** Web cạn token chất lượng cao cho ngân sách của bạn. Những đòn bẩy là gì? Expected: bài học đặt tiếng Anh đã lọc ở khoảng 5 đến 10 nghìn tỷ token; các đòn bẩy là dữ liệu tổng hợp, dữ liệu đa ngôn ngữ và đa phương thức, cùng tuyển chọn tốt hơn.
+- **Level 4:** Bạn sẽ kiểm tra quy luật trên stack của mình trước khi đặt cược ngân sách như thế nào? Expected: khớp nó trên năm mô hình nhỏ từ 100K đến 10M tham số trên cùng dữ liệu và so sánh các số mũ với các số đã công bố.
 
 ## Wrong answers
 
-- "The bigger model always wins at fixed compute." The 70B model trained on 1.4T tokens beat the 175B model trained on 300B.
-- "Compute-optimal is also the cheapest model to serve." It minimizes training loss per training FLOP; serving cost scales with N, which is why production models over-train.
-- "A loss prediction is useless because abilities appear suddenly." The continuous loss is smooth and predictable; sudden benchmark jumps are mostly scorer artifacts.
+- "Mô hình lớn hơn luôn thắng với lượng tính toán cố định." Mô hình 70B được huấn luyện trên 1.4T token đánh bại mô hình 175B được huấn luyện trên 300B.
+- "Tối ưu về tính toán cũng là mô hình rẻ nhất để phục vụ." Nó tối thiểu hóa training loss trên mỗi FLOP huấn luyện; chi phí phục vụ tăng theo N, đó là lý do mô hình production huấn luyện quá mức.
+- "Dự đoán loss vô dụng vì các khả năng xuất hiện đột ngột." Loss liên tục trơn và có thể dự đoán; các bước nhảy benchmark đột ngột phần lớn là hiện tượng do bộ chấm điểm tạo ra.
 
 ## Taught in
 
-The [scaling laws lesson](../../../phases/07-transformers-deep-dive/13-scaling-laws/) gives the law, the optimal split and the case for over-training.
+[Bài học về các quy luật scaling](../../../phases/07-transformers-deep-dive/13-scaling-laws/) đưa ra quy luật, cách chia tối ưu và lý do huấn luyện quá mức.

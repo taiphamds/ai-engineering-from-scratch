@@ -16,7 +16,7 @@ related: [transformers/flash-attention-is-exact]
 updated: 2026-11-03
 ---
 
-Read this function from the lesson. It computes the attention output for one query against keys and values in blocks of four.
+Đọc hàm này từ bài học. Nó tính đầu ra attention cho một query với các key và value theo khối bốn phần tử.
 
 ```python
 def tiled_softmax_dot(q, K, V, tile=4):
@@ -37,52 +37,52 @@ def tiled_softmax_dot(q, K, V, tile=4):
     return [o / s for o in out]
 ```
 
-Explain the role of `exp_old`, argue that the result equals the one-shot `softmax(qK^T) V`, and point at the input that makes this code produce a NaN.
+Giải thích vai trò của `exp_old`, lập luận rằng kết quả bằng `softmax(qK^T) V` tính một lần, và chỉ ra đầu vào làm mã này tạo NaN.
 
 ## Short answer
 
-The loop keeps a running maximum `m` and a running sum `s` over the blocks seen so far. When a block raises the maximum, `exp_old` is the exponential of the old maximum minus the new one, and it rescales the sum and the partial output so that every earlier term is expressed against the new maximum; a block that does not raise the maximum gives `exp_old` of one. At the end each weight is the exponential of its score minus the global maximum, divided by the global sum, which is exactly the stable softmax. The fragile input is a first block whose scores are all minus infinity, as a fully masked block would be: `new_m` stays minus infinity, and `exp_new` evaluates minus infinity minus minus infinity, which is NaN.
+Vòng lặp giữ cực đại lũy tiến `m` và tổng lũy tiến `s` trên các khối đã thấy cho đến lúc đó. Khi một khối nâng cực đại, `exp_old` là hàm mũ của cực đại cũ trừ cực đại mới, và nó điều chỉnh tổng cùng đầu ra từng phần để mọi số hạng trước được biểu diễn theo cực đại mới; khối không nâng cực đại cho `exp_old` bằng một. Cuối cùng mỗi trọng số là hàm mũ của điểm số trừ cực đại toàn cục, chia tổng toàn cục, chính là softmax ổn định. Đầu vào dễ gây lỗi là khối đầu tiên có điểm số đều là âm vô cực, như khối bị che hoàn toàn: `new_m` vẫn là âm vô cực, và `exp_new` tính âm vô cực trừ âm vô cực, là NaN.
 
 ## Full answer
 
 ### The invariant
 
-After each block, `out` holds the sum over all keys seen so far of `exp(score - m) * v`, and `s` holds the sum of `exp(score - m)`, both relative to the current `m`. The identity that makes the rescale correct is
+Sau mỗi khối, `out` chứa tổng trên tất cả key đã thấy của `exp(score - m) * v`, và `s` chứa tổng của `exp(score - m)`, cả hai tương đối với `m` hiện tại. Đẳng thức làm phép điều chỉnh đúng là
 
 ```text
 exp(score - m_new) = exp(score - m_old) * exp(m_old - m_new)
 ```
 
-so multiplying the old accumulators by `exp(m_old - m_new)` moves them to the new reference point without touching any individual score again. The first block has no old reference, which is why `exp_old` is zero when `m` is still minus infinity: the empty accumulators contribute nothing.
+nên nhân các bộ tích lũy cũ với `exp(m_old - m_new)` chuyển chúng sang điểm tham chiếu mới mà không chạm lại bất kỳ điểm số riêng lẻ nào. Khối đầu tiên không có tham chiếu cũ, đó là lý do `exp_old` bằng không khi `m` vẫn là âm vô cực: các bộ tích lũy rỗng không đóng góp gì.
 
 ### Why the final division is exact
 
-Division by `s` happens once, at the end, with the global maximum in every exponential. That is the definition of a numerically stable softmax over the whole row, computed without ever holding the whole row. The working set is one block of keys and values and one output vector. The real kernel does this per block of queries, with blocks of keys and values streamed through on-chip memory, and writes each output tile once.
+Phép chia cho `s` xảy ra một lần, ở cuối, với cực đại toàn cục trong mọi hàm mũ. Đó là định nghĩa của softmax ổn định số trên toàn bộ hàng, được tính mà không bao giờ giữ toàn bộ hàng. Tập làm việc là một khối key và value cùng một vector đầu ra. Kernel thực làm điều này cho mỗi khối query, với các khối key và value được truyền qua bộ nhớ trên chip, và ghi mỗi ô đầu ra một lần.
 
 ### The NaN
 
-A causal kernel skips blocks that lie entirely above the diagonal; a kernel that applies the mask by setting scores to minus infinity must guard the case where every score in the block is minus infinity. Here `max(-inf, -inf, ...)` is minus infinity, and `exp(-inf - (-inf))` is NaN, which then poisons `s` and `out`. The guard: skip a block whose maximum is minus infinity, or test `new_m` before computing `exp_new`.
+Kernel nhân quả bỏ qua các khối nằm hoàn toàn phía trên đường chéo; kernel áp dụng mask bằng cách đặt điểm số về âm vô cực phải bảo vệ trường hợp mọi điểm số trong khối đều là âm vô cực. Ở đây `max(-inf, -inf, ...)` là âm vô cực, và `exp(-inf - (-inf))` là NaN, sau đó làm nhiễm `s` và `out`. Cách bảo vệ: bỏ qua khối có cực đại là âm vô cực, hoặc kiểm tra `new_m` trước khi tính `exp_new`.
 
 ### What a reviewer tests
 
-1. Equality with the one-shot softmax on random inputs, within floating-point tolerance.
-2. A second block whose scores are all lower than the first block's maximum, so that the rescale path with `exp_old` equal to one is exercised.
-3. A block whose scores are all higher, so that `exp_old` is less than one and the earlier terms shrink.
-4. A fully masked first block, which must not produce NaN.
+1. Bằng softmax tính một lần trên đầu vào ngẫu nhiên, trong dung sai dấu phẩy động.
+2. Khối thứ hai có điểm số đều thấp hơn cực đại của khối đầu, để nhánh điều chỉnh với `exp_old` bằng một được thực thi.
+3. Một khối có điểm số đều cao hơn, để `exp_old` nhỏ hơn một và các số hạng trước co lại.
+4. Khối đầu tiên bị che hoàn toàn, không được tạo NaN.
 
 ## Follow-ups
 
-- **Level 3:** What does a smaller tile cost and buy? Expected: more rescale steps and more loop overhead against a smaller working set on chip; the real kernel picks the tile to fit on-chip memory.
-- **Level 3:** Why is `exp_old` set to zero and not one on the first block? Expected: there is no earlier term to carry; the accumulators are empty, and `exp(-inf - new_m)` would be zero anyway for a finite `new_m`.
-- **Level 4:** How does the causal mask change the loop in a production kernel? Expected: blocks fully above the diagonal are skipped rather than masked, and partially masked blocks apply minus infinity per entry before the maximum is taken.
-- **Level 4:** Where does the backward pass get the softmax values it needs? Expected: it recomputes them from the stored row maximum and row sum instead of storing the N by N matrix.
+- **Level 3:** Ô nhỏ hơn tốn gì và được gì? Expected: thêm bước điều chỉnh và chi phí vòng lặp đổi lấy tập làm việc nhỏ hơn trên chip; kernel thực chọn ô để vừa bộ nhớ trên chip.
+- **Level 3:** Tại sao `exp_old` được đặt về không chứ không phải một ở khối đầu? Expected: không có số hạng trước để mang theo; các bộ tích lũy rỗng, và `exp(-inf - new_m)` dù sao cũng bằng không với `new_m` hữu hạn.
+- **Level 4:** Causal mask thay đổi vòng lặp trong kernel production như thế nào? Expected: các khối hoàn toàn phía trên đường chéo được bỏ qua thay vì che, và các khối bị che một phần áp dụng âm vô cực theo từng phần tử trước khi lấy cực đại.
+- **Level 4:** Lượt truyền ngược lấy các giá trị softmax cần thiết ở đâu? Expected: nó tính lại chúng từ cực đại hàng và tổng hàng đã lưu thay vì lưu ma trận N nhân N.
 
 ## Wrong answers
 
-- "`exp_old` is a decay factor like a learning rate." It is an exact change of reference point; the output is identical to the one-shot formula.
-- "You could store the scores and normalize at the end." That stores the full row, which is the memory cost the kernel exists to avoid.
-- "Each block should be normalized by its own sum." A per-block normalization breaks the global softmax; only the final division is correct.
+- "`exp_old` là hệ số suy giảm như learning rate." Nó là thay đổi điểm tham chiếu chính xác; đầu ra giống hệt công thức tính một lần.
+- "Bạn có thể lưu điểm số rồi chuẩn hóa ở cuối." Điều đó lưu toàn bộ hàng, là chi phí bộ nhớ mà kernel tồn tại để tránh.
+- "Mỗi khối nên được chuẩn hóa bằng tổng riêng." Chuẩn hóa theo từng khối phá vỡ softmax toàn cục; chỉ phép chia cuối cùng là đúng.
 
 ## Taught in
 
-The [KV cache and Flash Attention lesson](../../../phases/07-transformers-deep-dive/12-kv-cache-flash-attention/) gives this function as the tiled softmax build step.
+[Bài học về KV cache và Flash Attention](../../../phases/07-transformers-deep-dive/12-kv-cache-flash-attention/) đưa ra hàm này làm bước xây dựng softmax chia ô.

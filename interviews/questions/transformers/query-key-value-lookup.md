@@ -16,17 +16,17 @@ related: []
 updated: 2026-11-03
 ---
 
-A new teammate has read the word "attention" a hundred times and still cannot say what a query, a key or a value is. Explain the three to them in one minute. Then tell me what changed between the 2014 encoder-decoder version and the version inside a transformer.
+Một đồng đội mới đã đọc từ "attention" cả trăm lần mà vẫn không nói được query, key hay value là gì. Giải thích ba thứ cho họ trong một phút. Sau đó nói điều gì đã thay đổi giữa phiên bản encoder-decoder năm 2014 và phiên bản bên trong transformer.
 
 ## Short answer
 
-Attention is a soft lookup. Each token produces a query that asks for information, a key that says what the token holds, and a value that the token hands over when it is picked. The query is scored against every key, the scores go through a softmax, and the output is the weighted sum of the values. In the 2014 version the query was the decoder state and the keys and the values were the same encoder states; a transformer takes all three from one sequence through three learned projections.
+Attention là phép tra cứu mềm. Mỗi token tạo query hỏi thông tin, key cho biết token chứa gì, và value mà token trao khi được chọn. Query được chấm điểm với mọi key, điểm số đi qua softmax, và đầu ra là tổng có trọng số của các value. Trong phiên bản năm 2014, query là trạng thái decoder còn key và value là cùng các trạng thái encoder; transformer lấy cả ba từ một chuỗi qua ba phép chiếu được học.
 
 ## Full answer
 
 ### The three projections
 
-For a sequence X of n tokens with d dimensions each:
+Với chuỗi X gồm n token có d chiều mỗi token:
 
 ```text
 Q = X @ Wq    (n, dk)   what each token looks for
@@ -35,33 +35,33 @@ V = X @ Wv    (n, dv)   what each token returns when picked
 scores = Q @ K.T        (n, n)
 ```
 
-Row i of the score matrix is one token's view of the whole sequence. The softmax turns the row into weights that sum to one. The output for token i is the weighted sum of all value vectors.
+Hàng i của ma trận điểm số là góc nhìn của một token về toàn bộ chuỗi. Softmax biến hàng thành các trọng số có tổng bằng một. Đầu ra cho token i là tổng có trọng số của tất cả vector value.
 
 ### The database picture
 
-A real database matches a query to one key and returns one value. Attention matches a query to every key with a similarity score and returns a blend of every value. The blend is what lets the model combine information from several positions in one step.
+Cơ sở dữ liệu thực khớp query với một key và trả về một value. Attention khớp query với mọi key bằng điểm tương đồng và trả về sự pha trộn của mọi value. Sự pha trộn là thứ cho phép mô hình kết hợp thông tin từ nhiều vị trí trong một bước.
 
 ### What the 2014 version had
 
-The encoder-decoder attention of 2014 used the previous decoder state as the query and scored it against every encoder hidden state. The context vector was the weighted average of those same encoder states. In that design the keys and the values were the same thing. Two score functions were common: an additive score that passes the pair through a tanh and a learned vector, and a multiplicative score that takes a dot product. The three-line fix broke the fixed-size bottleneck of the encoder-decoder.
+Attention encoder-decoder năm 2014 dùng trạng thái decoder trước làm query và chấm điểm nó với mọi trạng thái ẩn encoder. Vector ngữ cảnh là trung bình có trọng số của cùng các trạng thái encoder đó. Trong thiết kế đó, key và value là cùng một thứ. Hai hàm điểm số phổ biến: điểm cộng đưa cặp qua tanh và vector được học, và điểm nhân lấy tích vô hướng. Cách sửa ba dòng phá vỡ nút thắt kích thước cố định của encoder-decoder.
 
 ### What a transformer changed
 
-Self-attention queries a sequence against itself, and it separates keys from values with different learned projections. Multi-head attention runs several of these in parallel. The weighted sum of values is the same idea. The score function changes: the additive tanh score and the plain dot product give way to a dot product divided by the square root of the key width.
+Self-attention truy vấn một chuỗi với chính nó, và tách key khỏi value bằng các phép chiếu được học khác nhau. Multi-head attention chạy song song nhiều phép như vậy. Tổng có trọng số của value là cùng ý tưởng. Hàm điểm số thay đổi: điểm tanh cộng và tích vô hướng thuần nhường chỗ cho tích vô hướng chia căn bậc hai của chiều rộng key.
 
 ## Follow-ups
 
-- **Level 1:** What shape does the output have for one token? Expected: the value dimension, because the output is a weighted sum of value vectors.
-- **Level 2:** Why give keys and values separate projections? Expected: a token can be matched on one kind of information and return another kind.
-- **Level 2:** Why does the plain dot-product score need the query and the key to have the same dimension? Expected: a dot product is only defined for vectors of equal length; the general form inserts a matrix W to remove that constraint.
-- **Level 3:** Name the convention trap between the two classic score functions. Expected: one uses the decoder state before the current step and the other uses the state after it; mixing them produces subtly wrong gradients.
+- **Level 1:** Đầu ra có hình dạng gì cho một token? Expected: chiều value, vì đầu ra là tổng có trọng số của các vector value.
+- **Level 2:** Tại sao cho key và value các phép chiếu riêng? Expected: token có thể được khớp trên một loại thông tin và trả về loại khác.
+- **Level 2:** Tại sao điểm tích vô hướng thuần cần query và key có cùng số chiều? Expected: tích vô hướng chỉ được định nghĩa cho các vector có độ dài bằng nhau; dạng tổng quát chèn ma trận W để bỏ ràng buộc đó.
+- **Level 3:** Nêu bẫy quy ước giữa hai hàm điểm số cổ điển. Expected: một dùng trạng thái decoder trước bước hiện tại và cái kia dùng trạng thái sau nó; trộn chúng tạo gradient sai một cách tinh vi.
 
 ## Wrong answers
 
-- "The key and the value must be the same vector." They were in the classic version, but a transformer learns separate projections for them.
-- "Attention picks the single best matching token." The softmax gives a weight to every position, and the output blends all of the values.
-- "The query comes from the encoder." In encoder-decoder attention the query comes from the decoder and the keys and the values come from the encoder.
+- "Key và value phải là cùng vector." Chúng là như vậy trong phiên bản cổ điển, nhưng transformer học các phép chiếu riêng cho chúng.
+- "Attention chọn một token khớp tốt nhất duy nhất." Softmax cho trọng số với mọi vị trí, và đầu ra pha trộn tất cả value.
+- "Query đến từ encoder." Trong attention encoder-decoder, query đến từ decoder còn key và value đến từ encoder.
 
 ## Taught in
 
-The [attention mechanism lesson](../../../phases/05-nlp-foundations-to-advanced/10-attention-mechanism/) builds the classic version and the [self-attention lesson](../../../phases/07-transformers-deep-dive/02-self-attention-from-scratch/) builds the projections.
+[Bài học về cơ chế attention](../../../phases/05-nlp-foundations-to-advanced/10-attention-mechanism/) xây dựng phiên bản cổ điển và [bài học về self-attention](../../../phases/07-transformers-deep-dive/02-self-attention-from-scratch/) xây dựng các phép chiếu.

@@ -16,11 +16,11 @@ related: [transformers/why-scale-by-sqrt-dk]
 updated: 2026-11-03
 ---
 
-You change an attention layer from one head to eight heads and keep the model width fixed. What happens to the parameter count, to the compute, and to what the layer can represent? And why do practitioners refuse to make heads narrower than about 32?
+Bạn thay một lớp attention từ một head thành tám head và giữ cố định chiều rộng mô hình. Điều gì xảy ra với số tham số, lượng tính toán, và những gì lớp có thể biểu diễn? Và tại sao người thực hành từ chối làm head hẹp hơn khoảng 32?
 
 ## Short answer
 
-The parameters do not change: the four projections are still `d_model` by `d_model`, and the heads are only a reshape of the same matrices into slices of width `d_model / n_heads`. The compute stays about the same because the per-head attention runs as one batched matmul over the head axis. Each head can specialize on its own relation, and the output projection is where the heads mix. The lesson's rule of thumb keeps a head at a width of 32 or more, because a narrower head sees too few dimensions, and above 256 you lose the benefit of many small specialists, while the `sqrt` scaling itself keeps the score variance constant at any width.
+Các tham số không thay đổi: bốn phép chiếu vẫn là `d_model` nhân `d_model`, và các head chỉ là reshape của cùng các ma trận thành các lát có chiều rộng `d_model / n_heads`. Lượng tính toán giữ gần như cũ vì attention theo từng head chạy như một batched matmul trên trục head. Mỗi head có thể chuyên biệt hóa trên quan hệ riêng, và phép chiếu đầu ra là nơi các head trộn với nhau. Quy tắc kinh nghiệm của bài học giữ head ở chiều rộng 32 trở lên, vì head hẹp hơn thấy quá ít chiều, và trên 256 bạn mất lợi ích của nhiều chuyên gia nhỏ, trong khi bản thân scaling `sqrt` giữ phương sai điểm số không đổi ở bất kỳ chiều rộng nào.
 
 ## Full answer
 
@@ -37,44 +37,44 @@ def combine_heads(H):
     return H.transpose(1, 0, 2).reshape(n, h * d_head)
 ```
 
-Project X to Q, K and V, split each into heads, run scaled dot-product attention per head, stack the heads back and multiply by the output matrix `W_o`. The GPU sees the per-head scores as a single batched matmul of shape `(heads, N, d_head)` times `(heads, d_head, N)`. Adding heads adds batch entries, not weights.
+Chiếu X thành Q, K và V, chia mỗi cái thành các head, chạy scaled dot-product attention theo từng head, xếp các head trở lại và nhân với ma trận đầu ra `W_o`. GPU thấy các điểm số theo từng head như một batched matmul duy nhất có hình dạng `(heads, N, d_head)` nhân `(heads, d_head, N)`. Thêm head là thêm phần tử batch, không phải trọng số.
 
 ### Why the output projection matters
 
-The heads never talk during the attention step itself; they work on different subspaces. `W_o`, of shape `(d_model, d_model)`, is where their outputs mix. Without it the heads could only recombine through later layers and the block would be artificially constrained.
+Các head không bao giờ nói chuyện trong chính bước attention; chúng làm việc trên các không gian con khác nhau. `W_o`, có hình dạng `(d_model, d_model)`, là nơi đầu ra của chúng trộn với nhau. Không có nó, các head chỉ có thể kết hợp lại qua các lớp phía sau và khối sẽ bị ràng buộc một cách nhân tạo.
 
 ### What heads learn
 
-Probing work from 2019 to 2024 found distinct roles: heads that attend to the previous token, copy heads, heads that track named entities, and induction heads, the pairs that detect an earlier occurrence of the current token and copy what followed it, which underlie in-context learning. One head would have to smear all of these into one softmax.
+Công trình thăm dò từ 2019 đến 2024 tìm thấy các vai trò riêng biệt: head chú ý đến token trước, head sao chép, head theo dõi thực thể có tên, và induction head, các cặp phát hiện lần xuất hiện trước của token hiện tại rồi sao chép thứ theo sau nó, làm nền tảng cho in-context learning. Một head sẽ phải dồn tất cả những điều này vào một softmax.
 
 ### Picking the head width
 
-| Model size | d_model | n_heads | d_head |
+| Kích thước mô hình | d_model | n_heads | d_head |
 |---|---|---|---|
-| Small (about 125M) | 768 | 12 | 64 |
-| Base (about 350M) | 1024 | 16 | 64 |
-| Large (about 1B) | 2048 | 16 | 128 |
-| Frontier (about 70B) | 8192 | 64 | 128 |
+| Nhỏ (khoảng 125M) | 768 | 12 | 64 |
+| Cơ sở (khoảng 350M) | 1024 | 16 | 64 |
+| Lớn (khoảng 1B) | 2048 | 16 | 128 |
+| Tiên phong (khoảng 70B) | 8192 | 64 | 128 |
 
-The head width lands at 64 or 128 almost every time. It is the unit of how much one head can see.
+Chiều rộng head hầu như luôn rơi vào 64 hoặc 128. Nó là đơn vị biểu thị một head có thể thấy bao nhiêu.
 
 ### The production implementation
 
-One linear layer maps D to 3D and is sliced into Q, K and V. Three separate layers compute the same thing, because three matmuls by `(D, D)` weights equal one matmul by a stacked `(3D, D)` weight, but the fused layer launches one kernel instead of three.
+Một lớp tuyến tính ánh xạ D sang 3D và được cắt thành Q, K và V. Ba lớp riêng tính cùng một thứ, vì ba matmul với trọng số `(D, D)` bằng một matmul với trọng số xếp chồng `(3D, D)`, nhưng lớp hợp nhất khởi chạy một kernel thay vì ba.
 
 ## Follow-ups
 
-- **Level 2:** Why is the fused QKV projection faster if the math is identical? Expected: one kernel launch and one matmul instead of three; the stacked weight gives the same result.
-- **Level 3:** What goes wrong if you remove the output projection? Expected: the heads can only mix through later layers, so the block loses expressive power even though the shapes still work.
-- **Level 3:** What is an induction head? Expected: a pair of heads that finds a previous occurrence of the current token and copies the token that followed it; the circuit behind in-context learning.
-- **Level 4:** Grouped-query attention keeps the query heads and shrinks something else. What and why? Expected: the key and value heads, because only they live in the decode-time cache; fewer of them cut cache memory while the query heads keep quality.
+- **Level 2:** Tại sao phép chiếu QKV hợp nhất nhanh hơn nếu toán học giống nhau? Expected: một lần khởi chạy kernel và một matmul thay vì ba; trọng số xếp chồng cho cùng kết quả.
+- **Level 3:** Điều gì sai nếu bạn bỏ phép chiếu đầu ra? Expected: các head chỉ có thể trộn qua các lớp phía sau, nên khối mất năng lực biểu đạt dù hình dạng vẫn hoạt động.
+- **Level 3:** Induction head là gì? Expected: một cặp head tìm lần xuất hiện trước của token hiện tại và sao chép token theo sau nó; mạch phía sau in-context learning.
+- **Level 4:** Grouped-query attention giữ các query head và thu nhỏ thứ khác. Thứ gì và tại sao? Expected: các key head và value head, vì chỉ chúng nằm trong cache lúc decode; ít chúng hơn cắt bộ nhớ cache trong khi các query head giữ chất lượng.
 
 ## Wrong answers
 
-- "More heads mean more parameters." The projections keep their size; the heads are a reshape of the same matrices.
-- "Heads exchange information while they attend." They work on separate subspaces; mixing happens only in the output projection and in later layers.
-- "Use as many heads as the width allows." Heads narrower than the lesson's rule of thumb of 32 see too little; the common widths are 64 and 128.
+- "Nhiều head hơn nghĩa là nhiều tham số hơn." Các phép chiếu giữ nguyên kích thước; các head là reshape của cùng các ma trận.
+- "Các head trao đổi thông tin khi chúng chú ý." Chúng làm việc trên các không gian con riêng; việc trộn chỉ xảy ra trong phép chiếu đầu ra và các lớp phía sau.
+- "Dùng nhiều head nhất mà chiều rộng cho phép." Head hẹp hơn mức 32 theo quy tắc kinh nghiệm của bài học thấy quá ít; các chiều rộng phổ biến là 64 và 128.
 
 ## Taught in
 
-The [multi-head attention lesson](../../../phases/07-transformers-deep-dive/03-multi-head-attention/) builds the split and the width table, and the [attention capstone](../../../phases/19-capstone-projects/33-multihead-self-attention/) fuses the projection and explains the output matrix.
+[Bài học về multi-head attention](../../../phases/07-transformers-deep-dive/03-multi-head-attention/) xây dựng phép chia và bảng chiều rộng, còn [capstone attention](../../../phases/19-capstone-projects/33-multihead-self-attention/) hợp nhất phép chiếu và giải thích ma trận đầu ra.

@@ -16,34 +16,34 @@ related: [transformers/heads-are-nearly-free, inference-serving/kv-pool-users-fi
 updated: 2026-11-03
 ---
 
-You are choosing the attention variant for a new 70B-class decoder: full multi-head, multi-query, grouped-query, or MLA with its compressed latent. What does each one do to the memory that decoding holds per token, and what do you give up with each?
+Bạn đang chọn biến thể attention cho decoder mới thuộc lớp 70B: full multi-head, multi-query, grouped-query, hoặc MLA với latent được nén. Mỗi loại làm gì với bộ nhớ mà decoding giữ trên mỗi token, và bạn đánh đổi gì với từng loại?
 
 ## Short answer
 
-All four keep the same number of query heads; they differ in how many key and value heads exist, and only the keys and values are stored during decoding. Multi-query shares one key-value head across every query head, the smallest cache and some quality loss. Grouped-query uses a group of key-value heads, cuts the cache by `n_heads / n_kv_heads` and keeps nearly full quality, which is why it is the default. Latent attention compresses keys and values to a low-rank vector and decompresses at attention time, so it saves even more memory and pays extra FLOPs.
+Cả bốn giữ cùng số query head; chúng khác nhau ở số key head và value head tồn tại, và chỉ key cùng value được lưu trong decoding. Multi-query chia sẻ một key-value head trên mọi query head, cache nhỏ nhất và mất một phần chất lượng. Grouped-query dùng một nhóm key-value head, cắt cache theo `n_heads / n_kv_heads` và giữ gần như đầy đủ chất lượng, đó là lý do nó là mặc định. Latent attention nén key và value thành vector hạng thấp và giải nén lúc attention, nên tiết kiệm thêm bộ nhớ và trả thêm FLOP.
 
 ## Full answer
 
 ### The lineage
 
-| Variant | Query heads | Key-value heads | Cache cost |
+| Biến thể | Query head | Key-value head | Chi phí cache |
 |---|---|---|---|
-| Multi-head | N | N | full |
-| Multi-query | N | 1 | smallest, quality loss |
-| Grouped-query | N | G, for example N / 8 | shrinks by N / G |
-| Multi-head latent | N | compressed to a low-rank latent | smaller still, more compute |
+| Multi-head | N | N | đầy đủ |
+| Multi-query | N | 1 | nhỏ nhất, mất chất lượng |
+| Grouped-query | N | G, ví dụ N / 8 | thu nhỏ theo N / G |
+| Multi-head latent | N | được nén thành latent hạng thấp | còn nhỏ hơn, tính toán nhiều hơn |
 
 ### What the cache holds
 
-Per layer and per token, the stored bytes are `2 * n_kv_heads * d_head * dtype_size`, where the 2 counts the key and the value. The query of a past token is never needed again, so it is not stored. A 70B-class model with 80 layers, a head size of 128 and 8 key-value heads in a 16-bit type holds 4096 bytes per token per layer, about 10 GiB for a 32K context and 40 GiB at 128K. The same model with 64 key-value heads would hold 8 times more, about 80 GiB at 32K. That is the whole memory of a large accelerator spent on one request.
+Trên mỗi lớp và mỗi token, số byte được lưu là `2 * n_kv_heads * d_head * dtype_size`, trong đó 2 đếm key và value. Query của token quá khứ không bao giờ cần lại, nên không được lưu. Mô hình thuộc lớp 70B với 80 lớp, kích thước head 128 và 8 key-value head ở kiểu 16-bit giữ 4096 byte trên mỗi token mỗi lớp, khoảng 10 GiB cho ngữ cảnh 32K và 40 GiB ở 128K. Cùng mô hình với 64 key-value head sẽ giữ nhiều hơn 8 lần, khoảng 80 GiB ở 32K. Đó là toàn bộ bộ nhớ của một bộ tăng tốc lớn dành cho một yêu cầu.
 
 ### The quality side
 
-Grouped-query keeps the query heads, so each head still asks its own question; it only shares the answers it can look up. The published work converts trained multi-head checkpoints to grouped-query with a fine-tune and reports nearly full quality. Multi-query shares a single answer set across all heads and loses more. Latent attention trades compute for memory: the latent must be projected back to keys and values on every step.
+Grouped-query giữ các query head, nên mỗi head vẫn hỏi câu hỏi riêng; nó chỉ chia sẻ các câu trả lời có thể tra cứu. Công trình đã công bố chuyển các checkpoint multi-head đã huấn luyện sang grouped-query bằng một lượt fine-tune và báo cáo chất lượng gần như đầy đủ. Multi-query chia sẻ một tập câu trả lời duy nhất trên tất cả head và mất nhiều hơn. Latent attention đánh đổi tính toán lấy bộ nhớ: latent phải được chiếu ngược thành key và value ở mỗi bước.
 
 ### Grouped-query in code
 
-Only the key and value projections change. They produce `n_kv_heads` heads, and each is repeated to match the query heads:
+Chỉ các phép chiếu key và value thay đổi. Chúng tạo `n_kv_heads` head, và mỗi head được lặp để khớp query head:
 
 ```python
 def gqa_project(X, W, n_kv_heads, n_heads):
@@ -52,25 +52,25 @@ def gqa_project(X, W, n_kv_heads, n_heads):
     return np.repeat(kv, repeat, axis=0)
 ```
 
-At inference only the `n_kv_heads` copies live in the cache, not the repeated ones.
+Khi suy luận chỉ các bản sao `n_kv_heads` nằm trong cache, không phải các bản được lặp.
 
 ### The pick
 
-For a 70B decoder with long contexts to serve, grouped-query with a small group is the safe default. Latent attention is the choice when memory is the binding constraint and you accept the compute cost and the engineering.
+Với decoder 70B cần phục vụ ngữ cảnh dài, grouped-query với nhóm nhỏ là mặc định an toàn. Latent attention là lựa chọn khi bộ nhớ là ràng buộc giới hạn và bạn chấp nhận chi phí tính toán cùng công việc kỹ thuật.
 
 ## Follow-ups
 
-- **Level 2:** Which numbers set the stored bytes per token? Expected: layers, key-value heads, head size and bytes per value, times 2 for the key and the value; the parameter count does not enter.
-- **Level 3:** Why does latent attention cost more compute per step? Expected: the stored latent has to be projected back to full keys and values at every decode step before the scores are computed.
-- **Level 3:** Can you move an existing multi-head checkpoint to grouped-query? Expected: yes, the grouped-query paper converts trained checkpoints and fine-tunes; measure quality on your own eval before you ship.
-- **Level 4:** The product wants 128K contexts at batch size one on a 40 GB card. Which variant and what else? Expected: grouped-query alone already fills the card at 128K, so latent attention or a smaller key-value type, and the weights still need their own memory.
+- **Level 2:** Những con số nào quyết định số byte được lưu trên mỗi token? Expected: các lớp, key-value head, kích thước head và byte trên mỗi giá trị, nhân 2 cho key và value; số tham số không tham gia.
+- **Level 3:** Tại sao latent attention tốn tính toán hơn mỗi bước? Expected: latent được lưu phải được chiếu ngược thành key và value đầy đủ ở mọi bước decode trước khi tính điểm số.
+- **Level 3:** Bạn có thể chuyển checkpoint multi-head hiện có sang grouped-query không? Expected: có, bài báo grouped-query chuyển các checkpoint đã huấn luyện và fine-tune; đo chất lượng trên eval của bạn trước khi phát hành.
+- **Level 4:** Sản phẩm muốn ngữ cảnh 128K ở kích thước batch một trên card 40 GB. Biến thể nào và còn gì nữa? Expected: chỉ riêng grouped-query đã lấp đầy card ở 128K, nên cần latent attention hoặc kiểu key-value nhỏ hơn, và trọng số vẫn cần bộ nhớ riêng.
 
 ## Wrong answers
 
-- "Grouped-query reduces the compute of attention." The scores are still computed for every query head; the saving is in the stored keys and values.
-- "Multi-query is free." It shares one answer set across all heads and the lesson records a quality loss.
-- "The cache size follows the parameter count." It follows the key-value heads, the layers, the head size and the data type.
+- "Grouped-query giảm tính toán của attention." Điểm số vẫn được tính cho mọi query head; khoản tiết kiệm nằm ở key và value được lưu.
+- "Multi-query không tốn gì." Nó chia sẻ một tập câu trả lời trên tất cả head và bài học ghi nhận mất chất lượng.
+- "Kích thước cache đi theo số tham số." Nó đi theo các key-value head, các lớp, kích thước head và kiểu dữ liệu.
 
 ## Taught in
 
-The [multi-head attention lesson](../../../phases/07-transformers-deep-dive/03-multi-head-attention/) gives the variants and the grouped-query code, and the [KV cache lesson](../../../phases/07-transformers-deep-dive/12-kv-cache-flash-attention/) does the memory arithmetic.
+[Bài học về multi-head attention](../../../phases/07-transformers-deep-dive/03-multi-head-attention/) đưa ra các biến thể và mã grouped-query, còn [bài học về KV cache](../../../phases/07-transformers-deep-dive/12-kv-cache-flash-attention/) thực hiện tính toán bộ nhớ.

@@ -16,50 +16,50 @@ related: [transformers/causal-mask-minus-infinity]
 updated: 2026-11-03
 ---
 
-A new decoder-only language model on a vocabulary of 64 tokens reaches a training loss near zero after only some hundreds of steps, and the sampled text is nonsense. Name the two most likely causes and the check that tells them apart.
+Một mô hình ngôn ngữ chỉ có decoder mới trên từ vựng 64 token đạt training loss gần không chỉ sau vài trăm bước, và văn bản lấy mẫu vô nghĩa. Nêu hai nguyên nhân có khả năng cao nhất và cách kiểm tra phân biệt chúng.
 
 ## Short answer
 
-On real text, a loss far below the logarithm of the vocabulary size this early, with nonsense samples, most likely means the model can see its own target. Either the causal mask is missing, so position i reads the token at i plus one through attention, or the targets were never shifted, so the input and the target are the same sequence. Check the attention weights: if any mass sits above the diagonal the mask is gone; if the weights are triangular, print one batch and compare the input and target columns.
+Trên văn bản thực, loss thấp hơn nhiều logarit của kích thước từ vựng sớm như vậy, kèm mẫu vô nghĩa, rất có thể có nghĩa mô hình thấy chính mục tiêu của nó. Hoặc causal mask bị thiếu, nên vị trí i đọc token ở i cộng một qua attention, hoặc các mục tiêu chưa từng được dịch, nên đầu vào và mục tiêu là cùng một chuỗi. Kiểm tra trọng số attention: nếu có bất kỳ khối lượng nào nằm trên đường chéo thì mask đã mất; nếu trọng số có dạng tam giác, in một batch và so sánh các cột đầu vào và mục tiêu.
 
 ## Full answer
 
 ### What a healthy run looks like
 
-At the first step the loss should sit near the logarithm of the vocabulary size, about 4.16 for 64 tokens. On the lesson's repeat task it falls to well under 1.0 over three epochs because the next token equals the previous one. A loss that reaches zero on real text is not learning; it is copying.
+Ở bước đầu tiên, loss nên nằm gần logarit của kích thước từ vựng, khoảng 4.16 cho 64 token. Trên tác vụ lặp của bài học, nó giảm xuống thấp hơn nhiều 1.0 qua ba epoch vì token tiếp theo bằng token trước. Loss đạt không trên văn bản thực không phải đang học; nó đang sao chép.
 
 ### Cause one: the mask
 
-The mask replaces every entry above the diagonal of the score matrix with minus infinity before the softmax. Forget it and every position attends to the whole sequence, including the answer. The lesson's phrase: forget the mask and you train a model that cheats. Common ways to lose it: the mask buffer is built for the maximum context and never sliced to the current length, the mask is applied after the softmax, or the attention call takes a flag that defaults to non-causal.
+Mask thay mọi phần tử phía trên đường chéo của ma trận điểm số bằng âm vô cực trước softmax. Quên nó và mọi vị trí chú ý đến toàn bộ chuỗi, kể cả câu trả lời. Cách nói của bài học: quên mask và bạn huấn luyện một mô hình gian lận. Các cách phổ biến làm mất nó: buffer mask được xây dựng cho ngữ cảnh tối đa và không bao giờ được cắt về độ dài hiện tại, mask được áp dụng sau softmax, hoặc lời gọi attention nhận một cờ mặc định là không nhân quả.
 
 ### Cause two: the shift
 
-Given tokens `[t1, t2, t3, t4]`, the input is `[t1, t2, t3]` and the target is `[t2, t3, t4]`. If the data loader returns the same window twice, the model learns the identity. The loss collapses even with a perfect mask.
+Với các token `[t1, t2, t3, t4]`, đầu vào là `[t1, t2, t3]` và mục tiêu là `[t2, t3, t4]`. Nếu data loader trả lại cùng một cửa sổ hai lần, mô hình học ánh xạ đồng nhất. Loss sụp xuống ngay cả với mask hoàn hảo.
 
 ### The checks
 
-1. **Causality test.** Perturb a token at position j and assert that the outputs at positions before j do not change. The lesson's test suite pins this property.
-2. **Triangle test.** Return the attention weights for one head and confirm the upper triangle is exactly zero after the softmax.
-3. **Batch inspection.** Print one input and target pair and confirm the target is the input shifted left by one.
-4. **Held-out check.** Compute the loss on held-out text with the same pipeline. A model that memorized a small corpus has a high held-out loss and samples that copy the training text; a leak gives nonsense samples.
+1. **Kiểm thử tính nhân quả.** Làm nhiễu token ở vị trí j và khẳng định đầu ra ở các vị trí trước j không thay đổi. Bộ kiểm thử của bài học cố định thuộc tính này.
+2. **Kiểm thử tam giác.** Trả lại trọng số attention cho một head và xác nhận tam giác trên bằng không chính xác sau softmax.
+3. **Kiểm tra batch.** In một cặp đầu vào và mục tiêu rồi xác nhận mục tiêu là đầu vào được dịch sang trái một vị trí.
+4. **Kiểm tra trên dữ liệu giữ riêng.** Tính loss trên văn bản giữ riêng bằng cùng pipeline. Mô hình ghi nhớ tập dữ liệu nhỏ có loss trên dữ liệu giữ riêng cao và các mẫu sao chép văn bản huấn luyện; rò rỉ cho mẫu vô nghĩa.
 
 ### Why sampling exposes it
 
-During training the answer leaks through the input, so the loss is low. At sampling time the model has nothing to copy from, so it emits noise. A model that learned the real task is good at both.
+Trong huấn luyện, câu trả lời rò rỉ qua đầu vào, nên loss thấp. Khi lấy mẫu, mô hình không có gì để sao chép, nên nó phát ra nhiễu. Mô hình đã học tác vụ thực làm tốt ở cả hai.
 
 ## Follow-ups
 
-- **Level 2:** What loss do you expect at step zero, and why? Expected: about the logarithm of the vocabulary size, about 4.16 for 64, because a random model spreads probability evenly.
-- **Level 2:** How do you make the shift mistake impossible in the loader? Expected: slice one window of length T plus 1 and return `window[:-1]` and `window[1:]` from the same slice, with a test on one example.
-- **Level 3:** Write the causality unit test in one sentence. Expected: change the token at position j, run the block again, and assert that every output before j is unchanged.
-- **Level 3:** The mask and the shift are right, and the loss is still suspiciously low. What else leaks? Expected: a validation window that overlaps the training stream, or padding tokens counted as easy targets; check the split and the loss mask.
+- **Level 2:** Bạn kỳ vọng loss bao nhiêu ở bước không, và tại sao? Expected: khoảng logarit của kích thước từ vựng, khoảng 4.16 cho 64, vì mô hình ngẫu nhiên phân bố xác suất đều.
+- **Level 2:** Bạn làm thế nào để lỗi dịch không thể xảy ra trong loader? Expected: cắt một cửa sổ có độ dài T cộng 1 và trả lại `window[:-1]` cùng `window[1:]` từ cùng lát cắt, với một kiểm thử trên một ví dụ.
+- **Level 3:** Viết unit test tính nhân quả trong một câu. Expected: thay đổi token ở vị trí j, chạy lại khối, và khẳng định mọi đầu ra trước j không đổi.
+- **Level 3:** Mask và phép dịch đều đúng, và loss vẫn thấp đáng ngờ. Còn gì rò rỉ? Expected: cửa sổ validation chồng lên luồng huấn luyện, hoặc padding token được tính làm mục tiêu dễ; kiểm tra cách chia và loss mask.
 
 ## Wrong answers
 
-- "The model is just learning fast." A loss near zero on natural text is not possible without seeing the target.
-- "Add dropout to regularize it." Dropout does not stop a leak; it only makes the copy slightly noisier.
-- "Lower the learning rate." The optimization is fine; the objective is broken.
+- "Mô hình chỉ đang học nhanh." Loss gần không trên văn bản tự nhiên không thể có nếu không thấy mục tiêu.
+- "Thêm dropout để regularize nó." Dropout không ngăn rò rỉ; nó chỉ làm bản sao nhiễu hơn một chút.
+- "Giảm learning rate." Tối ưu hóa vẫn ổn; mục tiêu bị hỏng.
 
 ## Taught in
 
-The [attention capstone](../../../phases/19-capstone-projects/33-multihead-self-attention/) and the [block capstone](../../../phases/19-capstone-projects/34-transformer-block/) build and test the mask, and the [causal language modeling lesson](../../../phases/07-transformers-deep-dive/07-gpt-causal-language-modeling/) defines the shift-by-one loss.
+[Capstone attention](../../../phases/19-capstone-projects/33-multihead-self-attention/) và [capstone khối](../../../phases/19-capstone-projects/34-transformer-block/) xây dựng và kiểm thử mask, còn [bài học về mô hình hóa ngôn ngữ nhân quả](../../../phases/07-transformers-deep-dive/07-gpt-causal-language-modeling/) định nghĩa loss dịch một vị trí.

@@ -16,48 +16,48 @@ related: [transformers/compute-split-params-tokens]
 updated: 2026-11-03
 ---
 
-Between two model sizes a benchmark accuracy goes from near zero to high. The team calls it an emergent ability and asks for a larger budget to find the next jump. How do you evaluate the claim before you sign?
+Giữa hai kích thước mô hình, độ chính xác của một benchmark đi từ gần không lên cao. Nhóm gọi đó là khả năng nổi lên và yêu cầu ngân sách lớn hơn để tìm bước nhảy tiếp theo. Bạn đánh giá tuyên bố đó như thế nào trước khi ký?
 
 ## Short answer
 
-Ask what the scorer is. Exact match and thresholded accuracy are discontinuous: a model that gets most digits right scores zero until it gets all of them right, so a smooth gain in the underlying probabilities shows up as a cliff. Re-score the same checkpoints with a continuous metric such as the cross-entropy of the target answers; if that curve is smooth, the jump belongs to the scorer and not to the model. Plan the budget against the continuous curve, which the scaling law predicts reliably.
+Hỏi bộ chấm điểm là gì. Exact match và độ chính xác có ngưỡng là gián đoạn: mô hình trả lời đúng hầu hết chữ số vẫn được điểm không cho đến khi trả lời đúng tất cả, nên cải thiện trơn trong các xác suất bên dưới hiện ra thành một vách dốc. Chấm lại cùng các checkpoint bằng chỉ số liên tục như cross-entropy của các câu trả lời mục tiêu; nếu đường cong đó trơn, bước nhảy thuộc về bộ chấm điểm chứ không phải mô hình. Lập kế hoạch ngân sách theo đường cong liên tục, thứ mà quy luật scaling dự đoán đáng tin cậy.
 
 ## Full answer
 
 ### The argument
 
-The 2023 analysis of emergence showed that the abilities usually cited, arithmetic and multi-step reasoning among them, were measured with discontinuous scoring. Under a continuous metric the same models improve smoothly with scale. By 2026 the working consensus is: predictions from continuous loss are reliable, and benchmark jumps are often artifacts of the scorer.
+Phân tích năm 2023 về sự nổi lên cho thấy các khả năng thường được viện dẫn, trong đó có số học và suy luận nhiều bước, được đo bằng cách chấm điểm gián đoạn. Dưới một chỉ số liên tục, cùng các mô hình đó cải thiện trơn theo quy mô. Đến năm 2026, đồng thuận đang được dùng là: các dự đoán từ loss liên tục đáng tin cậy, và các bước nhảy benchmark thường là hiện tượng do bộ chấm điểm tạo ra.
 
 ### What to do with the checkpoints you have
 
-1. Keep the prompts and the targets fixed.
-2. For each checkpoint, log the per-token probability of the correct answer and the cross-entropy over the answer tokens.
-3. Plot both against the parameter count and against the training compute.
-4. Add a partial-credit scorer, such as the share of correct digits, to see where the cliff disappears.
+1. Giữ cố định prompt và mục tiêu.
+2. Với mỗi checkpoint, ghi log xác suất theo từng token của câu trả lời đúng và cross-entropy trên các token câu trả lời.
+3. Vẽ cả hai theo số tham số và theo lượng tính toán huấn luyện.
+4. Thêm bộ chấm điểm cho điểm một phần, như tỷ lệ chữ số đúng, để xem vách dốc biến mất ở đâu.
 
-If the probability curve is smooth, the model was getting closer all along and the benchmark hid it.
+Nếu đường cong xác suất trơn, mô hình đã tiến gần hơn suốt quá trình và benchmark che giấu điều đó.
 
 ### What it means for the budget
 
-Fit the loss on the checkpoints and read where the next size lands on the continuous curve. Then calibrate the discontinuous benchmark against that curve: at which loss does accuracy cross the product threshold? Sample more sizes near that point instead of betting on a surprise. A product threshold can be real for the user and still be predictable for the planner.
+Khớp loss trên các checkpoint và đọc xem kích thước tiếp theo nằm ở đâu trên đường cong liên tục. Sau đó hiệu chuẩn benchmark gián đoạn theo đường cong đó: ở loss nào thì độ chính xác vượt ngưỡng sản phẩm? Lấy mẫu thêm kích thước gần điểm đó thay vì đặt cược vào bất ngờ. Ngưỡng sản phẩm có thể có thật với người dùng và vẫn có thể dự đoán với người lập kế hoạch.
 
 ### Where real changes of regime do show up
 
-In-context learning, following a few examples with no fine-tuning, is usually described as appearing around the 6B to 13B range. The lesson's position is still to measure it with a continuous metric before you call it a discontinuity, because the same scorer problem applies.
+In-context learning, làm theo một vài ví dụ mà không fine-tuning, thường được mô tả là xuất hiện quanh khoảng 6B đến 13B. Lập trường của bài học vẫn là đo nó bằng chỉ số liên tục trước khi gọi nó là gián đoạn, vì cùng vấn đề bộ chấm điểm vẫn áp dụng.
 
 ## Follow-ups
 
-- **Level 3:** Give an example of a discontinuous scorer and its continuous counterpart. Expected: exact match on a multi-digit answer against the log-probability or the digit-level accuracy of the same answer.
-- **Level 4:** How does this change the way you plan a training budget? Expected: predict the loss from the law, calibrate the benchmark against the loss, and place runs near the threshold instead of hoping for a jump.
-- **Level 4:** The product threshold really is binary for the user. Does the artifact argument still matter? Expected: yes; the threshold is real for the product, but its position is predictable from the smooth curve, which is what you need to budget.
-- **Level 4:** What would convince you that a jump is not a scorer artifact? Expected: the continuous metric also shows a kink at the same scale, replicated across seeds and data orderings.
+- **Level 3:** Đưa ra ví dụ về bộ chấm điểm gián đoạn và đối ứng liên tục của nó. Expected: exact match trên câu trả lời nhiều chữ số so với log-probability hoặc độ chính xác ở cấp chữ số của cùng câu trả lời.
+- **Level 4:** Điều này thay đổi cách bạn lập kế hoạch ngân sách huấn luyện như thế nào? Expected: dự đoán loss từ quy luật, hiệu chuẩn benchmark theo loss, và đặt các lượt chạy gần ngưỡng thay vì hy vọng có bước nhảy.
+- **Level 4:** Ngưỡng sản phẩm thực sự là nhị phân với người dùng. Lập luận về hiện tượng do bộ chấm điểm tạo ra còn quan trọng không? Expected: có; ngưỡng là có thật với sản phẩm, nhưng vị trí của nó có thể dự đoán từ đường cong trơn, là thứ bạn cần để lập ngân sách.
+- **Level 4:** Điều gì sẽ thuyết phục bạn rằng một bước nhảy không phải hiện tượng do bộ chấm điểm tạo ra? Expected: chỉ số liên tục cũng cho thấy một chỗ gãy ở cùng quy mô, được lặp lại qua các seed và thứ tự dữ liệu.
 
 ## Wrong answers
 
-- "Accuracy is the ground truth and loss is a proxy." Accuracy with a hard threshold throws away the information that shows the trend; the loss is what the model optimizes and what the law predicts.
-- "Emergence means the scaling law broke." The law describes the continuous loss, which keeps its shape while the thresholded score jumps.
-- "Train the bigger model and see." That is the expensive experiment the analysis lets you avoid; re-score what you already have first.
+- "Độ chính xác là sự thật nền và loss là đại diện." Độ chính xác có ngưỡng cứng vứt bỏ thông tin cho thấy xu hướng; loss là thứ mô hình tối ưu và quy luật dự đoán.
+- "Sự nổi lên có nghĩa quy luật scaling bị phá vỡ." Quy luật mô tả loss liên tục, giữ nguyên hình dạng trong khi điểm số có ngưỡng nhảy vọt.
+- "Huấn luyện mô hình lớn hơn rồi xem." Đó là thử nghiệm tốn kém mà phân tích giúp bạn tránh; trước tiên hãy chấm lại những gì bạn đã có.
 
 ## Taught in
 
-The [scaling laws lesson](../../../phases/07-transformers-deep-dive/13-scaling-laws/) covers emergence against smooth loss, and the [causal language modeling lesson](../../../phases/07-transformers-deep-dive/07-gpt-causal-language-modeling/) places in-context learning on the scale axis.
+[Bài học về các quy luật scaling](../../../phases/07-transformers-deep-dive/13-scaling-laws/) đề cập sự nổi lên so với loss trơn, và [bài học về mô hình hóa ngôn ngữ nhân quả](../../../phases/07-transformers-deep-dive/07-gpt-causal-language-modeling/) đặt in-context learning trên trục quy mô.

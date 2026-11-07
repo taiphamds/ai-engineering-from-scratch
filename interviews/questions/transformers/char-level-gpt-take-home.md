@@ -16,11 +16,11 @@ related: [transformers/loss-drops-to-zero-no-mask, transformers/modernize-a-2017
 updated: 2026-11-03
 ---
 
-This is the take-home we send: train a small decoder-only transformer on a character-level text corpus of about one megabyte, on a laptop, and return the code, the loss curves and a few samples. Tell me how you would approach it, what a reviewer checks in your submission, and which results prove that the model works.
+Đây là bài làm ở nhà chúng tôi gửi: huấn luyện một transformer chỉ có decoder nhỏ trên một tập văn bản ở cấp ký tự khoảng một megabyte, trên laptop, và trả lại mã, các đường cong loss cùng một vài mẫu. Hãy nói cách bạn tiếp cận nó, người đánh giá kiểm tra gì trong bài nộp của bạn, và những kết quả nào chứng minh mô hình hoạt động.
 
 ## Short answer
 
-Build the small reference shape: a character tokenizer over the 65 symbols of the corpus, a token embedding plus a learned positional embedding, a stack of pre-norm blocks with RMSNorm, causal multi-head attention and a SwiGLU network, a final norm and a head tied to the embedding, trained with a shift-by-one cross-entropy on random 256-character windows. Use AdamW, a cosine schedule with warmup and gradient clipping at 1.0, and hold out the last 10 percent of the text for validation. The bar from the lesson: a 4-layer, 4-head model of width 128, about 800K parameters, goes from about 4.2 to about 1.5 training loss in 2,000 steps, about 6 minutes on a laptop, with validation loss under 2.0 that tracks the training loss and samples that look like the corpus.
+Xây dựng hình dạng tham chiếu nhỏ: tokenizer ký tự trên 65 ký hiệu của tập dữ liệu, token embedding cộng positional embedding được học, một chồng khối pre-norm với RMSNorm, causal multi-head attention và mạng SwiGLU, norm cuối cùng và head dùng chung trọng số với embedding, được huấn luyện bằng cross-entropy dịch một vị trí trên các cửa sổ ngẫu nhiên 256 ký tự. Dùng AdamW, lịch cosine với warmup và gradient clipping ở 1.0, và giữ lại 10 phần trăm cuối của văn bản để validation. Mức yêu cầu từ bài học: mô hình 4 lớp, 4 head với chiều rộng 128, khoảng 800K tham số, đi từ training loss khoảng 4.2 xuống khoảng 1.5 trong 2,000 bước, khoảng 6 phút trên laptop, với validation loss dưới 2.0 bám theo training loss và các mẫu trông giống tập dữ liệu.
 
 ## Full answer
 
@@ -31,7 +31,7 @@ tokens (B, N) -> embedding + position -> [norm, causal attention, residual, norm
             -> final norm -> head tied to the embedding -> logits (B, N, V) -> shift-by-one loss
 ```
 
-A byte-level character tokenizer needs no training. The data split is 90 to 10 by position in the text, so that the validation text is never seen in training.
+Tokenizer ký tự ở cấp byte không cần huấn luyện. Dữ liệu được chia 90 với 10 theo vị trí trong văn bản, để văn bản validation không bao giờ được thấy trong huấn luyện.
 
 ### The training loop
 
@@ -46,37 +46,37 @@ for step in range(max_steps):
     opt.zero_grad()
 ```
 
-Log the training and validation loss on the same axis. Sample after training with top-p and stop after 500 characters.
+Ghi log training loss và validation loss trên cùng một trục. Lấy mẫu sau huấn luyện bằng top-p và dừng sau 500 ký tự.
 
 ### What a reviewer checks
 
-1. **Correctness of the objective.** The causal mask is applied before the softmax and the targets are the inputs shifted by one. A unit test that perturbs a later token and checks earlier outputs is a strong signal.
-2. **The first loss.** About 4.2 at step zero, the uniform baseline, the logarithm of 65. A start well below it is a reason to check for a leak.
-3. **Validation discipline.** A held-out split, logged at intervals, that tracks the training loss; the lesson records no overfitting at this size and budget. A validation loss far below training is a reason to check the split and the loss code, because the final 10 percent of text can also be easier.
-4. **Training hygiene.** Gradient clipping, a schedule, a fixed seed, and a run that reproduces.
-5. **Reading the samples.** Line breaks, archaic words and speaker names in capitals appear; the text is corpus-shaped, not the corpus.
+1. **Tính đúng đắn của mục tiêu.** Causal mask được áp dụng trước softmax và các mục tiêu là đầu vào được dịch một vị trí. Một unit test làm nhiễu token phía sau và kiểm tra đầu ra phía trước là tín hiệu mạnh.
+2. **Loss đầu tiên.** Khoảng 4.2 ở bước không, mức cơ sở đồng đều, logarit của 65. Khởi đầu thấp hơn nhiều là lý do để kiểm tra rò rỉ.
+3. **Kỷ luật validation.** Một phần dữ liệu được giữ riêng, được ghi log theo khoảng, bám theo training loss; bài học ghi nhận không có overfitting ở kích thước và ngân sách này. Validation loss thấp hơn nhiều so với training là lý do để kiểm tra cách chia và mã loss, vì 10 phần trăm cuối của văn bản cũng có thể dễ hơn.
+4. **Thực hành huấn luyện.** Gradient clipping, một lịch, seed cố định, và một lượt chạy có thể tái lập.
+5. **Đọc các mẫu.** Dấu xuống dòng, từ cổ và tên người nói viết hoa xuất hiện; văn bản có hình dạng của tập dữ liệu, không phải chính tập dữ liệu.
 
 ### What proves it works
 
-The loss curve from about 4.2 to about 1.5, a validation loss under 2.0 that follows it, and samples that a reader recognizes as the style of the corpus. A write-up that names the failure the candidate hit and fixed counts for more than a lower loss.
+Đường cong loss từ khoảng 4.2 xuống khoảng 1.5, validation loss dưới 2.0 đi theo nó, và các mẫu mà người đọc nhận ra là phong cách của tập dữ liệu. Một bản viết nêu lỗi ứng viên gặp và đã sửa có giá trị hơn một loss thấp hơn.
 
 ### Stretch goals that separate candidates
 
-Replace the learned positions with rotation of the queries and keys and show the validation loss is at least as low. Add a cache of keys and values to the sampling loop and show the 500-character sample runs 5 to 20 times faster. Train to 5,000 steps and report whether validation keeps improving.
+Thay vị trí được học bằng phép quay query và key rồi cho thấy validation loss ít nhất cũng thấp như trước. Thêm cache key và value vào vòng lặp lấy mẫu rồi cho thấy mẫu 500 ký tự chạy nhanh hơn 5 đến 20 lần. Huấn luyện đến 5,000 bước và báo cáo liệu validation có tiếp tục cải thiện hay không.
 
 ## Follow-ups
 
-- **Level 2:** What is the training loss at step zero and how do you know it is right? Expected: about the logarithm of the vocabulary size, about 4.2 for 65 symbols, because a random model is uniform.
-- **Level 3:** How does a reviewer know your causal mask works without reading the code? Expected: a test that changes a later character and asserts the earlier logits are unchanged, and a loss that starts at the random baseline.
-- **Level 3:** Why tie the head to the embedding at this size? Expected: it saves parameters and the lesson records a quality improvement; the head weight is the transpose of the embedding.
-- **Level 4:** A candidate swaps the character tokenizer for a subword vocabulary of about 50,000. What else must change? Expected: the embedding and head grow from 65 rows to about 50,000, the model needs more capacity to use them, and the windows now cover more text per token.
+- **Level 2:** Training loss ở bước không là bao nhiêu và làm sao bạn biết nó đúng? Expected: khoảng logarit của kích thước từ vựng, khoảng 4.2 cho 65 ký hiệu, vì mô hình ngẫu nhiên là đồng đều.
+- **Level 3:** Làm sao người đánh giá biết causal mask của bạn hoạt động mà không đọc mã? Expected: một kiểm thử thay đổi ký tự phía sau và khẳng định logits phía trước không đổi, và loss bắt đầu ở mức cơ sở ngẫu nhiên.
+- **Level 3:** Tại sao dùng chung trọng số head với embedding ở kích thước này? Expected: nó tiết kiệm tham số và bài học ghi nhận cải thiện chất lượng; trọng số head là chuyển vị của embedding.
+- **Level 4:** Một ứng viên thay tokenizer ký tự bằng từ vựng subword khoảng 50,000. Còn điều gì phải thay đổi? Expected: embedding và head tăng từ 65 hàng lên khoảng 50,000, mô hình cần thêm năng lực để dùng chúng, và các cửa sổ giờ bao phủ nhiều văn bản hơn trên mỗi token.
 
 ## Wrong answers
 
-- "Use a bigger model to reach a lower loss within the time budget." A larger model trains slower on a laptop and the lesson's bar is reached at 800K parameters in about 6 minutes.
-- "Skip the validation split; the corpus is tiny." The split is the only check against a leak and the reviewer looks for it first.
-- "Report the sample quality instead of the loss." Samples are evidence, not a metric; the curves and the held-out loss are what a reviewer compares across candidates.
+- "Dùng mô hình lớn hơn để đạt loss thấp hơn trong ngân sách thời gian." Mô hình lớn hơn huấn luyện chậm hơn trên laptop và mức yêu cầu của bài học đạt được ở 800K tham số trong khoảng 6 phút.
+- "Bỏ phần dữ liệu validation; tập dữ liệu rất nhỏ." Phần chia là cách kiểm tra rò rỉ duy nhất và người đánh giá tìm nó đầu tiên.
+- "Báo cáo chất lượng mẫu thay cho loss." Các mẫu là bằng chứng, không phải chỉ số; các đường cong và loss trên dữ liệu giữ riêng là thứ người đánh giá so sánh giữa các ứng viên.
 
 ## Taught in
 
-The [transformer capstone](../../../phases/07-transformers-deep-dive/14-build-a-transformer-capstone/) sets the architecture and the target numbers, and the [block capstone](../../../phases/19-capstone-projects/34-transformer-block/) builds the block it stacks.
+[Capstone transformer](../../../phases/07-transformers-deep-dive/14-build-a-transformer-capstone/) đặt ra kiến trúc và các con số mục tiêu, còn [capstone khối](../../../phases/19-capstone-projects/34-transformer-block/) xây dựng khối mà nó xếp chồng.

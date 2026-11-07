@@ -16,36 +16,36 @@ related: [transformers/query-key-value-lookup]
 updated: 2026-11-03
 ---
 
-An attention module between an encoder and a decoder runs without any exception, but the model's accuracy slowly falls behind the reference implementation. When you print the context tensor, its second dimension is the encoder length instead of the decoder length. Walk me through the diagnosis.
+Một mô-đun attention giữa một encoder và một decoder chạy không có ngoại lệ, nhưng độ chính xác của mô hình từ từ tụt sau triển khai tham chiếu. Khi bạn in tensor ngữ cảnh, chiều thứ hai là độ dài encoder thay vì độ dài decoder. Trình bày cho tôi chẩn đoán.
 
 ## Short answer
 
-A module that runs and still produces the wrong shape is a broadcast bug, and a silent broadcast is the worst attention bug because it degrades accuracy instead of crashing. Write the expected shapes first: scores and weights are batch by decoder length by encoder length, and the context is batch by decoder length by the encoder state width. Then find the matmul whose operands were swapped or not transposed, fix it with one transpose or reshape, and add asserts on the shapes and on the weights summing to one.
+Một mô-đun chạy mà vẫn tạo sai shape là một bug broadcast, và một broadcast im lặng là bug attention tệ nhất vì nó làm giảm độ chính xác thay vì gây sự cố. Viết các shape mong đợi trước: scores và weights là batch nhân độ dài decoder nhân độ dài encoder, và ngữ cảnh là batch nhân độ dài decoder nhân chiều rộng trạng thái encoder. Rồi tìm matmul có các toán hạng bị đổi hoặc không được chuyển vị, sửa bằng một phép chuyển vị hoặc reshape, và thêm các assert trên các shape và trên các trọng số cộng thành một.
 
 ## Full answer
 
 ### The shape table
 
-| Tensor | Shape |
+| Tensor | Hình dạng |
 |---|---|
-| Encoder states H | (T_enc, d_h); d_h is twice the hidden size for a bidirectional encoder |
-| Decoder state s | (d_s,) |
-| Score for one encoder position | scalar |
-| Weights after the softmax | (T_enc,) for one decoder step |
-| Context vector | (d_h,), the same shape as one encoder state |
+| Các trạng thái encoder H | (T_enc, d_h); d_h là hai lần kích thước ẩn cho một encoder hai chiều |
+| Trạng thái decoder s | (d_s,) |
+| Điểm cho một vị trí encoder | vô hướng |
+| Các trọng số sau softmax | (T_enc,) cho một bước decoder |
+| Vector ngữ cảnh | (d_h,), cùng shape như một trạng thái encoder |
 
-Batched over decoder steps, the weights are `(batch, T_dec, T_enc)` and the context is `(batch, T_dec, d_h)`.
+Được batch qua các bước decoder, các trọng số là `(batch, T_dec, T_enc)` và ngữ cảnh là `(batch, T_dec, d_h)`.
 
 ### How the wrong shape appears
 
-The context is `weights @ H`. If the code built the scores as `H @ H.T` because the query tensor was replaced by the encoder states, the shapes still multiply and the result has the encoder length where the decoder length belongs. Nothing raises. Downstream layers broadcast or reshape the tensor and the loss keeps falling, just more slowly.
+Ngữ cảnh là `weights @ H`. Nếu mã xây các điểm như `H @ H.T` vì tensor query bị thay bằng các trạng thái encoder, các shape vẫn nhân được và kết quả có độ dài encoder ở nơi độ dài decoder thuộc về. Không gì phát sinh lỗi. Các lớp phía sau broadcast hoặc reshape tensor và loss tiếp tục giảm, chỉ chậm hơn.
 
 ### The diagnosis steps
 
-1. Print the shape of every intermediate tensor and compare with the table.
-2. Check the score formula. For the additive form the projection vector collapses an attention-dimension vector to a scalar; for the dot form the query and the key must have the same width, and a bidirectional encoder doubles the key width, so the dot form fails unless a matrix W sits between them.
-3. Check which decoder state feeds the query. One classic formulation uses the state before the current step and the other uses the state after it. Mixing them gives subtly wrong gradients that are very hard to see.
-4. Fix with one transpose, reshape or projection. Refuse any fix that only silences the mismatch by broadcasting.
+1. In shape của mọi tensor trung gian và so với bảng.
+2. Kiểm tra công thức điểm. Với dạng cộng, vector chiếu thu một vector chiều attention thành một vô hướng; với dạng tích vô hướng, query và key phải có cùng chiều rộng, và một encoder hai chiều gấp đôi chiều rộng key, nên dạng tích vô hướng thất bại trừ khi một ma trận W nằm giữa chúng.
+3. Kiểm tra trạng thái decoder nào cấp query. Một công thức cổ điển dùng trạng thái trước bước hiện tại và công thức kia dùng trạng thái sau nó. Trộn chúng cho các gradient sai tinh vi rất khó thấy.
+4. Sửa bằng một phép chuyển vị, reshape hoặc phép chiếu. Từ chối mọi cách sửa chỉ làm im lặng sự không khớp bằng broadcast.
 
 ### The regression test
 
@@ -55,21 +55,21 @@ assert weights.shape == (batch, T_dec, T_enc)
 assert weights.sum(dim=-1) is close to 1
 ```
 
-The third line catches a softmax taken over the wrong axis, which is the other silent bug in this layer.
+Dòng thứ ba bắt một softmax được lấy trên sai trục, đó là bug im lặng kia trong lớp này.
 
 ## Follow-ups
 
-- **Level 2:** Which single test catches most attention bugs? Expected: the weights have shape batch by decoder length by encoder length and sum to one along the last axis.
-- **Level 2:** The score matrix comes out square in the encoder dimension. What happened? Expected: the keys were scored against themselves; the query tensor was replaced by the encoder states.
-- **Level 3:** Why does the plain dot score fail with a bidirectional encoder? Expected: the encoder state is twice the hidden width, so it no longer matches the decoder state; use the general form with a matrix between them.
-- **Level 3:** Why is the state convention a gradient problem and not a shape problem? Expected: both states have the same shape, so nothing fails; the gradient flows to the wrong step and the model learns a slightly wrong alignment.
+- **Level 2:** Kiểm thử đơn lẻ nào bắt phần lớn các bug attention? Expected: các trọng số có shape batch nhân độ dài decoder nhân độ dài encoder và cộng thành một dọc trục cuối.
+- **Level 2:** Ma trận điểm ra vuông ở chiều encoder. Điều gì đã xảy ra? Expected: các key được chấm so với chính chúng; tensor query bị thay bằng các trạng thái encoder.
+- **Level 3:** Tại sao điểm tích vô hướng thuần thất bại với một encoder hai chiều? Expected: trạng thái encoder có chiều rộng ẩn gấp đôi, nên không còn khớp trạng thái decoder; dùng dạng tổng quát với một ma trận giữa chúng.
+- **Level 3:** Tại sao quy ước trạng thái là một vấn đề gradient chứ không phải vấn đề shape? Expected: cả hai trạng thái có cùng shape, nên không gì thất bại; gradient chảy tới sai bước và mô hình học một alignment hơi sai.
 
 ## Wrong answers
 
-- "Reshape the output to the expected shape and continue." The values inside are wrong; a reshape only hides the mismatch.
-- "Lower the learning rate; the model is just unstable." The run is not unstable; it is computing the wrong quantity.
-- "Add a mask to fix the shape." A mask changes which positions get weight, not the layout of the tensor.
+- "Reshape đầu ra về shape mong đợi và tiếp tục." Các giá trị bên trong sai; một reshape chỉ giấu sự không khớp.
+- "Hạ learning rate; mô hình chỉ không ổn định." Lần chạy không phải không ổn định; nó đang tính sai đại lượng.
+- "Thêm một mask để sửa shape." Một mask thay đổi các vị trí nào nhận trọng số, không phải bố trí tensor.
 
 ## Taught in
 
-The [attention mechanism lesson](../../../phases/05-nlp-foundations-to-advanced/10-attention-mechanism/) gives the shape table and the shape-debugging prompt, and the [self-attention lesson](../../../phases/07-transformers-deep-dive/02-self-attention-from-scratch/) gives the projections.
+[Bài học cơ chế attention](../../../phases/05-nlp-foundations-to-advanced/10-attention-mechanism/) cung cấp bảng shape và prompt gỡ lỗi shape, và [bài học self-attention](../../../phases/07-transformers-deep-dive/02-self-attention-from-scratch/) cung cấp các phép chiếu.

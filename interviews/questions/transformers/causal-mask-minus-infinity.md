@@ -16,17 +16,17 @@ related: []
 updated: 2026-11-03
 ---
 
-A decoder must not read tokens that come after the current position. A teammate proposes to run the softmax first and then set the weights of later positions to zero. Why is that wrong, and where does the usual triangle of negative infinity really come from?
+Một decoder không được đọc các token đứng sau vị trí hiện tại. Một đồng đội đề xuất chạy softmax trước rồi đặt trọng số của các vị trí phía sau về không. Tại sao điều đó sai, và tam giác âm vô cực thông thường thực sự đến từ đâu?
 
 ## Short answer
 
-Zeroing weights after the softmax leaves rows that no longer sum to one, and the later tokens already shaped the normalization. The mask adds minus infinity to the scores before the softmax, so the exponential gives an exact zero there and each row is a distribution over the past alone. The triangle is not a patch on attention: a causal running average is a lower-triangular row-normalized matrix, and the mask is that same zero pattern written in the input domain of the softmax.
+Đặt trọng số về không sau softmax để lại các hàng không còn có tổng bằng một, và các token phía sau đã định hình phép chuẩn hóa. Mask cộng âm vô cực vào các điểm số trước softmax, nên hàm mũ cho giá trị không chính xác tại đó và mỗi hàng là một phân phối chỉ trên quá khứ. Tam giác không phải một bản vá cho attention: trung bình trượt nhân quả là một ma trận tam giác dưới được chuẩn hóa theo hàng, và mask là cùng mẫu giá trị không đó được viết trong miền đầu vào của softmax.
 
 ## Full answer
 
 ### Three stages, one invariant
 
-Start with the simplest causal summary: position i becomes the mean of positions 0 to i. As a matrix:
+Bắt đầu với bản tóm tắt nhân quả đơn giản nhất: vị trí i trở thành trung bình của các vị trí 0 đến i. Dưới dạng ma trận:
 
 ```python
 A = np.tril(np.ones((n, n)))
@@ -34,42 +34,42 @@ A = A / A.sum(axis=1, keepdims=True)
 out = A @ X
 ```
 
-The zeros above the diagonal are the causality. Nothing was masked; the future was never in the sum.
+Các giá trị không phía trên đường chéo chính là tính nhân quả. Không có gì bị che; tương lai chưa bao giờ có trong tổng.
 
-Now replace the ones with learned scores S. The rows no longer sum to one, so normalize each row with a softmax. A softmax never outputs an exact zero, so the future entries must enter as minus infinity, because `exp(-inf) = 0`:
+Bây giờ thay các giá trị một bằng điểm số S được học. Các hàng không còn có tổng bằng một, nên chuẩn hóa từng hàng bằng softmax. Softmax không bao giờ xuất ra giá trị không chính xác, nên các phần tử tương lai phải đi vào dưới dạng âm vô cực, vì `exp(-inf) = 0`:
 
 ```python
 S = S + np.triu(np.full((n, n), -np.inf), k=1)
 A = softmax(S, axis=1)
 ```
 
-Finally let the scores depend on the tokens: `S = Q @ K.T / sqrt(d_k)`. Mask, softmax, matmul. The mask survived from the average; it was never added to attention.
+Cuối cùng để điểm số phụ thuộc vào các token: `S = Q @ K.T / sqrt(d_k)`. Mask, softmax, matmul. Mask được giữ lại từ phép lấy trung bình; nó chưa bao giờ được thêm vào attention.
 
 ### Why minus infinity and not zero
 
-A score of zero still gets a weight of `exp(0) = 1` before normalization. Only minus infinity gives zero weight.
+Điểm số bằng không vẫn nhận trọng số `exp(0) = 1` trước chuẩn hóa. Chỉ âm vô cực mới cho trọng số bằng không.
 
 ### What it buys at training time
 
-With the mask in place one forward pass over a sequence of N tokens gives N next-token predictions, each of which saw only its past. That is why training is parallel along the sequence. Without the mask the model reads its own target and the loss collapses while the model learns nothing useful.
+Khi có mask, một lượt truyền xuôi trên chuỗi N token cho N dự đoán token tiếp theo, mỗi dự đoán chỉ thấy quá khứ của nó. Đó là lý do huấn luyện song song dọc theo chuỗi. Không có mask, mô hình đọc chính mục tiêu của nó và loss sụp xuống trong khi mô hình không học được gì hữu ích.
 
 ### How a production block stores it
 
-Register the mask as a buffer at construction, sized to the maximum context, and slice the top-left (T, T) corner at forward time. It then lives on the same device as the weights and never enters the gradient graph. Rebuilding it on each call turns the mask into an allocator hot spot at long context.
+Đăng ký mask làm buffer khi khởi tạo, có kích thước bằng ngữ cảnh tối đa, và cắt góc trên bên trái (T, T) khi truyền xuôi. Khi đó nó nằm trên cùng thiết bị với trọng số và không bao giờ đi vào đồ thị gradient. Tạo lại nó ở mỗi lần gọi biến mask thành điểm nóng của bộ cấp phát khi ngữ cảnh dài.
 
 ## Follow-ups
 
-- **Level 2:** Why not multiply the future scores by zero? Expected: a zero score still receives weight `exp(0)` before normalization, so the future still contributes.
-- **Level 2:** Where does the mask live in a real block and why? Expected: a registered buffer at the maximum context length, sliced per forward pass, so it sits on the right device and is not allocated on every call.
-- **Level 3:** Does an encoder need this triangle? Expected: no, an encoder is bidirectional; it needs a padding mask, which also uses minus infinity but follows the batch, not the diagonal.
-- **Level 3:** What does the mask have to do with parallel training? Expected: it lets one pass produce every next-token prediction at once while each prediction sees only its past, so the N losses are valid together.
+- **Level 2:** Tại sao không nhân các điểm số tương lai với không? Expected: điểm số bằng không vẫn nhận trọng số `exp(0)` trước chuẩn hóa, nên tương lai vẫn đóng góp.
+- **Level 2:** Mask nằm ở đâu trong một khối thực và tại sao? Expected: một buffer được đăng ký ở độ dài ngữ cảnh tối đa, được cắt cho mỗi lượt truyền xuôi, để nó nằm trên đúng thiết bị và không được cấp phát ở mọi lần gọi.
+- **Level 3:** Encoder có cần tam giác này không? Expected: không, encoder là hai chiều; nó cần padding mask, cũng dùng âm vô cực nhưng theo batch, không theo đường chéo.
+- **Level 3:** Mask liên quan gì đến huấn luyện song song? Expected: nó cho phép một lượt tạo mọi dự đoán token tiếp theo cùng lúc trong khi mỗi dự đoán chỉ thấy quá khứ của nó, nên N loss cùng hợp lệ.
 
 ## Wrong answers
 
-- "Set the future scores to zero." Zero is a legal score and still earns weight after the exponential; only minus infinity gives a zero weight.
-- "The mask is a training-only trick, so serving can drop it." The prompt is processed in one pass at serving time, and without the mask the prompt tokens would read their own future.
-- "Encoders also need the triangle." The encoder sees both sides by design; the triangle is what makes a decoder a decoder.
+- "Đặt các điểm số tương lai về không." Không là một điểm số hợp lệ và vẫn nhận trọng số sau hàm mũ; chỉ âm vô cực mới cho trọng số bằng không.
+- "Mask là thủ thuật chỉ dành cho huấn luyện, nên khi phục vụ có thể bỏ nó." Prompt được xử lý trong một lượt khi phục vụ, và không có mask thì các token trong prompt sẽ đọc tương lai của chính chúng.
+- "Encoder cũng cần tam giác." Encoder nhìn cả hai phía theo thiết kế; tam giác là thứ làm cho decoder trở thành decoder.
 
 ## Taught in
 
-The [causal language modeling lesson](../../../phases/07-transformers-deep-dive/07-gpt-causal-language-modeling/) derives the triangle from the prefix average, and the [attention capstone](../../../phases/19-capstone-projects/33-multihead-self-attention/) and the [block capstone](../../../phases/19-capstone-projects/34-transformer-block/) register it as a buffer.
+[Bài học về mô hình hóa ngôn ngữ nhân quả](../../../phases/07-transformers-deep-dive/07-gpt-causal-language-modeling/) suy ra tam giác từ trung bình tiền tố, còn [capstone attention](../../../phases/19-capstone-projects/33-multihead-self-attention/) và [capstone khối](../../../phases/19-capstone-projects/34-transformer-block/) đăng ký nó làm buffer.

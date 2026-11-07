@@ -16,17 +16,17 @@ related: [transformers/permutation-blind-attention]
 updated: 2026-11-03
 ---
 
-The rotary scheme rotates every query and every key by an angle that is proportional to the token's absolute position. Yet everyone says it encodes relative position. Resolve the apparent contradiction, and tell me the one unit test you would write to prove the property.
+Cơ chế rotary quay mọi query và mọi key theo góc tỷ lệ với vị trí tuyệt đối của token. Tuy nhiên mọi người đều nói nó mã hóa vị trí tương đối. Giải quyết mâu thuẫn bề ngoài đó, và nói một unit test bạn sẽ viết để chứng minh thuộc tính này.
 
 ## Short answer
 
-The rotation acts on pairs of coordinates with the angle `pos * theta_i`. When a query from position m meets a key from position n, the dot product on each pair picks up `cos((m - n) * theta_i)`, so only the gap survives and the two absolute positions cancel. The test: rotate two random vectors at positions (a, b) and again at (a + k, b + k), then assert that the two dot products agree within floating-point error.
+Phép quay tác động lên các cặp tọa độ với góc `pos * theta_i`. Khi query từ vị trí m gặp key từ vị trí n, tích vô hướng trên mỗi cặp nhận `cos((m - n) * theta_i)`, nên chỉ khoảng cách còn lại và hai vị trí tuyệt đối triệt tiêu. Kiểm thử: quay hai vector ngẫu nhiên ở các vị trí (a, b) rồi lại ở (a + k, b + k), sau đó khẳng định hai tích vô hướng khớp trong sai số dấu phẩy động.
 
 ## Full answer
 
 ### The rotation
 
-For each pair of dimensions (2i, 2i + 1) in a head of width `d_head`:
+Với mỗi cặp chiều (2i, 2i + 1) trong head có chiều rộng `d_head`:
 
 ```python
 def apply_rope(x, pos, base=10000):
@@ -41,19 +41,19 @@ def apply_rope(x, pos, base=10000):
     return out
 ```
 
-Each pair is a point in a plane, and the rotation turns it by `pos * theta_i`. Low values of i turn fast and high values turn slowly, because `theta_i = base ** (-2i / d_head)`.
+Mỗi cặp là một điểm trên mặt phẳng, và phép quay xoay nó theo `pos * theta_i`. Các giá trị i thấp quay nhanh và giá trị cao quay chậm, vì `theta_i = base ** (-2i / d_head)`.
 
 ### Why the dot product only sees the gap
 
-A rotation by angle alpha followed by the dot product with a vector rotated by angle beta equals the dot product of the originals rotated by `alpha - beta`. Apply the same function to Q at position m and to K at position n, and every pair contributes a factor that depends on `(m - n) * theta_i`. The score depends on the distance even though the rotation was keyed off the absolute position. Attention gets relative position for free, with no table and no parameters.
+Phép quay góc alpha được theo sau bởi tích vô hướng với vector quay góc beta bằng tích vô hướng của các vector gốc được quay theo `alpha - beta`. Áp dụng cùng hàm cho Q ở vị trí m và K ở vị trí n, và mỗi cặp đóng góp hệ số phụ thuộc vào `(m - n) * theta_i`. Điểm số phụ thuộc vào khoảng cách dù phép quay dựa trên vị trí tuyệt đối. Attention nhận vị trí tương đối không tốn thêm, không có bảng và không có tham số.
 
 ### Where it applies
 
-The rotation applies to Q and K after their projection and before the score matmul. It never touches V, because the values carry content that should not be rotated by position, and it never touches the input embedding.
+Phép quay áp dụng lên Q và K sau phép chiếu và trước matmul điểm số. Nó không bao giờ chạm V, vì các value mang nội dung không nên bị quay theo vị trí, và không bao giờ chạm input embedding.
 
 ### Why it won
 
-It slots into attention without a change to the architecture. Its `base` is a clean knob: scale it and the model reaches longer contexts, which is how one model family reached a 128K context from 8K with scaling schemes such as NTK-aware interpolation and YaRN.
+Nó lắp vào attention mà không thay đổi kiến trúc. `base` của nó là nút điều chỉnh rõ ràng: điều chỉnh nó và mô hình đạt ngữ cảnh dài hơn, là cách một họ mô hình đạt ngữ cảnh 128K từ 8K bằng các cơ chế scaling như nội suy NTK-aware và YaRN.
 
 ### The unit test
 
@@ -64,21 +64,21 @@ s2 = dot(apply_rope(a, pos_a + k), apply_rope(b, pos_b + k))
 assert abs(s1 - s2) < tolerance
 ```
 
-The property is the whole point of the method. If the test fails, the rotation was applied to only one side, or the two sides use different pairs or angles. A pass does not prove the pairing or the angles match the reference: a consistent wrong pairing passes too, so also compare one rotated vector with a value computed by hand.
+Thuộc tính là toàn bộ mục đích của phương pháp. Nếu kiểm thử thất bại, phép quay được áp dụng chỉ một phía, hoặc hai phía dùng các cặp hay góc khác nhau. Đạt kiểm thử không chứng minh cách ghép cặp hoặc các góc khớp tham chiếu: cách ghép cặp sai nhất quán cũng đạt, nên cũng so sánh một vector đã quay với giá trị tính tay.
 
 ## Follow-ups
 
-- **Level 2:** Why rotate Q and K but not V? Expected: position should shape the match between tokens, not the content that is returned once a token is picked.
-- **Level 3:** What happens at a position the model never saw in training? Expected: the fast-turning pairs reach angles the model never learned to read; scaling the base or interpolating positions brings them back into the trained range.
-- **Level 3:** How does linear-bias attention get relative position without any rotation? Expected: it adds a penalty proportional to `|i - j|` to the scores, one slope per head.
-- **Level 4:** Why does increasing the base help a longer context? Expected: a larger base lowers every frequency except the first pair, which always turns at one radian per position, so the high-frequency pairs are not squeezed into unseen angles when the context grows; the NTK-aware rule rescales the base by the extension factor raised to `d / (d - 2)`.
+- **Level 2:** Tại sao quay Q và K mà không quay V? Expected: vị trí nên định hình sự khớp giữa các token, không phải nội dung được trả về khi token được chọn.
+- **Level 3:** Điều gì xảy ra ở vị trí mô hình chưa bao giờ thấy trong huấn luyện? Expected: các cặp quay nhanh đạt các góc mô hình chưa bao giờ học cách đọc; điều chỉnh cơ số hoặc nội suy vị trí đưa chúng trở lại khoảng đã huấn luyện.
+- **Level 3:** Linear-bias attention có vị trí tương đối mà không có phép quay bằng cách nào? Expected: nó cộng hình phạt tỷ lệ với `|i - j|` vào điểm số, một độ dốc mỗi head.
+- **Level 4:** Tại sao tăng cơ số giúp ngữ cảnh dài hơn? Expected: cơ số lớn hơn hạ mọi tần số trừ cặp đầu tiên, luôn quay một radian mỗi vị trí, nên các cặp tần số cao không bị ép vào góc chưa thấy khi ngữ cảnh tăng; quy tắc NTK-aware điều chỉnh cơ số theo hệ số mở rộng lũy thừa `d / (d - 2)`.
 
 ## Wrong answers
 
-- "RoPE adds a position vector to the embedding." It rotates the queries and the keys inside attention; the embedding is untouched.
-- "RoPE needs a table of size maximum length times width." The angles come from a formula; there is no table and no parameter.
-- "Rotate the keys only and save half the work." Then the score depends on the absolute position of the key, and the relative property is gone.
+- "RoPE thêm vector vị trí vào embedding." Nó quay các query và key bên trong attention; embedding không bị chạm.
+- "RoPE cần bảng có kích thước độ dài tối đa nhân chiều rộng." Các góc đến từ công thức; không có bảng và không có tham số.
+- "Chỉ quay key và tiết kiệm nửa công việc." Khi đó điểm số phụ thuộc vào vị trí tuyệt đối của key, và thuộc tính tương đối mất đi.
 
 ## Taught in
 
-The [positional encoding lesson](../../../phases/07-transformers-deep-dive/04-positional-encoding/) derives the rotation and gives the relative-distance check as a build step.
+[Bài học về mã hóa vị trí](../../../phases/07-transformers-deep-dive/04-positional-encoding/) suy ra phép quay và đưa phép kiểm tra khoảng cách tương đối làm một bước xây dựng.
