@@ -16,7 +16,7 @@ related: [protocols/two-error-layers]
 updated: 2026-11-03
 ---
 
-A client collects the tool list of an MCP server with this loop:
+Một client thu thập danh sách công cụ của một MCP server bằng vòng lặp này:
 
 ```python
 tools = []
@@ -29,11 +29,11 @@ while True:
     cursor = result["nextCursor"]
 ```
 
-Against one server the client sees only the first page, and the trace shows a single request. Read the code and find the bug. Then name two more things a client must never do with a cursor.
+Với một server, client chỉ thấy trang đầu tiên, và trace cho thấy một yêu cầu duy nhất. Đọc mã và tìm lỗi. Sau đó nêu thêm hai điều mà client không bao giờ được làm với cursor.
 
 ## Short answer
 
-The loop tests the cursor for truthiness, and an empty string is a valid cursor. The server returned `""` after its first page, the test read it as false, and the loop stopped before the second request. Stop only when `nextCursor` is absent or `null`, and send the value back exactly as received. A client must also never decode a cursor or compare two cursors for order.
+Vòng lặp kiểm tra tính truthy của cursor, và một chuỗi trống là một cursor hợp lệ. Server trả về `""` sau trang đầu, phép kiểm tra đọc nó là false, và vòng lặp dừng trước yêu cầu thứ hai. Chỉ dừng khi `nextCursor` vắng mặt hoặc `null`, và gửi lại giá trị chính xác như đã nhận. Client cũng không bao giờ được giải mã một cursor hoặc so sánh hai cursor về thứ tự.
 
 ## Full answer
 
@@ -45,29 +45,29 @@ if result.get("nextCursor") is None:
 cursor = result["nextCursor"]
 ```
 
-The server chooses the page size and the cursor format. The sample server in the lesson deliberately returns `""` after its first page, and the correct trace is one request with no cursor followed by one request with the cursor `""`.
+Server chọn kích thước trang và định dạng cursor. Server mẫu trong bài học cố ý trả về `""` sau trang đầu tiên, và trace đúng là một yêu cầu không có cursor theo sau bởi một yêu cầu với cursor `""`.
 
 ### Cursors are opaque
 
-Do not decode a cursor, increment it, compare it with a prior cursor, or infer a page number from it. A server may sign a cursor, bind it to a catalog version, or map it to private state. That is the server's detail and may change without notice. An invalid cursor returns JSON-RPC invalid params, `-32602`.
+Không giải mã một cursor, tăng nó, so sánh nó với một cursor trước, hoặc suy ra số trang từ nó. Một server có thể ký một cursor, gắn nó với một phiên bản catalog, hoặc ánh xạ nó tới trạng thái riêng. Đó là chi tiết của server và có thể thay đổi mà không báo trước. Một cursor không hợp lệ trả về invalid params JSON-RPC, `-32602`.
 
 ### Why the bug matters
 
-The tool list is the first gate of the contract pipeline: discover, admit, invoke, execute, consume. A client that drops the last pages exposes a partial catalog to the model and may miss the descriptor it was asked to admit or reject. Discovery must be deterministic and complete before admission starts.
+Danh sách công cụ là cổng đầu tiên của pipeline hợp đồng: khám phá, tiếp nhận, gọi, thực thi, tiêu thụ. Một client bỏ các trang cuối cung cấp một catalog không đầy đủ cho mô hình và có thể bỏ sót descriptor mà nó được yêu cầu tiếp nhận hoặc từ chối. Discovery phải xác định và hoàn chỉnh trước khi việc tiếp nhận bắt đầu.
 
 ## Follow-ups
 
-- **Level 2:** A page arrives with `nextCursor` present and an empty `tools` array. Do you continue? Expected: yes; continue whenever `nextCursor` is present and not `null`.
-- **Level 2:** A cursor looks like base64. May the client decode it to skip ahead? Expected: no; the value is opaque, and the server may sign it or bind it to a catalog version.
-- **Level 3:** What should a server put in a cursor so that a client cannot misuse it? Expected: a signed or server-mapped token, bound to a catalog version where needed, with an invalid or stale value rejected as `-32602`.
-- **Level 4:** What evidence proves complete paginated discovery for a gateway? Expected: the page trace, the admitted and rejected descriptor sets, and a check that repeated calls give the same logical order.
+- **Level 2:** Một trang đến với `nextCursor` hiện diện và một mảng `tools` trống. Bạn có tiếp tục không? Expected: có; tiếp tục bất cứ khi nào `nextCursor` hiện diện và không phải `null`.
+- **Level 2:** Một cursor trông giống base64. Client có được giải mã nó để nhảy về phía trước không? Expected: không; giá trị là mờ, và server có thể ký nó hoặc gắn nó với một phiên bản catalog.
+- **Level 3:** Server nên đặt gì trong một cursor để client không thể dùng sai nó? Expected: một token được ký hoặc được ánh xạ ở server, gắn với một phiên bản catalog khi cần, với một giá trị không hợp lệ hoặc cũ bị từ chối bằng `-32602`.
+- **Level 4:** Bằng chứng nào chứng minh discovery phân trang hoàn chỉnh cho một gateway? Expected: trace các trang, các tập descriptor được tiếp nhận và bị từ chối, và một phép kiểm tra rằng các lệnh gọi lặp lại cho cùng thứ tự logic.
 
 ## Wrong answers
 
-- "An empty string means no more pages." It is a valid cursor. Only absence or `null` ends the loop.
-- "Parse the cursor to compute the page number." The format belongs to the server and may be signed or private state.
-- "Compare the new cursor with the old one to detect a loop." Clients must not compare cursors for ordering.
+- "Một chuỗi trống nghĩa là không còn trang." Nó là một cursor hợp lệ. Chỉ sự vắng mặt hoặc `null` kết thúc vòng lặp.
+- "Parse cursor để tính số trang." Định dạng thuộc về server và có thể được ký hoặc là trạng thái riêng.
+- "So sánh cursor mới với cursor cũ để phát hiện một vòng lặp." Các client không được so sánh cursor về thứ tự.
 
 ## Taught in
 
-The [tool contracts lesson](../../../phases/13-tools-and-protocols/28-mcp-tool-contracts-and-content/) shows the two-request cursor trace and the opaque-cursor rule.
+[Bài học về hợp đồng công cụ](../../../phases/13-tools-and-protocols/28-mcp-tool-contracts-and-content/) cho thấy trace cursor hai yêu cầu và quy tắc cursor mờ.

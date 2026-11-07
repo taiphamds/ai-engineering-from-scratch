@@ -16,69 +16,69 @@ related: [protocols/descriptor-pin-rug-pull, protocols/empty-cursor-stops-early,
 updated: 2026-11-03
 ---
 
-Take-home. Build the admission module of an MCP gateway. It takes the `tools/list` results of several servers and produces an admitted set, a rejected set and an audit trail. It must page through every list completely, pin each descriptor, qualify names before it merges, reject a descriptor that mirrors a sensitive parameter into a header or places `x-mcp-header` anywhere but a direct top-level property, validate structured results against output schemas on the invoke path, and emit header audit events that carry names and never values. Describe your design, the tests you ship, and the evidence a reviewer should expect.
+Bài làm ở nhà. Xây dựng mô-đun tiếp nhận của một MCP gateway. Nó nhận các kết quả `tools/list` của nhiều server và tạo một tập được tiếp nhận, một tập bị từ chối và một dấu vết kiểm toán. Nó phải duyệt hết mọi danh sách qua phân trang, ghim từng descriptor, đặt tên đầy đủ trước khi gộp, từ chối một descriptor phản chiếu một tham số nhạy cảm vào một header hoặc đặt `x-mcp-header` ở bất kỳ đâu ngoài một thuộc tính trực tiếp cấp cao nhất, xác thực các kết quả có cấu trúc theo các schema đầu ra trên đường gọi, và phát ra các sự kiện kiểm toán header mang tên và không bao giờ mang giá trị. Mô tả thiết kế của bạn, các kiểm thử bạn cung cấp, và bằng chứng mà một người xem xét nên mong đợi.
 
 ## Short answer
 
-Run the five gates in order and keep them separate. Discover with an opaque cursor loop that stops only when `nextCursor` is absent or `null`; admit each descriptor against a canonical whole-descriptor digest, a full schema-tree walk for `x-mcp-header`, and a sensitive-name policy; qualify every tool as `<server>.<tool>` before the merge; and validate `structuredContent` against the published output schema before anything reaches the model. Tests prove that one rejected descriptor does not block valid tools, that an empty-string cursor continues, that an annotation under `oneOf`, `items` or `$ref` is rejected, and that a changed `inputSchema` fails the pin. The evidence is the page trace, the admitted and rejected sets, the digest ledger and redacted audit events.
+Chạy năm cổng theo thứ tự và giữ chúng tách biệt. Khám phá bằng một vòng lặp cursor mờ chỉ dừng khi `nextCursor` vắng mặt hoặc `null`; tiếp nhận từng descriptor theo một digest chuẩn hóa của toàn bộ descriptor, một lần duyệt toàn cây schema cho `x-mcp-header`, và một chính sách tên nhạy cảm; đặt tên đầy đủ mọi công cụ thành `<server>.<tool>` trước khi gộp; và xác thực `structuredContent` theo schema đầu ra đã công bố trước khi bất cứ thứ gì đến mô hình. Các kiểm thử chứng minh rằng một descriptor bị từ chối không chặn các công cụ hợp lệ, rằng một cursor chuỗi trống tiếp tục, rằng một annotation dưới `oneOf`, `items` hoặc `$ref` bị từ chối, và rằng một `inputSchema` thay đổi không vượt qua ghim. Bằng chứng là trace các trang, các tập được tiếp nhận và bị từ chối, sổ digest và các sự kiện kiểm toán đã che dữ liệu.
 
 ## Full answer
 
 ### Modules
 
-| Module | Responsibility |
+| Mô-đun | Trách nhiệm |
 |---|---|
-| `discover` | opaque cursor loop per server; records every request as a page trace |
-| `admit` | canonical digest, schema walk, header policy, scanner tripwire |
-| `namespace` | qualified names, backend mapping, collision policy |
-| `consume` | argument validation before invoke, result validation before model use |
-| `audit` | header names, rejection categories, digests; no values |
+| `discover` | vòng lặp cursor mờ theo từng server; ghi lại mọi yêu cầu thành một trace các trang |
+| `admit` | digest chuẩn hóa, duyệt schema, chính sách header, dây báo động bộ quét |
+| `namespace` | tên đầy đủ, ánh xạ backend, chính sách va chạm |
+| `consume` | xác thực đối số trước khi gọi, xác thực kết quả trước khi mô hình dùng |
+| `audit` | tên header, các danh mục từ chối, digest; không có giá trị |
 
 ### Admission rules
 
-1. Canonicalize the descriptor with sorted keys and compact separators, hash it, and store the digest under the qualified name with publisher evidence and approval time. An unknown key is quarantined. A changed digest is a rug pull and is quarantined until re-approved.
-2. Walk the entire `inputSchema` tree. `x-mcp-header` is legal only on a direct member of `inputSchema.properties`, with type string, integer or boolean, a non-empty token header name unique without regard to case, and integer values inside the JavaScript safe range. Reject it under a nested object, a `oneOf` branch, `items`, a `$ref` target or any output schema.
-3. Reject a descriptor whose mirrored property is named `password`, `secret`, `token`, `api_key` or `authorization`.
-4. Run the static scanner for role tags, instruction overrides, concealment, secret access and obscured destinations. Treat a hit as review evidence, not as a verdict.
-5. A descriptor without an input schema object is rejected; a tool with no arguments declares `{"type": "object", "additionalProperties": false}`.
-6. Store the verified publisher namespace and the live `server/discover` identity with the approved record. On a later refresh, quarantine a server whose namespace or live identity differs, even when every descriptor digest still matches.
+1. Chuẩn hóa descriptor với các khóa được sắp xếp và các dấu phân cách gọn, băm nó, và lưu digest dưới tên đầy đủ với bằng chứng nhà phát hành và thời gian phê duyệt. Một khóa không xác định bị cách ly. Một digest thay đổi là một rug pull và bị cách ly cho đến khi được phê duyệt lại.
+2. Duyệt toàn bộ cây `inputSchema`. `x-mcp-header` chỉ hợp lệ trên một thành viên trực tiếp của `inputSchema.properties`, với kiểu string, integer hoặc boolean, một tên header token không trống duy nhất không phân biệt hoa thường, và các giá trị số nguyên trong khoảng an toàn của JavaScript. Từ chối nó dưới một đối tượng lồng nhau, một nhánh `oneOf`, `items`, một đích `$ref` hoặc bất kỳ schema đầu ra nào.
+3. Từ chối một descriptor có thuộc tính được phản chiếu tên là `password`, `secret`, `token`, `api_key` hoặc `authorization`.
+4. Chạy bộ quét tĩnh cho tag vai trò, ghi đè chỉ dẫn, che giấu, truy cập bí mật và các đích bị làm mờ. Xem một lần phát hiện là bằng chứng để xem xét, không phải một phán quyết.
+5. Một descriptor không có đối tượng schema đầu vào bị từ chối; một công cụ không có đối số khai báo `{"type": "object", "additionalProperties": false}`.
+6. Lưu namespace nhà phát hành đã xác minh và danh tính `server/discover` trực tiếp cùng bản ghi đã phê duyệt. Ở một lần làm mới sau đó, cách ly một server có namespace hoặc danh tính trực tiếp khác, ngay cả khi mọi digest descriptor vẫn khớp.
 
 ### Namespacing and merge
 
-Qualified names are the public gateway names. Record the backend mapping separately. Sort before merging so local order does not depend on process timing. Never let discovery order decide a collision.
+Các tên đầy đủ là các tên gateway công khai. Ghi ánh xạ backend riêng. Sắp xếp trước khi gộp để thứ tự cục bộ không phụ thuộc vào thời điểm tiến trình. Không bao giờ để thứ tự discovery quyết định một va chạm.
 
 ### The invoke path
 
-Validate arguments before the call. Encode mirrored header values as plain visible ASCII or the exact base64 UTF-8 sentinel. Validate `structuredContent` as any JSON value against the output schema, including results with `isError: true`. Audit the header name and the encoding decision, never the value.
+Xác thực các đối số trước lệnh gọi. Mã hóa các giá trị header được phản chiếu thành ASCII hiển thị thuần hoặc sentinel base64 UTF-8 chính xác. Xác thực `structuredContent` như bất kỳ giá trị JSON nào theo schema đầu ra, bao gồm các kết quả với `isError: true`. Kiểm toán tên header và quyết định mã hóa, không bao giờ kiểm toán giá trị.
 
 ### Tests to ship
 
-- A two-page list whose first page returns `""` as the cursor produces two requests.
-- One unsafe descriptor is rejected and every valid descriptor on the same server is admitted.
-- An annotation under `oneOf`, `items`, a nested `properties` or a `$ref` definition is rejected even when that branch is never used.
-- Changing `inputSchema` without changing the description fails the pin.
-- An unchanged descriptor behind a changed `server/discover` identity is quarantined.
-- Two servers that both expose `search` become two qualified names and two digests.
-- An array result passes an array output schema and an object fails it.
-- Header audit events contain names and no values, checked by a test that greps for the value.
+- Một danh sách hai trang mà trang đầu trả về `""` làm cursor tạo ra hai yêu cầu.
+- Một descriptor không an toàn bị từ chối và mọi descriptor hợp lệ trên cùng server được tiếp nhận.
+- Một annotation dưới `oneOf`, `items`, một `properties` lồng nhau hoặc một định nghĩa `$ref` bị từ chối ngay cả khi nhánh đó không bao giờ được dùng.
+- Thay đổi `inputSchema` mà không thay đổi mô tả không vượt qua ghim.
+- Một descriptor không thay đổi phía sau một danh tính `server/discover` đã thay đổi bị cách ly.
+- Hai server đều cung cấp `search` trở thành hai tên đầy đủ và hai digest.
+- Một kết quả mảng vượt qua một schema đầu ra mảng và một đối tượng không vượt qua nó.
+- Các sự kiện kiểm toán header chứa tên và không có giá trị, được kiểm tra bằng một kiểm thử tìm giá trị bằng grep.
 
 ### Evidence for the reviewer
 
-The capstone grades admission evidence: verified publisher namespace and live `server/discover` identity, deterministic and complete paginated discovery, descriptor validation before model exposure, validated structured output, and routing metadata that preserves authorization boundaries. Capture the descriptor, the page trace, the admitted set, the rejected set with a reason per descriptor, the digest ledger and one validated result. Do not claim gateway compatibility from a successful `tools/call` alone.
+Capstone chấm bằng chứng tiếp nhận: namespace nhà phát hành đã xác minh và danh tính `server/discover` trực tiếp, discovery phân trang xác định và hoàn chỉnh, xác thực descriptor trước khi cung cấp cho mô hình, đầu ra có cấu trúc đã xác thực, và metadata định tuyến giữ nguyên các ranh giới ủy quyền. Thu thập descriptor, trace các trang, tập được tiếp nhận, tập bị từ chối với một lý do cho từng descriptor, sổ digest và một kết quả đã xác thực. Không tuyên bố tương thích gateway chỉ từ một `tools/call` thành công.
 
 ## Follow-ups
 
-- **Level 3:** Why not stop pagination when a page's `tools` array is empty? Expected: emptiness is the server's choice; continue while `nextCursor` is present and not `null`.
-- **Level 4:** Two servers return byte-identical descriptors under different names. What does the ledger hold? Expected: two qualified keys with two digests; the same digest under different keys is fine, and a different digest under the same key is the rug pull.
-- **Level 4:** The scanner flags a legitimate warning sentence in a description. What happens? Expected: review, not automatic rejection; the scanner is a tripwire and a human approves the full descriptor.
-- **Level 4:** A descriptor passes every check and is poisoned from day one. What catches it? Expected: nothing automatic; the design needs a review queue before the first pin, because hash equality proves stability and not safety.
+- **Level 3:** Tại sao không dừng phân trang khi mảng `tools` của một trang trống? Expected: sự trống là lựa chọn của server; tiếp tục trong khi `nextCursor` hiện diện và không phải `null`.
+- **Level 4:** Hai server trả về các descriptor giống hệt từng byte dưới các tên khác nhau. Sổ theo dõi giữ gì? Expected: hai khóa đầy đủ với hai digest; cùng digest dưới các khóa khác nhau là ổn, và một digest khác dưới cùng khóa là rug pull.
+- **Level 4:** Bộ quét đánh dấu một câu cảnh báo hợp lệ trong một mô tả. Điều gì xảy ra? Expected: xem xét, không phải từ chối tự động; bộ quét là dây báo động và một người phê duyệt toàn bộ descriptor.
+- **Level 4:** Một descriptor vượt qua mọi kiểm tra và đã bị đầu độc từ ngày đầu. Điều gì bắt được nó? Expected: không có gì tự động; thiết kế cần một hàng đợi xem xét trước lần ghim đầu tiên, vì hash bằng nhau chứng minh tính ổn định chứ không phải an toàn.
 
 ## Wrong answers
 
-- "Hash the description; schemas rarely change." Schema and annotation changes are the rug pull; pin the whole canonical descriptor.
-- "Trust the server's deterministic order and skip the sort." Local registry order must not depend on process startup timing; sort before you merge.
-- "Log header values to make debugging easier." A mirrored value can be routing data or, in a bad descriptor, a secret; audit names and rejection categories only.
+- "Băm mô tả; các schema hiếm khi thay đổi." Các thay đổi schema và annotation là rug pull; ghim toàn bộ descriptor chuẩn hóa.
+- "Tin thứ tự xác định của server và bỏ qua sắp xếp." Thứ tự registry cục bộ không được phụ thuộc vào thời điểm khởi động tiến trình; sắp xếp trước khi bạn gộp.
+- "Ghi nhật ký các giá trị header để gỡ lỗi dễ hơn." Một giá trị được phản chiếu có thể là dữ liệu định tuyến hoặc, trong một descriptor xấu, một bí mật; chỉ kiểm toán tên và các danh mục từ chối.
 
 ## Taught in
 
-The [tool poisoning lesson](../../../phases/13-tools-and-protocols/15-mcp-security-tool-poisoning/) gives the pin and the scanner, the [tool contracts lesson](../../../phases/13-tools-and-protocols/28-mcp-tool-contracts-and-content/) gives the header and cursor rules, and the [capstone](../../../phases/19-capstone-projects/13-mcp-server-with-registry/) names the admission evidence.
+[Bài học về tool poisoning](../../../phases/13-tools-and-protocols/15-mcp-security-tool-poisoning/) cung cấp ghim và bộ quét, [bài học về hợp đồng công cụ](../../../phases/13-tools-and-protocols/28-mcp-tool-contracts-and-content/) cung cấp các quy tắc header và cursor, và [capstone](../../../phases/19-capstone-projects/13-mcp-server-with-registry/) nêu bằng chứng tiếp nhận.

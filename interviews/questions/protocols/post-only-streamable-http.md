@@ -16,55 +16,55 @@ related: [protocols/stateless-request-metadata, protocols/draft-lost-across-repl
 updated: 2026-11-03
 ---
 
-A platform team deploys an MCP server over Streamable HTTP behind a load balancer with two replicas. They configure sticky routing keyed on `Mcp-Session-Id`, keep a standalone `GET /mcp` stream for change notifications, and plan to resume a broken stream with `Last-Event-ID`. Which of these belong to the current revision, and what replaces the rest?
+Một nhóm nền tảng triển khai một MCP server qua Streamable HTTP phía sau một bộ cân bằng tải với hai replica. Họ cấu hình định tuyến cố định được khóa theo `Mcp-Session-Id`, giữ một stream `GET /mcp` độc lập cho các thông báo thay đổi, và lên kế hoạch tiếp tục một stream bị ngắt bằng `Last-Event-ID`. Những thứ nào thuộc bản sửa đổi hiện tại, và điều gì thay thế phần còn lại?
 
 ## Short answer
 
-None of the three belongs to the current revision. The endpoint accepts POST only: `GET /mcp` and `DELETE /mcp` return `405`, `Mcp-Session-Id` is ignored and never minted, and `Last-Event-ID` is ignored because streams do not resume. Change notifications arrive on a client-opened `subscriptions/listen` POST whose response stays open as SSE, and a dropped stream is replaced by a new listen request and a refetch of the affected data.
+Không thứ nào trong ba thứ thuộc bản sửa đổi hiện tại. Endpoint chỉ chấp nhận POST: `GET /mcp` và `DELETE /mcp` trả về `405`, `Mcp-Session-Id` bị bỏ qua và không bao giờ được tạo, và `Last-Event-ID` bị bỏ qua vì các stream không tiếp tục lại. Các thông báo thay đổi đến trên một POST `subscriptions/listen` do client mở có phản hồi giữ mở dưới dạng SSE, và một stream bị rớt được thay bằng một yêu cầu listen mới và một lần lấy lại dữ liệu bị ảnh hưởng.
 
 ## Full answer
 
 ### The modern wire in one table
 
-| Message | HTTP shape |
+| Thông điệp | Hình dạng HTTP |
 |---|---|
-| any JSON-RPC request | a new POST with one message in the body |
-| the response | `application/json` with one response, or `text/event-stream` with related notifications and then the final response |
-| an accepted notification | `202 Accepted` with no body |
-| `GET` or `DELETE` on the endpoint | `405 Method Not Allowed` |
+| bất kỳ yêu cầu JSON-RPC nào | một POST mới với một thông điệp trong phần thân |
+| phản hồi | `application/json` với một phản hồi, hoặc `text/event-stream` với các thông báo liên quan rồi đến phản hồi cuối cùng |
+| một thông báo được chấp nhận | `202 Accepted` không có phần thân |
+| `GET` hoặc `DELETE` trên endpoint | `405 Method Not Allowed` |
 
-The client advertises both response types with `Accept: application/json, text/event-stream`.
+Client quảng bá cả hai kiểu phản hồi bằng `Accept: application/json, text/event-stream`.
 
 ### Why stickiness is not needed
 
-Every request carries its protocol version and client capabilities in `params._meta`, so any healthy worker can validate it. Three headers mirror the body for routing and policy: `MCP-Protocol-Version`, `Mcp-Method`, and `Mcp-Name` for `tools/call`, `resources/read` and `prompts/get`. The server compares each header with the body before it executes. A missing or mismatched header is HTTP `400` with JSON-RPC `-32020`.
+Mọi yêu cầu mang phiên bản giao thức và các capability client trong `params._meta`, nên bất kỳ worker khỏe mạnh nào cũng có thể xác thực nó. Ba header phản chiếu phần thân để định tuyến và áp dụng chính sách: `MCP-Protocol-Version`, `Mcp-Method`, và `Mcp-Name` cho `tools/call`, `resources/read` và `prompts/get`. Server so sánh mỗi header với phần thân trước khi thực thi. Một header thiếu hoặc không khớp là HTTP `400` với JSON-RPC `-32020`.
 
 ### Where notifications come from
 
-The client sends `subscriptions/listen` as a normal request with a `notifications` filter, for example `toolsListChanged: true` and a list of `resourceSubscriptions`. The first message on the stream is `notifications/subscriptions/acknowledged`. Every event and the final result carry `io.modelcontextprotocol/subscriptionId`, equal to the listen request id. When the stream drops, the client reissues the request with a new id and refetches tools, resources or prompts. `resources/subscribe` belongs to the legacy era.
+Client gửi `subscriptions/listen` như một yêu cầu thông thường với một bộ lọc `notifications`, chẳng hạn `toolsListChanged: true` và một danh sách `resourceSubscriptions`. Thông điệp đầu tiên trên stream là `notifications/subscriptions/acknowledged`. Mọi sự kiện và kết quả cuối cùng mang `io.modelcontextprotocol/subscriptionId`, bằng id yêu cầu listen. Khi stream rớt, client phát hành lại yêu cầu với một id mới và lấy lại các công cụ, resource hoặc prompt. `resources/subscribe` thuộc thời kỳ legacy.
 
 ### What a broken request-scoped stream means
 
-The in-flight request is lost. The client may issue a new request with a new JSON-RPC id when a retry is safe. It must not attempt stream resumption, and the server must not add SSE ids for replay.
+Yêu cầu đang thực hiện bị mất. Client có thể phát hành một yêu cầu mới với một id JSON-RPC mới khi thử lại là an toàn. Nó không được cố tiếp tục stream, và server không được thêm các id SSE để phát lại.
 
 ### Two more rules at the boundary
 
-- Validate `Origin` with exact matching, and return `403` when it is present and not allowed. Local servers bind to `127.0.0.1`. This defends against DNS rebinding and is not authentication.
-- Keep a legacy HTTP+SSE bridge, if you need one, on separate endpoints, and never describe its GET stream, session id or replay as part of the current revision.
+- Xác thực `Origin` bằng khớp chính xác, và trả về `403` khi nó hiện diện và không được cho phép. Các server cục bộ bind vào `127.0.0.1`. Điều này bảo vệ chống DNS rebinding và không phải xác thực danh tính.
+- Giữ một cầu nối HTTP+SSE legacy, nếu bạn cần, trên các endpoint riêng, và không bao giờ mô tả stream GET, id phiên hoặc việc phát lại của nó là một phần của bản sửa đổi hiện tại.
 
 ## Follow-ups
 
-- **Level 2:** How does a client cancel an in-flight request over this transport? Expected: it closes that request's response stream; there is no cancellation POST.
-- **Level 3:** Why is a `startswith` test on the trusted origin unsafe? Expected: it accepts an attacker-controlled suffix on the host name; match the canonical origin exactly.
-- **Level 3:** A dual-era client receives `405` from an unknown server. Does it fall back to the old GET endpoint? Expected: only after reading the body; a recognized modern JSON-RPC error proves the server is modern, and only an empty or unrecognized body justifies the legacy attempt.
-- **Level 4:** A workflow needs state across two calls on two replicas. Where does it live? Expected: behind a server-minted opaque handle in a shared store, returned as an ordinary result, bound to the principal, expired, and authorized on each use.
+- **Level 2:** Client hủy một yêu cầu đang thực hiện qua transport này bằng cách nào? Expected: nó đóng stream phản hồi của yêu cầu đó; không có POST hủy.
+- **Level 3:** Tại sao một phép kiểm tra `startswith` trên origin đáng tin cậy không an toàn? Expected: nó chấp nhận một hậu tố do kẻ tấn công kiểm soát trên tên host; khớp chính xác origin chuẩn.
+- **Level 3:** Một client hai thời kỳ nhận `405` từ một server không xác định. Nó có quay về endpoint GET cũ không? Expected: chỉ sau khi đọc phần thân; một lỗi JSON-RPC hiện đại được nhận diện chứng minh server là hiện đại, và chỉ một phần thân trống hoặc không được nhận diện mới biện minh cho lần thử legacy.
+- **Level 4:** Một workflow cần trạng thái qua hai lệnh gọi trên hai replica. Nó nằm ở đâu? Expected: phía sau một handle mờ do server tạo trong một kho dùng chung, được trả về như một kết quả thông thường, gắn với principal, có thời hạn, và được ủy quyền ở mỗi lần dùng.
 
 ## Wrong answers
 
-- "Sticky routing is harmless, so keep it as a safety net." It hides a correctness bug until a rollout, a reschedule or a failover moves the next request to another replica.
-- "Add SSE event ids so that clients can resume." Modern streams are not resumable. A lost request is retried with a new id when the operation allows it.
-- "Origin validation authenticates the caller." It stops DNS rebinding only. A network service still authenticates and authorizes every request.
+- "Định tuyến cố định vô hại, nên giữ nó như một lưới an toàn." Nó che giấu một lỗi về tính đúng đắn cho đến khi một rollout, một lần lên lịch lại hoặc một failover chuyển yêu cầu tiếp theo sang replica khác.
+- "Thêm các id sự kiện SSE để client có thể tiếp tục." Các stream hiện đại không thể tiếp tục lại. Một yêu cầu bị mất được thử lại với một id mới khi thao tác cho phép.
+- "Xác thực Origin xác thực danh tính bên gọi." Nó chỉ ngăn DNS rebinding. Một dịch vụ mạng vẫn xác thực danh tính và ủy quyền mọi yêu cầu.
 
 ## Taught in
 
-The [transports lesson](../../../phases/13-tools-and-protocols/09-mcp-transports/) defines the POST-only endpoint, the mirrored headers and the `subscriptions/listen` stream.
+[Bài học về transport](../../../phases/13-tools-and-protocols/09-mcp-transports/) định nghĩa endpoint chỉ dùng POST, các header được phản chiếu và stream `subscriptions/listen`.

@@ -16,53 +16,53 @@ related: [protocols/two-error-layers]
 updated: 2026-11-03
 ---
 
-A team builds an MCP server for a project tracker. It has five capabilities: show the details of one issue, create an issue, a sprint review template, the project policy document, and close an issue. A developer proposes to publish each capability as a tool, a resource and a prompt at the same time, so that every client finds it. Which primitive do you give each capability, and why not all three?
+Một nhóm xây dựng một MCP server cho một bộ theo dõi dự án. Nó có năm capability: hiển thị chi tiết của một issue, tạo một issue, một mẫu sprint review, tài liệu chính sách dự án, và đóng một issue. Một lập trình viên đề xuất công bố mỗi capability dưới dạng một tool, một resource và một prompt cùng lúc, để mọi client tìm thấy nó. Bạn cho mỗi capability thành phần cơ bản nào, và tại sao không phải cả ba?
 
 ## Short answer
 
-Pick the primitive from who makes the choice. The model chooses a tool to perform an operation, so create and close are tools. A host or a user reads addressable content at a URI, so issue details and the policy are resources, and a user starts a prepared message workflow, so the review template is a prompt. Each extra surface costs discovery, authorization, caching, error handling, tests and documentation, so one capability gets one primitive.
+Chọn thành phần cơ bản từ người đưa ra lựa chọn. Mô hình chọn một tool để thực hiện một thao tác, nên tạo và đóng là tool. Một host hoặc một người dùng đọc nội dung có địa chỉ tại một URI, nên chi tiết issue và chính sách là resource, và một người dùng bắt đầu một workflow thông điệp đã chuẩn bị, nên mẫu review là một prompt. Mỗi bề mặt thêm vào tốn discovery, ủy quyền, caching, xử lý lỗi, kiểm thử và tài liệu, nên một capability nhận một thành phần cơ bản.
 
 ## Full answer
 
 ### Three primitives, three choosers
 
-| Primitive | Chooser | Intent | Result |
+| Thành phần cơ bản | Người chọn | Ý định | Kết quả |
 |---|---|---|---|
-| Tool | model or application | perform an operation | structured action result |
-| Resource | host, application or user | read content at a URI | text or binary content |
-| Prompt | user, through the host UI | start a reusable message workflow | one or more messages |
+| Tool | mô hình hoặc ứng dụng | thực hiện một thao tác | kết quả hành động có cấu trúc |
+| Resource | host, ứng dụng hoặc người dùng | đọc nội dung tại một URI | nội dung văn bản hoặc nhị phân |
+| Prompt | người dùng, thông qua giao diện host | bắt đầu một workflow thông điệp có thể dùng lại | một hoặc nhiều thông điệp |
 
 ### The five capabilities
 
-- Issue details: content with a stable address, such as `tracker://issues/7`. A resource.
-- Create issue: changes state. A tool.
-- Sprint review template: a user picks it from a menu or a slash command and fills in arguments. A prompt.
-- Project policy: a document the host reads into context. A resource.
-- Close issue: changes state. A tool.
+- Chi tiết issue: nội dung có một địa chỉ ổn định, như `tracker://issues/7`. Một resource.
+- Tạo issue: thay đổi trạng thái. Một tool.
+- Mẫu sprint review: một người dùng chọn nó từ một menu hoặc một lệnh slash và điền các đối số. Một prompt.
+- Chính sách dự án: một tài liệu mà host đọc vào ngữ cảnh. Một resource.
+- Đóng issue: thay đổi trạng thái. Một tool.
 
 ### Why the triple publication is wrong
 
-A capability published three ways needs three discovery entries, three authorization checks, three cache policies, three error paths and three test sets. The model also sees a tool it should not call for content that the host reads. Begin with the consumer, then write the handler.
+Một capability được công bố theo ba cách cần ba mục discovery, ba kiểm tra ủy quyền, ba chính sách cache, ba đường lỗi và ba tập kiểm thử. Mô hình cũng thấy một tool mà nó không nên gọi cho nội dung host đọc. Bắt đầu từ bên tiêu thụ, rồi viết handler.
 
 ### Design rules that follow
 
-- Design the resource URI before the handler. Namespace it to the server, keep it independent of a process or a connection, validate it before storage access, and authorize every read.
-- `prompts/get` resolves arguments into messages. The host decides how those messages enter model context and keeps its own policy above them.
-- Treat resource text and prompt templates as untrusted server output. The host keeps provenance and treats the content as data.
+- Thiết kế URI resource trước handler. Đặt namespace cho nó theo server, giữ nó độc lập với một tiến trình hoặc một kết nối, xác thực nó trước truy cập lưu trữ, và ủy quyền mọi lần đọc.
+- `prompts/get` phân giải các đối số thành các thông điệp. Host quyết định các thông điệp đó đi vào ngữ cảnh mô hình như thế nào và giữ chính sách riêng ở trên chúng.
+- Xem văn bản resource và các mẫu prompt là đầu ra server không đáng tin cậy. Host giữ nguồn gốc và xem nội dung là dữ liệu.
 
 ## Follow-ups
 
-- **Level 1:** What makes a good resource URI? Expected: stable enough to bookmark, namespaced to the server, independent of a process id or connection, validated before storage access, and authorized on every read.
-- **Level 2:** A client wants to know when the policy document changes. Which mechanism does the current revision use? Expected: a client-opened `subscriptions/listen` request that names the URI in `resourceSubscriptions`; the event says the resource changed, and the client reads it again with `resources/read`.
-- **Level 2:** A client asks `resources/read` for a URI that does not exist. Do you return an empty document? Expected: no, return JSON-RPC `-32602`, so the client can tell absence from a valid empty document.
-- **Level 3:** When would you publish a resource template instead of listing every issue? Expected: when the list is large or unbounded; the template tells the client how to form a valid URI, and the server still parses the variables, authorizes, and uses typed storage queries.
+- **Level 1:** Điều gì tạo nên một URI resource tốt? Expected: đủ ổn định để đánh dấu trang, được đặt namespace theo server, độc lập với một id tiến trình hoặc kết nối, được xác thực trước truy cập lưu trữ, và được ủy quyền ở mọi lần đọc.
+- **Level 2:** Một client muốn biết khi nào tài liệu chính sách thay đổi. Bản sửa đổi hiện tại dùng cơ chế nào? Expected: một yêu cầu `subscriptions/listen` do client mở nêu URI trong `resourceSubscriptions`; sự kiện nói resource đã thay đổi, và client đọc lại nó bằng `resources/read`.
+- **Level 2:** Một client yêu cầu `resources/read` cho một URI không tồn tại. Bạn có trả về một tài liệu trống không? Expected: không, trả về JSON-RPC `-32602`, để client phân biệt sự vắng mặt với một tài liệu trống hợp lệ.
+- **Level 3:** Khi nào bạn công bố một resource template thay vì liệt kê mọi issue? Expected: khi danh sách lớn hoặc không giới hạn; template cho client biết cách tạo một URI hợp lệ, và server vẫn parse các biến, ủy quyền, và dùng các truy vấn lưu trữ có kiểu.
 
 ## Wrong answers
 
-- "Make everything a tool so that the model can reach it." Content that a host reads is not an operation. It loses the URI contract, the cache hints and the user-controlled surface.
-- "Store the template as a resource because it lives in a file." Where the data is stored does not decide the primitive. A user starts the review, so it is a prompt.
-- "A prompt is policy that the host injects without the user knowing." Prompts exist for explicit user selection. Policy that the host enforces stays in the host at a higher priority.
+- "Biến mọi thứ thành một tool để mô hình có thể tiếp cận." Nội dung mà một host đọc không phải một thao tác. Nó mất hợp đồng URI, các gợi ý cache và bề mặt do người dùng kiểm soát.
+- "Lưu template thành một resource vì nó nằm trong một file." Nơi dữ liệu được lưu không quyết định thành phần cơ bản. Một người dùng bắt đầu review, nên nó là một prompt.
+- "Một prompt là chính sách mà host chèn vào mà người dùng không biết." Prompt tồn tại cho việc lựa chọn tường minh của người dùng. Chính sách mà host thực thi nằm trong host ở ưu tiên cao hơn.
 
 ## Taught in
 
-The [resources and prompts lesson](../../../phases/13-tools-and-protocols/10-mcp-resources-and-prompts/) sorts the three primitives by the consumer's intent and shows the subscription flow.
+[Bài học về resource và prompt](../../../phases/13-tools-and-protocols/10-mcp-resources-and-prompts/) phân loại ba thành phần cơ bản theo ý định của bên tiêu thụ và cho thấy luồng subscription.

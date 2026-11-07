@@ -16,48 +16,48 @@ related: [protocols/tool-resource-or-prompt]
 updated: 2026-11-03
 ---
 
-Your MCP server has a tool `route_report` that reads a report from an upstream source. A reviewer reads the handler and finds two things. When the upstream source is down, the handler returns a JSON-RPC error. When a client sends a tool name that the server does not know, the handler returns a result with `isError: true`. Is that the right way round?
+MCP server của bạn có một tool `route_report` đọc một báo cáo từ một nguồn phía trước. Một người review đọc handler và tìm thấy hai điều. Khi nguồn phía trước ngừng hoạt động, handler trả về một lỗi JSON-RPC. Khi một client gửi một tên tool mà server không biết, handler trả về một kết quả với `isError: true`. Đó có phải cách phân chia đúng không?
 
 ## Short answer
 
-No, both cases are backwards. A JSON-RPC error means the request could not be dispatched at all: an unknown tool name, a malformed envelope, missing request metadata or an invalid cursor. A complete result with `isError: true` means a valid call reached the tool and the tool reports a failure the model can act on, such as a source that is unavailable right now.
+Không, cả hai trường hợp đều bị ngược. Một lỗi JSON-RPC nghĩa là yêu cầu hoàn toàn không thể được điều phối: một tên tool không xác định, một vỏ thông điệp sai định dạng, metadata yêu cầu bị thiếu hoặc một cursor không hợp lệ. Một kết quả hoàn chỉnh với `isError: true` nghĩa là một lệnh gọi hợp lệ đã đến tool và tool báo cáo một lỗi mà mô hình có thể hành động dựa vào, như một nguồn hiện đang không khả dụng.
 
 ## Full answer
 
 ### Two layers, two audiences
 
-| Layer | Use it for | Who repairs it |
+| Lớp | Dùng cho | Ai sửa nó |
 |---|---|---|
-| JSON-RPC `error` | the envelope or the method parameters are invalid | the client or the developer |
-| result with `isError: true` | the tool ran and reports an actionable failure | often the model, by changing arguments or waiting |
+| `error` JSON-RPC | vỏ thông điệp hoặc các tham số phương thức không hợp lệ | client hoặc lập trình viên |
+| kết quả với `isError: true` | tool đã chạy và báo cáo một lỗi có thể hành động | thường là mô hình, bằng cách đổi các đối số hoặc chờ |
 
-A model can read "report source unavailable" and try later or tell the user. It cannot repair a server that rejected a well-formed request as a tool failure, because it does not know that the request never ran.
+Một mô hình có thể đọc "nguồn báo cáo không khả dụng" và thử sau hoặc báo cho người dùng. Nó không thể sửa một server đã từ chối một yêu cầu đúng định dạng như một lỗi tool, vì nó không biết yêu cầu chưa bao giờ chạy.
 
 ### The output schema still holds
 
-Once a server publishes an `outputSchema`, every complete result commits to conforming `structuredContent`. The `isError` flag classifies the outcome. It does not waive the contract. So model the failure inside the schema. The sample `route_report` failure returns its requested region with `accepted: false`, plus error text, plus `isError: true`.
+Một khi server công bố một `outputSchema`, mọi kết quả hoàn chỉnh cam kết `structuredContent` tuân thủ. Cờ `isError` phân loại kết quả. Nó không miễn hợp đồng. Vì vậy hãy mô hình hóa lỗi bên trong schema. Lỗi `route_report` mẫu trả về vùng được yêu cầu với `accepted: false`, cộng văn bản lỗi, cộng `isError: true`.
 
 ### Wrong codes send the wrong signal
 
-Missing request metadata is invalid params, `-32602`. An unsupported protocol version is `-32022` with `requested` and `supported` in the error data. An unknown method is a method-not-found error. Keep those distinct, because a client reads the code to decide whether to correct the request, retry another version, or stop.
+Metadata yêu cầu bị thiếu là invalid params, `-32602`. Một phiên bản giao thức không được hỗ trợ là `-32022` với `requested` và `supported` trong dữ liệu lỗi. Một phương thức không xác định là một lỗi không tìm thấy phương thức. Giữ những điều đó riêng biệt, vì client đọc mã để quyết định sửa yêu cầu, thử lại một phiên bản khác, hay dừng.
 
 ### Annotations do not decide any of this
 
-`readOnlyHint`, `destructiveHint`, `idempotentHint` and `openWorldHint` are hints for presentation and confirmation. The server still enforces authorization, and the client still validates results.
+`readOnlyHint`, `destructiveHint`, `idempotentHint` và `openWorldHint` là các gợi ý cho trình bày và xác nhận. Server vẫn thực thi ủy quyền, và client vẫn xác thực kết quả.
 
 ## Follow-ups
 
-- **Level 1:** A request arrives without the protocol version in `params._meta`. Which code? Expected: `-32602`, invalid params, never filled in from an earlier call.
-- **Level 2:** The tool publishes an output schema. Must an error result match it? Expected: yes; every complete result, with `isError: true` included, must return conforming `structuredContent`.
-- **Level 2:** Why does the host validate `structuredContent` instead of trusting the descriptor? Expected: a server can violate its own schema, a model cannot repair that, so the client validates before model use.
-- **Level 3:** A valid tool call has an argument that fails the input schema. Which layer? Expected: method parameters are invalid, so a JSON-RPC error; the capstone's TypeScript model instead returns a complete result with `isError: true` without invoking the executor, so name your choice and apply it everywhere.
+- **Level 1:** Một yêu cầu đến mà không có phiên bản giao thức trong `params._meta`. Mã nào? Expected: `-32602`, invalid params, không bao giờ được điền từ một lệnh gọi trước đó.
+- **Level 2:** Tool công bố một schema đầu ra. Một kết quả lỗi có phải khớp với nó không? Expected: có; mọi kết quả hoàn chỉnh, bao gồm cả `isError: true`, phải trả về `structuredContent` tuân thủ.
+- **Level 2:** Tại sao host xác thực `structuredContent` thay vì tin descriptor? Expected: một server có thể vi phạm schema riêng, một mô hình không thể sửa điều đó, nên client xác thực trước khi mô hình dùng.
+- **Level 3:** Một lệnh gọi tool hợp lệ có một đối số không vượt qua schema đầu vào. Lớp nào? Expected: các tham số phương thức không hợp lệ, nên là một lỗi JSON-RPC; mô hình TypeScript của capstone thay vào đó trả về một kết quả hoàn chỉnh với `isError: true` mà không gọi bộ thực thi, nên hãy nêu lựa chọn của bạn và áp dụng nó ở mọi nơi.
 
 ## Wrong answers
 
-- "Return `isError` for everything so the model always gets text." A malformed envelope then looks like a tool failure, and the model retries a request that can never run.
-- "An unknown tool is a tool failure." The call never reached a tool, so it is a dispatch error at the protocol layer.
-- "An error result can skip the output schema." The flag classifies the outcome, and the published contract still holds.
+- "Trả về `isError` cho mọi thứ để mô hình luôn nhận được văn bản." Một vỏ thông điệp sai định dạng khi đó trông như một lỗi tool, và mô hình thử lại một yêu cầu không bao giờ có thể chạy.
+- "Một tool không xác định là một lỗi tool." Lệnh gọi chưa bao giờ đến một tool, nên nó là một lỗi điều phối ở lớp giao thức.
+- "Một kết quả lỗi có thể bỏ qua schema đầu ra." Cờ phân loại kết quả, và hợp đồng đã công bố vẫn được giữ.
 
 ## Taught in
 
-The [server lesson](../../../phases/13-tools-and-protocols/07-building-an-mcp-server/) names the two layers, and the [tool contracts lesson](../../../phases/13-tools-and-protocols/28-mcp-tool-contracts-and-content/) binds error results to the output schema.
+[Bài học về server](../../../phases/13-tools-and-protocols/07-building-an-mcp-server/) nêu hai lớp, và [bài học về hợp đồng tool](../../../phases/13-tools-and-protocols/28-mcp-tool-contracts-and-content/) ràng buộc các kết quả lỗi với schema đầu ra.

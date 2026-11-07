@@ -16,11 +16,11 @@ related: [protocols/cancel-signal-per-transport, protocols/draft-lost-across-rep
 updated: 2026-11-03
 ---
 
-Over Streamable HTTP, a client calls `charge_account`. A reverse proxy buffers the response stream, the client reaches its timeout and disconnects, and the server commits the charge a moment later. The client sends the call again with a fresh JSON-RPC id, and the customer is charged twice. The team proposes to deduplicate on the JSON-RPC id. Design the fix.
+Qua Streamable HTTP, một client gọi `charge_account`. Một reverse proxy đệm stream phản hồi, client chạm timeout và ngắt kết nối, và server ghi nhận khoản thu một lúc sau. Client gửi lại lệnh gọi với một id JSON-RPC mới, và khách hàng bị thu tiền hai lần. Nhóm đề xuất khử trùng lặp theo id JSON-RPC. Thiết kế cách sửa.
 
 ## Short answer
 
-A JSON-RPC id correlates one message and never identifies a business operation, so two ids are two charges to the server. Add an application idempotency key to the arguments, and make the server store the key, a fingerprint of the arguments and the committed result in one atomic durable transaction. The same key with the same arguments returns the stored result, and the same key with different arguments is rejected.
+Một id JSON-RPC liên kết một thông điệp và không bao giờ định danh một thao tác nghiệp vụ, nên hai id là hai khoản thu đối với server. Thêm một idempotency key ứng dụng vào các đối số, và cho server lưu khóa, một dấu vân tay của các đối số và kết quả đã ghi nhận trong một giao dịch bền vững nguyên tử. Cùng khóa với cùng đối số trả về kết quả đã lưu, và cùng khóa với các đối số khác bị từ chối.
 
 ## Full answer
 
@@ -33,11 +33,11 @@ A JSON-RPC id correlates one message and never identifies a business operation, 
 }
 ```
 
-The lesson shows the two-id case: a charge with id `41` loses its response, the retry carries id `42`, and the server sees two different messages. Without an application key it cannot know they are one checkout.
+Bài học cho thấy trường hợp hai id: một khoản thu với id `41` mất phản hồi, lần thử lại mang id `42`, và server thấy hai thông điệp khác nhau. Không có khóa ứng dụng, nó không thể biết chúng là một lần thanh toán.
 
 ### The ledger boundary must be atomic and durable
 
-This sequence is unsafe:
+Trình tự này không an toàn:
 
 ```text
 check key
@@ -45,41 +45,41 @@ run mutation
 store result
 ```
 
-Two workers can both observe a missing key and both run the mutation. A crash after the effect and before the store creates the same ambiguity on retry. The lesson uses a file-backed SQLite ledger with `BEGIN IMMEDIATE`, so the key check, the business effect, the execution counter and the stored result commit as one unit, and two connections racing on one key produce one execution. Return defensive copies of stored results so that a caller's mutation cannot corrupt a later replay.
+Hai worker đều có thể quan sát một khóa bị thiếu và cả hai chạy biến đổi. Một sự cố sau tác động và trước khi lưu tạo ra cùng sự mơ hồ khi thử lại. Bài học dùng một sổ SQLite lưu bằng file với `BEGIN IMMEDIATE`, nên kiểm tra khóa, tác động nghiệp vụ, bộ đếm thực thi và kết quả đã lưu được ghi nhận như một đơn vị, và hai kết nối đua nhau trên một khóa tạo ra một lần thực thi. Trả về các bản sao phòng vệ của các kết quả đã lưu để một biến đổi của bên gọi không thể làm hỏng một lần phát lại sau đó.
 
-A local table does not make a real payment atomic. Production needs a shared durable transaction, a transactional outbox, or an upstream provider that enforces the same key. A process lock protects neither replicas nor restarts.
+Một bảng cục bộ không khiến một thanh toán thực trở nên nguyên tử. Production cần một giao dịch bền vững dùng chung, một transactional outbox, hoặc một nhà cung cấp phía trước thực thi cùng khóa. Một khóa tiến trình không bảo vệ replica lẫn khởi động lại.
 
 ### Classify every mutation before you retry
 
-| Class | Example | Rule |
+| Lớp | Ví dụ | Quy tắc |
 |---|---|---|
-| safe | a deterministic read | retry with a new id once the failure boundary is understood |
-| conditional | a mutation with a durable key | retry with the same key and identical arguments |
-| unsafe | a mutation with no deduplication | do not retry automatically; reconcile first |
+| an toàn | một lần đọc xác định | thử lại với một id mới sau khi đã hiểu ranh giới lỗi |
+| có điều kiện | một biến đổi với một khóa bền vững | thử lại với cùng khóa và các đối số giống hệt |
+| không an toàn | một biến đổi không có khử trùng lặp | không tự động thử lại; đối chiếu trước |
 
-`idempotentHint` and `readOnlyHint` are untrusted hints. The application contract and the server implementation decide.
+`idempotentHint` và `readOnlyHint` là các gợi ý không đáng tin cậy. Hợp đồng ứng dụng và triển khai server quyết định.
 
 ### Fix the timeout too
 
-Use two clocks: an idle timeout that progress may reset, and a maximum timeout from request start that nothing resets. In the lesson's example, progress at `400`, `800` and `1200` ms keeps a `500` ms idle clock alive, and the `2000` ms maximum still cancels the request. For the buffering proxy, send `Content-Type: text/event-stream`, `Cache-Control: no-cache` and `X-Accel-Buffering: no`, and emit SSE comment keepalives on quiet streams. A keepalive is not progress and must not reset the idle clock.
+Dùng hai đồng hồ: một timeout không hoạt động mà tiến độ có thể đặt lại, và một timeout tối đa tính từ lúc bắt đầu yêu cầu mà không gì đặt lại. Trong ví dụ của bài học, tiến độ tại `400`, `800` và `1200` ms giữ đồng hồ không hoạt động `500` ms còn sống, và mức tối đa `2000` ms vẫn hủy yêu cầu. Với proxy đệm, gửi `Content-Type: text/event-stream`, `Cache-Control: no-cache` và `X-Accel-Buffering: no`, và phát ra các keepalive bình luận SSE trên các stream yên lặng. Một keepalive không phải tiến độ và không được đặt lại đồng hồ không hoạt động.
 
 ### The race the fix must respect
 
-Cancellation and completion race. If cancellation wins, the server suppresses the response. If completion wins, the client ignores the late cancellation and the server ignores the late notification. On HTTP the cancellation signal is closing the request's response stream, so the disconnect in the scenario was a cancellation the server observed too late to stop the commit. The key makes that harmless.
+Việc hủy và hoàn tất đua nhau. Nếu việc hủy thắng, server không gửi phản hồi. Nếu việc hoàn tất thắng, client bỏ qua lần hủy muộn và server bỏ qua thông báo muộn. Trên HTTP, tín hiệu hủy là đóng stream phản hồi của yêu cầu, nên việc ngắt kết nối trong tình huống là một lần hủy mà server quan sát quá muộn để dừng ghi nhận. Khóa khiến điều đó vô hại.
 
 ## Follow-ups
 
-- **Level 3:** The same key arrives with a different `cents` value. What happens? Expected: the server compares the argument fingerprint and rejects the call, because one key must not alias two business intents.
-- **Level 3:** Two workers see the key missing at the same instant. What prevents two charges? Expected: the key claim, the effect and the result commit in one atomic durable transaction; a check-then-write sequence cannot.
-- **Level 4:** The charge is executed by an external payment provider. Does the local ledger make it atomic? Expected: no; either the provider accepts the same idempotency key, or a transactional outbox bridges the local commit to the remote effect.
-- **Level 4:** The client reconnects a dropped `subscriptions/listen` stream. Does it resend the lost charge? Expected: no; it opens a new listen request, refetches authoritative state, deduplicates by stable identifiers, and never replays an unsafe mutation because a response was lost.
+- **Level 3:** Cùng khóa đến với một giá trị `cents` khác. Điều gì xảy ra? Expected: server so sánh dấu vân tay đối số và từ chối lệnh gọi, vì một khóa không được làm bí danh cho hai ý định nghiệp vụ.
+- **Level 3:** Hai worker thấy khóa bị thiếu ở cùng thời điểm. Điều gì ngăn hai khoản thu? Expected: việc chiếm khóa, tác động và kết quả được ghi nhận trong một giao dịch bền vững nguyên tử; một trình tự kiểm-tra-rồi-ghi không thể.
+- **Level 4:** Khoản thu được thực thi bởi một nhà cung cấp thanh toán bên ngoài. Sổ cục bộ có khiến nó nguyên tử không? Expected: không; hoặc nhà cung cấp chấp nhận cùng idempotency key, hoặc một transactional outbox nối việc ghi nhận cục bộ với tác động từ xa.
+- **Level 4:** Client kết nối lại một stream `subscriptions/listen` bị rớt. Nó có gửi lại khoản thu bị mất không? Expected: không; nó mở một yêu cầu listen mới, lấy lại trạng thái có thẩm quyền, khử trùng lặp theo các định danh ổn định, và không bao giờ phát lại một biến đổi không an toàn vì một phản hồi bị mất.
 
 ## Wrong answers
 
-- "Deduplicate on the JSON-RPC id." Ids correlate messages, and a retry carries a new id by design.
-- "Set `idempotentHint` and let clients retry freely." Annotations are untrusted hints. The application contract and the ledger decide retry safety.
-- "Check the key, run the charge, then store the result." Two workers can both miss the key, and a crash between the effect and the store leaves the retry ambiguous.
+- "Khử trùng lặp theo id JSON-RPC." Các id liên kết thông điệp, và một lần thử lại mang một id mới theo thiết kế.
+- "Đặt `idempotentHint` và để client tự do thử lại." Annotation là các gợi ý không đáng tin cậy. Hợp đồng ứng dụng và sổ theo dõi quyết định mức an toàn khi thử lại.
+- "Kiểm tra khóa, chạy khoản thu, rồi lưu kết quả." Hai worker đều có thể bỏ lỡ khóa, và một sự cố giữa tác động và việc lưu để lần thử lại ở trạng thái mơ hồ.
 
 ## Taught in
 
-The [reliability lesson](../../../phases/13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control/) builds the atomic ledger, the two clocks and the retry matrix.
+[Bài học về độ tin cậy](../../../phases/13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control/) xây dựng sổ nguyên tử, hai đồng hồ và ma trận thử lại.

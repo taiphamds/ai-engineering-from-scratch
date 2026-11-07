@@ -16,58 +16,58 @@ related: [protocols/a2a-version-header-missing]
 updated: 2026-11-03
 ---
 
-You run the official A2A conformance kit against your server twice. The first run scores 32.3 percent. After a two-line change to the kit's own JSON-RPC client, the second run scores 66.7 percent: 62 PASS, 31 FAIL, 11 SKIPPED and 25 NOT TESTED of 129 requirements. Your manager asks how conformant the server is. Estimate the real figure and defend every adjustment you make.
+Bạn chạy bộ kit kiểm tra tuân thủ A2A chính thức đối với server của mình hai lần. Lần chạy đầu đạt 32.3 phần trăm. Sau một thay đổi hai dòng đối với chính client JSON-RPC của kit, lần chạy thứ hai đạt 66.7 phần trăm: 62 PASS, 31 FAIL, 11 SKIPPED và 25 NOT TESTED trong số 129 yêu cầu. Quản lý hỏi server tuân thủ đến mức nào. Ước lượng con số thực và bảo vệ mọi điều chỉnh bạn thực hiện.
 
 ## Short answer
 
-Neither percentage measures the server alone. The first run lost 63 of 85 JSON-RPC records because the kit posted to the card URL with a trailing slash, which is the kit's defect. In the second run, 21 of the failures are skips inside a test body that the tagged kit records as FAIL, so under the main-branch rule the run reads 62 PASS, 10 FAIL and 32 SKIPPED, or 86.1 percent, and of those ten failures three belonged to the server: the missing REST push routes and, at SHOULD level, the missing `Cache-Control` and `ETag` on the card.
+Không tỷ lệ nào đo riêng server. Lần chạy đầu mất 63 trong số 85 bản ghi JSON-RPC vì kit gửi post tới URL của card với một dấu gạch chéo cuối, đó là lỗi của kit. Trong lần chạy thứ hai, 21 lỗi là các lần bỏ qua bên trong thân kiểm thử mà kit ở tag ghi là FAIL, nên theo quy tắc nhánh chính, lần chạy được đọc là 62 PASS, 10 FAIL và 32 SKIPPED, hay 86.1 phần trăm, và trong mười lỗi đó có ba lỗi thuộc về server: các route push REST bị thiếu và, ở mức SHOULD, `Cache-Control` và `ETag` bị thiếu trên card.
 
 ## Full answer
 
 ### How the kit scores
 
-The kit is a pytest project. It reads the card, builds one client per `supportedInterfaces` entry, and runs each test on each declared binding. A MUST test is a hard failure, a SHOULD test is an expected failure, and a MAY test is skipped when the card lacks the capability. The percentages count only PASS and FAIL. All 72 gRPC records were skipped because the server has no gRPC interface, and that is correct, not a loss.
+Kit là một dự án pytest. Nó đọc card, xây dựng một client cho mỗi mục `supportedInterfaces`, và chạy mỗi kiểm thử trên từng binding được khai báo. Một kiểm thử MUST là một lỗi cứng, một kiểm thử SHOULD là một lỗi dự kiến, và một kiểm thử MAY được bỏ qua khi card thiếu capability. Các tỷ lệ chỉ tính PASS và FAIL. Cả 72 bản ghi gRPC được bỏ qua vì server không có giao diện gRPC, và điều đó là đúng, không phải một tổn thất.
 
 ### Run one: a kit defect
 
-The specification places the interface at `url`. The kit appended a slash, the server answered 404, and 63 records failed for one reason. Fixing the kit's client, not the server, moved the score.
+Đặc tả đặt giao diện tại `url`. Kit thêm một dấu gạch chéo, server trả lời 404, và 63 bản ghi thất bại vì một lý do. Sửa client của kit, không phải server, đã thay đổi điểm số.
 
 ### Run two: separate the failures
 
-| Group | Count | Whose |
+| Nhóm | Số lượng | Của ai |
 |---|---|---|
-| skips inside a test body, recorded as FAIL at the tag | 21 | the kit; `main` records them as SKIPPED |
-| push requirements that pass on HTTP+JSON and fail on JSON-RPC | most of the rest | the kit sends snake_case `task_id`, where the specification requires camelCase |
-| REST push routes missing although the card declared `pushNotifications` | 1 | the server; every declared binding must offer the same operations |
-| missing `Cache-Control` and `ETag` on the card | 2 | the server, at SHOULD level |
+| các lần bỏ qua bên trong thân kiểm thử, được ghi là FAIL tại tag | 21 | kit; `main` ghi chúng là SKIPPED |
+| các yêu cầu push đạt trên HTTP+JSON và thất bại trên JSON-RPC | phần lớn số còn lại | kit gửi snake_case `task_id`, ở nơi đặc tả yêu cầu camelCase |
+| các route push REST bị thiếu mặc dù card khai báo `pushNotifications` | 1 | server; mọi binding được khai báo phải cung cấp cùng các thao tác |
+| thiếu `Cache-Control` và `ETag` trên card | 2 | server, ở mức SHOULD |
 
-After the server fix, the six HTTP+JSON push records pass, and each requirement still reads FAIL because of its JSON-RPC side.
+Sau khi sửa server, sáu bản ghi push HTTP+JSON đạt, và mỗi yêu cầu vẫn được đọc là FAIL vì phía JSON-RPC của nó.
 
 ### Where the kit departs from the specification
 
-The kit expects HTTP `409` for `TaskNotCancelableError`, `415` for `ContentTypeNotSupportedError`, `502` for `InvalidAgentResponseError`, and gRPC `UNIMPLEMENTED` for three errors. The canonical table says `400`, `400`, `500` and `FAILED_PRECONDITION`. A server that follows the specification fails those checks. It also demands `application/json` on REST where the specification says `application/a2a+json` should be used, and it hard-asserts SHOULD and MAY caching tests.
+Kit mong đợi HTTP `409` cho `TaskNotCancelableError`, `415` cho `ContentTypeNotSupportedError`, `502` cho `InvalidAgentResponseError`, và gRPC `UNIMPLEMENTED` cho ba lỗi. Bảng chuẩn nói `400`, `400`, `500` và `FAILED_PRECONDITION`. Một server theo đặc tả thất bại ở các kiểm tra đó. Nó cũng đòi `application/json` trên REST ở nơi đặc tả nói nên dùng `application/a2a+json`, và nó khẳng định cứng các kiểm thử caching SHOULD và MAY.
 
 ### What the kit never tests
 
-Five behaviors that split the SDKs never run: the REST subscribe verb, pagination beyond one call, an `append` to an unknown artifact, another caller's task, and a resent `messageId`. The NOT TESTED set also covers in-task authorization, TLS, card signatures and the client's version header. Those are yours to test.
+Năm hành vi chia rẽ các SDK không bao giờ chạy: động từ subscribe REST, phân trang vượt quá một lệnh gọi, một `append` tới một artifact không xác định, tác vụ của một bên gọi khác, và một `messageId` gửi lại. Tập NOT TESTED cũng bao gồm ủy quyền trong tác vụ, TLS, chữ ký card và header phiên bản của client. Những điều đó là phần bạn phải kiểm thử.
 
 ### The estimate
 
-Say this: one MUST defect, found and fixed; two SHOULD gaps on card caching; a per-requirement reading of 86.1 percent under the main-branch rule, with the remaining failures attributable to the kit's own client, and an explicit list of untested behaviors with your own tests beside them. Hand over `compatibility.json`, not the percentage.
+Hãy nói điều này: một lỗi MUST, đã tìm thấy và sửa; hai thiếu sót SHOULD về caching card; một cách đọc theo từng yêu cầu là 86.1 phần trăm theo quy tắc nhánh chính, với các lỗi còn lại có thể quy cho chính client của kit, và một danh sách tường minh các hành vi chưa được kiểm thử với các kiểm thử riêng của bạn bên cạnh chúng. Bàn giao `compatibility.json`, không phải tỷ lệ.
 
 ## Follow-ups
 
-- **Level 3:** Why do the percentages leave out the SKIPPED and NOT TESTED rows? Expected: those rows carry no verdict, so a percentage over them would reward a card that declares few capabilities.
-- **Level 4:** The push requirements pass on one binding and fail on the other. How do you classify that? Expected: a kit defect, because the JSON field names must be camelCase and the kit sends `task_id`; keep the requirement as passing in your own ledger with the evidence.
-- **Level 4:** What did the one real failure teach about cards? Expected: a capability flag is a promise for every declared binding, so the REST side needed the four push routes the card advertised.
-- **Level 4:** Which checks do you add that the kit lacks? Expected: owner scoping of tasks, a resent `messageId`, `append` to an unknown artifact, the REST subscribe verb, and pagination with the returned token.
+- **Level 3:** Tại sao các tỷ lệ bỏ các dòng SKIPPED và NOT TESTED? Expected: các dòng đó không mang phán quyết, nên một tỷ lệ trên chúng sẽ thưởng cho một card khai báo ít capability.
+- **Level 4:** Các yêu cầu push đạt trên một binding và thất bại trên binding kia. Bạn phân loại điều đó như thế nào? Expected: một lỗi của kit, vì tên trường JSON phải là camelCase và kit gửi `task_id`; giữ yêu cầu là đạt trong sổ theo dõi riêng của bạn với bằng chứng.
+- **Level 4:** Một lỗi thực sự đã dạy điều gì về card? Expected: một cờ capability là một lời hứa cho mọi binding được khai báo, nên phía REST cần bốn route push mà card đã quảng bá.
+- **Level 4:** Bạn thêm những kiểm tra nào mà kit thiếu? Expected: giới hạn tác vụ theo chủ sở hữu, một `messageId` gửi lại, `append` tới một artifact không xác định, động từ subscribe REST, và phân trang bằng token được trả về.
 
 ## Wrong answers
 
-- "Report the second percentage as the conformance figure." It counts kit skips as failures and the kit's snake_case parameters as your bugs.
-- "Report full conformance after fixing the missing routes." The two SHOULD gaps remain, and a quarter of the requirements were never tested.
-- "The kit is the specification." It departs from the canonical error table in six places; the specification wins, and the kit's README itself calls SHOULD an expected failure.
+- "Báo cáo tỷ lệ thứ hai là con số tuân thủ." Nó tính các lần bỏ qua của kit là lỗi và các tham số snake_case của kit là lỗi của bạn.
+- "Báo cáo tuân thủ đầy đủ sau khi sửa các route bị thiếu." Hai thiếu sót SHOULD vẫn còn, và một phần tư các yêu cầu chưa bao giờ được kiểm thử.
+- "Kit là đặc tả." Nó khác bảng lỗi chuẩn ở sáu chỗ; đặc tả thắng, và chính README của kit gọi SHOULD là một lỗi dự kiến.
 
 ## Taught in
 
-The [conformance testing section](../../../manuals/a2a-101/sections/7-3-conformance-testing.md) records both runs, and the [errors reference](../../../manuals/a2a-101/sections/r-4-errors.md) sets the kit's status table beside the canonical one.
+[Phần kiểm thử tuân thủ](../../../manuals/a2a-101/sections/7-3-conformance-testing.md) ghi lại cả hai lần chạy, và [tham chiếu lỗi](../../../manuals/a2a-101/sections/r-4-errors.md) đặt bảng trạng thái của kit cạnh bảng chuẩn.

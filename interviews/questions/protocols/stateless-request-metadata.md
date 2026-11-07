@@ -16,11 +16,11 @@ related: [protocols/two-error-layers, protocols/post-only-streamable-http]
 updated: 2026-11-03
 ---
 
-A colleague ports an MCP server from the 2025 revision. The port keeps the `initialize` handshake and stores the client's declared capabilities on the connection object for later requests. All the old tests pass. What breaks under the current revision, and where does the metadata have to live instead?
+Một đồng nghiệp chuyển một MCP server từ bản sửa đổi 2025. Bản chuyển giữ handshake `initialize` và lưu các capability mà client khai báo trên đối tượng kết nối cho các yêu cầu sau. Mọi kiểm thử cũ đều đạt. Điều gì bị phá vỡ theo bản sửa đổi hiện tại, và metadata phải nằm ở đâu thay vào đó?
 
 ## Short answer
 
-The current revision has no handshake and no protocol session. A server that remembers capabilities from an earlier message can apply the wrong permissions or the wrong wire shape to the next request, which may come from another client on the same process or land on another worker. Every request carries `io.modelcontextprotocol/protocolVersion` and `io.modelcontextprotocol/clientCapabilities` in `params._meta`, and the server validates them on each request and forgets them after it answers.
+Bản sửa đổi hiện tại không có handshake và không có phiên giao thức. Một server nhớ capability từ một thông điệp trước đó có thể áp dụng sai quyền hoặc sai hình dạng trên đường truyền cho yêu cầu tiếp theo, có thể đến từ một client khác trên cùng tiến trình hoặc đến một worker khác. Mọi yêu cầu mang `io.modelcontextprotocol/protocolVersion` và `io.modelcontextprotocol/clientCapabilities` trong `params._meta`, và server xác thực chúng trên mỗi yêu cầu và quên chúng sau khi trả lời.
 
 ## Full answer
 
@@ -41,47 +41,47 @@ The current revision has no handshake and no protocol session. A server that rem
 }
 ```
 
-The version and the capabilities are required. `clientInfo` is recommended, self-reported, and never a credential. The server must not infer any of these from an earlier request, a stdio process, an HTTP connection or a transport header alone.
+Phiên bản và các capability là bắt buộc. `clientInfo` được khuyến nghị, tự báo cáo, và không bao giờ là thông tin xác thực. Server không được suy ra bất kỳ thứ nào trong số này từ một yêu cầu trước đó, một tiến trình stdio, một kết nối HTTP hoặc chỉ một header transport.
 
 ### What the server returns
 
-Every successful result includes `resultType: "complete"` and should carry `io.modelcontextprotocol/serverInfo` in its `_meta`. The list results, `resources/read` and `server/discover` also carry `ttlMs` and `cacheScope`, with deterministic ordering so that equal results give stable cache keys.
+Mọi kết quả thành công bao gồm `resultType: "complete"` và nên mang `io.modelcontextprotocol/serverInfo` trong `_meta` của nó. Các kết quả danh sách, `resources/read` và `server/discover` cũng mang `ttlMs` và `cacheScope`, với thứ tự xác định để các kết quả bằng nhau cho các khóa cache ổn định.
 
 ### Discovery is a method, not a gate
 
-Every server must implement `server/discover`. It returns `supportedVersions`, capabilities, optional instructions and server identity. A client may call it first, but it may also send `tools/list` at once, because that request already carries its metadata.
+Mọi server phải triển khai `server/discover`. Nó trả về `supportedVersions`, các capability, các chỉ dẫn tùy chọn và danh tính server. Một client có thể gọi nó trước, nhưng cũng có thể gửi `tools/list` ngay, vì yêu cầu đó đã mang metadata.
 
 ### The error codes that replace negotiation
 
-| Case | Code |
+| Trường hợp | Mã |
 |---|---|
-| metadata missing or malformed | `-32602` |
-| header disagrees with body at an HTTP boundary | `-32020` |
-| version matched but unsupported | `-32022`, with `requested` and `supported` |
+| metadata thiếu hoặc sai định dạng | `-32602` |
+| header không thống nhất với phần thân tại một ranh giới HTTP | `-32020` |
+| phiên bản đã khớp nhưng không được hỗ trợ | `-32022`, với `requested` và `supported` |
 
-The client picks a mutually supported version from `supported` and retries with a new request id.
+Client chọn một phiên bản được cả hai hỗ trợ từ `supported` và thử lại với một id yêu cầu mới.
 
 ### Keep the eras apart
 
-Revisions through `2025-11-25` use `initialize`, `notifications/initialized` and connection-scoped capabilities. A dual-era server may keep that path as an isolated legacy adapter that it selects only when it receives `initialize`. It never routes a current request through the handshake path and never stamps `resultType` onto legacy results.
+Các bản sửa đổi đến `2025-11-25` dùng `initialize`, `notifications/initialized` và các capability có phạm vi theo kết nối. Một server hai thời kỳ có thể giữ đường đó như một adapter legacy cô lập mà nó chỉ chọn khi nhận `initialize`. Nó không bao giờ định tuyến một yêu cầu hiện tại qua đường handshake và không bao giờ đóng dấu `resultType` lên các kết quả legacy.
 
 ### Application state is still allowed
 
-A workflow or a draft can live behind an opaque handle in a shared store. The client sends the handle as an ordinary argument, and every replica authenticates and authorizes its use. Protocol context must not leak into that store as a substitute for the removed session.
+Một workflow hoặc một bản nháp có thể nằm phía sau một handle mờ trong một kho dùng chung. Client gửi handle như một đối số thông thường, và mọi replica xác thực danh tính và ủy quyền việc dùng nó. Ngữ cảnh giao thức không được rò vào kho đó như một thứ thay thế cho phiên đã bị loại bỏ.
 
 ## Follow-ups
 
-- **Level 2:** Is `clientInfo` required, and can you authorize on it? Expected: it is recommended, not required; it is display and debugging data and never a credential.
-- **Level 2:** A client sends `tools/list` without calling `server/discover`. Does the server reject it? Expected: no; the request carries its version and capabilities, so discovery is not a gate.
-- **Level 3:** What does closing stdin or ending an HTTP response terminate? Expected: transport activity only; there is no protocol session to end, and the next request must still describe itself.
-- **Level 4:** Where does a multi-step workflow keep its state now? Expected: behind a server-minted opaque handle in a shared durable store, returned as a normal result, bound to the authenticated principal, expired, and authorized on every use.
+- **Level 2:** `clientInfo` có bắt buộc không, và bạn có thể ủy quyền dựa trên nó không? Expected: nó được khuyến nghị, không bắt buộc; nó là dữ liệu hiển thị và gỡ lỗi và không bao giờ là thông tin xác thực.
+- **Level 2:** Một client gửi `tools/list` mà không gọi `server/discover`. Server có từ chối nó không? Expected: không; yêu cầu mang phiên bản và các capability, nên discovery không phải một cổng.
+- **Level 3:** Việc đóng stdin hoặc kết thúc một phản hồi HTTP chấm dứt điều gì? Expected: chỉ hoạt động transport; không có phiên giao thức để kết thúc, và yêu cầu tiếp theo vẫn phải tự mô tả.
+- **Level 4:** Một workflow nhiều bước giữ trạng thái ở đâu bây giờ? Expected: phía sau một handle mờ do server tạo trong một kho bền vững dùng chung, được trả về như một kết quả thông thường, gắn với principal đã xác thực, có thời hạn, và được ủy quyền ở mọi lần dùng.
 
 ## Wrong answers
 
-- "Stateless means the server cannot keep any state at all." Durable application state behind an explicit handle is allowed. Only hidden protocol context is removed.
-- "Send `initialize` first to be safe with every server." A current server must not receive `initialize` by default. Legacy is a documented fallback for a pinned peer.
-- "The connection identifies the client, so one capability check per connection is enough." Two clients can share one process or HTTP worker in sequence, and a remote request can land on any replica.
+- "Stateless nghĩa là server không thể giữ bất kỳ trạng thái nào." Trạng thái ứng dụng bền vững phía sau một handle tường minh được cho phép. Chỉ ngữ cảnh giao thức ẩn bị loại bỏ.
+- "Gửi `initialize` trước để an toàn với mọi server." Một server hiện tại không được nhận `initialize` theo mặc định. Legacy là một phương án dự phòng được ghi tài liệu cho một peer đã ghim.
+- "Kết nối định danh client, nên một kiểm tra capability cho mỗi kết nối là đủ." Hai client có thể dùng chung một tiến trình hoặc worker HTTP theo trình tự, và một yêu cầu từ xa có thể đến bất kỳ replica nào.
 
 ## Taught in
 
-The [fundamentals lesson](../../../phases/13-tools-and-protocols/06-mcp-fundamentals/) traces one request from validation to a complete result, and the [server lesson](../../../phases/13-tools-and-protocols/07-building-an-mcp-server/) builds the dispatch loop.
+[Bài học nền tảng](../../../phases/13-tools-and-protocols/06-mcp-fundamentals/) lần theo một yêu cầu từ xác thực đến một kết quả hoàn chỉnh, và [bài học về server](../../../phases/13-tools-and-protocols/07-building-an-mcp-server/) xây dựng vòng lặp điều phối.

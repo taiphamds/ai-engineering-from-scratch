@@ -16,53 +16,53 @@ related: [protocols/retry-is-not-idempotency]
 updated: 2026-11-03
 ---
 
-A client library exposes one `cancel(request)` method that behaves the same on stdio and on Streamable HTTP: it writes or POSTs a `notifications/cancelled` notification for the request id. Over HTTP, servers keep running the work and sometimes send a response after the cancel. A second method, `cancelTask`, returns success, the UI shows "stopped", and the worker keeps going. What is wrong with both methods?
+Một thư viện client cung cấp một phương thức `cancel(request)` hoạt động giống nhau trên stdio và trên Streamable HTTP: nó ghi hoặc POST một thông báo `notifications/cancelled` cho id yêu cầu. Qua HTTP, các server tiếp tục chạy công việc và đôi khi gửi một phản hồi sau khi hủy. Một phương thức thứ hai, `cancelTask`, trả về thành công, giao diện hiển thị "đã dừng", và worker tiếp tục chạy. Cả hai phương thức sai ở đâu?
 
 ## Short answer
 
-Cancellation is transport-specific, and a durable task is a third thing. On stdio the client sends `notifications/cancelled` with the request id and receives no response. On Streamable HTTP the signal is closing that request's response stream, and a POSTed cancellation notification is the wrong signal. `tasks/cancel` acknowledges intent for a durable task that may stay `working` until a worker checkpoint observes the flag, so the UI must poll until a terminal status.
+Việc hủy phụ thuộc vào transport, và một tác vụ bền vững là một thứ thứ ba. Trên stdio, client gửi `notifications/cancelled` với id yêu cầu và không nhận phản hồi. Trên Streamable HTTP, tín hiệu là đóng stream phản hồi của yêu cầu đó, và một thông báo hủy được POST là tín hiệu sai. `tasks/cancel` xác nhận ý định cho một tác vụ bền vững có thể ở `working` cho đến khi một checkpoint của worker quan sát cờ, nên giao diện phải thăm dò cho đến một trạng thái kết thúc.
 
 ## Full answer
 
 ### Three mechanisms
 
-| Mechanism | Target | Signal | What success means |
+| Cơ chế | Đích | Tín hiệu | Thành công nghĩa là gì |
 |---|---|---|---|
-| request cancellation on stdio | one in-flight RPC | `notifications/cancelled` | the client abandoned the request; the server should stop if practical |
-| request cancellation on HTTP | one in-flight response stream | close the stream | the same |
-| `tasks/cancel` | one durable Task | an ordinary MCP request | the server acknowledged the intent |
+| hủy yêu cầu trên stdio | một RPC đang thực hiện | `notifications/cancelled` | client đã từ bỏ yêu cầu; server nên dừng nếu khả thi |
+| hủy yêu cầu trên HTTP | một stream phản hồi đang thực hiện | đóng stream | tương tự |
+| `tasks/cancel` | một Task bền vững | một yêu cầu MCP thông thường | server đã xác nhận ý định |
 
-The intent is the same on both transports: the client no longer needs the result. The wire signal differs because stdio shares one channel for everything, while each HTTP request owns its own response or SSE stream.
+Ý định giống nhau trên cả hai transport: client không còn cần kết quả. Tín hiệu trên đường truyền khác nhau vì stdio chia sẻ một kênh cho mọi thứ, trong khi mỗi yêu cầu HTTP sở hữu phản hồi hoặc SSE stream riêng.
 
 ### Cancellation is a race
 
-Two orders are both valid. If the cancellation arrives first, the server marks the request cancelled and suppresses the response when the worker finishes. If the worker commits first, the server sends the response and ignores the late notification, and the client ignores a late response for a request it abandoned. Neither side can prove which event the other saw first. Malformed, unknown and already-completed cancellations are ignored, because turning those races into errors would create more races.
+Hai thứ tự đều hợp lệ. Nếu việc hủy đến trước, server đánh dấu yêu cầu đã hủy và không gửi phản hồi khi worker hoàn tất. Nếu worker ghi nhận trước, server gửi phản hồi và bỏ qua thông báo muộn, và client bỏ qua một phản hồi muộn cho yêu cầu nó đã từ bỏ. Không bên nào có thể chứng minh bên kia thấy sự kiện nào trước. Các lần hủy sai định dạng, không xác định và đã hoàn tất bị bỏ qua, vì biến những cuộc đua đó thành lỗi sẽ tạo ra nhiều cuộc đua hơn.
 
 ### What a server may send
 
-A server does not use `notifications/cancelled` to cancel arbitrary client calls. On stdio, server-sent cancellation is reserved for terminating a `subscriptions/listen` request. Progress notifications must increase and stop after completion or cancellation.
+Một server không dùng `notifications/cancelled` để hủy các lệnh gọi client tùy ý. Trên stdio, việc hủy do server gửi được dành riêng cho việc chấm dứt một yêu cầu `subscriptions/listen`. Các thông báo tiến độ phải tăng và dừng sau khi hoàn tất hoặc hủy.
 
 ### Why the task outlives the connection
 
-The reason to create a Task is that its lifecycle outlives one request and one connection. Do not erase task state when the HTTP connection closes, and do not treat a `tasks/cancel` result as proof the worker stopped. Poll the Task until a terminal status.
+Lý do tạo một Task là vòng đời của nó kéo dài hơn một yêu cầu và một kết nối. Không xóa trạng thái tác vụ khi kết nối HTTP đóng, và không xem một kết quả `tasks/cancel` là bằng chứng worker đã dừng. Thăm dò Task cho đến một trạng thái kết thúc.
 
 ### Two timeouts, not one
 
-A cancel often comes from a timeout. Use an idle timeout that progress may reset and a maximum timeout from request start that nothing resets. A keepalive comment on the stream is not progress.
+Một lần hủy thường đến từ một timeout. Dùng một timeout không hoạt động mà tiến độ có thể đặt lại và một timeout tối đa tính từ lúc bắt đầu yêu cầu mà không gì đặt lại. Một bình luận keepalive trên stream không phải tiến độ.
 
 ## Follow-ups
 
-- **Level 2:** The server receives a cancellation for a request that already finished. Does it return an error? Expected: no, it ignores the notification; a notification receives no response in any case.
-- **Level 3:** The worker commits a mutation just before the cancel reaches the server. What does each side do? Expected: the server has sent the response and ignores the late notification; the client ignores the late response, and the idempotency contract decides whether a retry is safe.
-- **Level 3:** When may a server itself send `notifications/cancelled`? Expected: on stdio only, to terminate a `subscriptions/listen` request; never for ordinary client calls.
-- **Level 4:** A `subscriptions/listen` stream drops mid-task. Does the Task behind it change state? Expected: no; the client opens a new listen request with a new id and refetches the Task, and durable state is untouched by the dropped stream.
+- **Level 2:** Server nhận một lần hủy cho một yêu cầu đã hoàn tất. Nó có trả về một lỗi không? Expected: không, nó bỏ qua thông báo; trong mọi trường hợp, một thông báo không nhận phản hồi.
+- **Level 3:** Worker ghi nhận một biến đổi ngay trước khi việc hủy đến server. Mỗi bên làm gì? Expected: server đã gửi phản hồi và bỏ qua thông báo muộn; client bỏ qua phản hồi muộn, và hợp đồng idempotency quyết định liệu thử lại có an toàn không.
+- **Level 3:** Khi nào chính server được gửi `notifications/cancelled`? Expected: chỉ trên stdio, để chấm dứt một yêu cầu `subscriptions/listen`; không bao giờ cho các lệnh gọi client thông thường.
+- **Level 4:** Một stream `subscriptions/listen` rớt giữa tác vụ. Task phía sau nó có thay đổi trạng thái không? Expected: không; client mở một yêu cầu listen mới với một id mới và lấy lại Task, và trạng thái bền vững không bị ảnh hưởng bởi stream bị rớt.
 
 ## Wrong answers
 
-- "POST `notifications/cancelled` over HTTP too, for symmetry." Each HTTP request owns its response stream, and closing it is the signal that matches the request lifetime.
-- "A successful `tasks/cancel` means the worker stopped." It acknowledges the request. The task can stay `working` until a checkpoint, and the work can finish first.
-- "Return an error for a cancellation of an unknown request id." Unknown, malformed and completed cancellations are ignored by design.
+- "Cũng POST `notifications/cancelled` qua HTTP, cho đối xứng." Mỗi yêu cầu HTTP sở hữu stream phản hồi của nó, và đóng nó là tín hiệu khớp với thời gian tồn tại của yêu cầu.
+- "Một `tasks/cancel` thành công nghĩa là worker đã dừng." Nó xác nhận yêu cầu. Tác vụ có thể giữ ở `working` cho đến một checkpoint, và công việc có thể hoàn tất trước.
+- "Trả về một lỗi cho việc hủy một id yêu cầu không xác định." Các lần hủy không xác định, sai định dạng và đã hoàn tất bị bỏ qua theo thiết kế.
 
 ## Taught in
 
-The [reliability lesson](../../../phases/13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control/) gives the three mechanisms and both orders of the race.
+[Bài học về độ tin cậy](../../../phases/13-tools-and-protocols/29-mcp-reliability-cancellation-and-flow-control/) cung cấp ba cơ chế và cả hai thứ tự của cuộc đua.

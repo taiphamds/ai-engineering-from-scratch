@@ -16,57 +16,57 @@ related: [protocols/a2a-stream-drop-resubscribe, protocols/retry-is-not-idempote
 updated: 2026-11-03
 ---
 
-A test run outlasts any connection your planner can hold open, so you want a webhook. Compare a webhook with polling and with streaming for this case. Then list the receiver's duties, given that the agent promises only to try each delivery at least once, and that the config operations return the stored webhook credentials to anyone who can call them.
+Một lần chạy kiểm thử kéo dài hơn bất kỳ kết nối nào mà bộ lập kế hoạch của bạn có thể giữ mở, nên bạn muốn một webhook. So sánh webhook với thăm dò và với streaming cho trường hợp này. Sau đó liệt kê các nhiệm vụ của bộ nhận, biết rằng agent chỉ hứa cố gắng mỗi lần chuyển ít nhất một lần, và các thao tác cấu hình trả về thông tin xác thực webhook đã lưu cho bất kỳ ai có thể gọi chúng.
 
 ## Short answer
 
-Register the config inline in `SendMessage` with `returnImmediately: true`, so that no event escapes before the config exists, and close the connection. Delivery is at least once, so a notification can arrive twice or, after an outage, not at all: the receiver answers 2xx, checks the task id, processes idempotently, and reads the task with `GetTask` before it acts. Put the secret your receiver checks in `authentication`, because `token` has no standard header, and restrict who can call the four config operations, because a read returns the credentials in clear.
+Đăng ký cấu hình trực tiếp trong `SendMessage` với `returnImmediately: true`, để không sự kiện nào lọt qua trước khi cấu hình tồn tại, và đóng kết nối. Việc chuyển là ít nhất một lần, nên một thông báo có thể đến hai lần hoặc, sau một đợt ngừng hoạt động, không đến lần nào: bộ nhận trả lời 2xx, kiểm tra id tác vụ, xử lý một cách idempotent, và đọc tác vụ bằng `GetTask` trước khi hành động. Đặt bí mật mà bộ nhận của bạn kiểm tra trong `authentication`, vì `token` không có header chuẩn, và giới hạn ai có thể gọi bốn thao tác cấu hình, vì một lần đọc trả về thông tin xác thực ở dạng rõ.
 
 ## Full answer
 
 ### Three ways to wait
 
-| Mechanism | Holds a connection | Learns of a change | Cost when the client restarts |
+| Cơ chế | Giữ một kết nối | Biết về một thay đổi | Chi phí khi client khởi động lại |
 |---|---|---|---|
-| polling with `GetTask` | no | on the next poll | none, the task is stored |
-| `SendStreamingMessage` or `SubscribeToTask` | yes | at once | missed frames; subscribe again for a snapshot |
-| webhook | no | at once, when delivery succeeds | missed deliveries; read the task |
+| thăm dò bằng `GetTask` | không | ở lần thăm dò tiếp theo | không có, tác vụ được lưu |
+| `SendStreamingMessage` hoặc `SubscribeToTask` | có | ngay lập tức | các frame bị bỏ lỡ; đăng ký lại để lấy một snapshot |
+| webhook | không | ngay lập tức, khi chuyển thành công | các lần chuyển bị bỏ lỡ; đọc tác vụ |
 
-A webhook suits work that outlasts the caller. It moves the connection problem to the receiver and adds a second trust boundary.
+Một webhook phù hợp với công việc kéo dài hơn bên gọi. Nó chuyển vấn đề kết nối sang bộ nhận và thêm một ranh giới tin cậy thứ hai.
 
 ### What arrives
 
-Each notification is one HTTP POST whose body is one `StreamResponse` in the HTTP+JSON form, with no JSON-RPC envelope. In the recorded run the first body was a `statusUpdate` with `TASK_STATE_WORKING`, under `Content-Type: application/a2a+json`, `Authorization: Bearer <secret>` and `X-A2A-Notification-Token`. The SDKs differ on the content type, on the token header, and on timeouts of 5 s or 30 s, and none of them retries. So accept both content types, read either token header, and handle every `StreamResponse` member, because the reference SDK also posts the first `Task`.
+Mỗi thông báo là một HTTP POST có phần thân là một `StreamResponse` ở dạng HTTP+JSON, không có vỏ JSON-RPC. Trong lần chạy được ghi lại, phần thân đầu tiên là một `statusUpdate` với `TASK_STATE_WORKING`, dưới `Content-Type: application/a2a+json`, `Authorization: Bearer <secret>` và `X-A2A-Notification-Token`. Các SDK khác nhau về content type, về header token, và về thời gian chờ 5 s hoặc 30 s, và không SDK nào thử lại. Vì vậy hãy chấp nhận cả hai content type, đọc một trong hai header token, và xử lý mọi thành viên `StreamResponse`, vì SDK tham chiếu cũng post `Task` đầu tiên.
 
 ### The receiver's duties
 
-1. Answer with a 2xx status to confirm receipt.
-2. Check that the task id matches a task you expect.
-3. Process idempotently. A status update is safe to apply twice, keyed by task id and timestamp. An `artifactUpdate` with `append: true` is not, and no delivery id exists.
-4. Treat each notification as a signal and read the task with `GetTask` before you act.
-5. Check the `Authorization` value against the credential you put in `authentication`.
+1. Trả lời với một trạng thái 2xx để xác nhận đã nhận.
+2. Kiểm tra id tác vụ khớp với một tác vụ mà bạn mong đợi.
+3. Xử lý một cách idempotent. Một cập nhật trạng thái an toàn khi áp dụng hai lần, được khóa theo id tác vụ và timestamp. Một `artifactUpdate` với `append: true` thì không, và không tồn tại id chuyển.
+4. Xem mỗi thông báo là một tín hiệu và đọc tác vụ bằng `GetTask` trước khi bạn hành động.
+5. Kiểm tra giá trị `Authorization` so với thông tin xác thực bạn đặt trong `authentication`.
 
 ### The agent's duties, and where they fail
 
-The agent must put the configured credentials in the request headers and should validate the URL against server-side request forgery, rejecting private ranges such as `10.0.0.0/8` and `192.168.0.0/16`, loopback and link-local addresses. The reference SDK's validator does that only when the host turns it on. A config must stay until the task completes or a client deletes it, and a delete must be idempotent.
+Agent phải đặt thông tin xác thực đã cấu hình trong các header yêu cầu và nên xác thực URL để chống server-side request forgery, từ chối các dải riêng như `10.0.0.0/8` và `192.168.0.0/16`, các địa chỉ loopback và link-local. Bộ xác thực của SDK tham chiếu chỉ làm điều đó khi host bật nó. Một cấu hình phải tồn tại cho đến khi tác vụ hoàn tất hoặc một client xóa nó, và một lần xóa phải idempotent.
 
 ### The trade
 
-Inline registration costs one field and closes the gap between the first event and the config. The secret in `authentication` costs a per-run value and buys a check the receiver can make. The read-back of credentials in clear is the price of the four config operations, so scope them to the task's owner.
+Đăng ký trực tiếp tốn một trường và đóng khoảng hở giữa sự kiện đầu tiên và cấu hình. Bí mật trong `authentication` tốn một giá trị theo từng lần chạy và mang lại một phép kiểm tra mà bộ nhận có thể thực hiện. Việc đọc lại thông tin xác thực ở dạng rõ là cái giá của bốn thao tác cấu hình, nên giới hạn chúng cho chủ sở hữu tác vụ.
 
 ## Follow-ups
 
-- **Level 3:** An `artifactUpdate` with `append: true` arrives twice. Why can you not apply it twice? Expected: it duplicates parts, and there is no delivery id to deduplicate on, so read the task instead.
-- **Level 3:** The receiver was down for a minute. What did it miss? Expected: possibly everything, because no SDK retries; read the task when the receiver returns.
-- **Level 4:** Why must the agent reject a webhook URL inside a private range? Expected: the agent calls that URL for every later event of the task, so an outside caller could aim the agent's requests at an internal service.
-- **Level 4:** Who may call `ListTaskPushNotificationConfigs`, and why? Expected: only the task's owner, because the reply returns `credentials` and `token` unchanged.
+- **Level 3:** Một `artifactUpdate` với `append: true` đến hai lần. Tại sao bạn không thể áp dụng nó hai lần? Expected: nó làm trùng các part, và không có id chuyển để khử trùng lặp theo, nên thay vào đó hãy đọc tác vụ.
+- **Level 3:** Bộ nhận ngừng hoạt động trong một phút. Nó đã bỏ lỡ gì? Expected: có thể là mọi thứ, vì không SDK nào thử lại; đọc tác vụ khi bộ nhận trở lại.
+- **Level 4:** Tại sao agent phải từ chối một URL webhook nằm trong một dải riêng? Expected: agent gọi URL đó cho mọi sự kiện về sau của tác vụ, nên một bên gọi bên ngoài có thể hướng các yêu cầu của agent tới một dịch vụ nội bộ.
+- **Level 4:** Ai được gọi `ListTaskPushNotificationConfigs`, và tại sao? Expected: chỉ chủ sở hữu tác vụ, vì phản hồi trả về `credentials` và `token` không thay đổi.
 
 ## Wrong answers
 
-- "Register the webhook after the task starts with the create operation." Events before the config exists are lost. Inline registration leaves no gap.
-- "Authenticate on the token header." The specification gives `token` no transport, and the SDKs use two header names. Put the secret in `authentication` and check `Authorization`.
-- "Apply each notification as it arrives." Duplicates and lost deliveries both happen. The stored task is the source of truth.
+- "Đăng ký webhook sau khi tác vụ bắt đầu bằng thao tác create." Các sự kiện trước khi cấu hình tồn tại bị mất. Đăng ký trực tiếp không để lại khoảng hở.
+- "Xác thực dựa trên header token." Đặc tả không cho `token` phương thức vận chuyển, và các SDK dùng hai tên header. Đặt bí mật trong `authentication` và kiểm tra `Authorization`.
+- "Áp dụng mỗi thông báo ngay khi nó đến." Cả trùng lặp và mất các lần chuyển đều xảy ra. Tác vụ đã lưu là nguồn sự thật.
 
 ## Taught in
 
-The [push notification section](../../../manuals/a2a-101/sections/4-6-push-notification-configs.md) records the eight deliveries and the SDK table, and the [security requirements section](../../../manuals/a2a-101/sections/6-3-security-requirements.md) lists the webhook rules.
+[Phần thông báo push](../../../manuals/a2a-101/sections/4-6-push-notification-configs.md) ghi lại tám lần chuyển và bảng SDK, và [phần các yêu cầu bảo mật](../../../manuals/a2a-101/sections/6-3-security-requirements.md) liệt kê các quy tắc webhook.

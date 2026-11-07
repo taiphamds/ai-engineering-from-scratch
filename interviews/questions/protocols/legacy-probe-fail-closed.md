@@ -16,25 +16,25 @@ related: [protocols/stateless-request-metadata, protocols/post-only-streamable-h
 updated: 2026-11-03
 ---
 
-Your agent host launches several MCP servers over stdio. One is current. One is an old archive server that understands only `initialize`. One is current but slow to start. A teammate proposes a simple rule: send `server/discover`, and on any error or timeout send `initialize`. Design the startup so that the slow server is never downgraded and the archive server still works.
+Host agent của bạn khởi chạy nhiều MCP server qua stdio. Một server là hiện tại. Một server là server lưu trữ cũ chỉ hiểu `initialize`. Một server là hiện tại nhưng khởi động chậm. Một đồng đội đề xuất một quy tắc đơn giản: gửi `server/discover`, và với bất kỳ lỗi hoặc timeout nào thì gửi `initialize`. Thiết kế khởi động để server chậm không bao giờ bị hạ cấp và server lưu trữ vẫn hoạt động.
 
 ## Short answer
 
-Treat an ambiguous signal as ambiguous. A timeout, a connection close, an empty response or an unrecognized error does not identify an era, so the client fails closed unless that exact peer is configured with `allow_legacy=True`. A recognized modern error such as `-32022` proves the server is current and forbids `initialize`. For the archive peer on the allowlist, send one `initialize` under a transport-enforced deadline and select the legacy era only after a structurally valid positive result.
+Xem một tín hiệu mơ hồ là mơ hồ. Một timeout, một lần đóng kết nối, một phản hồi trống hoặc một lỗi không được nhận diện không định danh một thời kỳ, nên client đóng khi thất bại trừ khi đúng peer đó được cấu hình với `allow_legacy=True`. Một lỗi hiện đại được nhận diện như `-32022` chứng minh server là hiện tại và cấm `initialize`. Với peer lưu trữ trong danh sách cho phép, gửi một `initialize` dưới một thời hạn do transport thực thi và chỉ chọn thời kỳ legacy sau một kết quả dương tính hợp lệ về cấu trúc.
 
 ## Full answer
 
 ### Three outcome classes for the probe
 
-| Outcome of `server/discover` | Meaning | Next step |
+| Kết quả của `server/discover` | Ý nghĩa | Bước tiếp theo |
 |---|---|---|
-| a `DiscoverResult` | current server | pick the highest mutually supported version and continue with per-request metadata |
-| a recognized modern error | current server | correct the request or retry an advertised version; never send `initialize` |
-| an ambiguous signal | unknown | fail closed, unless this pinned peer allows one bounded legacy probe |
+| một `DiscoverResult` | server hiện tại | chọn phiên bản cao nhất được cả hai hỗ trợ và tiếp tục với metadata theo từng yêu cầu |
+| một lỗi hiện đại được nhận diện | server hiện tại | sửa yêu cầu hoặc thử lại một phiên bản được quảng bá; không bao giờ gửi `initialize` |
+| một tín hiệu mơ hồ | không xác định | đóng khi thất bại, trừ khi peer đã ghim này cho phép một lần thăm dò legacy có giới hạn |
 
-Recognized modern errors are `-32020` HeaderMismatch, `-32021` MissingRequiredClientCapability and `-32022` UnsupportedProtocolVersion. They remain modern even when the peer is on the legacy allowlist, because a server that speaks the modern error vocabulary would be downgraded by `initialize`.
+Các lỗi hiện đại được nhận diện là `-32020` HeaderMismatch, `-32021` MissingRequiredClientCapability và `-32022` UnsupportedProtocolVersion. Chúng vẫn là hiện đại ngay cả khi peer nằm trong danh sách legacy được cho phép, vì một server sử dụng vốn từ lỗi hiện đại sẽ bị hạ cấp bởi `initialize`.
 
-`-32601` is not positive legacy evidence. It only makes an explicitly allowlisted peer eligible for one probe, and so does a timeout, a connection close or an empty response.
+`-32601` không phải bằng chứng legacy dương tính. Nó chỉ khiến một peer được cho phép tường minh đủ điều kiện cho một lần thăm dò, và một timeout, một lần đóng kết nối hoặc một phản hồi trống cũng vậy.
 
 ### The allowlist is intent, not evidence
 
@@ -42,41 +42,41 @@ Recognized modern errors are `-32020` HeaderMismatch, `-32021` MissingRequiredCl
 client.add_server("archive", archive_transport, allow_legacy=True)
 ```
 
-Bind the choice to the configured command or endpoint. A wildcard would let an arbitrary server opt itself into weaker semantics. A peer without the flag fails after an ambiguous outcome and never receives `initialize`.
+Gắn lựa chọn với lệnh hoặc endpoint đã cấu hình. Một wildcard sẽ cho phép một server tùy ý tự chọn vào ngữ nghĩa yếu hơn. Một peer không có cờ thất bại sau một kết quả mơ hồ và không bao giờ nhận `initialize`.
 
 ### Positive legacy evidence
 
-The one `initialize` runs under `legacy_probe_timeout_ms`, which a real adapter must enforce. The client then requires all of:
+Lần `initialize` duy nhất chạy dưới `legacy_probe_timeout_ms`, mà một adapter thực phải thực thi. Client sau đó yêu cầu tất cả những điều sau:
 
-- a JSON-RPC `2.0` response with the matching request id;
-- exactly one `result` and no `error`;
-- a `protocolVersion` in the client's configured legacy revision set;
-- an object-valued `capabilities`;
-- a `serverInfo` object with non-empty string `name` and `version`.
+- một phản hồi JSON-RPC `2.0` với id yêu cầu khớp;
+- đúng một `result` và không có `error`;
+- một `protocolVersion` trong tập bản sửa đổi legacy đã cấu hình của client;
+- một `capabilities` có giá trị đối tượng;
+- một đối tượng `serverInfo` với các chuỗi `name` và `version` không trống.
 
-Anything else leaves the peer `unknown` and unavailable. Only after all checks pass does the client send `notifications/initialized` and use legacy request shapes for that transport lifetime.
+Bất kỳ điều gì khác để peer ở `unknown` và không khả dụng. Chỉ sau khi mọi kiểm tra đạt, client mới gửi `notifications/initialized` và dùng các hình dạng yêu cầu legacy trong thời gian tồn tại của transport đó.
 
 ### After the era is chosen
 
-Cache the era per transport peer and do not probe before every call. When the transport restarts or the endpoint changes, discard the cache and negotiate again. Then call `tools/list`, sort the result before merging, and apply a declared collision policy: prefix later duplicates as `<server>/<tool>` or reject the duplicate with both peer names in the error. Never overwrite silently.
+Cache thời kỳ theo từng peer transport và không thăm dò trước mỗi lệnh gọi. Khi transport khởi động lại hoặc endpoint thay đổi, bỏ cache và thương lượng lại. Sau đó gọi `tools/list`, sắp xếp kết quả trước khi gộp, và áp dụng một chính sách va chạm đã khai báo: thêm tiền tố cho các tên trùng sau thành `<server>/<tool>` hoặc từ chối tên trùng với cả hai tên peer trong lỗi. Không bao giờ ghi đè âm thầm.
 
 ### Why the slow server survives
 
-Its first probe times out, which is an ambiguous signal. It is not allowlisted, so the client marks it unavailable instead of sending `initialize`. A later retry of `server/discover` succeeds and the peer joins as a current server with the correct era.
+Lần thăm dò đầu tiên của nó hết thời gian chờ, đó là một tín hiệu mơ hồ. Nó không nằm trong danh sách cho phép, nên client đánh dấu nó không khả dụng thay vì gửi `initialize`. Một lần thử lại `server/discover` sau đó thành công và peer tham gia như một server hiện tại với thời kỳ đúng.
 
 ## Follow-ups
 
-- **Level 3:** The allowlisted archive peer answers `-32022` to discovery. Which era? Expected: current; a recognized modern error forbids the legacy probe, so choose from `data.supported` and retry with a new request id.
-- **Level 3:** The `initialize` probe times out. What state is the peer in? Expected: `unknown` and unavailable; no era is selected and `notifications/initialized` is never sent.
-- **Level 4:** A legacy server accepts `tools/list` before initialization. Why does that make discovery-first safer on stdio? Expected: the ambiguous success would hide the era; `server/discover` creates a clean era boundary before any operation.
-- **Level 4:** The archive process crashes and restarts. Do you reuse the cached legacy era? Expected: no; discard the peer-era cache, rediscover, relist, reopen subscriptions, and retry only safe operations with new ids.
+- **Level 3:** Peer lưu trữ được cho phép trả lời `-32022` cho discovery. Thời kỳ nào? Expected: hiện tại; một lỗi hiện đại được nhận diện cấm thăm dò legacy, nên chọn từ `data.supported` và thử lại với một id yêu cầu mới.
+- **Level 3:** Lần thăm dò `initialize` hết thời gian chờ. Peer ở trạng thái nào? Expected: `unknown` và không khả dụng; không thời kỳ nào được chọn và `notifications/initialized` không bao giờ được gửi.
+- **Level 4:** Một server legacy chấp nhận `tools/list` trước khởi tạo. Tại sao điều đó khiến khám phá trước an toàn hơn trên stdio? Expected: thành công mơ hồ sẽ che giấu thời kỳ; `server/discover` tạo một ranh giới thời kỳ rõ ràng trước bất kỳ thao tác nào.
+- **Level 4:** Tiến trình lưu trữ gặp sự cố và khởi động lại. Bạn có dùng lại thời kỳ legacy đã cache không? Expected: không; bỏ cache thời kỳ peer, khám phá lại, liệt kê lại, mở lại các subscription, và chỉ thử lại các thao tác an toàn với id mới.
 
 ## Wrong answers
 
-- "Any error from discovery means the server is old." A malformed request, an overloaded server, a dead process and an old server can all produce the same timeout or close.
-- "Send `initialize` first; a current server will reject it." Sending `initialize` to a current server is a downgrade and must never be the default path.
-- "A method-not-found error proves the server is legacy." It only makes an allowlisted peer eligible for one bounded probe; the positive evidence is a valid `initialize` result.
+- "Bất kỳ lỗi nào từ discovery nghĩa là server cũ." Một yêu cầu sai định dạng, một server quá tải, một tiến trình đã chết và một server cũ đều có thể tạo cùng một timeout hoặc lần đóng.
+- "Gửi `initialize` trước; một server hiện tại sẽ từ chối nó." Gửi `initialize` đến một server hiện tại là hạ cấp và không bao giờ được là đường mặc định.
+- "Một lỗi không tìm thấy phương thức chứng minh server là legacy." Nó chỉ khiến một peer được cho phép đủ điều kiện cho một lần thăm dò có giới hạn; bằng chứng dương tính là một kết quả `initialize` hợp lệ.
 
 ## Taught in
 
-The [client lesson](../../../phases/13-tools-and-protocols/08-building-an-mcp-client/) defines the probe outcomes, the allowlist and the positive evidence checklist.
+[Bài học về client](../../../phases/13-tools-and-protocols/08-building-an-mcp-client/) định nghĩa các kết quả thăm dò, danh sách cho phép và danh sách kiểm tra bằng chứng dương tính.
