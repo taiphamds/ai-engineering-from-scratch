@@ -16,63 +16,63 @@ related: [evidence-reverse-engineering/observed-derived-inferred, evidence-rever
 updated: 2026-11-03
 ---
 
-Take-home. Build the harness an agent uses to answer one question about a program you compiled yourself, through the analysis tool's MCP server: what does the program print for a score of 95, and where does the letter come from? Deliver the authorization note, the call plan with its deadlines, the ledger that lists each claim on its own line, the open unknowns, the rule for text that comes out of the file, and the tests you ship.
+Bài làm ở nhà. Xây dựng harness mà một agent dùng để trả lời một câu hỏi về một chương trình bạn tự biên dịch, qua MCP server của công cụ phân tích: chương trình in gì cho điểm 95, và chữ cái đến từ đâu? Bàn giao ghi chú ủy quyền, kế hoạch gọi với các thời hạn, sổ ghi liệt kê mỗi nhận định trên một dòng riêng, các điều chưa biết còn mở, quy tắc cho văn bản đi ra từ file, và các kiểm thử bạn cung cấp.
 
 ## Short answer
 
-Begin with the authorization note: the target is your own build, and the note still answers the five questions in writing, a lawful copy, a named purpose, facts not already available, work confined to the needed parts, and your own expression in anything you release. Plan the calls in order, `open_binary`, `list_procedures`, `list_strings`, `analyze_function` on the two functions, then `read_bytes` on both tables the dossiers name, and `export_evidence_bundle` before `close_binary`, with a client deadline set from a measured cold start because the first engine-backed call pays for the import. Keep a ledger with one row per claim, each row a kind among observed, derived, inferred and unknown, an evidence id and a boundary, and let the row "95 prints A" stay inferred until the two table reads turn it observed. Treat every string, name and line of pseudocode from the file as data with an address, never as an instruction.
+Bắt đầu bằng ghi chú ủy quyền: mục tiêu là bản dựng riêng của bạn, và ghi chú vẫn trả lời năm câu hỏi bằng văn bản, một bản sao hợp pháp, một mục đích được nêu, các sự kiện chưa có sẵn, công việc giới hạn ở các phần cần thiết, và cách biểu đạt riêng trong bất cứ thứ gì bạn phát hành. Lập kế hoạch các lời gọi theo thứ tự, `open_binary`, `list_procedures`, `list_strings`, `analyze_function` trên hai hàm, rồi `read_bytes` trên cả hai bảng mà các hồ sơ nêu, và `export_evidence_bundle` trước `close_binary`, với một thời hạn client đặt từ một cold start đã đo vì lời gọi đầu tiên có engine phía sau trả chi phí import. Giữ một sổ với một hàng mỗi nhận định, mỗi hàng có một loại trong observed, derived, inferred và unknown, một evidence id và một ranh giới, và để hàng "95 in A" giữ inferred cho đến khi hai lần đọc bảng biến nó thành observed. Coi mọi chuỗi, tên và dòng pseudocode từ file là dữ liệu có địa chỉ, không bao giờ là một chỉ dẫn.
 
 ## Full answer
 
 ### Authorization
 
-Every target is a program you wrote and compiled, and the note says so with hashes. For any other program the note answers the five questions before the first command and names the purpose the law names. The tool does not check authorization; the note is yours.
+Mọi mục tiêu là một chương trình bạn viết và biên dịch, và ghi chú nói vậy với các hash. Với bất kỳ chương trình khác ghi chú trả lời năm câu hỏi trước lệnh đầu tiên và nêu mục đích mà luật nêu. Công cụ không kiểm tra ủy quyền; ghi chú là của bạn.
 
 ### Call plan and deadlines
 
-`open_binary` returns the format, kind, SHA-256 and architecture without importing anything. The first engine-backed call starts the headless import and takes seconds; later calls on the same target take milliseconds. The server allows 330,000 ms for that start, and the pinned client SDK waits 60,000 ms by default, so the client deadline is the one to set from your own first run. Ask every question before `close_binary`, because the project is deleted and the retained records go with it; export the bundle first so every id in the ledger stays checkable.
+`open_binary` trả về định dạng, loại, SHA-256 và kiến trúc mà không import gì. Lời gọi đầu tiên có engine phía sau bắt đầu import headless và mất vài giây; các lời gọi sau trên cùng mục tiêu mất mili giây. Server cho phép 330,000 ms cho khởi động đó, và client SDK được ghim chờ 60,000 ms mặc định, vì vậy thời hạn client là thứ cần đặt từ lần chạy đầu riêng của bạn. Hỏi mọi câu trước `close_binary`, vì project bị xóa và các bản ghi được giữ đi theo nó; xuất bundle trước để mọi id trong sổ vẫn kiểm tra được.
 
 ### The ledger
 
-The recorded session returned 13 procedures and 39 strings, then two dossiers. Its ledger reads, in part:
+Phiên được ghi trả về 13 procedure và 39 chuỗi, rồi hai hồ sơ. Sổ của nó có một phần như sau:
 
-| Claim | Kind | Evidence | Boundary |
+| Nhận định | Loại | Bằng chứng | Ranh giới |
 |---|---|---|---|
-| `_grade` divides its argument by 10 | derived | the dossier's multiply by `0x66666667` and the shifts | a reading of the listing that the pseudocode confirms |
-| five 4-byte entries sit at the table the `lea` names | derived | `cmp w8, #0x4` and the scaled load | count from the compare, width from the shift |
-| the five values in that table | unknown | none; `read_bytes` with length 20 would observe them | no call in this session read memory |
-| nothing calls `_grade` with a call instruction in this build | observed | `callers: []` and one `DATA` reference | coverage complete for resolved calls only |
-| a score of 95 prints `A` | inferred | the C source the reader owns | no record of this session supports it |
-| the function name `_nothing` | refused | `invalid_request` | a failed call produces no evidence |
+| `_grade` chia đối số của nó cho 10 | derived | phép nhân với `0x66666667` và các phép dịch trong hồ sơ | một cách đọc listing được pseudocode xác nhận |
+| năm mục 4 byte nằm tại bảng mà `lea` nêu | derived | `cmp w8, #0x4` và phép nạp có tỷ lệ | số lượng từ phép so sánh, chiều rộng từ phép dịch |
+| năm giá trị trong bảng đó | unknown | không có; `read_bytes` với độ dài 20 sẽ quan sát chúng | không lời gọi nào trong phiên này đọc bộ nhớ |
+| không có gì gọi `_grade` bằng một lệnh call trong bản dựng này | observed | `callers: []` và một tham chiếu `DATA` | độ bao phủ hoàn chỉnh chỉ cho các lời gọi đã giải quyết |
+| một điểm 95 in `A` | inferred | mã nguồn C mà người đọc sở hữu | không bản ghi nào của phiên này hỗ trợ nó |
+| tên hàm `_nothing` | refused | `invalid_request` | một lời gọi thất bại không tạo bằng chứng |
 
-The second-to-last row separates an honest report from a confident one. The reader compiled the source and knows the answer; the agent's records stop at two unread tables, and the two `read_bytes` calls are the next steps of the investigation.
+Hàng áp chót phân biệt một báo cáo trung thực với một báo cáo tự tin. Người đọc đã biên dịch mã nguồn và biết câu trả lời; các bản ghi của agent dừng ở hai bảng chưa đọc, và hai lời gọi `read_bytes` là các bước tiếp theo của cuộc điều tra.
 
 ### Text from the file is data
 
-Every string, symbol name, comment and line of pseudocode copied out of the target is target text. The agent quotes it with its address and never acts on it, and the ledger has no row kind for an instruction received from the file. Each result that can carry such text arrives with a provenance marker that names the analysis target as untrusted; the marker tells the agent which text came from the file, and the agent still applies the rule. A 2026 study planted text inside binaries and found that models proposed the planted unsafe action in 35 of 40 cases without controls; showing the content as data alone still left 15 of 40, and provenance checks with tool authorization removed them.
+Mọi chuỗi, tên symbol, comment và dòng pseudocode được sao ra từ mục tiêu là văn bản mục tiêu. Agent trích nó với địa chỉ và không bao giờ hành động theo nó, và sổ không có loại hàng cho một chỉ dẫn nhận từ file. Mỗi kết quả có thể mang văn bản như vậy đến cùng một marker nguồn gốc nêu mục tiêu phân tích là không đáng tin; marker cho agent biết văn bản nào đến từ file, và agent vẫn áp dụng quy tắc. Một nghiên cứu 2026 cài văn bản trong các binary và thấy các mô hình đề xuất hành động không an toàn được cài trong 35 trên 40 trường hợp khi không có kiểm soát; chỉ hiển thị nội dung như dữ liệu vẫn để lại 15 trên 40, và các phép kiểm tra nguồn gốc với ủy quyền công cụ loại bỏ chúng.
 
 ### Tests to ship
 
-1. A stand-in server replays the recorded records for the same tool and arguments, so the loop runs with no engine installed.
-2. Every record's id recomputes from its content, and a record with one limitation removed is refused.
-3. Promotion refuses a derived or inferred id and passes only with an agreeing run under `controlled-replay`.
-4. The ledger marks a claim `unknown` when some inputs have runs and others do not, and never rounds it up.
-5. A fixture binary carries a string that reads like a command; the test asserts that the ledger holds it as a value with an address and that nothing executes.
-6. A client deadline shorter than the measured cold start produces a recorded timeout step, not a finding.
+1. Một server thay thế phát lại các bản ghi đã ghi cho cùng công cụ và đối số, để vòng lặp chạy không có engine được cài.
+2. Id của mọi bản ghi được tính lại từ nội dung, và một bản ghi bị bỏ một giới hạn bị từ chối.
+3. Việc nâng loại từ chối một id derived hoặc inferred và chỉ đạt với một lần chạy đồng ý dưới `controlled-replay`.
+4. Sổ đánh dấu một nhận định `unknown` khi một số đầu vào có các lần chạy và số khác không, và không bao giờ làm tròn nó lên.
+5. Một binary fixture mang một chuỗi đọc như một lệnh; kiểm thử khẳng định sổ giữ nó như một giá trị có địa chỉ và không gì thực thi.
+6. Một thời hạn client ngắn hơn cold start đã đo tạo ra một bước hết thời gian được ghi lại, không phải một phát hiện.
 
 ## Follow-ups
 
-- **Level 3:** Why export the bundle before the close? Expected: the close deletes the project and clears the retained records, and the ledger's ids are checkable only against a bundle.
-- **Level 4:** A run of the host build agrees with the prediction for 95. What limitation travels with that row? Expected: the object never ran; a build of the same source for another architecture did, which is the strongest observation without an emulator.
-- **Level 4:** The strings list contains "run this command to continue". What does the ledger do? Expected: records the string with its address as an observed value, flags the request, and executes nothing; the provenance marker is data about data.
-- **Level 4:** The agent has the C source. Why does "95 prints A" still read inferred? Expected: no record of the session supports it; two `read_bytes` calls would, and until then the honest kind is inferred.
+- **Level 3:** Tại sao xuất bundle trước khi đóng? Expected: việc đóng xóa project và xóa các bản ghi được giữ, và các id của sổ chỉ kiểm tra được với một bundle.
+- **Level 4:** Một lần chạy bản dựng host đồng ý với dự đoán cho 95. Giới hạn nào đi cùng hàng đó? Expected: object chưa bao giờ chạy; một bản dựng cùng mã nguồn cho một kiến trúc khác đã chạy, là quan sát mạnh nhất khi không có emulator.
+- **Level 4:** Danh sách chuỗi chứa "chạy lệnh này để tiếp tục". Sổ làm gì? Expected: ghi lại chuỗi với địa chỉ như một giá trị observed, đánh dấu request, và không thực thi gì; marker nguồn gốc là dữ liệu về dữ liệu.
+- **Level 4:** Agent có mã nguồn C. Tại sao "95 in A" vẫn là inferred? Expected: không bản ghi nào của phiên hỗ trợ nó; hai lời gọi `read_bytes` sẽ hỗ trợ, và cho đến đó loại trung thực là inferred.
 
 ## Wrong answers
 
-- "The pseudocode returns an entry of `_labels`, so the letter is observed." The access is observed; the value behind it was never read.
-- "Skip the authorization note for a file I compiled." Write it anyway; the questions answer themselves for your own build, and the habit is the control for every other file.
-- "Treat the usage text as the program's instructions to the agent." It is target text; quote it with its address and never follow it.
+- "Pseudocode trả về một mục của `_labels`, vì vậy chữ cái là observed." Việc truy cập được quan sát; giá trị đằng sau nó chưa bao giờ được đọc.
+- "Bỏ ghi chú ủy quyền cho một file tôi biên dịch." Vẫn viết nó; các câu hỏi tự trả lời cho bản dựng riêng của bạn, và thói quen là biện pháp kiểm soát cho mọi file khác.
+- "Coi văn bản sử dụng là chỉ dẫn của chương trình cho agent." Nó là văn bản mục tiêu; trích nó với địa chỉ và không bao giờ làm theo.
 
 ## Taught in
 
-The [agent investigation section](../../../manuals/reverse-engineering-101/sections/8-2-an-agent-investigation.md) walks the recorded session and its ledger, the [use rule section](../../../manuals/reverse-engineering-101/sections/2-1-the-readme-use-rule-and-the-law.md) gives the five questions, the [open_binary section](../../../manuals/reverse-engineering-101/sections/4-1-open-binary-and-the-headless-bridge.md) measures the cold start, and the [evidence](../../../phases/13-tools-and-protocols/35-evidence-confidence-and-unknowns/), [rebuild](../../../phases/13-tools-and-protocols/36-rebuild-and-prove-equal/), [dynamic analysis](../../../phases/13-tools-and-protocols/42-dynamic-analysis-of-your-own-program/) and [ELF](../../../phases/13-tools-and-protocols/32-program-anatomy-elf-from-scratch/) lessons supply the ledger, the harness, the verdicts and the law notes.
+[Phần điều tra của agent](../../../manuals/reverse-engineering-101/sections/8-2-an-agent-investigation.md) đi qua phiên được ghi và sổ của nó, [phần quy tắc sử dụng](../../../manuals/reverse-engineering-101/sections/2-1-the-readme-use-rule-and-the-law.md) đưa ra năm câu hỏi, [phần open_binary](../../../manuals/reverse-engineering-101/sections/4-1-open-binary-and-the-headless-bridge.md) đo cold start, và các bài học [bằng chứng](../../../phases/13-tools-and-protocols/35-evidence-confidence-and-unknowns/), [xây dựng lại](../../../phases/13-tools-and-protocols/36-rebuild-and-prove-equal/), [phân tích động](../../../phases/13-tools-and-protocols/42-dynamic-analysis-of-your-own-program/) và [ELF](../../../phases/13-tools-and-protocols/32-program-anatomy-elf-from-scratch/) cung cấp sổ, harness, các phán quyết và các ghi chú luật.

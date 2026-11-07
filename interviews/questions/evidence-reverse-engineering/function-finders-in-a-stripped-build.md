@@ -16,46 +16,46 @@ related: [evidence-reverse-engineering/sweep-trap-addq-at-0x13]
 updated: 2026-11-03
 ---
 
-A stripped arm64 executable holds five functions, and `nm` lists one name. Compare four ways to recover the function starts, score each against the unstripped twin at `-O0` and `-O2`, and say how you name the functions afterwards and where that naming collides.
+Một executable arm64 đã strip giữ năm hàm, và `nm` liệt kê một tên. So sánh bốn cách khôi phục các điểm bắt đầu hàm, chấm mỗi cách so với bản song sinh chưa strip ở `-O0` và `-O2`, và nói bạn đặt tên các hàm sau đó như thế nào và việc đặt tên đó va chạm ở đâu.
 
 ## Short answer
 
-The link editor's own table wins: `LC_FUNCTION_STARTS` is nine bytes of uleb128 deltas that list all five starts at both levels, and `strip` does not touch it. A prologue scan for the pre-indexed frame store finds 0 of 5, because the compiler emits `sub sp, sp, #N` first; a mask for that `sub` finds 5 of 5 at `-O0` and 1 of 5 at `-O2`, where four leaf functions have no frame at all. Call targets plus the entry point find 5 of 5, since a `bl` into the middle of a function is something a compiler does not emit for C. Names come from signatures built from your own objects, a 32-byte pattern with relocation bytes wildcarded and a CRC16 of the tail; at `-O2` two functions share their first 36 bytes because one inlined the other, and the tail byte at 44 and the lengths 60 against 72 split the collision.
+Bảng riêng của trình biên tập liên kết thắng: `LC_FUNCTION_STARTS` là chín byte các độ lệch uleb128 liệt kê tất cả năm điểm bắt đầu ở cả hai mức, và `strip` không đụng nó. Một lượt quét prologue cho phép lưu frame đánh chỉ số trước tìm 0 trên 5, vì trình biên dịch phát `sub sp, sp, #N` trước; một mask cho `sub` đó tìm 5 trên 5 ở `-O0` và 1 trên 5 ở `-O2`, nơi bốn hàm lá hoàn toàn không có frame. Các đích call cộng điểm vào tìm 5 trên 5, vì một `bl` vào giữa một hàm là thứ trình biên dịch không phát cho C. Tên đến từ các chữ ký được xây từ các object riêng của bạn, một mẫu 32 byte với các byte relocation là wildcard và một CRC16 của đuôi; ở `-O2` hai hàm dùng chung 36 byte đầu vì một hàm inline hàm kia, và byte đuôi tại 44 cùng độ dài 60 so với 72 tách va chạm.
 
 ## Full answer
 
 ### The four finders
 
-| Method | What it reads | `-O0` | `-O2` | Why |
+| Phương pháp | Nó đọc gì | `-O0` | `-O2` | Tại sao |
 |---|---|---|---|---|
-| `LC_FUNCTION_STARTS` | uleb128 deltas in `__LINKEDIT` | 5 of 5 | 5 of 5 | written for the unwinder and crash reporter; survives `strip` |
-| frame-store prologue | `stp x29, x30, [sp, #-0x10]!` | 0 of 5 | 0 of 5 | the compiler stores the pair at a positive offset after `sub sp` |
-| `sub sp` mask | `(word & 0xff0003ff) == 0xd10003ff` | 5 of 5 | 1 of 5 | leaf functions at `-O2` allocate no frame; one starts with `cbz` |
-| call targets | every `bl` inside `__text`, plus the `LC_MAIN` entry | 5 of 5 | 5 of 5 | nothing calls `main`, so the entry is added by hand |
+| `LC_FUNCTION_STARTS` | các độ lệch uleb128 trong `__LINKEDIT` | 5 trên 5 | 5 trên 5 | được viết cho unwinder và crash reporter; sống sót qua `strip` |
+| prologue lưu frame | `stp x29, x30, [sp, #-0x10]!` | 0 trên 5 | 0 trên 5 | trình biên dịch lưu cặp tại một offset dương sau `sub sp` |
+| mask `sub sp` | `(word & 0xff0003ff) == 0xd10003ff` | 5 trên 5 | 1 trên 5 | các hàm lá ở `-O2` không cấp phát frame; một hàm bắt đầu với `cbz` |
+| các đích call | mọi `bl` trong `__text`, cộng mục vào `LC_MAIN` | 5 trên 5 | 5 trên 5 | không gì gọi `main`, vì vậy điểm vào được thêm bằng tay |
 
-No false positives appeared here because the program is small. One-byte patterns such as the x86-64 `push rbp` byte hit inside other instructions, which is why real pattern files pair a start pattern with a byte that must end the previous function. Prefer the tables the link editor wrote, then call targets to fill gaps, and scan for bytes last.
+Không dương tính giả xuất hiện ở đây vì chương trình nhỏ. Các mẫu một byte như byte `push rbp` của x86-64 khớp bên trong các lệnh khác, là lý do các file mẫu thật ghép một mẫu bắt đầu với một byte phải kết thúc hàm trước. Ưu tiên các bảng trình biên tập liên kết viết, rồi các đích call để lấp khoảng trống, và quét byte cuối cùng.
 
 ### What strip leaves per format
 
-The names the loader binds survive everywhere: imports and exports in the dynamic symbol table, the import and export directories of a PE image, the chained imports table and the exports trie of a Mach-O. Function starts survive as unwind data (`.eh_frame` unless built without unwind tables), as `.pdata` entries for non-leaf functions in a PE image, and as `LC_FUNCTION_STARTS`. The static symbol table and the debug sections go. A fully stripped library whose symbol table holds zero records still links, because the link editor reads the exports trie.
+Các tên loader ràng buộc sống sót ở mọi nơi: import và export trong bảng symbol động, các thư mục import và export của một PE image, bảng import nối chuỗi và exports trie của một Mach-O. Các điểm bắt đầu hàm sống sót dưới dạng dữ liệu unwind (`.eh_frame` trừ khi được dựng không có bảng unwind), dưới dạng các mục `.pdata` cho các hàm không phải lá trong một PE image, và dưới dạng `LC_FUNCTION_STARTS`. Bảng symbol tĩnh và các section debug biến mất. Một thư viện strip hoàn toàn có bảng symbol giữ không bản ghi vẫn liên kết, vì trình biên tập liên kết đọc exports trie.
 
 ### Signatures and the collision
 
-A signature is the first 32 bytes of a function with every relocated byte marked variant, a CRC16 over the bytes after the pattern up to the first variant byte, and the names the function references. Built from the unstripped objects and applied at every recovered start, the signatures name all five functions at both levels. At `-O2` the two colliding functions produce identical pattern and CRC lines; the report records both candidates and the byte that decided them. A collision that nothing separates stays an unknown. The premise is checked too: every non-variant byte of each object function equals the byte at the same offset in the linked file, so the link editor changed only the relocated words.
+Một chữ ký là 32 byte đầu của một hàm với mọi byte được relocation đánh dấu biến thể, một CRC16 trên các byte sau mẫu đến byte biến thể đầu, và các tên mà hàm tham chiếu. Được xây từ các object chưa strip và áp dụng tại mọi điểm bắt đầu được khôi phục, các chữ ký đặt tên tất cả năm hàm ở cả hai mức. Ở `-O2` hai hàm va chạm tạo các dòng mẫu và CRC giống hệt; báo cáo ghi cả hai ứng viên và byte quyết định chúng. Một va chạm không gì tách được giữ là một điều chưa biết. Tiền đề cũng được kiểm tra: mọi byte không biến thể của mỗi hàm object bằng byte tại cùng offset trong file đã liên kết, vì vậy trình biên tập liên kết chỉ thay đổi các word được relocation.
 
 ## Follow-ups
 
-- **Level 2:** Why does the frame-store scan find nothing even at `-O0`? Expected: the compiler emits `sub sp` first and stores the frame record at a positive offset, so the pre-indexed form never occurs.
-- **Level 3:** Why can `strip` not remove the function starts table? Expected: the unwinder and the crash reporter read it, the link editor writes it into `__LINKEDIT`, and only the symbol table is the debugger's.
-- **Level 3:** Two signatures match at the same start. What do you record? Expected: both candidates, the tail byte and the lengths that split them, and an unknown when nothing does.
-- **Level 4:** Which table plays this role in a PE image, and whom does it omit? Expected: `.pdata` with its `RUNTIME_FUNCTION` entries, which omit leaf functions that allocate no stack and call nothing.
+- **Level 2:** Tại sao lượt quét lưu frame không tìm gì ngay cả ở `-O0`? Expected: trình biên dịch phát `sub sp` trước và lưu bản ghi frame tại một offset dương, vì vậy dạng đánh chỉ số trước không bao giờ xuất hiện.
+- **Level 3:** Tại sao `strip` không thể bỏ bảng điểm bắt đầu hàm? Expected: unwinder và crash reporter đọc nó, trình biên tập liên kết viết nó vào `__LINKEDIT`, và chỉ bảng symbol là của debugger.
+- **Level 3:** Hai chữ ký khớp tại cùng điểm bắt đầu. Bạn ghi lại gì? Expected: cả hai ứng viên, byte đuôi và các độ dài tách chúng, và một điều chưa biết khi không gì tách được.
+- **Level 4:** Bảng nào đóng vai trò này trong một PE image, và nó bỏ ai? Expected: `.pdata` với các mục `RUNTIME_FUNCTION`, bỏ các hàm lá không cấp phát stack và không gọi gì.
 
 ## Wrong answers
 
-- "`nm` shows one function, so there is one." It shows the symbol table; the link editor's starts table lists five.
-- "Scan for the standard prologue." At `-O2` four of five functions have no frame; the scan reports what the compiler chose to emit.
-- "A matching CRC proves the name." Two functions shared pattern and CRC; the tail byte and the lengths decided, and the record says so.
+- "`nm` hiển thị một hàm, vì vậy có một hàm." Nó hiển thị bảng symbol; bảng điểm bắt đầu của trình biên tập liên kết liệt kê năm.
+- "Quét prologue chuẩn." Ở `-O2` bốn trong năm hàm không có frame; lượt quét báo cáo điều trình biên dịch chọn phát.
+- "Một CRC khớp chứng minh tên." Hai hàm dùng chung mẫu và CRC; byte đuôi và các độ dài quyết định, và bản ghi nói vậy.
 
 ## Taught in
 
-The [linking lesson](../../../phases/13-tools-and-protocols/40-linking-loading-and-stripped-binaries/) scores the four finders against the unstripped twin and builds the signatures that collide at `-O2`.
+[Bài học liên kết](../../../phases/13-tools-and-protocols/40-linking-loading-and-stripped-binaries/) chấm bốn bộ tìm so với bản song sinh chưa strip và xây các chữ ký va chạm ở `-O2`.

@@ -16,43 +16,43 @@ related: [evidence-reverse-engineering/byte-match-is-not-source, evidence-revers
 updated: 2026-11-03
 ---
 
-Design the input grid that runs an original and a rebuild of `percent_change(int before, int after)` and `grade(int score)` side by side, so that every hazard the listing shows has at least one cell. Estimate how many cells you need and in which classes, and how many cells a rebuild that kept the decompiler's `long` will fail.
+Thiết kế lưới đầu vào chạy một bản gốc và một bản dựng lại của `percent_change(int before, int after)` và `grade(int score)` cạnh nhau, để mọi nguy cơ listing cho thấy có ít nhất một ô. Ước tính bạn cần bao nhiêu ô và trong những lớp nào, và một bản dựng lại giữ `long` của decompiler sẽ thất bại bao nhiêu ô.
 
 ## Short answer
 
-Read the hazards off the listing: a zero guard from `TEST EDI, EDI`, truncation toward zero for negative operands, multiply-before-divide order for rounding, a 32-bit wrap from `IMUL EAX`, a divide trap when the wrapped product is `INT_MIN` and the divisor is -1, and for `grade` both sides of every band edge plus scores beyond the switch. Ten `before` values crossed with seven `after` values give 70 cells, 22 scores add the rest, 92 in all: 32 overflow, 17 negative, 14 boundary, 12 plain, 7 zero guard, 5 negative truncation, 2 beyond the switch, 2 rounding, 1 trap. The `long` rebuild fails the overflow cells with `|before| > 1`, 26 of them, and a threshold rebuild of `grade` fails the two cells beyond the switch, so the plausible pair fails 28 of 92 while all ten naive cases pass.
+Đọc các nguy cơ từ listing: một điều kiện bảo vệ không từ `TEST EDI, EDI`, cắt về không cho toán hạng âm, thứ tự nhân trước chia cho làm tròn, một wrap 32 bit từ `IMUL EAX`, một trap chia khi tích đã wrap là `INT_MIN` và số chia là -1, và với `grade` cả hai phía của mọi biên dải cộng các điểm vượt switch. Mười giá trị `before` kết hợp với bảy giá trị `after` cho 70 ô, 22 điểm thêm phần còn lại, tổng cộng 92: 32 tràn, 17 âm, 14 biên, 12 thường, 7 bảo vệ không, 5 cắt âm, 2 vượt switch, 2 làm tròn, 1 trap. Bản dựng lại `long` thất bại các ô tràn với `|before| > 1`, 26 ô, và một bản dựng lại ngưỡng của `grade` thất bại hai ô vượt switch, vì vậy cặp có vẻ hợp lý thất bại 28 trên 92 trong khi cả mười trường hợp ngây thơ đạt.
 
 ## Full answer
 
 ### One class per hazard
 
-Differential testing needs two comparable systems fed mechanically generated cases, and the hard part is evaluating the result. Here the original is the oracle, so the only question is where the two can disagree, and each class answers one such question. The zero guard cells take the early return. Negative cells check that `-9 / 10` is 0 and `-10 / 10` is -1. Rounding cells check that `(105 - 100) * 100 / 100` is 5 and not 0. Overflow cells make `(after - before) * 100` exceed 32 bits. The one trap cell makes the wrapped product equal `INT_MIN` with `before` equal to -1: the difference is 536870912, which wraps to -2147483648, and the divisor is -1.
+Kiểm thử vi sai cần hai hệ thống so sánh được nhận các trường hợp sinh cơ học, và phần khó là đánh giá kết quả. Ở đây bản gốc là oracle, vì vậy câu hỏi duy nhất là nơi hai bên có thể bất đồng, và mỗi lớp trả lời một câu hỏi như vậy. Các ô bảo vệ không lấy đường trả về sớm. Các ô âm kiểm tra rằng `-9 / 10` là 0 và `-10 / 10` là -1. Các ô làm tròn kiểm tra rằng `(105 - 100) * 100 / 100` là 5 chứ không phải 0. Các ô tràn làm `(after - before) * 100` vượt 32 bit. Ô trap duy nhất làm tích đã wrap bằng `INT_MIN` với `before` bằng -1: chênh lệch là 536870912, wrap thành -2147483648, và số chia là -1.
 
 ### Why overflow is in scope
 
-Signed overflow is undefined in C, and a program generator that avoids undefined behaviour does so because an oracle disagreement there is noise. This oracle is a compiled object with one fixed behaviour, so the overflow cells are in scope; the lesson is to know which cells rest on the standard and which on the compiled bytes. The listing settles it: the multiply keeps the low 32 bits, and the rebuild must too.
+Tràn có dấu không được xác định trong C, và một bộ sinh chương trình tránh hành vi không xác định làm vậy vì một bất đồng oracle ở đó là nhiễu. Oracle này là một object đã biên dịch có một hành vi cố định, vì vậy các ô tràn nằm trong phạm vi; bài học là biết những ô nào dựa trên tiêu chuẩn và những ô nào trên các byte đã biên dịch. Listing phân định nó: phép nhân giữ 32 bit thấp, và bản dựng lại cũng phải vậy.
 
 ### The host is part of the result
 
-On x86-64 the trap cell raises the divide error exception, because the quotient does not fit in 32 bits, and the driver turns `SIGFPE` into the value `trap`. On AArch64 `sdiv` has no trap and returns -2147483648. The recorded run on an arm64 host shows that value with `match: true`, and a run of the same grid on x86-64 records the string `trap`. The report names the architecture beside every row, and a proof without the host name is incomplete.
+Trên x86-64 ô trap phát sinh ngoại lệ lỗi chia, vì thương không vừa trong 32 bit, và driver biến `SIGFPE` thành giá trị `trap`. Trên AArch64 `sdiv` không có trap và trả về -2147483648. Lần chạy được ghi trên một host arm64 cho thấy giá trị đó với `match: true`, và một lần chạy cùng lưới trên x86-64 ghi chuỗi `trap`. Báo cáo nêu kiến trúc cạnh mọi hàng, và một chứng minh không có tên host là không hoàn chỉnh.
 
 ### Model and run stay apart
 
-A Python model of the listing, with a 32-bit wrap and a C-style division, predicts each cell; the run observes it. Zero disagreements means the model and the binary agree on every cell. The model is derived evidence and the run is observed evidence, and the report keeps them in separate fields rather than rounding one into the other.
+Một mô hình Python của listing, với wrap 32 bit và một phép chia kiểu C, dự đoán mỗi ô; lần chạy quan sát nó. Không bất đồng nghĩa là mô hình và binary đồng ý trên mọi ô. Mô hình là bằng chứng derived và lần chạy là bằng chứng observed, và báo cáo giữ chúng trong các trường riêng thay vì làm tròn cái này thành cái kia.
 
 ## Follow-ups
 
-- **Level 3:** Why include cells whose behaviour is undefined in C? Expected: the oracle is a compiled object with one behaviour, and the listing shows the width, so the rebuild is held to the bytes and not to the standard.
-- **Level 3:** Of the 32 overflow cells, how many does the `long` rebuild pass, and why? Expected: six, those with `before` of 1 or -1, because the 64-bit quotient truncates back to the wrapped value by accident.
-- **Level 4:** The grid passes on an arm64 host. What stays unproven for x86-64? Expected: the trap cell, whose original result differs by architecture; rerun on x86-64 or mark it with the host.
-- **Level 4:** Extend the grid to `total(const int *values, int count)`. Which classes appear? Expected: count 0, a negative count, one element, and sums that wrap at 32 bits, each with the listing instruction that motivates it.
+- **Level 3:** Tại sao gồm các ô có hành vi không xác định trong C? Expected: oracle là một object đã biên dịch có một hành vi, và listing cho thấy chiều rộng, vì vậy bản dựng lại bị buộc theo byte chứ không theo tiêu chuẩn.
+- **Level 3:** Trong 32 ô tràn, bản dựng lại `long` đạt bao nhiêu, và tại sao? Expected: sáu, những ô có `before` bằng 1 hoặc -1, vì thương 64 bit vô tình cắt trở lại giá trị đã wrap.
+- **Level 4:** Lưới đạt trên một host arm64. Điều gì vẫn chưa chứng minh cho x86-64? Expected: ô trap, có kết quả gốc khác theo kiến trúc; chạy lại trên x86-64 hoặc đánh dấu bằng host.
+- **Level 4:** Mở rộng lưới sang `total(const int *values, int count)`. Những lớp nào xuất hiện? Expected: count 0, một count âm, một phần tử, và các tổng wrap tại 32 bit, mỗi lớp với lệnh listing làm lý do.
 
 ## Wrong answers
 
-- "Ten hand-written tests cover it." They passed on both wrong rebuilds; none crossed the width or the switch bound.
-- "Fuzz it instead of a grid." Random inputs find divergence but do not name the hazard; a class per instruction tells you what a failure means and what a pass covers.
-- "Skip the divide-by-minus-one cell; nobody does that." It is the one cell whose result depends on the architecture, and the report must name the host.
+- "Mười kiểm thử viết tay bao phủ nó." Chúng đạt trên cả hai bản dựng lại sai; không cái nào vượt chiều rộng hoặc biên switch.
+- "Fuzz thay vì một lưới." Các đầu vào ngẫu nhiên tìm phân kỳ nhưng không nêu nguy cơ; một lớp mỗi lệnh cho bạn biết một thất bại nghĩa là gì và một lần đạt bao phủ gì.
+- "Bỏ ô chia cho âm một; không ai làm vậy." Đó là ô duy nhất có kết quả phụ thuộc kiến trúc, và báo cáo phải nêu host.
 
 ## Taught in
 
-The [rebuild lesson](../../../phases/13-tools-and-protocols/36-rebuild-and-prove-equal/) builds the grid and the driver, and the [proof harness section](../../../manuals/reverse-engineering-101/sections/7-2-a-proof-harness-outside-rea.md) records the 92 cells, the 28 mismatches and the trap row on an arm64 host.
+[Bài học xây dựng lại](../../../phases/13-tools-and-protocols/36-rebuild-and-prove-equal/) xây lưới và driver, và [phần harness chứng minh](../../../manuals/reverse-engineering-101/sections/7-2-a-proof-harness-outside-rea.md) ghi lại 92 ô, 28 lần không khớp và hàng trap trên một host arm64.

@@ -16,46 +16,46 @@ related: [evidence-reverse-engineering/byte-match-is-not-source, evidence-revers
 updated: 2026-11-03
 ---
 
-Design the proof record for a rebuilt function that an obligation ledger will accept. The analysis tool's own verifier grades declared claims against comparison records, and its fixed limitation reads "Pass means every declared claim passed; it does not establish global implementation equivalence"; its readiness rule says that nothing weaker than pass adds up to pass. Your CI host has no C compiler. Say what your record contains, how its id is formed, which claims it can and cannot carry from the tool, and what status it gets on that host.
+Thiết kế bản ghi chứng minh cho một hàm được xây dựng lại mà một sổ nghĩa vụ sẽ chấp nhận. Bộ xác minh riêng của công cụ phân tích chấm các nhận định được khai báo với các bản ghi so sánh, và giới hạn cố định của nó là "Đạt nghĩa là mọi nhận định được khai báo đã đạt; nó không thiết lập sự tương đương triển khai toàn cục"; quy tắc sẵn sàng của nó nói rằng không gì yếu hơn đạt cộng thành đạt. Host CI của bạn không có trình biên dịch C. Nói bản ghi chứa gì, id hình thành như thế nào, các nhận định nào nó có thể và không thể mang từ công cụ, và nó nhận trạng thái gì trên host đó.
 
 ## Short answer
 
-Mint one evidence record of your own, since no public tool emits it, and give it `predicate_type: rea.reconstruction-proof`, `operation: verify_reconstruction_obligations`, `confidence: observed`, `authority: controlled-replay`, and a `normalized_result` with `passed`, `status` and a list of claims, each `behavioral` or `structural-function` with its status and the `ev_` ids of the function dossiers it rests on, repeated in `evidence_links`. The id is `ev_` plus the SHA-256 of the record without its id over sorted-key compact JSON. Aggregation is fail-closed: `fail` wins, then `unknown`, and an empty claim list is `unknown`. The tool's verifier can only grade a `structural-function` claim as same provider text on one dimension, so behaviour and bytes come from your own two legs; on a host without a compiler the behavioural claims are `unknown`, and the record says `unknown` even when both byte claims pass.
+Tạo một bản ghi bằng chứng riêng, vì không công cụ công khai nào xuất nó, và cho nó `predicate_type: rea.reconstruction-proof`, `operation: verify_reconstruction_obligations`, `confidence: observed`, `authority: controlled-replay`, và một `normalized_result` với `passed`, `status` và một danh sách nhận định, mỗi nhận định là `behavioral` hoặc `structural-function` với trạng thái và các id `ev_` của các hồ sơ hàm nó dựa vào, lặp lại trong `evidence_links`. Id là `ev_` cộng SHA-256 của bản ghi không có id trên JSON gọn với khóa đã sắp xếp. Tổng hợp là fail-closed: `fail` thắng, rồi `unknown`, và một danh sách nhận định rỗng là `unknown`. Bộ xác minh của công cụ chỉ có thể chấm một nhận định `structural-function` là cùng văn bản provider trên một chiều, vì vậy hành vi và byte đến từ hai nhánh riêng của bạn; trên một host không có trình biên dịch các nhận định hành vi là `unknown`, và bản ghi nói `unknown` ngay cả khi cả hai nhận định byte đạt.
 
 ## Full answer
 
 ### Why the tool's pass is not enough
 
-A `structural-function` claim names one of nine dimensions of a `compare_functions` record, and the verifier computes its status in a fixed order: any limitation makes it `unknown`, an observed `changed` makes it `fail`, an observed `unknown` or an open residual unknown makes it `unknown`, otherwise `pass`. The recorded run sent four claims and got two passes and two failures. The `total` claims failed although both builds came from one source line, because `-O2` unrolled the loop into 62 instructions where `-O1` had 13; different text does not mean different behaviour. The reverse holds too: a rebuild with a wrong constant in a lookup table prints the same assembly text, so a text claim can pass on a wrong function. Nothing in the tool runs a function or compiles one.
+Một nhận định `structural-function` nêu một trong chín chiều của một bản ghi `compare_functions`, và bộ xác minh tính trạng thái theo một thứ tự cố định: bất kỳ giới hạn nào làm nó `unknown`, một `changed` observed làm nó `fail`, một `unknown` observed hoặc một điều chưa biết còn lại đang mở làm nó `unknown`, nếu không `pass`. Lần chạy được ghi gửi bốn nhận định và nhận hai lần đạt và hai thất bại. Các nhận định `total` thất bại dù cả hai bản dựng đến từ một dòng mã nguồn, vì `-O2` trải vòng lặp thành 62 lệnh nơi `-O1` có 13; văn bản khác không nghĩa là hành vi khác. Chiều ngược cũng đúng: một bản dựng lại có hằng số sai trong một bảng tra cứu in cùng văn bản assembly, vì vậy một nhận định văn bản có thể đạt trên một hàm sai. Không gì trong công cụ chạy một hàm hoặc biên dịch một hàm.
 
 ### The two legs you run
 
-Leg one compiles the original and the candidate into one program under different names, runs a grid with one class per hazard, and records every cell, including a trap. Leg two recompiles the candidate with the original flags, masks the relocation fields, compares the relocation records by shape, and reads the constants they point at. Each leg produces one claim per function, and each claim links the dossier records of the function it covers. The behavioural claim without a compiler is `unknown`, not skipped and not passed.
+Nhánh một biên dịch bản gốc và ứng viên vào một chương trình dưới các tên khác, chạy một lưới với một lớp mỗi nguy cơ, và ghi mọi ô, gồm một trap. Nhánh hai biên dịch lại ứng viên với các cờ gốc, mask các trường relocation, so sánh các bản ghi relocation theo hình dạng, và đọc các hằng số chúng trỏ tới. Mỗi nhánh tạo một nhận định mỗi hàm, và mỗi nhận định liên kết các bản ghi hồ sơ của hàm nó bao phủ. Nhận định hành vi không có trình biên dịch là `unknown`, không phải bỏ qua và không phải đạt.
 
 ### Authority and id
 
-`authority` is `controlled-replay`, because the proof comes from a harness you ran and not from the object file alone; `shipped-artifact` would claim that the file by itself supports equality, which it does not. The id excludes nothing but itself: adding a claim or a run changes the content and the id, so a proof produced later on a host with a compiler is a new record, and both are kept. No public tool emits this record; the obligation ledger expects it, and you mint it.
+`authority` là `controlled-replay`, vì chứng minh đến từ một harness bạn chạy chứ không chỉ từ object file; `shipped-artifact` sẽ tuyên bố rằng riêng file hỗ trợ sự bằng nhau, điều nó không làm được. Id không loại gì ngoài chính nó: thêm một nhận định hoặc một lần chạy thay đổi nội dung và id, vì vậy một chứng minh được tạo sau trên một host có trình biên dịch là một bản ghi mới, và cả hai được giữ. Không công cụ công khai nào xuất bản ghi này; sổ nghĩa vụ mong đợi nó, và bạn tạo nó.
 
 ### Driving the verifier at all
 
-The tool's verifier is one of 65 MCP tools without a CLI command, so a stdio client sends `initialize`, the initialized notification and `tools/call`. Both dossiers and the comparison record must be in the same connection, because the verifier reads the connection's bundle, and a close clears the retained records; export the bundle before you close.
+Bộ xác minh của công cụ là một trong 65 công cụ MCP không có lệnh CLI, vì vậy một stdio client gửi `initialize`, thông báo initialized và `tools/call`. Cả hai hồ sơ và bản ghi so sánh phải trong cùng kết nối, vì bộ xác minh đọc bundle của kết nối, và một lần đóng xóa các bản ghi được giữ; xuất bundle trước khi đóng.
 
 ### The readiness rule, copied
 
-A stage result of fail, unknown, unsupported, truncated or skipped never adds up to pass. That sentence is the aggregation function.
+Một kết quả giai đoạn fail, unknown, unsupported, truncated hoặc skipped không bao giờ cộng thành pass. Câu đó là hàm tổng hợp.
 
 ## Follow-ups
 
-- **Level 3:** Why is the authority `controlled-replay` and not `shipped-artifact`? Expected: the fact came from a run and a recompile you controlled; the file alone cannot show that two functions are equal.
-- **Level 4:** The verifier passed both `percent_change` claims while the comparison's overall status was `unknown`. How? Expected: each claim reads its own dimension; the unknown dimension was `references`, and the residual unknown it opened names only `overall` and `references`.
-- **Level 4:** A compiler appears on the CI host next week. What happens to the record? Expected: the behavioural claims rerun and pass, the content changes, so a new id is minted, and the earlier `unknown` record is kept as history.
+- **Level 3:** Tại sao authority là `controlled-replay` chứ không phải `shipped-artifact`? Expected: sự kiện đến từ một lần chạy và biên dịch lại bạn kiểm soát; riêng file không thể cho thấy hai hàm bằng nhau.
+- **Level 4:** Bộ xác minh cho cả hai nhận định `percent_change` đạt trong khi trạng thái tổng thể của phép so sánh là `unknown`. Bằng cách nào? Expected: mỗi nhận định đọc chiều riêng; chiều chưa biết là `references`, và điều chưa biết còn lại nó mở chỉ nêu `overall` và `references`.
+- **Level 4:** Một trình biên dịch xuất hiện trên host CI tuần tới. Điều gì xảy ra với bản ghi? Expected: các nhận định hành vi chạy lại và đạt, nội dung thay đổi, vì vậy một id mới được tạo, và bản ghi `unknown` trước được giữ làm lịch sử.
 
 ## Wrong answers
 
-- "A pass from the verifier proves the rebuild equals the original." Its own limitation says otherwise; it compared decompiler text on one dimension.
-- "Mark the behavioural claims passed on CI since the bytes matched." Nothing weaker than pass adds up to pass; a missing run is `unknown`.
-- "Keep the same id after adding the run results." The id is a content hash; a changed record is a new record.
+- "Một lần đạt từ bộ xác minh chứng minh bản dựng lại bằng bản gốc." Giới hạn riêng của nó nói khác; nó so sánh văn bản decompiler trên một chiều.
+- "Đánh dấu các nhận định hành vi đạt trên CI vì các byte khớp." Không gì yếu hơn đạt cộng thành đạt; một lần chạy thiếu là `unknown`.
+- "Giữ cùng id sau khi thêm các kết quả chạy." Id là một content hash; một bản ghi thay đổi là một bản ghi mới.
 
 ## Taught in
 
-The [rebuild lesson](../../../phases/13-tools-and-protocols/36-rebuild-and-prove-equal/) mints the record and its fail-closed aggregate, the [verification section](../../../manuals/reverse-engineering-101/sections/7-1-verify-reconstruction.md) shows the four graded claims and the readiness rule, and the [proof harness section](../../../manuals/reverse-engineering-101/sections/7-2-a-proof-harness-outside-rea.md) runs the two legs.
+[Bài học xây dựng lại](../../../phases/13-tools-and-protocols/36-rebuild-and-prove-equal/) tạo bản ghi và tổng hợp fail-closed của nó, [phần xác minh](../../../manuals/reverse-engineering-101/sections/7-1-verify-reconstruction.md) cho thấy bốn nhận định được chấm và quy tắc sẵn sàng, và [phần harness chứng minh](../../../manuals/reverse-engineering-101/sections/7-2-a-proof-harness-outside-rea.md) chạy hai nhánh.

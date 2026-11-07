@@ -16,50 +16,50 @@ related: [evidence-reverse-engineering/observed-derived-inferred]
 updated: 2026-11-03
 ---
 
-From the decompiler's pseudocode, an agent rebuilds `percent_change`. The pseudocode reads `undefined1 [16] percent_change(int param_1, int param_2, ulong param_3)` with `lVar1 = (long)((param_2 - param_1) * 100)`. The rebuild is `(int)(((long)after - before) * 100 / before)`, and four hand-written tests pass. The listing of the same record reads `IMUL EAX, ESI, 0x64`, `CDQ`, `IDIV EDI`. What went wrong, and what is the rule?
+Từ pseudocode của decompiler, một agent xây dựng lại `percent_change`. Pseudocode là `undefined1 [16] percent_change(int param_1, int param_2, ulong param_3)` với `lVar1 = (long)((param_2 - param_1) * 100)`. Bản dựng lại là `(int)(((long)after - before) * 100 / before)`, và bốn kiểm thử viết tay đạt. Listing của cùng bản ghi là `IMUL EAX, ESI, 0x64`, `CDQ`, `IDIV EDI`. Điều gì sai, và quy tắc là gì?
 
 ## Short answer
 
-The 16-byte return and the third parameter are the decompiler's inference, not the program: `idiv` writes the pair `EDX:EAX`, the zero path leaves `EDX` untouched, so the decompiler modelled a 16-byte result and read `%rdx` as an input. The listing says every operation is 32 bits wide, so the honest rebuild is `100 * (after - before) / before` in `int`; the `long` version divides the unwrapped product and fails 26 of the overflow cells while compiling to 26 bytes where the original has 16. The rule is to read the listing before the pseudocode, write the rebuild from the operation widths, and cite the record id it came from.
+Kiểu trả về 16 byte và tham số thứ ba là suy luận của decompiler, không phải chương trình: `idiv` ghi cặp `EDX:EAX`, đường không để `EDX` nguyên, vì vậy decompiler mô hình hóa một kết quả 16 byte và đọc `%rdx` như một đầu vào. Listing nói mọi thao tác rộng 32 bit, vì vậy bản dựng lại trung thực là `100 * (after - before) / before` trong `int`; phiên bản `long` chia tích chưa wrap và thất bại 26 ô tràn trong khi biên dịch thành 26 byte nơi bản gốc có 16. Quy tắc là đọc listing trước pseudocode, viết bản dựng lại từ chiều rộng thao tác, và dẫn id bản ghi nó đến từ.
 
 ## Full answer
 
 ### Instruction or guess, line by line
 
-| Difference | Verdict |
+| Khác biệt | Phán quyết |
 |---|---|
-| return type `undefined1 [16]` against `int` | guess; `idivl` writes two registers and no caller fixes the width |
-| `param_3` | guess that follows from the first; `%rdx` is read on the zero path only because the return width was guessed |
-| `lVar1 / (long)param_1 & 0xffffffff` against `/ param_1` | instruction; `cltd` plus `idivl` is a sign-extended 32-bit division, and both texts describe it |
-| `if (param_1 != 0)` first | instruction order; the branch jumps to the zero return, and either arm may be printed first |
+| kiểu trả về `undefined1 [16]` so với `int` | phỏng đoán; `idivl` ghi hai thanh ghi và không caller nào cố định chiều rộng |
+| `param_3` | phỏng đoán theo từ điều đầu; `%rdx` chỉ được đọc trên đường không vì chiều rộng trả về bị đoán |
+| `lVar1 / (long)param_1 & 0xffffffff` so với `/ param_1` | lệnh; `cltd` cộng `idivl` là một phép chia 32 bit mở rộng dấu, và cả hai văn bản mô tả nó |
+| `if (param_1 != 0)` trước | thứ tự lệnh; nhánh nhảy đến trả về không, và bất kỳ nhánh con nào cũng có thể được in trước |
 
-A difference with an instruction behind it is a presentation choice. A difference with no instruction behind it is a guess, and the guess can be on either side.
+Một khác biệt có một lệnh đằng sau là một lựa chọn trình bày. Một khác biệt không có lệnh đằng sau là một phỏng đoán, và phỏng đoán có thể ở bất kỳ phía nào.
 
 ### Why four tests passed
 
-The naive cases avoid every hard class. The wrapped and unwrapped products agree whenever `(after - before) * 100` fits in 32 bits, so a test that never crosses that line sees two equal functions. On a grid with overflow cells, the `long` rebuild fails 26 cells, every one with `|before| > 1`; for `before` equal to 1 or -1 the 64-bit quotient truncates back to the wrapped value and the two agree by accident.
+Các trường hợp ngây thơ tránh mọi lớp khó. Các tích wrap và chưa wrap đồng ý bất cứ khi nào `(after - before) * 100` vừa trong 32 bit, vì vậy một kiểm thử không bao giờ vượt đường đó thấy hai hàm bằng nhau. Trên một lưới có các ô tràn, bản dựng lại `long` thất bại 26 ô, mọi ô với `|before| > 1`; với `before` bằng 1 hoặc -1 thương 64 bit cắt trở lại giá trị đã wrap và hai bên vô tình đồng ý.
 
 ### The size told you first
 
-Compiled with the original flags, the `long` rebuild is 26 bytes: `movslq`, `imulq`, `cqto` and `idivq` replaced the 32-bit forms. Size is a diagnostic and never an acceptance, and the listing had shown the widths before any compile.
+Được biên dịch với các cờ gốc, bản dựng lại `long` là 26 byte: `movslq`, `imulq`, `cqto` và `idivq` thay các dạng 32 bit. Kích thước là một chẩn đoán và không bao giờ là một chấp nhận, và listing đã cho thấy các chiều rộng trước bất kỳ lần biên dịch nào.
 
 ### What the research says about this pattern
 
-A 2026 study of decompilation systems found candidates that passed every test in a benchmark and still diverged on fuzzed inputs. The strongest refinement model raised the build rate from 75 to 90 percent while the behavioural match rate fell from 74 to 62 percent, and the cause was invented fields, types, callees and guards that replaced the visible unknowns a decompiler leaves in its text. The `long` rebuild is an invented type.
+Một nghiên cứu 2026 về các hệ thống decompilation tìm thấy các ứng viên đạt mọi kiểm thử trong một benchmark và vẫn phân kỳ trên các đầu vào fuzz. Mô hình tinh chỉnh mạnh nhất nâng tỷ lệ dựng từ 75 lên 90 phần trăm trong khi tỷ lệ khớp hành vi giảm từ 74 xuống 62 phần trăm, và nguyên nhân là các trường, kiểu, callee và điều kiện bảo vệ bị bịa thay thế các điều chưa biết hiển thị mà một decompiler để lại trong văn bản. Bản dựng lại `long` là một kiểu bị bịa.
 
 ## Follow-ups
 
-- **Level 2:** Why did the four tests not catch it? Expected: none of them made the product exceed 32 bits, and the two versions agree everywhere the product fits.
-- **Level 3:** Which inputs expose the difference, and which hide it by accident? Expected: overflow cells with `|before| > 1` fail; `before` of 1 or -1 agree because the wide quotient truncates to the wrapped value.
-- **Level 3:** What did the 26-byte size tell you before any run? Expected: wider instruction forms replaced the 32-bit ones, so the candidate computes in a different width than the listing.
-- **Level 4:** How does the refinement-model finding change how you read clean pseudocode? Expected: a clean signature is right for the wrong reason when it fills an unknown; keep the ugly honest form and record what no instruction supports.
+- **Level 2:** Tại sao bốn kiểm thử không bắt được nó? Expected: không kiểm thử nào làm tích vượt 32 bit, và hai phiên bản đồng ý ở mọi nơi tích vừa.
+- **Level 3:** Những đầu vào nào phơi bày khác biệt, và những đầu vào nào vô tình giấu nó? Expected: các ô tràn với `|before| > 1` thất bại; `before` bằng 1 hoặc -1 đồng ý vì thương rộng cắt về giá trị đã wrap.
+- **Level 3:** Kích thước 26 byte cho bạn biết gì trước bất kỳ lần chạy nào? Expected: các dạng lệnh rộng hơn thay các dạng 32 bit, vì vậy ứng viên tính trong một chiều rộng khác listing.
+- **Level 4:** Phát hiện về mô hình tinh chỉnh thay đổi cách bạn đọc pseudocode sạch như thế nào? Expected: một signature sạch đúng vì lý do sai khi nó lấp một điều chưa biết; giữ dạng xấu trung thực và ghi điều không lệnh nào hỗ trợ.
 
 ## Wrong answers
 
-- "The decompiler is broken; ignore its output." Its instructions were right; only the parts the instructions leave open were guessed, and the listing in the same record is the correction.
-- "The `& 0xffffffff` is a decompiler bug." It describes the truncation of a sign-extended division correctly.
-- "Ten tests pass, ship it." A grid with overflow, negative, rounding and trap cells is the test; the ten cases avoided every hazard.
+- "Decompiler hỏng; bỏ qua đầu ra của nó." Các lệnh của nó đúng; chỉ những phần các lệnh để mở bị đoán, và listing trong cùng bản ghi là phần sửa.
+- "`& 0xffffffff` là một lỗi decompiler." Nó mô tả đúng việc cắt một phép chia mở rộng dấu.
+- "Mười kiểm thử đạt, phát hành." Một lưới có các ô tràn, âm, làm tròn và trap là kiểm thử; mười trường hợp tránh mọi nguy cơ.
 
 ## Taught in
 
-The [lifting lesson](../../../phases/13-tools-and-protocols/34-lifting-to-pseudocode/) fills the difference table, the [rebuild lesson](../../../phases/13-tools-and-protocols/36-rebuild-and-prove-equal/) runs the grid, and the [proof harness section](../../../manuals/reverse-engineering-101/sections/7-2-a-proof-harness-outside-rea.md) records the 26 failing cells and the 26-byte candidate.
+[Bài học lifting](../../../phases/13-tools-and-protocols/34-lifting-to-pseudocode/) điền bảng khác biệt, [bài học xây dựng lại](../../../phases/13-tools-and-protocols/36-rebuild-and-prove-equal/) chạy lưới, và [phần harness chứng minh](../../../manuals/reverse-engineering-101/sections/7-2-a-proof-harness-outside-rea.md) ghi lại 26 ô thất bại và ứng viên 26 byte.

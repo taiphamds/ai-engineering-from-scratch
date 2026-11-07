@@ -16,50 +16,50 @@ related: []
 updated: 2026-11-03
 ---
 
-An agent asks a decompiler for `grade`, reads the default branch of the pseudocode, and reports "grade(55) returns 0, observed". The pseudocode line is `uVar1 = -(param_1 >> 0x1f) ^ (uint)((ulong)((long)param_1 * 0x66666667) >> 0x3f);` and the bytes at that point are `xor eax, eax`. Which of the three confidence words belongs on each claim hidden in that sentence?
+Một agent hỏi decompiler về `grade`, đọc nhánh mặc định của pseudocode, và báo cáo "grade(55) trả về 0, observed". Dòng pseudocode là `uVar1 = -(param_1 >> 0x1f) ^ (uint)((ulong)((long)param_1 * 0x66666667) >> 0x3f);` và các byte tại điểm đó là `xor eax, eax`. Từ nào trong ba từ confidence thuộc về mỗi nhận định ẩn trong câu đó?
 
 ## Short answer
 
-Confidence is one of three words and never a number: `observed` is a fact read from bytes or from a run, `derived` is a fact computed from observed records, and `inferred` is an expectation that no observation states yet. The record is observed about what the decompiler printed, with authority `shipped-artifact`, because the file on disk was the source. That the default value is 0 is derived, from the listing's `xor` and from the expression, which is always 0 and never says 0. That `grade(55)` returns 0 when the function runs stays inferred until an `execute_function` record with authority `controlled-replay` agrees with it.
+Confidence là một trong ba từ và không bao giờ là một con số: `observed` là một sự kiện đọc từ byte hoặc một lần chạy, `derived` là một sự kiện tính từ các bản ghi observed, và `inferred` là một kỳ vọng mà chưa quan sát nào nêu. Bản ghi là observed về điều decompiler in, với authority `shipped-artifact`, vì file trên đĩa là nguồn. Việc giá trị mặc định là 0 là derived, từ `xor` trong listing và từ biểu thức, luôn là 0 và không bao giờ nói 0. Việc `grade(55)` trả về 0 khi hàm chạy giữ inferred cho đến khi một bản ghi `execute_function` với authority `controlled-replay` đồng ý với nó.
 
 ## Full answer
 
 ### The two enums
 
-| Value | Meaning |
+| Giá trị | Ý nghĩa |
 |---|---|
-| `observed` | read from bytes or from a run |
-| `derived` | computed from observed records |
-| `inferred` | an expectation no observation states |
-| `shipped-artifact` | the file on disk was the source |
-| `controlled-replay` | a run you controlled produced the fact |
-| `analyst-inference` | your own judgement |
-| `historical-reference` | an older tree or document |
-| `external-service` | a service outside the file and the host |
+| `observed` | đọc từ byte hoặc từ một lần chạy |
+| `derived` | tính từ các bản ghi observed |
+| `inferred` | một kỳ vọng mà không quan sát nào nêu |
+| `shipped-artifact` | file trên đĩa là nguồn |
+| `controlled-replay` | một lần chạy bạn kiểm soát tạo ra sự kiện |
+| `analyst-inference` | phán đoán riêng của bạn |
+| `historical-reference` | một cây hoặc tài liệu cũ |
+| `external-service` | một dịch vụ ngoài file và host |
 
-When a producer says nothing, the record gets `observed` and `shipped-artifact`. Read `observed` with care: in a function dossier it means that the tool recorded what the decompiler returned, with the bytes as authority. It does not mean the pseudocode is the program's source.
+Khi một bên tạo không nói gì, bản ghi nhận `observed` và `shipped-artifact`. Đọc `observed` cẩn thận: trong một hồ sơ hàm nó nghĩa là công cụ ghi lại điều decompiler trả về, với các byte làm authority. Nó không nghĩa là pseudocode là mã nguồn chương trình.
 
 ### The two confusions that cost the most
 
-The first treats pseudocode as an observation of behaviour. It is an observation of what the decompiler printed. The expression above and the instruction both produce 0 for every input, and the agent did not know that; it trusted text because a tool produced it. The second treats an empty list as proof of absence. Missing coverage is unknown, not absence.
+Nhầm lẫn đầu coi pseudocode là một quan sát hành vi. Nó là một quan sát điều decompiler in. Biểu thức trên và lệnh đều tạo 0 cho mọi đầu vào, và agent không biết điều đó; nó tin văn bản vì một công cụ tạo ra. Nhầm lẫn thứ hai coi một danh sách rỗng là bằng chứng vắng mặt. Độ bao phủ thiếu là chưa biết, không phải vắng mặt.
 
 ### How a claim moves
 
-A claim moves from inferred to supported only through observed runs: `pass` when every input has an agreeing run and none disagrees, `fail` when any run disagrees, `unknown` when some inputs have runs and others do not, `unsupported` when no input has a run. A run of a host build of the same source counts, with the limitation that the object itself never ran. That sentence travels with the claim, because a report that drops it has lost information the reader needs.
+Một nhận định chuyển từ inferred sang được hỗ trợ chỉ qua các lần chạy observed: `pass` khi mọi đầu vào có một lần chạy đồng ý và không lần nào bất đồng, `fail` khi bất kỳ lần chạy nào bất đồng, `unknown` khi một số đầu vào có các lần chạy và số khác không, `unsupported` khi không đầu vào nào có một lần chạy. Một lần chạy một bản dựng host của cùng mã nguồn được tính, với giới hạn rằng chính object chưa bao giờ chạy. Câu đó đi cùng nhận định, vì một báo cáo bỏ nó đã mất thông tin người đọc cần.
 
 ## Follow-ups
 
-- **Level 1:** Why is confidence a word rather than a probability? Expected: the three words name the kind of support, and a number would hide which kind it was.
-- **Level 2:** A run of the same source compiled for the host agrees with the prediction. Is the claim about the x86-64 object observed? Expected: yes, with the limitation that a host build ran and the object did not; it is the strongest observation without an emulator.
-- **Level 2:** Which authority does a run under your own harness receive? Expected: `controlled-replay`, as opposed to `shipped-artifact` for a read of the file.
-- **Level 3:** The decompiler's signature says the function returns 16 bytes and takes a third parameter. Which word? Expected: the provider's inference; the dossier marks its return-type confidence low, and the record should say so.
+- **Level 1:** Tại sao confidence là một từ thay vì một xác suất? Expected: ba từ nêu loại hỗ trợ, và một con số sẽ che giấu đó là loại nào.
+- **Level 2:** Một lần chạy cùng mã nguồn được biên dịch cho host đồng ý với dự đoán. Nhận định về object x86-64 có là observed không? Expected: có, với giới hạn rằng một bản dựng host đã chạy và object không chạy; đó là quan sát mạnh nhất khi không có emulator.
+- **Level 2:** Một lần chạy dưới harness riêng của bạn nhận authority nào? Expected: `controlled-replay`, trái với `shipped-artifact` cho một lần đọc file.
+- **Level 3:** Signature của decompiler nói hàm trả về 16 byte và nhận một tham số thứ ba. Từ nào? Expected: suy luận của provider; hồ sơ đánh dấu confidence kiểu trả về thấp, và bản ghi nên nói vậy.
 
 ## Wrong answers
 
-- "It is observed because a tool produced it." The tool's text is observed; the behaviour it describes is derived or inferred.
-- "Give it a confidence of ninety percent." Confidence is a category with three values, not a number.
-- "The expression is a decompiler bug." It is correct and unreadable; two spellings of one bit cancel, and the instruction says it in two bytes.
+- "Nó là observed vì một công cụ tạo ra." Văn bản của công cụ là observed; hành vi nó mô tả là derived hoặc inferred.
+- "Cho nó confidence chín mươi phần trăm." Confidence là một hạng mục có ba giá trị, không phải một con số.
+- "Biểu thức là một lỗi decompiler." Nó đúng và khó đọc; hai cách viết của một bit triệt tiêu, và lệnh nói điều đó trong hai byte.
 
 ## Taught in
 
-The [evidence lesson](../../../phases/13-tools-and-protocols/35-evidence-confidence-and-unknowns/) builds a ledger with the three words and five authorities, and the [evidence record section](../../../manuals/reverse-engineering-101/sections/5-1-the-evidence-record.md) shows the fields on a recorded dossier.
+[Bài học bằng chứng](../../../phases/13-tools-and-protocols/35-evidence-confidence-and-unknowns/) xây một sổ với ba từ và năm authority, và [phần bản ghi bằng chứng](../../../manuals/reverse-engineering-101/sections/5-1-the-evidence-record.md) cho thấy các trường trên một hồ sơ được ghi.

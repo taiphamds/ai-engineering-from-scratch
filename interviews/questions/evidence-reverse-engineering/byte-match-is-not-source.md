@@ -16,54 +16,54 @@ related: [evidence-reverse-engineering/listing-before-pseudocode, evidence-rever
 updated: 2026-11-03
 ---
 
-Design the second leg of a rebuild proof: build every candidate under the compiler and flags that produced the original, then compare it with the original function. Eight candidates are on the table, among them a pair of `percent_change` rebuilds whose source lines are written differently, a `grade` candidate whose 46 code bytes and relocation shape match the original but whose `case 10` returns 3, and candidates whose relocation addend differs from the original. Say what the compare does at each step, which candidate each step stops, and what a pass means.
+Thiết kế nhánh thứ hai của một chứng minh xây dựng lại: xây mọi ứng viên dưới trình biên dịch và các cờ đã tạo bản gốc, rồi so sánh với hàm gốc. Tám ứng viên đang được xem xét, trong đó có một cặp bản dựng lại `percent_change` có các dòng mã nguồn được viết khác nhau, một ứng viên `grade` có 46 byte mã và hình dạng relocation khớp bản gốc nhưng `case 10` trả về 3, và các ứng viên có addend relocation khác bản gốc. Nói phép so sánh làm gì ở mỗi bước, mỗi bước chặn ứng viên nào, và một lần đạt có nghĩa gì.
 
 ## Short answer
 
-Three steps in order: mask every relocation field by zeroing its bytes on both sides and compare the code; compare the relocation records by offset, type and target section, not by addend, because the original says `.rodata+0x10` and every candidate says `.rodata-0x4` and that is a different table position, not a different function; then read the bytes each relocation points at, here five 4-byte words, and compare them. The wrong-constant candidate passes the first two steps and fails only the third, `1, 2, 3, 4, 4` against `1, 2, 3, 4, 3`. A pass proves that this compiler with these flags produced the same code and the same referenced data from the candidate; it does not prove that the candidate is the original source text, since the two `percent_change` rebuilds with different text compile to identical 16 bytes.
+Ba bước theo thứ tự: mask mọi trường relocation bằng cách đặt các byte của nó về không ở cả hai phía và so sánh mã; so sánh các bản ghi relocation theo offset, kiểu và section đích, không theo addend, vì bản gốc nói `.rodata+0x10` và mọi ứng viên nói `.rodata-0x4` và đó là một vị trí bảng khác, không phải một hàm khác; rồi đọc các byte mỗi relocation trỏ tới, ở đây năm word 4 byte, và so sánh chúng. Ứng viên sai hằng số đạt hai bước đầu và chỉ thất bại bước ba, `1, 2, 3, 4, 4` so với `1, 2, 3, 4, 3`. Một lần đạt chứng minh rằng trình biên dịch này với các cờ này tạo cùng mã và cùng dữ liệu được tham chiếu từ ứng viên; nó không chứng minh ứng viên là văn bản mã nguồn gốc, vì hai bản dựng lại `percent_change` có văn bản khác biên dịch thành 16 byte giống hệt.
 
 ## Full answer
 
 ### Where each candidate stops
 
-| Candidate | Size | Masked bytes | Records | Table | Status |
+| Ứng viên | Kích thước | Byte đã mask | Bản ghi | Bảng | Trạng thái |
 |---|---|---|---|---|---|
-| `percent_change_mul_first` | 16 and 16 | equal | none | none | pass |
-| `percent_change_split` | 16 and 16 | equal | none | none | pass |
-| `percent_change_wide` | 16 and 26 | size differs | none | none | fail |
-| `percent_change_div_first` | 16 and 18 | size differs | none | none | fail |
-| `grade_switch` | 46 and 46 | equal | same shape | equal | pass |
-| `grade_table` | 46 and 46 | equal | same shape | equal | pass |
-| `grade_thresholds` | 46 and 39 | size differs | 1 against 0 | none | fail |
-| `grade_case10_wrong` | 46 and 46 | equal | same shape | differ | fail |
+| `percent_change_mul_first` | 16 và 16 | bằng | không có | không có | đạt |
+| `percent_change_split` | 16 và 16 | bằng | không có | không có | đạt |
+| `percent_change_wide` | 16 và 26 | khác kích thước | không có | không có | không đạt |
+| `percent_change_div_first` | 16 và 18 | khác kích thước | không có | không có | không đạt |
+| `grade_switch` | 46 và 46 | bằng | cùng hình dạng | bằng | đạt |
+| `grade_table` | 46 và 46 | bằng | cùng hình dạng | bằng | đạt |
+| `grade_thresholds` | 46 và 39 | khác kích thước | 1 so với 0 | không có | không đạt |
+| `grade_case10_wrong` | 46 và 46 | bằng | cùng hình dạng | khác | không đạt |
 
-Size is a diagnostic and never an acceptance: a recorded reconstruction project reports a candidate with the right length and hundreds of differing bytes.
+Kích thước là một chẩn đoán và không bao giờ là một chấp nhận: một project tái dựng được ghi lại báo cáo một ứng viên có độ dài đúng và hàng trăm byte khác.
 
 ### Why mask when the field is already zero
 
-In a RELA object the addend lives in the record and the four field bytes are zero on both sides, so a plain compare would pass while the two relocations name different places. Masking anyway keeps one method for REL objects and for Mach-O, where the field carries the addend. The addends differ because the original object holds another table in `.rodata` before the switch table and the candidate object does not.
+Trong một object RELA addend nằm trong bản ghi và bốn byte trường bằng không ở cả hai phía, vì vậy một phép so sánh thông thường sẽ đạt trong khi hai relocation nêu các vị trí khác nhau. Vẫn mask giữ một phương pháp cho object REL và cho Mach-O, nơi trường mang addend. Các addend khác nhau vì object gốc giữ một bảng khác trong `.rodata` trước bảng switch và object ứng viên không có.
 
 ### Why read the constants
 
-This step exists because of a documented bug in another reconstruction project: a comparison replayed the target address into the relocation field, compared instruction bytes, and never checked the data at that address, so a source literal of `0.0` appeared exact against a target literal of `128.0` until 1,548 floating-point references were audited. The wrong-constant candidate is this fixture's version of that defect, and the table read is the audit. The count of five comes from the listing: a compare against 4 with an unsigned jump admits indexes 0 to 4, and the load reads 4 bytes per index.
+Bước này tồn tại vì một lỗi được tài liệu hóa trong một project tái dựng khác: một phép so sánh phát lại địa chỉ đích vào trường relocation, so sánh các byte lệnh, và không bao giờ kiểm tra dữ liệu tại địa chỉ đó, vì vậy một literal mã nguồn `0.0` trông chính xác so với một literal đích `128.0` cho đến khi 1,548 tham chiếu dấu phẩy động được kiểm toán. Ứng viên sai hằng số là phiên bản khuyết điểm đó của fixture này, và việc đọc bảng là kiểm toán. Số lượng năm đến từ listing: một phép so sánh với 4 cùng một nhảy không dấu cho phép các chỉ số 0 đến 4, và phép nạp đọc 4 byte mỗi chỉ số.
 
 ### What the tool's own compare can see
 
-The comparison tool line-diffs provider text on eight dimensions, and its assembly dimension carries two fixed limitations: exact provider text is compared without address or generated-name normalization, and assembly is opaque provider text with relocation normalization unavailable. An `unchanged` assembly dimension means equal text from one engine, a `changed` one means different text, and neither is a statement about bytes. Two copies of the same code at different addresses diff as changed. The byte-level proof is the part the tool leaves to you.
+Công cụ so sánh so khác từng dòng văn bản provider trên tám chiều, và chiều assembly của nó mang hai giới hạn cố định: văn bản provider chính xác được so sánh không có chuẩn hóa địa chỉ hoặc tên được sinh, và assembly là văn bản provider mờ đục không có chuẩn hóa relocation. Một chiều assembly `unchanged` nghĩa là văn bản bằng nhau từ một engine, một chiều `changed` nghĩa là văn bản khác, và không cái nào là một phát biểu về byte. Hai bản sao cùng mã tại các địa chỉ khác nhau được so là thay đổi. Chứng minh cấp byte là phần công cụ để cho bạn.
 
 ## Follow-ups
 
-- **Level 3:** Why is the addend left out when the two relocation records are matched? Expected: the addend encodes where the table sits in that object's `.rodata`, which depends on what else the object holds, not on what the function does.
-- **Level 3:** What does a `changed` assembly dimension in the comparison tool tell you about the two functions' bytes? Expected: nothing; it is a text diff with addresses inside, and a relocatable object against its linked image diffs as changed.
-- **Level 4:** Two candidates with different source text pass every byte check. What have you proved? Expected: that this compiler folded both to the same code and data, not that either is the original text; signed overflow being undefined lets the compiler merge the two multiplies.
-- **Level 4:** A candidate passes bytes and constants. Is behaviour settled? Expected: on the same architecture yes, since code and referenced data are equal; the trap cell still depends on the host that runs the grid, so the proof names it.
+- **Level 3:** Tại sao addend bị bỏ khi hai bản ghi relocation được ghép? Expected: addend mã hóa nơi bảng nằm trong `.rodata` của object đó, phụ thuộc vào thứ khác object giữ, không phải hàm làm gì.
+- **Level 3:** Một chiều assembly `changed` trong công cụ so sánh cho bạn biết gì về byte của hai hàm? Expected: không gì; nó là một phép so văn bản có địa chỉ bên trong, và một object có thể tái định vị so với image đã liên kết của nó được so là thay đổi.
+- **Level 4:** Hai ứng viên có văn bản mã nguồn khác nhau đạt mọi phép kiểm tra byte. Bạn đã chứng minh gì? Expected: rằng trình biên dịch này gộp cả hai thành cùng mã và dữ liệu, không phải một trong hai là văn bản gốc; tràn số có dấu là không xác định cho phép trình biên dịch gộp hai phép nhân.
+- **Level 4:** Một ứng viên đạt byte và hằng số. Hành vi đã được phân định chưa? Expected: trên cùng kiến trúc có, vì mã và dữ liệu được tham chiếu bằng nhau; ô trap vẫn phụ thuộc vào host chạy lưới, vì vậy chứng minh nêu host đó.
 
 ## Wrong answers
 
-- "Equal size means equal function." Size is a diagnostic; a candidate with the right length can differ in hundreds of bytes.
-- "A byte match recovers the source." Different source text can compile to identical bytes; the match is a statement about one compiler and one set of flags.
-- "The comparison tool said unchanged, so the bytes match." It compared decompiler text with addresses inside and says so in its own limitations.
+- "Cùng kích thước nghĩa là cùng hàm." Kích thước là một chẩn đoán; một ứng viên có độ dài đúng có thể khác hàng trăm byte.
+- "Một lần khớp byte khôi phục mã nguồn." Văn bản mã nguồn khác nhau có thể biên dịch thành các byte giống hệt; lần khớp là một phát biểu về một trình biên dịch và một tập cờ.
+- "Công cụ so sánh nói không đổi, vì vậy các byte khớp." Nó so sánh văn bản decompiler có địa chỉ bên trong và nói vậy trong các giới hạn riêng.
 
 ## Taught in
 
-The [rebuild lesson](../../../phases/13-tools-and-protocols/36-rebuild-and-prove-equal/) builds the masking, the record compare and the table read, the [proof harness section](../../../manuals/reverse-engineering-101/sections/7-2-a-proof-harness-outside-rea.md) records the eight candidates, and the [comparison section](../../../manuals/reverse-engineering-101/sections/5-5-compare-and-compare-functions.md) states the assembly limitation.
+[Bài học xây dựng lại](../../../phases/13-tools-and-protocols/36-rebuild-and-prove-equal/) xây dựng việc mask, so sánh bản ghi và đọc bảng, [phần harness chứng minh](../../../manuals/reverse-engineering-101/sections/7-2-a-proof-harness-outside-rea.md) ghi lại tám ứng viên, và [phần so sánh](../../../manuals/reverse-engineering-101/sections/5-5-compare-and-compare-functions.md) nêu giới hạn assembly.

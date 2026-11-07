@@ -16,49 +16,49 @@ related: []
 updated: 2026-11-03
 ---
 
-From a relocatable object: the symbol `grade` has `st_value 0x10`, `st_size 46`, section `.text`; `.text` has `sh_offset 0x40` and `sh_addr 0`. The relocation table holds one record at offset `0x36`, type `R_X86_64_PC32`, symbol `.rodata`, addend `0x10`, and the instruction at `0x33` is `leaq (%rip), %rcx` whose last four bytes are zero. Answer three questions: which file bytes are `grade`, what the zero bytes become, and why the addend is `0x10` when the table of return values starts at `.rodata+0x14`.
+Từ một object có thể tái định vị: symbol `grade` có `st_value 0x10`, `st_size 46`, section `.text`; `.text` có `sh_offset 0x40` và `sh_addr 0`. Bảng relocation giữ một bản ghi tại offset `0x36`, kiểu `R_X86_64_PC32`, symbol `.rodata`, addend `0x10`, và lệnh tại `0x33` là `leaq (%rip), %rcx` có bốn byte cuối bằng không. Trả lời ba câu hỏi: những byte file nào là `grade`, các byte không trở thành gì, và tại sao addend là `0x10` khi bảng giá trị trả về bắt đầu tại `.rodata+0x14`.
 
 ## Short answer
 
-The file offset of a function is `sh_offset + st_value - sh_addr`, here `0x40 + 0x10`, so `grade` is the 46 bytes at file offset `0x50`, and `st_value` alone is an offset inside the section, not a place in the file. The zero bytes are the displacement field of a RIP-relative operand; the link editor writes `S + A - P` into them, the symbol value plus the addend minus the address of the field. The processor adds that field to the address of the next instruction, `0x3a`, which is four bytes past the field, so the final target is `.rodata + 0x10 + 4 = .rodata + 0x14`; the addend carries the target offset minus the four bytes between the field and the end of the instruction.
+File offset của một hàm là `sh_offset + st_value - sh_addr`, ở đây `0x40 + 0x10`, vì vậy `grade` là 46 byte tại file offset `0x50`, và chỉ `st_value` là một offset bên trong section, không phải một vị trí trong file. Các byte không là trường độ dời của một toán hạng tương đối RIP; trình biên tập liên kết ghi `S + A - P` vào chúng, giá trị symbol cộng addend trừ địa chỉ trường. Bộ xử lý cộng trường đó vào địa chỉ lệnh tiếp theo, `0x3a`, cách trường bốn byte, vì vậy đích cuối là `.rodata + 0x10 + 4 = .rodata + 0x14`; addend mang offset đích trừ bốn byte giữa trường và cuối lệnh.
 
 ## Full answer
 
 ### Tables that point at tables
 
-Only the ELF header has a fixed position in the file. Every other structure is found by an offset stored in another structure: `e_shoff` names the section header table, `sh_offset` names a section's bytes, `st_value` is an offset inside the section named by `st_shndx` while `sh_addr` is zero in an object. Sizes matter as much as starts: `grade` ends at `.text` offset `0x3e`, and the two bytes `66 90` after it are a `nop` the compiler added so the next function starts on a 16-byte boundary. They belong to no symbol, a disassembler stops at `st_size`, and a byte comparison masks them.
+Chỉ ELF header có vị trí cố định trong file. Mọi cấu trúc khác được tìm bằng một offset lưu trong một cấu trúc khác: `e_shoff` nêu bảng section header, `sh_offset` nêu các byte của một section, `st_value` là một offset bên trong section do `st_shndx` nêu trong khi `sh_addr` bằng không trong một object. Kích thước quan trọng ngang vị trí bắt đầu: `grade` kết thúc ở offset `.text` `0x3e`, và hai byte `66 90` sau nó là một `nop` trình biên dịch thêm để hàm tiếp theo bắt đầu trên một ranh giới 16 byte. Chúng không thuộc symbol nào, một disassembler dừng tại `st_size`, và một phép so sánh byte mask chúng.
 
 ### Three relocation outcomes
 
-| Type | Formula | What the link editor does |
+| Kiểu | Công thức | Trình biên tập liên kết làm gì |
 |---|---|---|
-| `R_X86_64_PC32` to a defined symbol | `S + A - P` | writes the distance and the record is gone |
-| `R_X86_64_PLT32` to an undefined function | `L + A - P` | makes a PLT entry and a GOT slot when the symbol stays preemptible; when the link binds the symbol, writes the direct distance |
-| `R_X86_64_64` in a position-independent image | `S + A` | keeps a relative record for the loader |
+| `R_X86_64_PC32` đến một symbol đã định nghĩa | `S + A - P` | ghi khoảng cách và bản ghi biến mất |
+| `R_X86_64_PLT32` đến một hàm chưa định nghĩa | `L + A - P` | tạo một mục PLT và một vị trí GOT khi symbol vẫn có thể bị preempt; khi liên kết ràng buộc symbol, ghi khoảng cách trực tiếp |
+| `R_X86_64_64` trong một image độc lập vị trí | `S + A` | giữ một bản ghi tương đối cho loader |
 
-The same compensation appears on every RIP-relative operand in the fixtures: a call to `grade` carries `grade-0x4` for the same reason. The five words at `.rodata+0x14` read `1, 2, 3, 4, 4`, which is how the compiler turned the `switch` into a table of return values at `-O1`.
+Cùng phép bù xuất hiện trên mọi toán hạng tương đối RIP trong các fixture: một lời gọi `grade` mang `grade-0x4` vì cùng lý do. Năm word tại `.rodata+0x14` đọc là `1, 2, 3, 4, 4`, là cách trình biên dịch biến `switch` thành một bảng giá trị trả về ở `-O1`.
 
 ### The jump table at -O0 uses the same arithmetic
 
-In the unoptimized object every table byte is zero and the targets exist only as five records in `.rela.rodata`. Apply `S + A - P` to entry `k` at offset `4k`: the stored value is `.text + A - (.rodata + 4k)`, the code adds `.rodata` back, so the target is `.text + A - 4k`. Entry 0 is `0x91`, entry 1 is `0x8c - 4 = 0x88`, entry 2 is `0x7f`, entries 3 and 4 are both `0x76`, the shared case.
+Trong object chưa tối ưu mọi byte bảng bằng không và các đích chỉ tồn tại dưới dạng năm bản ghi trong `.rela.rodata`. Áp dụng `S + A - P` cho mục `k` tại offset `4k`: giá trị được lưu là `.text + A - (.rodata + 4k)`, mã cộng `.rodata` trở lại, vì vậy đích là `.text + A - 4k`. Mục 0 là `0x91`, mục 1 là `0x8c - 4 = 0x88`, mục 2 là `0x7f`, các mục 3 và 4 đều là `0x76`, case dùng chung.
 
 ### When the section headers are gone
 
-A linker can remove the section header table and `e_shoff` becomes zero; a tool that walks sections sees nothing. The loader never looked at them: `PT_LOAD` maps an address to a file offset with `p_offset + (address - p_vaddr)`. A linked address is not a runtime address either, since a position-independent executable loads at a base the kernel chooses, and the file offset is the stable coordinate.
+Một linker có thể loại bảng section header và `e_shoff` trở thành không; một công cụ duyệt các section không thấy gì. Loader chưa bao giờ nhìn chúng: `PT_LOAD` ánh xạ một địa chỉ đến một file offset bằng `p_offset + (address - p_vaddr)`. Một địa chỉ đã liên kết cũng không phải địa chỉ runtime, vì một executable độc lập vị trí nạp tại một base do kernel chọn, và file offset là tọa độ ổn định.
 
 ## Follow-ups
 
-- **Level 2:** What are the two bytes right after `grade`, and whose are they? Expected: alignment padding, a `nop`, owned by no symbol; `st_size` is the stop condition.
-- **Level 3:** In the `-O0` object the jump table bytes are all zero. Where are the targets? Expected: in the five relocation records; target equals the addend minus `4k`, and the code adds the table base back.
-- **Level 3:** The executable is stripped of section headers. How do you find the bytes behind an address? Expected: through the `PT_LOAD` program header, `p_offset + (address - p_vaddr)`.
-- **Level 4:** A decompiler shows the table under a `DAT_` name at an absolute address. Reconcile it with `.rodata+0x14`. Expected: it placed the object at its own base and applied the relocation; subtract the base it gave `.rodata` and the offset is `0x14`.
+- **Level 2:** Hai byte ngay sau `grade` là gì, và của ai? Expected: phần đệm căn chỉnh, một `nop`, không symbol nào sở hữu; `st_size` là điều kiện dừng.
+- **Level 3:** Trong object `-O0` các byte bảng nhảy đều bằng không. Các đích ở đâu? Expected: trong năm bản ghi relocation; đích bằng addend trừ `4k`, và mã cộng base bảng trở lại.
+- **Level 3:** Executable bị bỏ các section header. Bạn tìm các byte đằng sau một địa chỉ như thế nào? Expected: qua program header `PT_LOAD`, `p_offset + (address - p_vaddr)`.
+- **Level 4:** Một decompiler hiển thị bảng dưới một tên `DAT_` tại một địa chỉ tuyệt đối. Đối chiếu nó với `.rodata+0x14`. Expected: nó đặt object tại base riêng và áp dụng relocation; trừ base nó cho `.rodata` và offset là `0x14`.
 
 ## Wrong answers
 
-- "`grade` is at file offset `0x10`." That is `st_value`, an offset inside `.text`; the file offset adds `sh_offset`.
-- "The table starts at `0x10` because the addend says so." The addend compensates for the four bytes to the end of the instruction; the target is `0x14`.
-- "The instruction is `lea 0(%rip)`." The zeros are a placeholder the link editor fills; the relocation record names the operand.
+- "`grade` ở file offset `0x10`." Đó là `st_value`, một offset bên trong `.text`; file offset cộng `sh_offset`.
+- "Bảng bắt đầu tại `0x10` vì addend nói vậy." Addend bù cho bốn byte đến cuối lệnh; đích là `0x14`.
+- "Lệnh là `lea 0(%rip)`." Các số không là chỗ giữ chỗ mà trình biên tập liên kết điền; bản ghi relocation nêu toán hạng.
 
 ## Taught in
 
-The [ELF reader lesson](../../../phases/13-tools-and-protocols/32-program-anatomy-elf-from-scratch/) derives the file offset and the addend by hand, and the [disassembly lesson](../../../phases/13-tools-and-protocols/33-disassembly-and-control-flow/) applies the same formula to the jump table.
+[Bài học bộ đọc ELF](../../../phases/13-tools-and-protocols/32-program-anatomy-elf-from-scratch/) suy ra file offset và addend bằng tay, và [bài học disassembly](../../../phases/13-tools-and-protocols/33-disassembly-and-control-flow/) áp dụng cùng công thức cho bảng nhảy.

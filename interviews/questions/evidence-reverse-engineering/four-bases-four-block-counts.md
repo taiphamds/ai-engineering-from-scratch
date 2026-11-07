@@ -16,43 +16,43 @@ related: [evidence-reverse-engineering/sweep-trap-addq-at-0x13]
 updated: 2026-11-03
 ---
 
-An agent runs four tools on one relocatable object and reports that `grade` sits at `0x08000050` in one, `0x400010` in another and `0x100010` in a third, so the tools disagree about where the function is. On the `-O0` object it then reports 3, 8, 8 and 9 basic blocks for the same function. Explain both reports, and say what a block count measures.
+Một agent chạy bốn công cụ trên một object có thể tái định vị và báo cáo rằng `grade` nằm tại `0x08000050` trong một công cụ, `0x400010` trong công cụ khác và `0x100010` trong công cụ thứ ba, vì vậy các công cụ không đồng ý về vị trí hàm. Trên object `-O0` nó rồi báo cáo 3, 8, 8 và 9 basic block cho cùng hàm. Giải thích cả hai báo cáo, và nói một số đếm block đo gì.
 
 ## Short answer
 
-The object has no load address, so each tool picks one: `0x08000000` for the file in two tools, which puts `.text` at `0x08000040`, `0x400000` in a third, `0x100000` in a fourth, and the sweep prints offsets with no base at all. Subtract each tool's `.text` address and every answer is `0x10`, which is what the symbol table says. The block counts are four answers to how far each tool followed one indirect jump and where it cut: 3 blocks is a tool that stopped at `jmp rax` and left 36 bytes unreached, 8 with 11 edges is a tool that read the five relocations behind the table and found four distinct targets, 8 with 7 edges is a tool whose case blocks exist but whose transfer at `0x62` goes to an unresolvable node, and 9 with 12 edges is a tool whose switch analysis placed a label on the jump at `0x74` and whose block model starts a new block at a label.
+Object không có địa chỉ nạp, vì vậy mỗi công cụ chọn một địa chỉ: `0x08000000` cho file trong hai công cụ, đặt `.text` tại `0x08000040`, `0x400000` trong công cụ thứ ba, `0x100000` trong công cụ thứ tư, và lượt quét in offset hoàn toàn không có base. Trừ địa chỉ `.text` của mỗi công cụ và mọi đáp án là `0x10`, đúng như bảng symbol nói. Các số đếm block là bốn đáp án cho việc mỗi công cụ theo một nhảy gián tiếp xa đến đâu và cắt ở đâu: 3 block là một công cụ dừng tại `jmp rax` và để 36 byte không được tới, 8 với 11 cạnh là một công cụ đọc năm relocation đằng sau bảng và tìm bốn đích riêng biệt, 8 với 7 cạnh là một công cụ có các case block tồn tại nhưng chuyển điều khiển tại `0x62` đi đến một nút không giải quyết được, và 9 với 12 cạnh là một công cụ có phân tích switch đặt một nhãn trên nhảy tại `0x74` và mô hình block của nó bắt đầu một block mới tại một nhãn.
 
 ## Full answer
 
 ### Reduce before you compare
 
-The harness reads the base from each capture and compares after reduction. A disagreement on raw addresses is a disagreement about loaders, and the test that every tool places `grade` at offset `0x10` from its own base is the first thing to fix in place. Loaders also differ on relocations: one processes them on import, one applies them, and one prints a hint that relocations were not applied unless a setting says so. What a loader does with relocations decides what every later stage can see.
+Harness đọc base từ mỗi capture và so sánh sau khi rút về. Một bất đồng trên các địa chỉ thô là một bất đồng về loader, và kiểm thử rằng mọi công cụ đặt `grade` tại offset `0x10` từ base riêng là điều đầu tiên cần cố định. Các loader cũng khác nhau về relocation: một xử lý chúng khi import, một áp dụng chúng, và một in một gợi ý rằng relocation chưa được áp dụng trừ khi một thiết lập nói vậy. Điều một loader làm với relocation quyết định mọi giai đoạn sau có thể thấy gì.
 
 ### Compare in order, read the notes
 
-Instruction starts first: in the agreement case all four tools report the same starts in every function, and the four graph builders report 3, 3, 5 and 4 blocks with identical edge sets. Then blocks, then edges, and each tool's own note before judging a count: a `switch_op` with five cases and four distinct targets, a `COMPUTED_JUMP` flow with four targets, or an unresolvable target node explains most differences. All four tools decoded the same 33 instructions once they reached them. The lesson-33 graph had 8 blocks and 11 edges, and one tool matches it exactly; the tool with 9 and 12 found the same four targets and split one block at a label.
+Các điểm bắt đầu lệnh trước: trong trường hợp đồng thuận cả bốn công cụ báo cáo cùng điểm bắt đầu trong mọi hàm, và bốn bộ xây graph báo cáo 3, 3, 5 và 4 block với các tập cạnh giống hệt. Rồi block, rồi cạnh, và ghi chú riêng của mỗi công cụ trước khi phán xét một số đếm: một `switch_op` với năm case và bốn đích riêng biệt, một luồng `COMPUTED_JUMP` với bốn đích, hoặc một nút đích không giải quyết được giải thích phần lớn khác biệt. Cả bốn công cụ giải mã cùng 33 lệnh khi tới được chúng. Graph bài học-33 có 8 block và 11 cạnh, và một công cụ khớp chính xác; công cụ có 9 và 12 tìm cùng bốn đích và tách một block tại một nhãn.
 
 ### Where tools invent and miss
 
-One framework ends a block at a `call`, because its IR block is single-entry multiple-exit, so a function that calls another reports 2 blocks where the other three report 1 for the same instructions. The same framework invents functions at padding gaps with no symbol, 9 across the four objects, and one more on the trap table. The sweep decodes padding bytes that no graph builder treats as code. The harness names one missed range in one tool, the 36 case bytes of `grade`, and no missed function in any tool.
+Một framework kết thúc một block tại một `call`, vì IR block của nó là một đầu vào nhiều đầu ra, vì vậy một hàm gọi hàm khác báo cáo 2 block nơi ba công cụ còn lại báo cáo 1 cho cùng các lệnh. Cùng framework bịa các hàm tại những khoảng đệm không có symbol, 9 trên bốn object, và thêm một trên bảng trap. Lượt quét giải mã các byte đệm mà không bộ xây graph nào coi là mã. Harness nêu một vùng bị bỏ sót trong một công cụ, 36 byte case của `grade`, và không hàm bị bỏ sót trong bất kỳ công cụ nào.
 
 ### What was run and what was read
 
-Two commercial tools were described from documentation only and are marked as not run in the figure and the table. A description is useful evidence of a different kind from a capture, and the report says which is which. Every capture is stored with its command, version and date; a disagreement you cannot re-read is not a finding.
+Hai công cụ thương mại chỉ được mô tả từ tài liệu và được đánh dấu là chưa chạy trong figure và bảng. Một mô tả là bằng chứng hữu ích thuộc loại khác với một capture, và báo cáo nói cái nào là cái nào. Mọi capture được lưu với lệnh, phiên bản và ngày; một bất đồng bạn không thể đọc lại không phải một phát hiện.
 
 ## Follow-ups
 
-- **Level 3:** One tool reports 9 blocks and 12 edges, another 8 and 11, for the same control flow. Who is wrong? Expected: neither; a label on the indirect jump started a new block, and both found the same four computed targets.
-- **Level 3:** On the caller of `grade`, one tool reports two blocks and the rest one. Explain. Expected: that tool's IR block ends at a call; the instruction set is the same.
-- **Level 4:** One listing shows the four case blocks as dead code. How do you classify those bytes? Expected: missed by a stopped walk, since three tools reach them through the table; the byte accounting names the range and the tool.
-- **Level 4:** You could not run two commercial tools. How do they appear in the report? Expected: from their documentation, marked as not run, with no measured number attributed to them.
+- **Level 3:** Một công cụ báo cáo 9 block và 12 cạnh, công cụ khác 8 và 11, cho cùng luồng điều khiển. Ai sai? Expected: không ai; một nhãn trên nhảy gián tiếp bắt đầu một block mới, và cả hai tìm cùng bốn đích được tính.
+- **Level 3:** Trên hàm gọi `grade`, một công cụ báo cáo hai block và các công cụ còn lại một. Giải thích. Expected: IR block của công cụ đó kết thúc tại một call; tập lệnh giống nhau.
+- **Level 4:** Một listing hiển thị bốn case block là mã chết. Bạn phân loại các byte đó như thế nào? Expected: bị bỏ sót bởi một lần duyệt đã dừng, vì ba công cụ tới chúng qua bảng; việc tính byte nêu vùng và công cụ.
+- **Level 4:** Bạn không thể chạy hai công cụ thương mại. Chúng xuất hiện trong báo cáo như thế nào? Expected: từ tài liệu của chúng, được đánh dấu là chưa chạy, không có con số đo được gán cho chúng.
 
 ## Wrong answers
 
-- "The tool with the most blocks found the most code." The extra block is a label split; all four decoded the same instructions where they reached them.
-- "Compare the raw addresses; the tools disagree." The object is relocatable, and each tool chose a base; the offset agrees.
-- "The sweep tool is broken because it prints `0x10`." It prints section offsets with no base, which is the correct answer with the base removed.
+- "Công cụ có nhiều block nhất tìm nhiều mã nhất." Block thêm là một lần tách nhãn; cả bốn giải mã cùng các lệnh ở nơi chúng tới được.
+- "So sánh các địa chỉ thô; các công cụ bất đồng." Object có thể tái định vị, và mỗi công cụ chọn một base; offset đồng ý.
+- "Công cụ quét hỏng vì nó in `0x10`." Nó in các offset section không có base, là đáp án đúng khi base được bỏ.
 
 ## Taught in
 
-The [landscape lesson](../../../phases/13-tools-and-protocols/37-the-reverse-engineering-landscape/) reduces the four bases and explains each block count from the tool's own note, and the [disassembly lesson](../../../phases/13-tools-and-protocols/33-disassembly-and-control-flow/) builds the graph the counts are compared against.
+[Bài học toàn cảnh](../../../phases/13-tools-and-protocols/37-the-reverse-engineering-landscape/) rút bốn base về và giải thích mỗi số đếm block từ ghi chú riêng của công cụ, và [bài học disassembly](../../../phases/13-tools-and-protocols/33-disassembly-and-control-flow/) xây graph mà các số đếm được so với.

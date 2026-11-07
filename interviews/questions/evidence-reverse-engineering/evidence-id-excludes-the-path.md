@@ -16,43 +16,43 @@ related: [evidence-reverse-engineering/observed-derived-inferred]
 updated: 2026-11-03
 ---
 
-Two machines analyze the same object in different folders and get the same `ev_` id. A colleague copies one record, deletes one limitation sentence to shorten it, and the file no longer imports. Later an untouched bundle written by an older release fails the same way. Explain all three outcomes from the id rule.
+Hai máy phân tích cùng object trong các thư mục khác nhau và nhận cùng id `ev_`. Một đồng nghiệp sao chép một bản ghi, xóa một câu giới hạn để rút ngắn, và file không còn import được. Sau đó một bundle nguyên vẹn do một bản phát hành cũ viết thất bại cùng cách. Giải thích cả ba kết quả từ quy tắc id.
 
 ## Short answer
 
-The id is a content hash: `ev_` plus a SHA-256 over the RFC 8785 canonical JSON of a projection of the record, where the projection keeps the subject's `digest`, `format` and `architecture`, drops `name` and `local_path`, and hashes everything else, `raw_result` and every limitation included. So a moved file keeps its id, a dropped limitation changes the content and the validator refuses it with "Evidence semantic identifier does not match its record", and the older bundle fails because the id rule itself moved: the older release left a `null` `relationship_coverage` out of the hash and the current one hashes it, so the first record with `null` coverage fails `evidence_integrity_mismatch`. Saved evidence is not migrated; regenerate it with the release you run.
+Id là một content hash: `ev_` cộng một SHA-256 trên JSON chuẩn tắc RFC 8785 của một phép chiếu bản ghi, nơi phép chiếu giữ `digest`, `format` và `architecture` của subject, bỏ `name` và `local_path`, và hash mọi thứ khác, gồm `raw_result` và mọi giới hạn. Vì vậy một file được chuyển giữ id, một giới hạn bị bỏ thay đổi nội dung và bộ xác thực từ chối nó với "Evidence semantic identifier does not match its record", và bundle cũ thất bại vì chính quy tắc id đã thay đổi: bản phát hành cũ bỏ một giá trị `null` của `relationship_coverage` khỏi hash và bản hiện tại hash nó, vì vậy bản ghi đầu tiên có độ bao phủ `null` thất bại `evidence_integrity_mismatch`. Bằng chứng đã lưu không được di chuyển; tạo lại nó bằng bản phát hành bạn chạy.
 
 ## Full answer
 
 ### The recipe
 
-Canonical JSON sorts object keys, removes whitespace and fixes number and string forms. For records whose numbers are integers, a standard-library `json.dumps` with sorted keys and compact separators produces the same bytes, which is why a few lines of Python or Node recompute every captured id. Floats are refused before hashing, because the canonical form and the language runtime can print them differently. The analysis profile digest is a separate SHA-256 over `{provider, parameters}`, and a profile whose provider differs from the record's provider is rejected.
+JSON chuẩn tắc sắp xếp các khóa đối tượng, loại khoảng trắng và cố định các dạng số và chuỗi. Với các bản ghi có số là số nguyên, một `json.dumps` thư viện chuẩn với các khóa đã sắp xếp và dấu phân cách gọn tạo ra cùng các byte, là lý do vài dòng Python hoặc Node tính lại mọi id được ghi. Float bị từ chối trước hashing, vì dạng chuẩn tắc và runtime ngôn ngữ có thể in chúng khác nhau. Digest hồ sơ phân tích là một SHA-256 riêng trên `{provider, parameters}`, và một hồ sơ có provider khác provider của bản ghi bị từ chối.
 
 ### What is inside and what is outside
 
-A path in `subject` is outside the hash. A path anywhere else is inside it: two captured files failed to match because the capture kit masked a directory inside `normalized_result` and `locations`, so a record that carries a path there gets a different id on every machine. Keep paths out of results and locations in your own records. A limitation is content on purpose: dropping one makes the record look stronger than the facts allow, and a later reader cannot repair that, so the id breaks.
+Một đường dẫn trong `subject` ở ngoài hash. Một đường dẫn ở bất kỳ nơi khác nằm trong: hai file được ghi không khớp vì bộ capture mask một thư mục bên trong `normalized_result` và `locations`, vì vậy một bản ghi mang đường dẫn ở đó nhận một id khác trên mọi máy. Giữ đường dẫn ngoài kết quả và vị trí trong các bản ghi riêng của bạn. Một giới hạn chủ ý là nội dung: bỏ một giới hạn làm bản ghi trông mạnh hơn các sự kiện cho phép, và một người đọc sau không thể sửa điều đó, vì vậy id hỏng.
 
 ### Rebinding without rehashing
 
-A record can be shown under a new path with a rebind that refuses when the digest, format or architecture differ. Snapshot replay does the same when it writes the open target's path into a stored record: the `evidence_id` does not change, because the path was never in it.
+Một bản ghi có thể được hiển thị dưới một đường dẫn mới với một rebind từ chối khi digest, định dạng hoặc kiến trúc khác. Phát lại snapshot làm tương tự khi ghi đường dẫn mục tiêu đang mở vào một bản ghi đã lưu: `evidence_id` không thay đổi, vì đường dẫn chưa bao giờ nằm trong nó.
 
 ### The error envelope
 
-Every error has the same five fields: `code`, `category`, `message`, `retryable`, `remediation.action`, and optional `details`. The refused bundle names the failing record by index and says which field failed. `invalid_request` is retryable with corrected arguments; `evidence_integrity_mismatch` is not.
+Mọi lỗi có cùng năm trường: `code`, `category`, `message`, `retryable`, `remediation.action`, và `details` tùy chọn. Bundle bị từ chối nêu bản ghi thất bại theo chỉ số và nói trường nào thất bại. `invalid_request` có thể retry với các đối số đã sửa; `evidence_integrity_mismatch` thì không.
 
 ## Follow-ups
 
-- **Level 2:** Why leave the path out of the hash at all? Expected: the same observation of the same bytes should carry one id on any machine and in any folder; identity belongs to the content, not to where the file sits.
-- **Level 3:** A producer writes an absolute path into `locations`. What happens when a colleague imports the bundle? Expected: the unchanged bundle still imports, because the stored path hashes to the stored id; but the same observation made on the colleague's machine carries their path and gets a different id, and any edit that masks the path breaks the id. Locations hold addresses and relative artifact paths, not host paths.
-- **Level 3:** Why does a limitation count as content and not as a comment? Expected: without it the record claims more than the provider did, and nobody downstream can tell.
-- **Level 4:** How do you handle the older bundle? Expected: regenerate it with the current release, since the rule changed and ids are not migrated; never patch an id by hand.
+- **Level 2:** Tại sao bỏ đường dẫn khỏi hash? Expected: cùng quan sát của cùng các byte nên mang một id trên mọi máy và trong mọi thư mục; định danh thuộc nội dung, không thuộc nơi file nằm.
+- **Level 3:** Một bên tạo ghi một đường dẫn tuyệt đối vào `locations`. Điều gì xảy ra khi một đồng nghiệp import bundle? Expected: bundle không đổi vẫn import được, vì đường dẫn đã lưu hash thành id đã lưu; nhưng cùng quan sát được thực hiện trên máy đồng nghiệp mang đường dẫn của họ và nhận một id khác, và bất kỳ chỉnh sửa nào mask đường dẫn làm hỏng id. Locations giữ địa chỉ và đường dẫn artifact tương đối, không phải đường dẫn host.
+- **Level 3:** Tại sao một giới hạn tính là nội dung chứ không phải một comment? Expected: không có nó bản ghi tuyên bố nhiều hơn provider, và không ai phía sau có thể biết.
+- **Level 4:** Bạn xử lý bundle cũ như thế nào? Expected: tạo lại nó với bản phát hành hiện tại, vì quy tắc thay đổi và các id không được di chuyển; không bao giờ vá một id bằng tay.
 
 ## Wrong answers
 
-- "Ids are random identifiers assigned at write time." They are content hashes, which is why two machines agree.
-- "Trim limitations to save context tokens." Each one is hashed. A trimmed record with the old `evidence_id` is refused, and the reader loses what the fact does not cover.
-- "Fix the id field so the bundle imports." The validator recomputes the hash from content, and a patched id is still a mismatch.
+- "Các id là định danh ngẫu nhiên được gán lúc ghi." Chúng là content hash, là lý do hai máy đồng ý.
+- "Cắt các giới hạn để tiết kiệm token ngữ cảnh." Mỗi giới hạn được hash. Một bản ghi bị cắt với `evidence_id` cũ bị từ chối, và người đọc mất điều sự kiện không bao phủ.
+- "Sửa trường id để bundle import được." Bộ xác thực tính lại hash từ nội dung, và một id được vá vẫn không khớp.
 
 ## Taught in
 
-The [evidence record section](../../../manuals/reverse-engineering-101/sections/5-1-the-evidence-record.md) gives the projection and a script that recomputes ids, the [errors reference](../../../manuals/reverse-engineering-101/sections/r-3-errors.md) shows the refused bundle, and the [evidence lesson](../../../phases/13-tools-and-protocols/35-evidence-confidence-and-unknowns/) recomputes every recorded hash in Python.
+[Phần bản ghi bằng chứng](../../../manuals/reverse-engineering-101/sections/5-1-the-evidence-record.md) đưa ra phép chiếu và một script tính lại id, [tham chiếu lỗi](../../../manuals/reverse-engineering-101/sections/r-3-errors.md) cho thấy bundle bị từ chối, và [bài học bằng chứng](../../../phases/13-tools-and-protocols/35-evidence-confidence-and-unknowns/) tính lại mọi hash được ghi bằng Python.

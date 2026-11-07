@@ -16,43 +16,43 @@ related: [evidence-reverse-engineering/observed-derived-inferred, evidence-rever
 updated: 2026-11-03
 ---
 
-An agent reports "main calls `bump`, `classify` and `sum_balances`". You build the program at `-O2`, set a breakpoint on each name, and run it under the debugger. The program prints its four lines and exits with status 0, and `breakpoint list` shows every breakpoint `resolved` with `hit count = 0`. Grade the agent's claim and the seven other static claims in the plan, and name the harness mistake that would have produced a transcript with no stops on a build where the calls do happen.
+Một agent báo cáo "main gọi `bump`, `classify` và `sum_balances`". Bạn dựng chương trình ở `-O2`, đặt một breakpoint trên mỗi tên, và chạy dưới debugger. Chương trình in bốn dòng và thoát với trạng thái 0, và `breakpoint list` hiển thị mọi breakpoint `resolved` với `hit count = 0`. Chấm nhận định của agent và bảy nhận định tĩnh khác trong kế hoạch, và nêu sai lầm harness sẽ tạo ra một transcript không có lần dừng trên một bản dựng nơi các lời gọi thực sự xảy ra.
 
 ## Short answer
 
-Each breakpoint resolved, so the symbol exists and a trap was written at its address; a hit count of zero after a full run with exit status 0 means no instruction fetch reached it, so for this build the call-edge claim is refuted, and only that one, because the compiler inlined all three calls and folded the sum into the constant 315. The output claim is confirmed by the four lines and the exit status, and the argument-register, field-offset, store and stride claims are not-observed, because no stop could test them, with the hit counts as the reason. The harness mistake is `--auto-continue`: such a breakpoint reports no stop and the stop hook never runs, so a first version of the harness recorded nothing even on the unoptimized build where every call happens; plain breakpoints, a stop hook and a fixed budget of `continue` commands fix it.
+Mỗi breakpoint đã resolved, vì vậy symbol tồn tại và một trap được ghi tại địa chỉ của nó; một hit count bằng không sau một lần chạy đầy đủ với trạng thái thoát 0 nghĩa là không lần lấy lệnh nào tới nó, vì vậy với bản dựng này nhận định cạnh gọi bị bác bỏ, và chỉ nhận định đó, vì trình biên dịch inline cả ba lời gọi và gộp tổng thành hằng số 315. Nhận định đầu ra được xác nhận bằng bốn dòng và trạng thái thoát, và các nhận định thanh ghi đối số, offset trường, store và stride là not-observed, vì không lần dừng nào có thể kiểm thử chúng, với các hit count làm lý do. Sai lầm harness là `--auto-continue`: một breakpoint như vậy không báo cáo lần dừng và stop hook không bao giờ chạy, vì vậy một phiên bản đầu của harness không ghi gì ngay cả trên bản dựng chưa tối ưu nơi mọi lời gọi xảy ra; các breakpoint thông thường, một stop hook và một ngân sách cố định các lệnh `continue` sửa nó.
 
 ## Full answer
 
 ### Three verdicts and never a fourth
 
-A stop that tested a claim and agreed is `confirmed`; a stop that tested it and disagreed is `refuted`; a claim no stop could test is `not-observed`, with the reason. The ledger accepts the first two as observed records with authority `controlled-replay` and keeps the third as an open unknown. A resolved breakpoint never stands in for a run.
+Một lần dừng đã kiểm thử một nhận định và đồng ý là `confirmed`; một lần dừng đã kiểm thử nó và bất đồng là `refuted`; một nhận định không lần dừng nào có thể kiểm thử là `not-observed`, với lý do. Sổ chấp nhận hai loại đầu là các bản ghi observed với authority `controlled-replay` và giữ loại thứ ba là một điều chưa biết mở. Một breakpoint resolved không bao giờ thay thế một lần chạy.
 
 ### What the refutation does and does not say
 
-The claim was that `main` calls the three functions in this program. For this build and this run it does not, and the harness checked that the run completed, since a hit count of zero before exit would mean only that the run had not reached the call yet. The claim did not say the functions are dead code, and the run does not say that either: `nm` still lists them because they are external and another object could call them, and the debug information for the optimized build has four subprograms and zero inlined-subroutine entries, so even it does not record the inlining. The struct still has `balance` at offset 4 in this build; no stop read memory to show it, and `not-observed` keeps that distinction.
+Nhận định là `main` gọi ba hàm trong chương trình này. Với bản dựng này và lần chạy này nó không gọi, và harness kiểm tra rằng lần chạy hoàn tất, vì một hit count bằng không trước khi thoát chỉ nghĩa là lần chạy chưa tới lời gọi. Nhận định không nói các hàm là mã chết, và lần chạy cũng không nói vậy: `nm` vẫn liệt kê chúng vì chúng là external và một object khác có thể gọi, và thông tin debug cho bản dựng tối ưu có bốn subprogram và không mục inlined-subroutine, vì vậy ngay cả nó cũng không ghi việc inline. Struct vẫn có `balance` tại offset 4 trong bản dựng này; không lần dừng nào đọc bộ nhớ để cho thấy nó, và `not-observed` giữ khác biệt đó.
 
 ### The unoptimized run for contrast
 
-The same plan on the `-O0` build produced eleven stops: hit counts 1, 3, 1 for the three names and 2, 1, 1, 1 for the four edge breakpoints placed at the target and fall-through of two conditional branches. The watchpoint on `a->balance` fired once with old value 250 and new value 255, which is one write of `by` equal to 5, and the first row of memory read at the entry stop decoded word by word against the DWARF offsets. All eight claims ended `confirmed` there.
+Cùng kế hoạch trên bản dựng `-O0` tạo mười một lần dừng: các hit count 1, 3, 1 cho ba tên và 2, 1, 1, 1 cho bốn breakpoint cạnh được đặt tại đích và fall-through của hai nhánh có điều kiện. Watchpoint trên `a->balance` kích hoạt một lần với giá trị cũ 250 và giá trị mới 255, là một lần ghi `by` bằng 5, và hàng bộ nhớ đầu được đọc tại lần dừng đầu vào được giải mã từng word theo các offset DWARF. Tất cả tám nhận định kết thúc `confirmed` ở đó.
 
 ### Two more transcript traps
 
-An address breakpoint set without naming the module stays `unresolved` with `hit count = 0` for the whole run, because a bare number before the process exists has no section behind it; the form that connects a listing address to a load address names the module. And the first `continue` after the process has exited ends the whole command file unless `interpreter.stop-command-source-on-error` is false, so `breakpoint list` never runs and the transcript has no hit counts to read.
+Một breakpoint địa chỉ được đặt không nêu module giữ `unresolved` với `hit count = 0` suốt lần chạy, vì một số trần trước khi tiến trình tồn tại không có section đằng sau; dạng kết nối một địa chỉ listing với một địa chỉ nạp nêu module. Và `continue` đầu sau khi tiến trình thoát kết thúc toàn bộ file lệnh trừ khi `interpreter.stop-command-source-on-error` là false, vì vậy `breakpoint list` không bao giờ chạy và transcript không có hit count để đọc.
 
 ## Follow-ups
 
-- **Level 3:** Why does the run refute the call edges without making the functions dead code? Expected: the claim was about this program's `main`; the functions are exported and another object could call them.
-- **Level 3:** Where does the watchpoint on `a->balance` go in the optimized run? Expected: nowhere; it is set at the `bump` stop, which never happens, so the store claim is not-observed; a register-resident local would never fire either.
-- **Level 4:** The transcript stops before `breakpoint list`. What happened and what changes? Expected: a `continue` after exit ended the command file; set the interpreter not to stop sourcing on error so the table prints.
-- **Level 4:** Why keep the transcript and not only the verdicts? Expected: the verdicts are derived from it, anyone can re-derive them, and its header records the command line and the debugger version.
+- **Level 3:** Tại sao lần chạy bác bỏ các cạnh gọi mà không làm các hàm thành mã chết? Expected: nhận định là về `main` của chương trình này; các hàm được export và một object khác có thể gọi.
+- **Level 3:** Watchpoint trên `a->balance` đi đâu trong lần chạy tối ưu? Expected: không đâu; nó được đặt tại lần dừng `bump`, không bao giờ xảy ra, vì vậy nhận định store là not-observed; một biến cục bộ nằm trong thanh ghi cũng sẽ không bao giờ kích hoạt.
+- **Level 4:** Transcript dừng trước `breakpoint list`. Điều gì xảy ra và điều gì thay đổi? Expected: một `continue` sau thoát kết thúc file lệnh; đặt trình thông dịch không dừng đọc nguồn khi có lỗi để bảng in.
+- **Level 4:** Tại sao giữ transcript chứ không chỉ các phán quyết? Expected: các phán quyết được suy ra từ nó, bất kỳ ai có thể suy ra lại, và header ghi dòng lệnh cùng phiên bản debugger.
 
 ## Wrong answers
 
-- "Hit count zero means the functions are dead code." It means no fetch reached them in this run of this build; they are exported and other callers are possible.
-- "`nm` lists them, so they are called." The symbol table lists exported functions; the debug information shows four subprograms and no inlined entries.
-- "Use auto-continue so the transcript stays clean." An auto-continue breakpoint reports no stop and the hook never runs; the clean transcript is empty evidence.
+- "Hit count bằng không nghĩa là các hàm là mã chết." Nó nghĩa là không lần lấy lệnh nào tới chúng trong lần chạy này của bản dựng này; chúng được export và các caller khác có thể tồn tại.
+- "`nm` liệt kê chúng, vì vậy chúng được gọi." Bảng symbol liệt kê các hàm được export; thông tin debug hiển thị bốn subprogram và không mục inline.
+- "Dùng auto-continue để transcript giữ sạch." Một breakpoint auto-continue không báo cáo lần dừng và hook không bao giờ chạy; transcript sạch là bằng chứng rỗng.
 
 ## Taught in
 
-The [dynamic analysis lesson](../../../phases/13-tools-and-protocols/42-dynamic-analysis-of-your-own-program/) runs both builds and grades every claim, and the [evidence lesson](../../../phases/13-tools-and-protocols/35-evidence-confidence-and-unknowns/) stores the verdicts as observed records and the rest as unknowns.
+[Bài học phân tích động](../../../phases/13-tools-and-protocols/42-dynamic-analysis-of-your-own-program/) chạy cả hai bản dựng và chấm mọi nhận định, và [bài học bằng chứng](../../../phases/13-tools-and-protocols/35-evidence-confidence-and-unknowns/) lưu các phán quyết thành các bản ghi observed và phần còn lại thành các điều chưa biết.

@@ -16,43 +16,43 @@ related: [evidence-reverse-engineering/evidence-id-excludes-the-path]
 updated: 2026-11-03
 ---
 
-After a tool upgrade, a call to `open_binary` with the saved snapshot answers `profile_mismatch`, although the target's SHA-256 and the provider are unchanged. The same morning a colleague renamed one function, and later `close_binary` with a snapshot path failed with "Analysis snapshots are unavailable because analysis metadata may have changed". Explain both refusals, and say what a snapshot is and is not.
+Sau một nâng cấp công cụ, một lời gọi `open_binary` với snapshot đã lưu trả lời `profile_mismatch`, dù SHA-256 và provider của mục tiêu không đổi. Cùng buổi sáng một đồng nghiệp đổi tên một hàm, và sau đó `close_binary` với một đường dẫn snapshot thất bại với "Analysis snapshots are unavailable because analysis metadata may have changed". Giải thích cả hai lần từ chối, và nói một snapshot là gì và không là gì.
 
 ## Short answer
 
-The cache key is the string `query_` plus a SHA-256 over the target identity, the binding, the operation and the parameters, and the binding includes the analysis profile digest over 25 parameter version strings; the upgrade moved two of those values, so the digest changed and no stored entry can match, which the import reports as `profile_mismatch`. A rename is a mutating call, and the session empties the cache and sets a flag before the call is dispatched, even when the reply fails, because a failed reply cannot prove that the write never reached the provider, so the export is refused and the way out is to export the evidence bundle, close without a snapshot, and reopen. A snapshot is a file of exact past answers plus their evidence bundle, not a saved provider database.
+Khóa cache là chuỗi `query_` cộng một SHA-256 trên định danh mục tiêu, binding, thao tác và các tham số, và binding bao gồm digest hồ sơ phân tích trên 25 chuỗi phiên bản tham số; nâng cấp dịch chuyển hai giá trị đó, vì vậy digest thay đổi và không mục đã lưu nào có thể khớp, điều mà việc import báo cáo là `profile_mismatch`. Một lần đổi tên là một lời gọi sửa đổi, và phiên làm rỗng cache và đặt một cờ trước khi lời gọi được chuyển đi, ngay cả khi phản hồi thất bại, vì một phản hồi thất bại không thể chứng minh việc ghi chưa bao giờ tới provider, vì vậy việc xuất bị từ chối và lối ra là xuất evidence bundle, đóng không có snapshot, và mở lại. Một snapshot là một file các câu trả lời chính xác trước đó cộng evidence bundle của chúng, không phải một cơ sở dữ liệu provider được lưu.
 
 ## Full answer
 
 ### Three things called a snapshot
 
-The target snapshot is the private copy the launcher imports read-only and deletes on close; nothing of the analysis survives it, and every new session imports the target again. The in-memory analysis snapshot cache holds up to 10,000 entries for one target identity. The snapshot file is what `close_binary` writes and `open_binary` reads: the target identity, the provider binding, the cache entries and the session's evidence bundle. Only an exact query that qualifies can reuse a result, and a new or live query still starts the provider.
+Target snapshot là bản sao riêng launcher import chỉ đọc và xóa khi đóng; không gì của phân tích sống sót qua nó, và mọi phiên mới import mục tiêu lại. Cache snapshot phân tích trong bộ nhớ giữ tối đa 10,000 mục cho một định danh mục tiêu. Snapshot file là thứ `close_binary` ghi và `open_binary` đọc: định danh mục tiêu, binding provider, các mục cache và evidence bundle của phiên. Chỉ một truy vấn chính xác đủ điều kiện có thể tái sử dụng một kết quả, và một truy vấn mới hoặc trực tiếp vẫn khởi động provider.
 
 ### What qualifies and what a hit looks like
 
-A call qualifies when its operation is not stateful, names its document or address where one is implied, declares no artifact mutation, and carries a cache policy of `snapshot`. A hit returns without touching the provider and adds one limitation: "Loaded from a local REA analysis snapshot; this call did not re-run the provider." The replayed record is rebound to the open target's path and keeps its `evidence_id`, because the path is outside the hash. The lesson's measurements make the point: a first query took 8.6 s with a fresh import, a different query against the same snapshot took 8.5 s because it was a miss, and a repeat took 2.1 s and returned the identical record with the identical id.
+Một lời gọi đủ điều kiện khi thao tác không có trạng thái, nêu tài liệu hoặc địa chỉ nơi một thứ được ngụ ý, khai báo không sửa đổi artifact, và mang chính sách cache `snapshot`. Một hit trả về không đụng provider và thêm một giới hạn: "Được nạp từ một REA analysis snapshot cục bộ; lời gọi này không chạy lại provider." Bản ghi được phát lại được rebind với đường dẫn mục tiêu đang mở và giữ `evidence_id`, vì đường dẫn ở ngoài hash. Các phép đo của bài học làm rõ điểm: một truy vấn đầu mất 8.6 s với một import mới, một truy vấn khác với cùng snapshot mất 8.5 s vì nó là miss, và một lần lặp mất 2.1 s và trả về bản ghi giống hệt với id giống hệt.
 
 ### Load is a full check
 
-Entries must be in canonical id order, every query id is recomputed and must match, no id appears twice, and every entry must have an evidence record in the bundle with the same profile and result. A bundle record for another target fails the whole file. The write is atomic and owner-only.
+Các mục phải theo thứ tự id chuẩn tắc, mọi query id được tính lại và phải khớp, không id nào xuất hiện hai lần, và mọi mục phải có một bản ghi bằng chứng trong bundle với cùng hồ sơ và kết quả. Một bản ghi bundle cho mục tiêu khác làm thất bại toàn bộ file. Việc ghi là nguyên tử và chỉ dành cho chủ sở hữu.
 
 ### Why the order of invalidation matters
 
-The current release invalidates and then calls the provider; an earlier release invalidated only after a successful call. The documentation states the rule: a metadata write clears the cache of the active session even when its reply fails, since the provider can already have applied the write.
+Bản phát hành hiện tại vô hiệu hóa rồi gọi provider; một bản trước chỉ vô hiệu hóa sau một lời gọi thành công. Tài liệu nêu quy tắc: một lần ghi metadata xóa cache của phiên hoạt động ngay cả khi phản hồi thất bại, vì provider có thể đã áp dụng việc ghi.
 
 ## Follow-ups
 
-- **Level 2:** You cached `analyze_function` for one function and then asked about another. Why a miss? Expected: the parameters are part of the key, so only the exact same question replays.
-- **Level 3:** Why not invalidate after the mutating call succeeds? Expected: a failed reply cannot prove rollback, so a cache kept after a failure could replay an answer about a database that changed.
-- **Level 3:** How does a reader tell a replayed record from a fresh one? Expected: the added limitation sentence that says the provider did not re-run.
-- **Level 4:** What is the right action after the upgrade refusal? Expected: run the analysis again under the new profile and keep the old bundle as evidence about an old contract; never edit the digest to force a match.
+- **Level 2:** Bạn cache `analyze_function` cho một hàm rồi hỏi về hàm khác. Tại sao miss? Expected: các tham số là một phần của khóa, vì vậy chỉ chính xác cùng câu hỏi được phát lại.
+- **Level 3:** Tại sao không vô hiệu hóa sau khi lời gọi sửa đổi thành công? Expected: một phản hồi thất bại không thể chứng minh rollback, vì vậy một cache được giữ sau thất bại có thể phát lại một câu trả lời về một cơ sở dữ liệu đã thay đổi.
+- **Level 3:** Một người đọc phân biệt một bản ghi được phát lại với một bản mới như thế nào? Expected: câu giới hạn được thêm nói provider không chạy lại.
+- **Level 4:** Hành động đúng sau lần từ chối do nâng cấp là gì? Expected: chạy phân tích lại dưới hồ sơ mới và giữ bundle cũ làm bằng chứng về một hợp đồng cũ; không bao giờ sửa digest để ép khớp.
 
 ## Wrong answers
 
-- "A snapshot is a saved project; reopen it." It holds answers to past questions, and the project is deleted on close.
-- "Patch the profile digest so the old entries match." The digest names the contract the answers were produced under; a forced match replays answers from a changed contract.
-- "A rename is metadata, so cached answers stay valid." A rename is a mutating call; the cache is emptied before dispatch and the export is refused.
+- "Một snapshot là một project đã lưu; mở lại nó." Nó giữ các câu trả lời cho các câu hỏi trước, và project bị xóa khi đóng.
+- "Vá digest hồ sơ để các mục cũ khớp." Digest nêu hợp đồng mà các câu trả lời được tạo dưới đó; một lần ép khớp phát lại các câu trả lời từ một hợp đồng đã thay đổi.
+- "Một lần đổi tên là metadata, vì vậy các câu trả lời cache vẫn hợp lệ." Một lần đổi tên là một lời gọi sửa đổi; cache bị làm rỗng trước khi chuyển đi và việc xuất bị từ chối.
 
 ## Taught in
 
-The [snapshot section](../../../manuals/reverse-engineering-101/sections/5-3-snapshots-and-the-answer-cache.md) gives the key, the qualifying rules and the invalidation order, and the [evidence lesson](../../../phases/13-tools-and-protocols/35-evidence-confidence-and-unknowns/) builds the same cache and refuses a bumped profile version.
+[Phần snapshot](../../../manuals/reverse-engineering-101/sections/5-3-snapshots-and-the-answer-cache.md) đưa ra khóa, các quy tắc đủ điều kiện và thứ tự vô hiệu hóa, và [bài học bằng chứng](../../../phases/13-tools-and-protocols/35-evidence-confidence-and-unknowns/) xây cùng cache và từ chối một phiên bản hồ sơ tăng.

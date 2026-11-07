@@ -16,43 +16,43 @@ related: [evidence-reverse-engineering/addend-0x10-table-0x14]
 updated: 2026-11-03
 ---
 
-A 24-byte function keeps a four-byte table `31 c0 90 48` inside its body and jumps over it with `jmp 0x14`. `llvm-objdump -d` prints `xorl %eax, %eax`, `nop`, and `addq $0x1, %rax` at `0x13`; every byte decodes and a `retq` is present. Name the three ways this listing is wrong, say which method gets it right and why the reference tool shares the mistake, and say what agreement between your decoder and that tool does and does not prove.
+Một hàm 24 byte giữ một bảng bốn byte `31 c0 90 48` bên trong thân và nhảy qua nó bằng `jmp 0x14`. `llvm-objdump -d` in `xorl %eax, %eax`, `nop`, và `addq $0x1, %rax` tại `0x13`; mọi byte giải mã được và một `retq` hiện diện. Nêu ba cách listing này sai, nói phương pháp nào làm đúng và tại sao công cụ tham chiếu mắc cùng sai lầm, và nói sự đồng thuận giữa decoder của bạn và công cụ đó chứng minh và không chứng minh điều gì.
 
 ## Short answer
 
-The listing is wrong three times: the jump at `0xe` targets `0x14` and no instruction in the listing starts there; the instruction that runs at `0x14` is a 32-bit `addl $0x1, %eax`, while the listing shows a 64-bit `addq` one byte early because the table's last byte `48` was swallowed as a REX prefix; and the four table bytes appear as code. Recursive descent from the symbol follows the jump, decodes six instructions, reads `addl` at the target and claims no table or padding byte. `llvm-objdump` is itself a linear sweep, so it inherits the sweep's blind spot: agreement with it checks the decoder on instruction boundaries, and only the descent checks which instructions run.
+Listing sai ba lần: nhảy tại `0xe` nhắm `0x14` và không lệnh nào trong listing bắt đầu ở đó; lệnh chạy tại `0x14` là một lệnh 32 bit `addl $0x1, %eax`, trong khi listing hiển thị một `addq` 64 bit sớm một byte vì byte cuối bảng `48` bị nuốt như một REX prefix; và bốn byte bảng xuất hiện như mã. Duyệt đệ quy từ symbol theo nhảy, giải mã sáu lệnh, đọc `addl` tại đích và không nhận byte bảng hoặc đệm nào. Chính `llvm-objdump` là một lượt quét tuyến tính, vì vậy nó thừa hưởng điểm mù của lượt quét: đồng thuận với nó kiểm tra decoder trên các ranh giới lệnh, và chỉ duyệt đệ quy kiểm tra những lệnh nào chạy.
 
 ## Full answer
 
 ### Two methods, opposite failures
 
-A linear sweep starts at the first byte of the code section, decodes one instruction, continues at the byte after it, and stops at the end; data inside code gets decoded as instructions, and on x86 the decoder usually re-synchronises within a few bytes, which is why the error is hard to see and why the method is said to fail silently. Recursive descent starts at a known entry, follows direct jumps and both arms of a conditional, continues after a call, stops at a return, and keeps a visited set. Its failure is the opposite one: an indirect jump has no target in its bytes, so the walk stops there and every block reachable only through it stays unknown, which is what happens at `jmpq *%rax` in the unoptimized `grade`.
+Một lượt quét tuyến tính bắt đầu tại byte đầu của code section, giải mã một lệnh, tiếp tục tại byte sau nó, và dừng ở cuối; dữ liệu trong mã bị giải mã thành lệnh, và trên x86 decoder thường đồng bộ lại trong vài byte, là lý do lỗi khó thấy và phương pháp được nói là thất bại âm thầm. Duyệt đệ quy bắt đầu tại một điểm vào đã biết, theo các nhảy trực tiếp và cả hai nhánh của một điều kiện, tiếp tục sau một call, dừng tại một return, và giữ một tập đã thăm. Thất bại của nó ngược lại: một nhảy gián tiếp không có đích trong các byte, vì vậy việc duyệt dừng ở đó và mọi block chỉ tới được qua nó giữ chưa biết, là điều xảy ra tại `jmpq *%rax` trong `grade` chưa tối ưu.
 
 ### The trap under five tools
 
-The comparison harness reports the sweep with 8 instruction starts in the trap range, with extra starts at `0x10`, `0x12` and `0x13` and a missing start at `0x14`. Three graph builders report 6 starts, 2 blocks and 1 edge, and leave `0x10` to `0x14` unclaimed. One framework also invents a function on the table bytes, two instructions in a four-byte block, so the REX byte at `0x13` belongs to no instruction. The last finding is the useful one: no graph builder decodes `0x10` to `0x14`, so those bytes sit inside a function and are data.
+Harness so sánh báo cáo lượt quét với 8 điểm bắt đầu lệnh trong vùng trap, với các điểm bắt đầu thêm tại `0x10`, `0x12` và `0x13` và thiếu một điểm bắt đầu tại `0x14`. Ba bộ xây graph báo cáo 6 điểm bắt đầu, 2 block và 1 cạnh, và để `0x10` đến `0x14` không được nhận. Một framework cũng bịa một hàm trên các byte bảng, hai lệnh trong một block bốn byte, vì vậy byte REX tại `0x13` không thuộc lệnh nào. Phát hiện cuối là phát hiện hữu ích: không bộ xây graph nào giải mã `0x10` đến `0x14`, vì vậy các byte đó nằm bên trong một hàm và là dữ liệu.
 
 ### What the oracle is for
 
-The decoder must agree with `llvm-objdump -d` on every instruction of every fixture, and it does, on 86, 56, 84 and 11 instructions, 237 in all. That agreement proves the decoder reads prefixes, opcodes, ModRM, SIB, displacements and immediates the way the manual says. It proves nothing about reachability, because the oracle never asked. A measurement of nine disassemblers on 981 compiler-generated binaries found inline data rarer than the literature assumed and function starts the hard primitive; the trap is rare in compiler output, and the indirect jump is common.
+Decoder phải đồng ý với `llvm-objdump -d` trên mọi lệnh của mọi fixture, và nó có, trên 86, 56, 84 và 11 lệnh, tổng cộng 237. Sự đồng thuận đó chứng minh decoder đọc prefix, opcode, ModRM, SIB, độ dời và giá trị tức thời theo cách tài liệu nói. Nó không chứng minh gì về khả năng tới được, vì oracle chưa bao giờ hỏi. Một phép đo chín disassembler trên 981 binary được trình biên dịch sinh thấy dữ liệu inline hiếm hơn tài liệu nghiên cứu giả định và điểm bắt đầu hàm là thao tác nguyên thủy khó; trap hiếm trong đầu ra trình biên dịch, và nhảy gián tiếp phổ biến.
 
 ### Byte accounting
 
-Compare the two methods byte by byte. Bytes that only the sweep claims are padding, data, code behind an indirect jump, or code of a function with no known entry. The sweep decodes the whole section, so these are the bytes to account for. Bytes the descent claims are the ones it reaches from that entry; that is reachability, not proof that they run.
+So sánh hai phương pháp từng byte. Các byte chỉ lượt quét nhận là phần đệm, dữ liệu, mã đằng sau một nhảy gián tiếp, hoặc mã của một hàm không có điểm vào đã biết. Lượt quét giải mã toàn bộ section, vì vậy đây là các byte cần giải trình. Các byte duyệt đệ quy nhận là những byte nó tới từ điểm vào đó; đó là khả năng tới được, không phải bằng chứng chúng chạy.
 
 ## Follow-ups
 
-- **Level 2:** Change the last table byte from `48` to `e8` and rebuild. What does the sweep print? Expected: a `callq` that swallows the `addl` and the `retq`, with a target outside the section; the function appears to have no return.
-- **Level 3:** Why does the descent stop at `jmpq *%rax` in the unoptimized `grade`, and what fixes it? Expected: no target is in the bytes; the resolver reads the five relocations of the table and pushes four distinct targets.
-- **Level 3:** What does "fail silently" mean in operational terms? Expected: the decoder re-synchronises within a few bytes and detects nothing unless it hits an invalid opcode, so a wrong listing looks complete.
-- **Level 4:** How do you classify bytes that the descent does not claim? Expected: padding, data, code behind an indirect jump, or part of a function with no known entry; account for every byte as one of these or as reached by the descent.
+- **Level 2:** Đổi byte bảng cuối từ `48` thành `e8` và dựng lại. Lượt quét in gì? Expected: một `callq` nuốt `addl` và `retq`, với một đích ngoài section; hàm có vẻ không có return.
+- **Level 3:** Tại sao duyệt đệ quy dừng tại `jmpq *%rax` trong `grade` chưa tối ưu, và điều gì sửa nó? Expected: không đích nào trong các byte; resolver đọc năm relocation của bảng và đẩy bốn đích riêng biệt.
+- **Level 3:** "Thất bại âm thầm" nghĩa là gì về vận hành? Expected: decoder đồng bộ lại trong vài byte và không phát hiện gì trừ khi gặp một opcode không hợp lệ, vì vậy một listing sai trông hoàn chỉnh.
+- **Level 4:** Bạn phân loại các byte duyệt đệ quy không nhận như thế nào? Expected: phần đệm, dữ liệu, mã sau một nhảy gián tiếp, hoặc một phần hàm không có điểm vào đã biết; giải trình mọi byte là một trong những loại này hoặc được duyệt đệ quy tới.
 
 ## Wrong answers
 
-- "The reference tool is right because it is the reference." It is a sweep; it is the oracle for decoding, not for reachability.
-- "Use the descent alone." It stops at indirect jumps and leaves reachable code unknown until a table is recovered.
-- "Every byte decoded, so the listing is complete." A listing says which bytes form which instruction, not which instructions run.
+- "Công cụ tham chiếu đúng vì nó là tham chiếu." Nó là một lượt quét; nó là oracle cho giải mã, không cho khả năng tới được.
+- "Chỉ dùng duyệt đệ quy." Nó dừng tại các nhảy gián tiếp và để mã tới được chưa biết cho đến khi một bảng được khôi phục.
+- "Mọi byte giải mã được, vì vậy listing hoàn chỉnh." Một listing nói những byte nào tạo thành lệnh nào, không nói những lệnh nào chạy.
 
 ## Taught in
 
-The [disassembly lesson](../../../phases/13-tools-and-protocols/33-disassembly-and-control-flow/) builds both methods and the trap fixture, and the [landscape lesson](../../../phases/13-tools-and-protocols/37-the-reverse-engineering-landscape/) runs five tools over it and accounts for every byte.
+[Bài học disassembly](../../../phases/13-tools-and-protocols/33-disassembly-and-control-flow/) xây cả hai phương pháp và fixture trap, và [bài học toàn cảnh](../../../phases/13-tools-and-protocols/37-the-reverse-engineering-landscape/) chạy năm công cụ trên nó và giải trình mọi byte.
